@@ -3,6 +3,8 @@ import '../views/account_detail_view.dart';
 import '../views/user_management_view.dart';
 import '../views/login_history_view.dart';
 import '../views/reports_view.dart';
+import '../views/settings_view.dart';
+import '../views/admin_settings_view.dart';
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -154,7 +156,12 @@ class ProfilePage extends StatelessWidget {
   Widget _buildMenuItem(BuildContext context, IconData icon, String title, {bool isRed = false}) {
     return GestureDetector(
       onTap: () {
-        if (title == 'Account Detail') {
+        if (title == 'Admin Setting') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AdminSettingsView()),
+          );
+        } else if (title == 'Account Detail') {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const AccountDetailView()),
@@ -173,6 +180,11 @@ class ProfilePage extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const ReportsView()),
+          );
+        } else if (title == 'Settings') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const SettingsView()),
           );
         }
       },
