@@ -47,6 +47,7 @@ class CreateUserView extends StatelessWidget {
                     ),
                     SizedBox(height: 16),
                     Container(
+                      width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: ShapeDecoration(
                         color: Colors.white,
@@ -173,6 +174,7 @@ class CreateUserView extends StatelessWidget {
         ),
         SizedBox(height: 8),
         Container(
+          width: double.infinity,
           height: 48,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: ShapeDecoration(
@@ -217,6 +219,7 @@ class CreateUserView extends StatelessWidget {
         ),
         SizedBox(height: 8),
         Container(
+          width: double.infinity,
           height: 48,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: ShapeDecoration(
@@ -242,6 +245,7 @@ class CreateUserView extends StatelessWidget {
 
   Widget _buildShareSection(String title) {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: ShapeDecoration(
         color: Colors.white,
@@ -263,6 +267,7 @@ class CreateUserView extends StatelessWidget {
           ),
           SizedBox(height: 8),
           Container(
+            width: double.infinity,
             height: 48,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: ShapeDecoration(
@@ -340,6 +345,7 @@ class CreateUserView extends StatelessWidget {
   Widget _buildExchangeGrid() {
     final exchanges = ['NSE', 'MCX', 'SGX', 'CALLPUT', 'OTHERS', 'MCX-OPT'];
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: ShapeDecoration(
         color: Colors.white,

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:stocker/services/auth_service.dart';
 import '../home_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -11,46 +13,103 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  
+
   String _selectedServer = 'Select Server';
   bool _isLoading = false;
 
   void _login() async {
+    // Validate inputs
+    if (_selectedServer == 'Select Server') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a server'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_usernameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter username'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter password'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
 
-    // Static login validation
-    if (_selectedServer == 's1' && 
-        _usernameController.text == 'admin' && 
-        _passwordController.text == 'admin') {
-      
-      // Simulate loading delay
-      await Future.delayed(const Duration(seconds: 1));
-      
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+
+      final authData = AuthenticateData(
+        username: _usernameController.text.trim(),
+        password: _passwordController.text,
+      );
+
+      // Try admin login first (you can add a toggle to switch between user/admin)
+      final response = await authService.login(
+        data: authData,
+        role: 'ADMIN', // Change to 'USER' for user login
+      );
+
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const MyHomePage(title: 'Stocker App'),
-          ),
-        );
+        if (response.success) {
+          // Login successful
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.message),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          // Navigate to home page
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const MyHomePage(title: 'Stocker App'),
+            ),
+          );
+        } else {
+          // Login failed
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(response.message),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
-    } else {
-      // Show error message
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Invalid credentials. Use server: s1, username: admin, password: admin'),
+          SnackBar(
+            content: Text('Login failed: ${e.toString()}'),
             backgroundColor: Colors.red,
           ),
         );
       }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
-
-    setState(() {
-      _isLoading = false;
-    });
   }
 
   @override
@@ -66,7 +125,8 @@ class _LoginPageState extends State<LoginPage> {
                 // Main login form
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
                   decoration: ShapeDecoration(
                     color: Colors.white,
                     shape: RoundedRectangleBorder(
@@ -97,7 +157,7 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       SizedBox(height: 24),
-                      
+
                       // Server field
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,7 +175,8 @@ class _LoginPageState extends State<LoginPage> {
                           Container(
                             width: double.infinity,
                             height: 48,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 14),
                             decoration: ShapeDecoration(
                               color: Colors.white,
                               shape: RoundedRectangleBorder(
@@ -128,7 +189,9 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                             child: DropdownButtonHideUnderline(
                               child: DropdownButton<String>(
-                                value: _selectedServer == 'Select Server' ? null : _selectedServer,
+                                value: _selectedServer == 'Select Server'
+                                    ? null
+                                    : _selectedServer,
                                 hint: Text(
                                   'Select Server',
                                   style: TextStyle(
@@ -138,7 +201,7 @@ class _LoginPageState extends State<LoginPage> {
                                     fontWeight: FontWeight.w400,
                                   ),
                                 ),
-                                items: ['s1', 's2', 's3'].map((String value) {
+                                items: ['test'].map((String value) {
                                   return DropdownMenuItem<String>(
                                     value: value,
                                     child: Text(value),
@@ -157,7 +220,7 @@ class _LoginPageState extends State<LoginPage> {
                         ],
                       ),
                       SizedBox(height: 24),
-                      
+
                       // Username field
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -196,14 +259,15 @@ class _LoginPageState extends State<LoginPage> {
                                   fontWeight: FontWeight.w400,
                                 ),
                                 border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 14),
                               ),
                             ),
                           ),
                         ],
                       ),
                       SizedBox(height: 24),
-                      
+
                       // Password field
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -243,14 +307,15 @@ class _LoginPageState extends State<LoginPage> {
                                   fontWeight: FontWeight.w400,
                                 ),
                                 border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 14),
                               ),
                             ),
                           ),
                         ],
                       ),
                       SizedBox(height: 24),
-                      
+
                       // Forgot password
                       Align(
                         alignment: Alignment.centerLeft,
@@ -265,16 +330,20 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       SizedBox(height: 24),
-                      
+
                       // Continue button
                       GestureDetector(
                         onTap: _isLoading ? null : _login,
                         child: Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 32, vertical: 18),
                           decoration: ShapeDecoration(
-                            color: _isLoading ? Colors.grey : const Color(0xFF22547C),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            color: _isLoading
+                                ? Colors.grey
+                                : const Color(0xFF22547C),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
                           ),
                           child: Center(
                             child: _isLoading
@@ -300,11 +369,12 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       SizedBox(height: 24),
-                      
+
                       // Sign up button
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 32, vertical: 18),
                         decoration: ShapeDecoration(
                           color: Colors.white,
                           shape: RoundedRectangleBorder(
@@ -331,9 +401,9 @@ class _LoginPageState extends State<LoginPage> {
                     ],
                   ),
                 ),
-                
+
                 SizedBox(height: 20),
-                
+
                 // Terms and privacy
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -341,7 +411,8 @@ class _LoginPageState extends State<LoginPage> {
                     TextSpan(
                       children: [
                         TextSpan(
-                          text: 'By clicking "Continue", I have read and agree\nwith the ',
+                          text:
+                              'By clicking "Continue", I have read and agree\nwith the ',
                           style: TextStyle(
                             color: const Color(0xFF8E8E93),
                             fontSize: 14,
@@ -364,7 +435,7 @@ class _LoginPageState extends State<LoginPage> {
                     textAlign: TextAlign.center,
                   ),
                 ),
-                
+
                 SizedBox(height: 40),
               ],
             ),
