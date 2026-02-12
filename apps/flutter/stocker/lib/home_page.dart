@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'pages/watchlist_page.dart';
 import 'pages/orders_page.dart';
-import 'pages/portfolio_page.dart';
+import 'pages/history_page.dart';
 import 'pages/profile_page.dart';
 
 class MyHomePage extends StatefulWidget {
@@ -66,7 +66,7 @@ class _MyHomePageState extends State<MyHomePage> {
             BottomNavigationBarItem(
               icon: Icon(Icons.pie_chart_outline),
               activeIcon: Icon(Icons.pie_chart),
-              label: 'Portfolio',
+              label: 'History',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.person_outline),

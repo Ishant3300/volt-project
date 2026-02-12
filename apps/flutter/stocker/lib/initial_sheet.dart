@@ -1,5 +1,8 @@
+import 'dart:developer';
 import 'package:flutter/material.dart';
+import 'package:stocker/services/sercure_storage_service.dart';
 import 'pages/login_page.dart';
+import 'home_page.dart';
 
 class InitialScreen extends StatefulWidget {
   const InitialScreen({super.key});
@@ -9,20 +12,49 @@ class InitialScreen extends StatefulWidget {
 }
 
 class _InitialScreenState extends State<InitialScreen> {
+  final SecureStorageService _storage = SecureStorageService();
+  bool _isChecking = true;
+
   @override
   void initState() {
     super.initState();
-    // Auto navigate after 3 seconds as fallback
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
+    _checkAuthStatus();
+  }
+
+  Future<void> _checkAuthStatus() async {
+    log('🔐 Checking authentication status...');
+    
+    // Small delay for splash screen effect
+    await Future.delayed(const Duration(seconds: 1));
+    
+    try {
+      final token = await _storage.getToken();
+      
+      if (!mounted) return;
+      
+      if (token != null && token.isNotEmpty) {
+        log('✅ Token found, navigating to home');
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => const LoginPage(),
+            builder: (context) => const MyHomePage(title: 'Stocker'),
           ),
         );
+      } else {
+        log('❌ No token found, navigating to login');
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+        );
       }
-    });
+    } catch (e) {
+      log('❌ Error checking auth status: $e');
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+      );
+    }
   }
 
   @override
@@ -30,13 +62,10 @@ class _InitialScreenState extends State<InitialScreen> {
     return Scaffold(
       body: GestureDetector(
         onTap: () {
-          print('Initial screen tapped - navigating to login');
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const LoginPage(),
-            ),
-          );
+          if (!_isChecking) {
+            log('Initial screen tapped - checking auth');
+            _checkAuthStatus();
+          }
         },
         child: const Screen(),
       ),
@@ -99,7 +128,7 @@ class Screen extends StatelessWidget {
                 child: Text(
                   'Tap anywhere to continue',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                     fontSize: 16,
                     fontFamily: 'Inter',
                     fontWeight: FontWeight.w400,

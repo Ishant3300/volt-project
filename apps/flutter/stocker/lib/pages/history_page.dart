@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'portfolio_filter_sheet.dart';
+import 'history_filter_sheet.dart';
+import 'trade_detail_sheet.dart';
 
 class PortfolioPage extends StatefulWidget {
   const PortfolioPage({super.key});
@@ -160,14 +161,16 @@ class _PortfolioPageState extends State<PortfolioPage> with SingleTickerProvider
         itemCount: 4,
         separatorBuilder: (context, index) => SizedBox(height: 4),
         itemBuilder: (context, index) {
-          return Container(
-            decoration: ShapeDecoration(
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                side: BorderSide(width: 1, color: const Color(0xFFF2F2F7)),
-                borderRadius: BorderRadius.circular(12),
+          return GestureDetector(
+            onTap: () => showTradeDetailSheet(context),
+            child: Container(
+              decoration: ShapeDecoration(
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  side: BorderSide(width: 1, color: const Color(0xFFF2F2F7)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-            ),
             child: Column(
               children: [
                 Container(
@@ -311,6 +314,7 @@ class _PortfolioPageState extends State<PortfolioPage> with SingleTickerProvider
                   ),
                 ),
               ],
+            ),
             ),
           );
         },
@@ -326,14 +330,16 @@ class _PortfolioPageState extends State<PortfolioPage> with SingleTickerProvider
         itemCount: 4,
         separatorBuilder: (context, index) => SizedBox(height: 4),
         itemBuilder: (context, index) {
-          return Container(
-            decoration: ShapeDecoration(
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                side: BorderSide(width: 1, color: const Color(0xFFF2F2F7)),
-                borderRadius: BorderRadius.circular(12),
+          return GestureDetector(
+            onTap: () => showTradeDetailSheet(context),
+            child: Container(
+              decoration: ShapeDecoration(
+                color: Colors.white,
+                shape: RoundedRectangleBorder(
+                  side: BorderSide(width: 1, color: const Color(0xFFF2F2F7)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-            ),
             child: Column(
               children: [
                 Container(
@@ -477,6 +483,7 @@ class _PortfolioPageState extends State<PortfolioPage> with SingleTickerProvider
                   ),
                 ),
               ],
+            ),
             ),
           );
         },
