@@ -1,7 +1,77 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:stocker/models/market_depth.dart';
+import 'package:stocker/services/api_service.dart';
+import 'package:stocker/services/kite_service.dart';
+import 'package:stocker/utils/contants.dart';
 
-class MarketDepthSheet extends StatelessWidget {
-  const MarketDepthSheet({super.key});
+class MarketDepthSheet extends StatefulWidget {
+  final String instrumentToken;
+
+  const MarketDepthSheet({super.key, required this.instrumentToken});
+
+  @override
+  State<MarketDepthSheet> createState() => _MarketDepthSheetState();
+}
+
+class _MarketDepthSheetState extends State<MarketDepthSheet> {
+  MarketDepth? _marketDepth;
+  bool _isLoading = true;
+  String? _error;
+  Timer? _refreshTimer;
+  late final KiteService _kiteService;
+
+  @override
+  void initState() {
+    super.initState();
+    _kiteService = KiteService(ApiService(backendUrl));
+    _loadMarketDepth();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      _refreshMarketDepth();
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Silent refresh — updates data without showing loading spinner
+  Future<void> _refreshMarketDepth() async {
+    if (_isLoading || _marketDepth == null) return;
+    try {
+      final depth = await _kiteService.getMarketDepth(widget.instrumentToken);
+      if (mounted && depth != null) {
+        setState(() {
+          _marketDepth = depth;
+        });
+      }
+    } catch (_) {
+      // Silent fail on refresh
+    }
+  }
+
+  Future<void> _loadMarketDepth() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final depth = await _kiteService.getMarketDepth(widget.instrumentToken);
+
+      setState(() {
+        _marketDepth = depth;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,77 +103,56 @@ class MarketDepthSheet extends StatelessWidget {
             ),
           ),
           SizedBox(height: 16),
-          // Header row
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+
+          if (_isLoading)
+            Padding(
+              padding: const EdgeInsets.all(32),
+              child: CircularProgressIndicator(),
+            )
+          else if (_error != null)
+            Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                children: [
+                  Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  SizedBox(height: 16),
+                  Text(
+                    'Failed to load market depth',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                  SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: _loadMarketDepth,
+                    child: Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          else if (_marketDepth != null && _marketDepth!.ohlc != null)
+            Flexible(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
                     children: [
-                      Text(
-                        'Bid',
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 14,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                      Text(
-                        'Qty',
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 14,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
+                      _buildOHLCSection(),
+                      SizedBox(height: 16),
+                      if (_marketDepth!.lastPrice != null)
+                        _buildPriceSection(),
                     ],
                   ),
-                ),
-                SizedBox(width: 16),
-                Expanded(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Ask',
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 14,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                      Text(
-                        'Qty',
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 14,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: 8),
-          // Scrollable data rows
-          Flexible(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children: List.generate(7, (index) => _buildDataRow()),
                 ),
               ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.all(32),
+              child: Text(
+                'No market depth data available',
+                style: TextStyle(color: Colors.grey),
+              ),
             ),
-          ),
+
           SizedBox(height: 16),
           // Close button
           Padding(
@@ -115,7 +164,8 @@ class MarketDepthSheet extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 18),
                 decoration: ShapeDecoration(
                   color: const Color(0xFFD1D1D6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                 ),
                 child: Text(
                   'CLOSE',
@@ -135,60 +185,107 @@ class MarketDepthSheet extends StatelessWidget {
     );
   }
 
-  Widget _buildDataRow() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+  Widget _buildOHLCSection() {
+    final ohlc = _marketDepth!.ohlc!;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'OHLC Data',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 14,
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        SizedBox(height: 12),
+        Row(
+          children: [
+            _buildOHLCCard('OPEN', ohlc.open.toStringAsFixed(2)),
+            SizedBox(width: 8),
+            _buildOHLCCard('HIGH', ohlc.high.toStringAsFixed(2)),
+          ],
+        ),
+        SizedBox(height: 8),
+        Row(
+          children: [
+            _buildOHLCCard('LOW', ohlc.low.toStringAsFixed(2)),
+            SizedBox(width: 8),
+            _buildOHLCCard('CLOSE', ohlc.close.toStringAsFixed(2)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOHLCCard(String label, String value) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: ShapeDecoration(
+          color: const Color(0xFFF7F8FC),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: const Color(0xFF8E8E93),
+                fontSize: 12,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            SizedBox(height: 4),
+            Text(
+              value,
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 16,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPriceSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: ShapeDecoration(
+        color: const Color(0xFFF7F8FC),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '252',
-                  style: TextStyle(
-                    color: const Color(0xFF22547C),
-                    fontSize: 14,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-                Text(
-                  '200',
-                  style: TextStyle(
-                    color: const Color(0xFF22547C),
-                    fontSize: 14,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ],
+          Text(
+            'Last Price',
+            style: TextStyle(
+              color: const Color(0xFF8E8E93),
+              fontSize: 14,
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w400,
             ),
           ),
-          SizedBox(width: 16),
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '525',
-                  style: TextStyle(
-                    color: const Color(0xFFFF3B30),
-                    fontSize: 14,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-                Text(
-                  '522',
-                  style: TextStyle(
-                    color: const Color(0xFFFF3B30),
-                    fontSize: 14,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ],
+          Text(
+            _marketDepth!.lastPrice!.toStringAsFixed(2),
+            style: TextStyle(
+              color: Colors.black,
+              fontSize: 18,
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
@@ -197,10 +294,11 @@ class MarketDepthSheet extends StatelessWidget {
   }
 }
 
-void showMarketDepthSheet(BuildContext context) {
+void showMarketDepthSheet(BuildContext context, String instrumentToken) {
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
-    builder: (context) => const MarketDepthSheet(),
+    isScrollControlled: true,
+    builder: (context) => MarketDepthSheet(instrumentToken: instrumentToken),
   );
 }

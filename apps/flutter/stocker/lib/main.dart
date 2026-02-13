@@ -5,7 +5,9 @@ import 'package:stocker/services/admin_service.dart';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/auth_service.dart';
 import 'package:stocker/services/kite_service.dart';
+import 'package:stocker/services/navigation_service.dart';
 import 'package:stocker/utils/contants.dart';
+import 'package:stocker/pages/login_page.dart';
 import 'initial_sheet.dart';
 import 'dart:developer';
 
@@ -56,11 +58,15 @@ class MyApp extends StatelessWidget {
       ],
       child: MaterialApp(
         title: 'Stocker',
+        navigatorKey: NavigationService.navigatorKey,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
           useMaterial3: true,
         ),
         home: const InitialScreen(),
+        routes: {
+          '/login': (context) => const LoginPage(),
+        },
       ),
     );
   }

@@ -50,23 +50,34 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
       print('   Calling searchInstruments...');
       print('   - Query: $query');
       print('   - Exchange: $_selectedExchange');
-      print('   - Type: $_selectedType');
       
       final results = await kiteService.searchInstruments(
-        query: query,
+        query,
         exchange: _selectedExchange,
-        instrumentType: _selectedType,
+        limit: 50,
       );
 
       print('   ✅ Search completed');
       print('   Found ${results.length} results');
 
+      // Convert Map results to KiteInstrument objects
+      final instruments = results
+          .map((json) => KiteInstrument.fromJson(json))
+          .where((instrument) {
+            // Apply type filter if selected
+            if (_selectedType != null) {
+              return instrument.instrumentType == _selectedType;
+            }
+            return true;
+          })
+          .toList();
+
       setState(() {
-        _searchResults = results;
+        _searchResults = instruments;
         _isSearching = false;
       });
       
-      print('   State updated with results');
+      print('   State updated with ${instruments.length} results after filtering');
     } catch (e, stackTrace) {
       print('   ❌ Search error: $e');
       print('   Stack trace: $stackTrace');

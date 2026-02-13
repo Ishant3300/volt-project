@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:stocker/models/watchlist_item.dart';
+import 'package:stocker/providers/watchlist_provider.dart';
 import 'option_chain_view.dart';
 import 'market_depth_sheet.dart';
 import 'info_sheet.dart';
 
 class TradeCardPage extends StatelessWidget {
-  const TradeCardPage({super.key});
+  final WatchlistItem item;
+  
+  const TradeCardPage({super.key, required this.item});
 
   @override
   Widget build(BuildContext context) {
@@ -15,79 +20,92 @@ class TradeCardPage extends StatelessWidget {
           child: Column(
             children: [
               // Header with back button and stock info
-              Container(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Container(
-                        width: 44,
-                        height: 44,
-                        decoration: ShapeDecoration(
-                          color: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(44),
-                          ),
-                        ),
-                        child: Icon(Icons.arrow_back, color: Colors.black),
-                      ),
-                    ),
-                    SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'BANKNIFTY',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 16,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'JAN 27',
-                            style: TextStyle(
-                              color: const Color(0xFF8E8E93),
-                              fontSize: 14,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+              Consumer<WatchlistProvider>(
+                builder: (context, provider, child) {
+                  final currentItem = provider.getByToken(item.instrument.instrumentToken) ?? item;
+                  final instrument = currentItem.instrument;
+                  
+                  return Container(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
                       children: [
-                        Text(
-                          '59554.5',
-                          textAlign: TextAlign.right,
-                          style: TextStyle(
-                            color: const Color(0xFFFF3B30),
-                            fontSize: 16,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            decoration: ShapeDecoration(
+                              color: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(44),
+                              ),
+                            ),
+                            child: Icon(Icons.arrow_back, color: Colors.black),
                           ),
                         ),
-                        SizedBox(height: 4),
-                        Text(
-                          '-562 (0.56%)',
-                          textAlign: TextAlign.right,
-                          style: TextStyle(
-                            color: const Color(0xFFFF3B30),
-                            fontSize: 14,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
+                        SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                instrument.tradingsymbol,
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 16,
+                                  fontFamily: 'Inter',
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                              if (instrument.expiry != null) ...[
+                                SizedBox(height: 4),
+                                Text(
+                                  instrument.expiryDisplay,
+                                  style: TextStyle(
+                                    color: const Color(0xFF8E8E93),
+                                    fontSize: 14,
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              currentItem.currentPrice?.toStringAsFixed(2) ?? '0.00',
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                color: currentItem.isPositive
+                                    ? const Color(0xFF34C759)
+                                    : const Color(0xFFFF3B30),
+                                fontSize: 16,
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              currentItem.changeDisplay,
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                color: currentItem.isPositive
+                                    ? const Color(0xFF34C759)
+                                    : const Color(0xFFFF3B30),
+                                fontSize: 14,
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
 
               // User selection dropdown
@@ -421,19 +439,25 @@ class TradeCardPage extends StatelessWidget {
               SizedBox(height: 16),
 
               // Market stats
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    _buildStatCard('OPEN', '59995'),
-                    SizedBox(width: 8),
-                    _buildStatCard('LOW', '59995'),
-                    SizedBox(width: 8),
-                    _buildStatCard('HIGH', '59995'),
-                    SizedBox(width: 8),
-                    _buildStatCard('CLOSE', '59995'),
-                  ],
-                ),
+              Consumer<WatchlistProvider>(
+                builder: (context, provider, child) {
+                  final currentItem = provider.getByToken(item.instrument.instrumentToken) ?? item;
+                  
+                  return Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        _buildStatCard('OPEN', currentItem.currentPrice?.toStringAsFixed(2) ?? '0.00'),
+                        SizedBox(width: 8),
+                        _buildStatCard('LOW', currentItem.low?.toStringAsFixed(2) ?? '0.00'),
+                        SizedBox(width: 8),
+                        _buildStatCard('HIGH', currentItem.high?.toStringAsFixed(2) ?? '0.00'),
+                        SizedBox(width: 8),
+                        _buildStatCard('CLOSE', currentItem.currentPrice?.toStringAsFixed(2) ?? '0.00'),
+                      ],
+                    ),
+                  );
+                },
               ),
 
               SizedBox(height: 16),
@@ -448,7 +472,11 @@ class TradeCardPage extends StatelessWidget {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const OptionChainView()),
+                          MaterialPageRoute(
+                            builder: (context) => OptionChainView(
+                              instrument: item.instrument,
+                            ),
+                          ),
                         );
                       },
                       child: Row(
@@ -484,7 +512,7 @@ class TradeCardPage extends StatelessWidget {
                     ),
                     GestureDetector(
                       onTap: () {
-                        showMarketDepthSheet(context);
+                        showMarketDepthSheet(context, item.instrument.instrumentToken);
                       },
                       child: Row(
                         children: [

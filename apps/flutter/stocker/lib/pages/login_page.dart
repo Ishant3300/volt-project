@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/services/auth_service.dart';
 import '../home_page.dart';
 
@@ -76,6 +77,10 @@ class _LoginPageState extends State<LoginPage> {
               backgroundColor: Colors.green,
             ),
           );
+
+          // Reload watchlist after login
+          final watchlistProvider = Provider.of<WatchlistProvider>(context, listen: false);
+          watchlistProvider.loadWatchlist();
 
           // Navigate to home page
           Navigator.pushReplacement(

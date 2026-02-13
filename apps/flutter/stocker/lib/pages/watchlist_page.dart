@@ -182,7 +182,9 @@ class WatchlistPage extends StatelessWidget {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const TradeCardPage()),
+          MaterialPageRoute(
+            builder: (context) => TradeCardPage(item: item),
+          ),
         );
       },
       child: Container(
