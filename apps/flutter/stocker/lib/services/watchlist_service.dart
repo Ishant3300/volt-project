@@ -19,7 +19,7 @@ class WatchlistService {
       final token = await _getToken();
       log('📋 Fetching watchlist from backend...');
 
-      final response = await api.get('/api/watchlist', token: token);
+      final response = await api.get('/watchlist', token: token);
       final decoded = jsonDecode(response.body);
 
       log('   Response: ${response.statusCode}');
@@ -48,7 +48,7 @@ class WatchlistService {
       log('➕ Adding to watchlist: $instrumentToken');
 
       final response = await api.post(
-        '/api/watchlist',
+        '/watchlist',
         {
           'kite_instrument_id': kiteInstrumentId,
           'instrument_token': instrumentToken,
@@ -76,7 +76,7 @@ class WatchlistService {
       final token = await _getToken();
       log('🗑️ Removing from watchlist: $watchlistId');
 
-      final response = await api.delete('/api/watchlist/$watchlistId', token: token);
+      final response = await api.delete('/watchlist/$watchlistId', token: token);
       final decoded = jsonDecode(response.body);
 
       log('   Response: ${response.statusCode} - ${decoded['message']}');

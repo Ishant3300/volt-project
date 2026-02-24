@@ -6,10 +6,42 @@ import 'option_chain_view.dart';
 import 'market_depth_sheet.dart';
 import 'info_sheet.dart';
 
-class TradeCardPage extends StatelessWidget {
+class TradeCardPage extends StatefulWidget {
   final WatchlistItem item;
-  
+
   const TradeCardPage({super.key, required this.item});
+
+  @override
+  State<TradeCardPage> createState() => _TradeCardPageState();
+}
+
+class _TradeCardPageState extends State<TradeCardPage> {
+  int _quantity = 100;
+  int _selectedQuickQty = 100;
+  static const List<int> _quickQuantities = [100, 200, 500, 1000, 2000, 5000];
+
+  void _setQuantity(int qty) {
+    setState(() {
+      _quantity = qty;
+      _selectedQuickQty = qty;
+    });
+  }
+
+  void _incrementQuantity() {
+    setState(() {
+      _quantity++;
+      _selectedQuickQty = _quickQuantities.contains(_quantity) ? _quantity : -1;
+    });
+  }
+
+  void _decrementQuantity() {
+    if (_quantity > 1) {
+      setState(() {
+        _quantity--;
+        _selectedQuickQty = _quickQuantities.contains(_quantity) ? _quantity : -1;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,9 +54,10 @@ class TradeCardPage extends StatelessWidget {
               // Header with back button and stock info
               Consumer<WatchlistProvider>(
                 builder: (context, provider, child) {
-                  final currentItem = provider.getByToken(item.instrument.instrumentToken) ?? item;
+                  final currentItem =
+                      provider.getByToken(widget.item.instrument.instrumentToken) ?? widget.item;
                   final instrument = currentItem.instrument;
-                  
+
                   return Container(
                     padding: const EdgeInsets.all(16),
                     child: Row(
@@ -40,17 +73,17 @@ class TradeCardPage extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(44),
                               ),
                             ),
-                            child: Icon(Icons.arrow_back, color: Colors.black),
+                            child: const Icon(Icons.arrow_back, color: Colors.black),
                           ),
                         ),
-                        SizedBox(width: 16),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 instrument.tradingsymbol,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   color: Colors.black,
                                   fontSize: 16,
                                   fontFamily: 'Inter',
@@ -58,11 +91,11 @@ class TradeCardPage extends StatelessWidget {
                                 ),
                               ),
                               if (instrument.expiry != null) ...[
-                                SizedBox(height: 4),
+                                const SizedBox(height: 4),
                                 Text(
                                   instrument.expiryDisplay,
-                                  style: TextStyle(
-                                    color: const Color(0xFF8E8E93),
+                                  style: const TextStyle(
+                                    color: Color(0xFF8E8E93),
                                     fontSize: 14,
                                     fontFamily: 'Inter',
                                     fontWeight: FontWeight.w400,
@@ -87,7 +120,7 @@ class TradeCardPage extends StatelessWidget {
                                 fontWeight: FontWeight.w400,
                               ),
                             ),
-                            SizedBox(height: 4),
+                            const SizedBox(height: 4),
                             Text(
                               currentItem.changeDisplay,
                               textAlign: TextAlign.right,
@@ -117,27 +150,25 @@ class TradeCardPage extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
+                        const Text(
                           'User',
                           style: TextStyle(
-                            color: const Color(0xFF2B2B2B),
+                            color: Color(0xFF2B2B2B),
                             fontSize: 16,
                             fontFamily: 'Inter',
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                         GestureDetector(
-                          onTap: () {
-                            showInfoSheet(context);
-                          },
-                          child: Row(
+                          onTap: () => showInfoSheet(context),
+                          child: const Row(
                             children: [
-                              Icon(Icons.info_outline, size: 20, color: const Color(0xFF22547C)),
+                              Icon(Icons.info_outline, size: 20, color: Color(0xFF22547C)),
                               SizedBox(width: 4),
                               Text(
                                 'Info',
                                 style: TextStyle(
-                                  color: const Color(0xFF22547C),
+                                  color: Color(0xFF22547C),
                                   fontSize: 16,
                                   fontFamily: 'Inter',
                                   fontWeight: FontWeight.w500,
@@ -148,30 +179,30 @@ class TradeCardPage extends StatelessWidget {
                         ),
                       ],
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Container(
                       height: 48,
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       decoration: ShapeDecoration(
                         color: Colors.white,
                         shape: RoundedRectangleBorder(
-                          side: BorderSide(width: 1, color: const Color(0xFFD1D1D6)),
+                          side: const BorderSide(width: 1, color: Color(0xFFD1D1D6)),
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: Row(
+                      child: const Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
                             'Select Item',
                             style: TextStyle(
-                              color: const Color(0xFF8E8E93),
+                              color: Color(0xFF8E8E93),
                               fontSize: 16,
                               fontFamily: 'Inter',
                               fontWeight: FontWeight.w400,
                             ),
                           ),
-                          Icon(Icons.arrow_drop_down, color: const Color(0xFF8E8E93)),
+                          Icon(Icons.arrow_drop_down, color: Color(0xFF8E8E93)),
                         ],
                       ),
                     ),
@@ -179,7 +210,7 @@ class TradeCardPage extends StatelessWidget {
                 ),
               ),
 
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
 
               // Trading card
               Container(
@@ -194,23 +225,26 @@ class TradeCardPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Quantity section
-                    Text(
+                    // Quantity label
+                    const Text(
                       'Quantity',
                       style: TextStyle(
                         color: Colors.black,
                         fontSize: 16,
                         fontFamily: 'Inter',
                         fontWeight: FontWeight.w500,
+                        height: 1.25,
                       ),
                     ),
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
+
+                    // Quantity input with +/- buttons
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: ShapeDecoration(
                         color: Colors.white,
                         shape: RoundedRectangleBorder(
-                          side: BorderSide(width: 1, color: const Color(0xFFC7C7CC)),
+                          side: const BorderSide(width: 1, color: Color(0xFFC7C7CC)),
                           borderRadius: BorderRadius.circular(6),
                         ),
                       ),
@@ -218,249 +252,259 @@ class TradeCardPage extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            '5',
-                            style: TextStyle(
+                            '$_quantity',
+                            style: const TextStyle(
                               color: Colors.black,
                               fontSize: 16,
                               fontFamily: 'Inter',
                               fontWeight: FontWeight.w500,
+                              height: 1.25,
                             ),
                           ),
                           Row(
                             children: [
-                              Container(
-                                width: 32,
-                                height: 32,
-                                decoration: ShapeDecoration(
-                                  color: const Color(0xFFF2F2F7),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                              GestureDetector(
+                                onTap: _decrementQuantity,
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: ShapeDecoration(
+                                    color: const Color(0xFFF2F2F7),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(4)),
+                                  ),
+                                  child: const Icon(Icons.remove, size: 16),
                                 ),
-                                child: Icon(Icons.remove, size: 16),
                               ),
-                              SizedBox(width: 11),
-                              Container(
-                                width: 32,
-                                height: 32,
-                                decoration: ShapeDecoration(
-                                  color: const Color(0xFFF2F2F7),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                              const SizedBox(width: 11),
+                              GestureDetector(
+                                onTap: _incrementQuantity,
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: ShapeDecoration(
+                                    color: const Color(0xFFF2F2F7),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(4)),
+                                  ),
+                                  child: const Icon(Icons.add, size: 16),
                                 ),
-                                child: Icon(Icons.add, size: 16),
                               ),
                             ],
                           ),
                         ],
                       ),
                     ),
-                    SizedBox(height: 12),
+                    const SizedBox(height: 12),
+
                     // Quick quantity buttons
                     Row(
-                      children: [
-                        _buildQuantityButton('100', true),
-                        SizedBox(width: 6),
-                        _buildQuantityButton('200', false),
-                        SizedBox(width: 6),
-                        _buildQuantityButton('500', false),
-                        SizedBox(width: 6),
-                        _buildQuantityButton('1000', false),
-                      ],
-                    ),
-                    SizedBox(height: 14),
-
-                    // Market Price
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Market Price',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 14,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        Text(
-                          'Edit',
-                          style: TextStyle(
-                            color: const Color(0xFF22547C),
-                            fontSize: 16,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: ShapeDecoration(
-                        color: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(width: 1, color: const Color(0xFFC7C7CC)),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                      ),
-                      child: Text(
-                        '59657.50',
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 16,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 14),
-
-                    // Stop Loss
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Stop Loss',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 16,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        Container(
-                          width: 47,
-                          height: 22,
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 4),
-                          decoration: ShapeDecoration(
-                            color: const Color(0xFF34C759),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(45),
+                      children: _quickQuantities.map((qty) {
+                        final isSelected = _selectedQuickQty == qty;
+                        return Expanded(
+                          child: GestureDetector(
+                            onTap: () => _setQuantity(qty),
+                            child: Container(
+                              margin: EdgeInsets.only(
+                                left: qty == _quickQuantities.first ? 0 : 3,
+                                right: qty == _quickQuantities.last ? 0 : 3,
+                              ),
+                              padding: const EdgeInsets.all(10),
+                              decoration: ShapeDecoration(
+                                color: isSelected
+                                    ? const Color(0xFF22547C)
+                                    : const Color(0xFFC7C7CC),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(6)),
+                              ),
+                              child: Text(
+                                '$qty',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? const Color(0xFFF9F9F9)
+                                      : Colors.black,
+                                  fontSize: 14,
+                                  fontFamily: 'Inter',
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
                             ),
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              Container(
-                                width: 14,
-                                height: 14,
-                                decoration: ShapeDecoration(
-                                  color: Colors.white,
-                                  shape: OvalBorder(),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                        );
+                      }).toList(),
                     ),
-                    SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Trigger Price',
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 14,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              SizedBox(height: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                decoration: ShapeDecoration(
-                                  color: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    side: BorderSide(width: 1, color: const Color(0xFFC7C7CC)),
-                                    borderRadius: BorderRadius.circular(6),
+                    const SizedBox(height: 14),
+
+                    // Price fields + action buttons
+                    Consumer<WatchlistProvider>(
+                      builder: (context, provider, child) {
+                        final currentItem =
+                            provider.getByToken(widget.item.instrument.instrumentToken) ??
+                                widget.item;
+                        final priceStr =
+                            currentItem.currentPrice?.toStringAsFixed(2) ?? '0.00';
+
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Sell side
+                            Expanded(
+                              child: Column(
+                                children: [
+                                  Container(
+                                    width: double.infinity,
+                                    height: 46,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 13),
+                                    decoration: ShapeDecoration(
+                                      color: const Color(0xFFF2F2F7),
+                                      shape: RoundedRectangleBorder(
+                                        side: const BorderSide(
+                                            width: 1, color: Color(0xFFC7C7CC)),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      priceStr,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 16,
+                                        fontFamily: 'Inter',
+                                        fontWeight: FontWeight.w500,
+                                        height: 1.25,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                                child: Text(
-                                  '59657.50',
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 16,
-                                    fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w500,
+                                  const SizedBox(height: 14),
+                                  GestureDetector(
+                                    onTap: () {
+                                      // TODO: handle sell
+                                    },
+                                    child: Container(
+                                      width: double.infinity,
+                                      height: 56,
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 32, vertical: 18),
+                                      decoration: ShapeDecoration(
+                                        color: const Color(0xFFFF9500),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                      child: const Text(
+                                        'SELL',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontFamily: 'Inter',
+                                          fontWeight: FontWeight.w600,
+                                          height: 1.25,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                ],
                               ),
-                            ],
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Limit Price',
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 14,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              SizedBox(height: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                decoration: ShapeDecoration(
-                                  color: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    side: BorderSide(width: 1, color: const Color(0xFFC7C7CC)),
-                                    borderRadius: BorderRadius.circular(6),
+                            ),
+                            const SizedBox(width: 14),
+                            // Buy/Place side
+                            Expanded(
+                              child: Column(
+                                children: [
+                                  Container(
+                                    width: double.infinity,
+                                    height: 46,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 13),
+                                    decoration: ShapeDecoration(
+                                      color: const Color(0xFFF2F2F7),
+                                      shape: RoundedRectangleBorder(
+                                        side: const BorderSide(
+                                            width: 1, color: Color(0xFFC7C7CC)),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      priceStr,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 16,
+                                        fontFamily: 'Inter',
+                                        fontWeight: FontWeight.w500,
+                                        height: 1.25,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                                child: Text(
-                                  '59657.50',
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 16,
-                                    fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w500,
+                                  const SizedBox(height: 14),
+                                  GestureDetector(
+                                    onTap: () {
+                                      // TODO: handle place/buy
+                                    },
+                                    child: Container(
+                                      width: double.infinity,
+                                      height: 56,
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 32, vertical: 18),
+                                      decoration: ShapeDecoration(
+                                        color: const Color(0xFF22547C),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                      child: const Text(
+                                        'PLACE',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontFamily: 'Inter',
+                                          fontWeight: FontWeight.w600,
+                                          height: 1.25,
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                ],
                               ),
-                            ],
-                          ),
-                        ),
-                      ],
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
               ),
 
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
 
               // Market stats
               Consumer<WatchlistProvider>(
                 builder: (context, provider, child) {
-                  final currentItem = provider.getByToken(item.instrument.instrumentToken) ?? item;
-                  
+                  final currentItem =
+                      provider.getByToken(widget.item.instrument.instrumentToken) ?? widget.item;
+
                   return Container(
                     margin: const EdgeInsets.symmetric(horizontal: 16),
                     child: Row(
                       children: [
-                        _buildStatCard('OPEN', currentItem.currentPrice?.toStringAsFixed(2) ?? '0.00'),
-                        SizedBox(width: 8),
+                        _buildStatCard(
+                            'OPEN', currentItem.currentPrice?.toStringAsFixed(2) ?? '0.00'),
+                        const SizedBox(width: 8),
                         _buildStatCard('LOW', currentItem.low?.toStringAsFixed(2) ?? '0.00'),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         _buildStatCard('HIGH', currentItem.high?.toStringAsFixed(2) ?? '0.00'),
-                        SizedBox(width: 8),
-                        _buildStatCard('CLOSE', currentItem.currentPrice?.toStringAsFixed(2) ?? '0.00'),
+                        const SizedBox(width: 8),
+                        _buildStatCard(
+                            'CLOSE', currentItem.currentPrice?.toStringAsFixed(2) ?? '0.00'),
                       ],
                     ),
                   );
                 },
               ),
 
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
 
               // Action links
               Container(
@@ -474,19 +518,19 @@ class TradeCardPage extends StatelessWidget {
                           context,
                           MaterialPageRoute(
                             builder: (context) => OptionChainView(
-                              instrument: item.instrument,
+                              instrument: widget.item.instrument,
                             ),
                           ),
                         );
                       },
-                      child: Row(
+                      child: const Row(
                         children: [
-                          Icon(Icons.link, size: 16, color: const Color(0xFF22547C)),
+                          Icon(Icons.link, size: 16, color: Color(0xFF22547C)),
                           SizedBox(width: 4),
                           Text(
                             'Option Chain',
                             style: TextStyle(
-                              color: const Color(0xFF22547C),
+                              color: Color(0xFF22547C),
                               fontSize: 14,
                               fontFamily: 'Inter',
                               fontWeight: FontWeight.w500,
@@ -495,14 +539,14 @@ class TradeCardPage extends StatelessWidget {
                         ],
                       ),
                     ),
-                    Row(
+                    const Row(
                       children: [
-                        Icon(Icons.show_chart, size: 16, color: const Color(0xFF22547C)),
+                        Icon(Icons.show_chart, size: 16, color: Color(0xFF22547C)),
                         SizedBox(width: 4),
                         Text(
                           'View chart',
                           style: TextStyle(
-                            color: const Color(0xFF22547C),
+                            color: Color(0xFF22547C),
                             fontSize: 14,
                             fontFamily: 'Inter',
                             fontWeight: FontWeight.w500,
@@ -512,16 +556,17 @@ class TradeCardPage extends StatelessWidget {
                     ),
                     GestureDetector(
                       onTap: () {
-                        showMarketDepthSheet(context, item.instrument.instrumentToken);
+                        showMarketDepthSheet(
+                            context, widget.item.instrument.instrumentToken);
                       },
-                      child: Row(
+                      child: const Row(
                         children: [
-                          Icon(Icons.layers, size: 16, color: const Color(0xFF22547C)),
+                          Icon(Icons.layers, size: 16, color: Color(0xFF22547C)),
                           SizedBox(width: 4),
                           Text(
                             'Market Depth',
                             style: TextStyle(
-                              color: const Color(0xFF22547C),
+                              color: Color(0xFF22547C),
                               fontSize: 14,
                               fontFamily: 'Inter',
                               fontWeight: FontWeight.w500,
@@ -534,80 +579,8 @@ class TradeCardPage extends StatelessWidget {
                 ),
               ),
 
-              SizedBox(height: 24),
-
-              // Buy/Sell buttons
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        decoration: ShapeDecoration(
-                          color: const Color(0xFF22547C),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        child: Text(
-                          'BUY',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 24),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 18),
-                        decoration: ShapeDecoration(
-                          color: const Color(0xFFFF9500),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        child: Text(
-                          'SELL',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              SizedBox(height: 24),
+              const SizedBox(height: 24),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuantityButton(String text, bool isSelected) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: ShapeDecoration(
-          color: isSelected ? const Color(0xFF22547C) : const Color(0xFFC7C7CC),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-        ),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: isSelected ? const Color(0xFFF9F9F9) : Colors.black,
-            fontSize: 14,
-            fontFamily: 'Inter',
-            fontWeight: FontWeight.w400,
           ),
         ),
       ),
@@ -621,7 +594,7 @@ class TradeCardPage extends StatelessWidget {
         decoration: ShapeDecoration(
           color: Colors.white,
           shape: RoundedRectangleBorder(
-            side: BorderSide(width: 1, color: const Color(0xFFE5E5EA)),
+            side: const BorderSide(width: 1, color: Color(0xFFE5E5EA)),
             borderRadius: BorderRadius.circular(4),
           ),
         ),
@@ -630,26 +603,24 @@ class TradeCardPage extends StatelessWidget {
             Text(
               label,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: const Color(0xFF8E8E93),
+              style: const TextStyle(
+                color: Color(0xFF8E8E93),
                 fontSize: 12,
                 fontFamily: 'Inter',
                 fontWeight: FontWeight.w400,
               ),
             ),
-            SizedBox(height: 6),
+            const SizedBox(height: 6),
             Container(
               width: 25,
               height: 2,
-              decoration: BoxDecoration(
-                color: const Color(0xFFD1D1D6),
-              ),
+              decoration: const BoxDecoration(color: Color(0xFFD1D1D6)),
             ),
-            SizedBox(height: 6),
+            const SizedBox(height: 6),
             Text(
               value,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 color: Colors.black,
                 fontSize: 14,
                 fontFamily: 'Inter',

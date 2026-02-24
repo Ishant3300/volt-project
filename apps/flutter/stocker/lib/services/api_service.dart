@@ -47,7 +47,7 @@ class ApiService {
   }
 
   Future<http.Response> get(String endpoint, {String? token}) async {
-    final url = "$baseUrl$endpoint";
+    final url = "$baseUrl/api$endpoint";
     log('📡 GET Request');
     log('   URL: $url');
     log('   Has Token: ${token != null}');
@@ -80,7 +80,7 @@ class ApiService {
 
   Future<http.Response> post(String endpoint, dynamic body,
       {String? token}) async {
-    final url = "$baseUrl$endpoint";
+    final url = "$baseUrl/api$endpoint";
     log('📡 POST Request');
     log('   URL: $url');
     log('   Has Token: ${token != null}');
@@ -111,7 +111,7 @@ class ApiService {
 
   Future<http.Response> put(String endpoint, dynamic body,
       {String? token}) async {
-    final url = "$baseUrl$endpoint";
+    final url = "$baseUrl/api$endpoint";
     log('📡 PUT Request');
     log('   URL: $url');
     log('   Has Token: ${token != null}');
@@ -127,6 +127,11 @@ class ApiService {
       log('   ✅ Response: ${response.statusCode}');
       log('   Body: ${response.body}');
       
+      // Handle 401 Unauthorized
+      if (response.statusCode == 401) {
+        await _handleUnauthorized();
+      }
+      
       return response;
     } catch (e, stackTrace) {
       log('   ❌ Request failed: $e');
@@ -136,7 +141,7 @@ class ApiService {
   }
 
   Future<http.Response> delete(String endpoint, {String? token}) async {
-    final url = "$baseUrl$endpoint";
+    final url = "$baseUrl/api$endpoint";
     log('📡 DELETE Request');
     log('   URL: $url');
     log('   Has Token: ${token != null}');
@@ -149,6 +154,11 @@ class ApiService {
       
       log('   ✅ Response: ${response.statusCode}');
       log('   Body: ${response.body}');
+      
+      // Handle 401 Unauthorized
+      if (response.statusCode == 401) {
+        await _handleUnauthorized();
+      }
       
       return response;
     } catch (e, stackTrace) {

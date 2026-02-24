@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
+import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/services/auth_service.dart';
 import '../home_page.dart';
 
@@ -16,6 +17,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
 
   String _selectedServer = 'Select Server';
+  String _selectedRole = 'ADMIN'; // Default to ADMIN
   bool _isLoading = false;
 
   void _login() async {
@@ -62,15 +64,20 @@ class _LoginPageState extends State<LoginPage> {
         password: _passwordController.text,
       );
 
-      // Try admin login first (you can add a toggle to switch between user/admin)
+      // Try login with selected role
       final response = await authService.login(
         data: authData,
-        role: 'ADMIN', // Change to 'USER' for user login
+        role: _selectedRole,
       );
 
       if (mounted) {
         if (response.success) {
-          // Login successful
+          // Login successful - fetch user profile
+          final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+          await profileProvider.fetchProfile();
+          
+          if (!mounted) return;
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(response.message),
@@ -216,6 +223,58 @@ class _LoginPageState extends State<LoginPage> {
                                   if (newValue != null) {
                                     setState(() {
                                       _selectedServer = newValue;
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 24),
+
+                      // Role field
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Login As',
+                            style: TextStyle(
+                              color: const Color(0xFF2B2B2B),
+                              fontSize: 16,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            height: 48,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 14),
+                            decoration: ShapeDecoration(
+                              color: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                side: BorderSide(
+                                  width: 1,
+                                  color: const Color(0xFFD1D1D6),
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _selectedRole,
+                                items: ['ADMIN', 'MASTER', 'USER'].map((String value) {
+                                  return DropdownMenuItem<String>(
+                                    value: value,
+                                    child: Text(value),
+                                  );
+                                }).toList(),
+                                onChanged: (String? newValue) {
+                                  if (newValue != null) {
+                                    setState(() {
+                                      _selectedRole = newValue;
                                     });
                                   }
                                 },

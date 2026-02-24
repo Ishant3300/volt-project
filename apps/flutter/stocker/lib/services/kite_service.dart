@@ -30,7 +30,7 @@ class KiteService {
       
       log('📊 Fetching option chain for $tradingSymbol');
 
-      String endpoint = '/api/kite/option-chain/$tradingSymbol';
+      String endpoint = '/kite/option-chain/$tradingSymbol';
       if (expiry != null) {
         endpoint += '?expiry=$expiry';
       }
@@ -73,7 +73,7 @@ class KiteService {
       log('📊 Fetching market depth for token $instrumentToken');
 
       final response = await api.get(
-        '/api/kite/market-depth/$instrumentToken',
+        '/kite/market-depth/$instrumentToken',
         token: token,
       );
       final decoded = jsonDecode(response.body);
@@ -110,7 +110,7 @@ class KiteService {
       final token = await _getToken();
       log('🔍 Searching instruments: $query');
 
-      String endpoint = '/api/kite/instruments/search?q=$query&limit=$limit';
+      String endpoint = '/kite/instruments/search?q=$query&limit=$limit';
       if (exchange != null) {
         endpoint += '&exchange=$exchange';
       }

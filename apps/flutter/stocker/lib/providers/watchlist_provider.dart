@@ -41,7 +41,7 @@ class WatchlistProvider with ChangeNotifier {
       final change = (tick['change'] as num?)?.toDouble();
       final changePercent = (tick['change_percent'] as num?)?.toDouble();
       
-      log('💰 Price update for token $token: LTP=$price, Change=$change, Change%=$changePercent');
+      // log('💰 Price update for token $token: LTP=$price, Change=$change, Change%=$changePercent');
 
       updatePrice(
         token,
@@ -212,7 +212,7 @@ class WatchlistProvider with ChangeNotifier {
     );
 
     if (index != -1) {
-      log('🔄 Updating price for token $instrumentToken at index $index');
+      // log('🔄 Updating price for token $instrumentToken at index $index');
       
       _items[index] = _items[index].copyWith(
         currentPrice: price,
@@ -223,7 +223,7 @@ class WatchlistProvider with ChangeNotifier {
         lastUpdated: DateTime.now(),
       );
       
-      log('   ✅ Updated: ${_items[index].instrument.tradingsymbol} -> Price: $price');
+      // log('   ✅ Updated: ${_items[index].instrument.tradingsymbol} -> Price: $price');
       notifyListeners();
     } else {
       log('⚠️  Token $instrumentToken not found in watchlist');

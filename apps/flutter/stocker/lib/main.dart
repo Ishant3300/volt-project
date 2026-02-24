@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
+import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/services/admin_service.dart';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/auth_service.dart';
@@ -26,7 +27,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         Provider<ApiService>(
-          create: (_) {
+          create: (_) {   
             log('   Creating ApiService with URL: $backendUrl');
             return ApiService(backendUrl);
           },
@@ -53,6 +54,17 @@ class MyApp extends StatelessWidget {
           create: (_) {
             log('   Creating WatchlistProvider');
             return WatchlistProvider();
+          },
+        ),
+        ChangeNotifierProxyProvider<ApiService, UserProfileProvider>(
+          create: (context) {
+            log('   Creating UserProfileProvider');
+            final apiService = Provider.of<ApiService>(context, listen: false);
+            return UserProfileProvider(apiService);
+          },
+          update: (_, apiService, previous) {
+            log('   Updating UserProfileProvider');
+            return previous ?? UserProfileProvider(apiService);
           },
         ),
       ],

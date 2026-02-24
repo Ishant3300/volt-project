@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:stocker/views/create_trade_margin_view.dart';
+import 'package:stocker/views/group_quantity_view.dart';
 import 'master_management_view.dart';
-import 'user_status_view.dart';
 import 'send_message_view.dart';
 import 'manage_reports_view.dart';
+import 'trade_margin_settings_view.dart';
+import 'brokerage_settings_view.dart';
 
 class AdminSettingsView extends StatelessWidget {
   const AdminSettingsView({super.key});
@@ -53,15 +56,19 @@ class AdminSettingsView extends StatelessWidget {
                   children: [
                     _buildMenuItem(context, 'Master Management'),
                     _buildDivider(),
-                    _buildMenuItem(context, 'User Status'),
-                    _buildDivider(),
                     _buildMenuItem(context, 'Send Message'),
                     _buildDivider(),
-                    _buildMenuItem(context, 'Manage Trade'),
+                    _buildMenuItem(context, 'Manage Trades'),
                     _buildDivider(),
                     _buildMenuItem(context, 'Manage Reports'),
                     _buildDivider(),
-                    _buildMenuItem(context, 'Set Margin'),
+                    _buildMenuItem(context, 'Set Group Quantity'),
+                    _buildDivider(),
+                    _buildMenuItem(context, 'Set Script Quantity'),
+                    _buildDivider(),
+                    _buildMenuItem(context, 'Set Brokerage Setting'),
+                    _buildDivider(),
+                    _buildMenuItem(context, 'Set Trade Margin'),
                     _buildDivider(),
                     _buildMenuItem(context, 'Bill Management'),
                   ],
@@ -84,11 +91,6 @@ class AdminSettingsView extends StatelessWidget {
             context,
             MaterialPageRoute(builder: (context) => const MasterManagementView()),
           );
-        } else if (title == 'User Status') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const UserStatusView()),
-          );
         } else if (title == 'Send Message') {
           Navigator.push(
             context,
@@ -98,6 +100,21 @@ class AdminSettingsView extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const ManageReportsView()),
+          );
+        } else if (title == 'Set Trade Margin') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CreateTradeMarginView()),
+          );
+        } else if (title == 'Set Group Quantity') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const GroupQuantityView()),
+          );
+        } else if (title == 'Set Brokerage Setting') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const BrokerageSettingsView()),
           );
         }
       },

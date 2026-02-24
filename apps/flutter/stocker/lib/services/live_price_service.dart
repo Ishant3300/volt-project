@@ -74,7 +74,7 @@ class LivePriceService {
 
         case 'ticks':
           final ticks = data['data'] as List<dynamic>;
-          log('📈 Received ${ticks.length} tick(s)');
+          // log('📈 Received ${ticks.length} tick(s)');
           for (final tick in ticks) {
             final tickMap = tick as Map<String, dynamic>;
             log('   Token: ${tickMap['instrument_token']} | LTP: ${tickMap['last_price']} | Change: ${tickMap['change']?.toStringAsFixed(2) ?? 'N/A'}');

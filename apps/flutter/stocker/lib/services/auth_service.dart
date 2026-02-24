@@ -1,6 +1,7 @@
 
 import 'dart:convert';
 import 'dart:developer';
+import 'package:jwt_decode/jwt_decode.dart';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
 
@@ -54,9 +55,11 @@ class AuthService {
     try {
       late String endpoint;
       if (role == 'USER') {
-        endpoint = '/api/auth/user/login';
+        endpoint = '/auth/user/login';
+      } else if (role == 'MASTER') {
+        endpoint = '/auth/master/login';
       } else {
-        endpoint = '/api/auth/admin/login';
+        endpoint = '/auth/admin/login';
       }
 
       var response = await api.post(endpoint, data.toJson());
@@ -64,10 +67,31 @@ class AuthService {
         final decoded = jsonDecode(response.body);
         final authResponse = AuthenticationResponse.fromJson(decoded);
 
-        // Save token to secure storage
+        // Save token and role to secure storage
         if (authResponse.success && authResponse.data != null) {
           final token = authResponse.data['token'];
           await storage.saveToken(token: token);
+          
+          // Decode JWT to extract role
+          try {
+            Map<String, dynamic> payload = Jwt.parseJwt(token);
+            String tokenRole = payload['role'] ?? '';
+            // Convert to uppercase to match the role parameter
+            await storage.saveRole(role: tokenRole.toUpperCase());
+            log('Saved role from token: ${tokenRole.toUpperCase()}');
+            
+            // If master login, save add_master permission
+            if (tokenRole.toUpperCase() == 'MASTER' && authResponse.data['master'] != null) {
+              final masterData = authResponse.data['master'];
+              final addMaster = masterData['add_master'] ?? false;
+              await storage.saveAddMasterPermission(addMaster: addMaster);
+              log('Saved add_master permission: $addMaster');
+            }
+          } catch (e) {
+            log('Error decoding JWT: $e');
+            // Fallback to the role parameter if JWT decode fails
+            await storage.saveRole(role: role);
+          }
         }
 
         return authResponse;
@@ -85,17 +109,20 @@ class AuthService {
     try {
       late String endpoint;
       if (role == 'USER') {
-        endpoint = '/api/auth/user/logout';
+        endpoint = '/auth/user/logout';
+      } else if (role == 'MASTER') {
+        endpoint = '/auth/master/logout';
       } else {
-        endpoint = '/api/auth/admin/logout';
+        endpoint = '/auth/admin/logout';
       }
 
       final token = await storage.getToken();
       var response = await api.post(endpoint, {}, token: token);
 
       if (response.statusCode == 200) {
-        // Clear token from secure storage
+        // Clear token and role from secure storage
         await storage.deleteToken();
+        await storage.deleteRole();
         final decoded = jsonDecode(response.body);
         return AuthenticationResponse.fromJson(decoded);
       } else {

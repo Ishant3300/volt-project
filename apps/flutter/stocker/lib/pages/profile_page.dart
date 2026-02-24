@@ -1,13 +1,93 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../views/account_detail_view.dart';
 import '../views/user_management_view.dart';
 import '../views/login_history_view.dart';
 import '../views/reports_view.dart';
 import '../views/settings_view.dart';
 import '../views/admin_settings_view.dart';
+import '../services/sercure_storage_service.dart';
+import '../services/auth_service.dart';
+import '../providers/user_profile_provider.dart';
+import '../pages/login_page.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  final SecureStorageService _storage = SecureStorageService();
+  bool _isAdmin = false;
+  bool _isLoggingOut = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAdminStatus();
+  }
+
+  Future<void> _checkAdminStatus() async {
+    final role = await _storage.getRole();
+    setState(() {
+      _isAdmin = role == 'ADMIN';
+    });
+  }
+
+  Future<void> _handleLogout() async {
+    if (_isLoggingOut) return;
+
+    setState(() {
+      _isLoggingOut = true;
+    });
+
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+      final role = await _storage.getRole();
+      
+      // Call logout API
+      await authService.logout(role: role ?? 'USER');
+      
+      // Clear profile data
+      profileProvider.clearProfile();
+
+      if (!mounted) return;
+
+      // Navigate to login page
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+        (route) => false,
+      );
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Logged out successfully'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Logout failed: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoggingOut = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,37 +147,34 @@ class ProfilePage extends StatelessWidget {
 
               SizedBox(height: 16),
 
-              // Balance card
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.all(10),
-                decoration: ShapeDecoration(
-                  color: const Color(0xFF22547C),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Credit: 50,000',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w400,
-                      ),
+              // Credit card
+              Consumer<UserProfileProvider>(
+                builder: (context, profileProvider, child) {
+                  final credit = profileProvider.master?.credits ?? 0.0;
+                  
+                  return Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: ShapeDecoration(
+                      color: const Color(0xFF22547C),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    Text(
-                      'Balance: 25,251.50',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w400,
-                      ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Credit: ${credit.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  );
+                },
               ),
 
               SizedBox(height: 16),
@@ -113,11 +190,13 @@ class ProfilePage extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    _buildMenuItem(context, Icons.admin_panel_settings, 'Admin Setting'),
-                    _buildDivider(),
+                    if (_isAdmin) ...[
+                      _buildMenuItem(context, Icons.admin_panel_settings, 'Admin Setting'),
+                      _buildDivider(),
+                    ],
                     _buildMenuItem(context, Icons.account_circle, 'Account Detail'),
                     _buildDivider(),
-                    _buildMenuItem(context, Icons.people, 'User Management'),
+                    _buildMenuItem(context, Icons.people, 'Master And User Management'),
                     _buildDivider(),
                     _buildMenuItem(context, Icons.assessment, 'Reports'),
                     _buildDivider(),
@@ -155,8 +234,10 @@ class ProfilePage extends StatelessWidget {
 
   Widget _buildMenuItem(BuildContext context, IconData icon, String title, {bool isRed = false}) {
     return GestureDetector(
-      onTap: () {
-        if (title == 'Admin Setting') {
+      onTap: _isLoggingOut ? null : () {
+        if (title == 'Logout') {
+          _handleLogout();
+        } else if (title == 'Admin Setting') {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const AdminSettingsView()),
@@ -166,7 +247,7 @@ class ProfilePage extends StatelessWidget {
             context,
             MaterialPageRoute(builder: (context) => const AccountDetailView()),
           );
-        } else if (title == 'User Management') {
+        } else if (title == 'Master And User Management') {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const UserManagementView()),
@@ -210,6 +291,19 @@ class ProfilePage extends StatelessWidget {
                     fontWeight: FontWeight.w400,
                   ),
                 ),
+                if (_isLoggingOut && title == 'Logout') ...[
+                  SizedBox(width: 8),
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        const Color(0xFFFF3B30),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
             Icon(

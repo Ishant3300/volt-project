@@ -78,7 +78,16 @@ class WatchlistPage extends StatelessWidget {
                       ),
                     ),
                     Spacer(),
-                    Icon(Icons.filter_list, color: const Color(0xFF8E8E93)),
+                    Consumer<WatchlistProvider>(
+                      builder: (context, provider, child) {
+                        return IconButton(
+                          icon: Icon(Icons.refresh, color: const Color(0xFF8E8E93)),
+                          onPressed: () {
+                            provider.loadWatchlist();
+                          },
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -118,52 +127,63 @@ class WatchlistPage extends StatelessWidget {
                             icon: const Icon(Icons.add),
                             label: const Text('Add Instruments'),
                           ),
+                          const SizedBox(height: 16),
+                          TextButton.icon(
+                            onPressed: () {
+                              watchlistProvider.loadWatchlist();
+                            },
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Refresh Watchlist'),
+                          ),
                         ],
                       ),
                     );
                   }
 
-                  return Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: ShapeDecoration(
-                      color: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  return RefreshIndicator(
+                    onRefresh: () => watchlistProvider.loadWatchlist(),
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: ShapeDecoration(
+                        color: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                    ),
-                    child: ListView.separated(
-                      padding: EdgeInsets.zero,
-                      itemCount: watchlistProvider.items.length,
-                      separatorBuilder: (context, index) => Divider(
-                        height: 1,
-                        color: const Color(0xFFD1D1D6),
-                      ),
-                      itemBuilder: (context, index) {
-                        final item = watchlistProvider.items[index];
-                        final instrument = item.instrument;
+                      child: ListView.separated(
+                        padding: EdgeInsets.zero,
+                        itemCount: watchlistProvider.items.length,
+                        separatorBuilder: (context, index) => Divider(
+                          height: 1,
+                          color: const Color(0xFFD1D1D6),
+                        ),
+                        itemBuilder: (context, index) {
+                          final item = watchlistProvider.items[index];
+                          final instrument = item.instrument;
 
-                        return Dismissible(
-                          key: Key(item.id),
-                          direction: DismissDirection.endToStart,
-                          background: Container(
-                            alignment: Alignment.centerRight,
-                            padding: const EdgeInsets.only(right: 20),
-                            color: Colors.red,
-                            child: const Icon(Icons.delete, color: Colors.white),
-                          ),
-                          onDismissed: (direction) {
-                            watchlistProvider.removeInstrument(item.id);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  '${instrument.tradingsymbol} removed from watchlist',
+                          return Dismissible(
+                            key: Key(item.id),
+                            direction: DismissDirection.endToStart,
+                            background: Container(
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 20),
+                              color: Colors.red,
+                              child: const Icon(Icons.delete, color: Colors.white),
+                            ),
+                            onDismissed: (direction) {
+                              watchlistProvider.removeInstrument(item.id);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    '${instrument.tradingsymbol} removed from watchlist',
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
-                          child: _buildWatchlistCard(context, item, instrument),
-                        );
-                      },
+                              );
+                            },
+                            child: _buildWatchlistCard(context, item, instrument),
+                          );
+                        },
+                      ),
                     ),
                   );
                 },

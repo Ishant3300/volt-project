@@ -1,6 +1,8 @@
 import 'dart:developer';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
+import 'package:stocker/providers/user_profile_provider.dart';
 import 'pages/login_page.dart';
 import 'home_page.dart';
 
@@ -33,7 +35,15 @@ class _InitialScreenState extends State<InitialScreen> {
       if (!mounted) return;
       
       if (token != null && token.isNotEmpty) {
-        log('✅ Token found, navigating to home');
+        log('✅ Token found, fetching user profile...');
+        
+        // Fetch user profile
+        final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+        await profileProvider.fetchProfile();
+        
+        if (!mounted) return;
+        
+        log('✅ Profile loaded, navigating to home');
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(

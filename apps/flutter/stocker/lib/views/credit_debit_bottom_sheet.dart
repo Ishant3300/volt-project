@@ -1,7 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../models/master.dart';
+import '../models/user.dart';
+import '../services/api_service.dart';
+import '../services/admin_service.dart';
+import '../providers/user_profile_provider.dart';
 
 class CreditDebitBottomSheet extends StatefulWidget {
-  const CreditDebitBottomSheet({super.key});
+  final Master? master;
+  final User? user;
+  
+  const CreditDebitBottomSheet({super.key, this.master, this.user})
+      : assert(master != null || user != null, 'Either master or user must be provided');
 
   @override
   State<CreditDebitBottomSheet> createState() => _CreditDebitBottomSheetState();
@@ -9,6 +19,113 @@ class CreditDebitBottomSheet extends StatefulWidget {
 
 class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
   int _selectedTab = 0; // 0 for Credit, 1 for Debit
+  final TextEditingController _amountController = TextEditingController();
+  final TextEditingController _commentController = TextEditingController();
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSubmit() async {
+    final amount = double.tryParse(_amountController.text);
+    
+    if (amount == null || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please enter a valid amount')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      final adminService = AdminService(apiService);
+      
+      final isCredit = _selectedTab == 0;
+      final note = _commentController.text.trim().isEmpty ? null : _commentController.text.trim();
+      
+      if (widget.master != null) {
+        // Admin crediting/debiting master
+        final response = isCredit
+            ? await adminService.creditMaster(
+                masterId: widget.master!.id,
+                amount: amount,
+                note: note,
+              )
+            : await adminService.debitMaster(
+                masterId: widget.master!.id,
+                amount: amount,
+                note: note,
+              );
+        
+        if (response.statusCode == 200) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('${isCredit ? "Credit" : "Debit"} successful')),
+            );
+            Navigator.pop(context, true); // Return true to indicate success
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to ${isCredit ? "credit" : "debit"} amount')),
+            );
+          }
+        }
+      } else {
+        // Master crediting/debiting user
+        final response = isCredit
+            ? await adminService.creditUser(
+                userId: widget.user!.id,
+                amount: amount,
+                note: note,
+              )
+            : await adminService.debitUser(
+                userId: widget.user!.id,
+                amount: amount,
+                note: note,
+              );
+        
+        if (response.statusCode == 200) {
+          if (mounted) {
+            // Refresh the master profile to update credits
+            final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+            await profileProvider.fetchProfile();
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('${isCredit ? "Credit" : "Debit"} successful')),
+            );
+            Navigator.pop(context, true); // Return true to indicate success
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to ${isCredit ? "credit" : "debit"} amount')),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +233,7 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             child: Text(
-              'Available Credit: 50,000',
+              'Available Credit: ${(widget.master?.credits ?? widget.user?.credits ?? 0).toStringAsFixed(2)}',
               style: TextStyle(
                 color: Colors.black,
                 fontSize: 16,
@@ -139,24 +256,29 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
             ),
           ),
           SizedBox(height: 8),
-          Container(
-            width: double.infinity,
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: ShapeDecoration(
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                side: BorderSide(width: 1, color: const Color(0xFFD1D1D6)),
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: Text(
-              'Placeholder',
-              style: TextStyle(
+          TextField(
+            controller: _amountController,
+            keyboardType: TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              hintText: 'Enter amount',
+              hintStyle: TextStyle(
                 color: const Color(0xFF8E8E93),
                 fontSize: 16,
                 fontFamily: 'Inter',
                 fontWeight: FontWeight.w400,
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(width: 1, color: const Color(0xFFD1D1D6)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(width: 1, color: const Color(0xFFD1D1D6)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(width: 1, color: const Color(0xFF22547C)),
               ),
             ),
           ),
@@ -174,24 +296,29 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
             ),
           ),
           SizedBox(height: 8),
-          Container(
-            width: double.infinity,
-            height: 98,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: ShapeDecoration(
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                side: BorderSide(width: 1, color: const Color(0xFFC7C7CC)),
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: Text(
-              'Placeholder',
-              style: TextStyle(
+          TextField(
+            controller: _commentController,
+            maxLines: 4,
+            decoration: InputDecoration(
+              hintText: 'Add a comment (optional)',
+              hintStyle: TextStyle(
                 color: const Color(0xFF8E8E93),
                 fontSize: 16,
                 fontFamily: 'Inter',
                 fontWeight: FontWeight.w400,
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(width: 1, color: const Color(0xFFC7C7CC)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(width: 1, color: const Color(0xFFC7C7CC)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(width: 1, color: const Color(0xFF22547C)),
               ),
             ),
           ),
@@ -227,27 +354,37 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
               SizedBox(width: 16),
               Expanded(
                 child: GestureDetector(
-                  onTap: () {
-                    // Submit action
-                    Navigator.pop(context);
+                  onTap: _isLoading ? null : () {
+                    _handleSubmit();
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 18),
                     decoration: ShapeDecoration(
-                      color: const Color(0xFF22547C),
+                      color: _isLoading ? const Color(0xFF8E8E93) : const Color(0xFF22547C),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    child: Text(
-                      'SUBMIT',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
-                        height: 1.25,
-                      ),
-                    ),
+                    child: _isLoading
+                        ? Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            ),
+                          )
+                        : Text(
+                            'SUBMIT',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w600,
+                              height: 1.25,
+                            ),
+                          ),
                   ),
                 ),
               ),
