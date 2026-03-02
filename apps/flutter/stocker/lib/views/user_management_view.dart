@@ -40,14 +40,16 @@ class _UserManagementViewState extends State<UserManagementView> {
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
       final adminService = AdminService(apiService);
-      final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+      final profileProvider =
+          Provider.of<UserProfileProvider>(context, listen: false);
 
       if (profileProvider.isAdmin) {
         // Admin: Fetch all masters and users
         final mastersResponse = await adminService.getAllMasters(limit: 100);
         final usersResponse = await adminService.getAllUsers(limit: 100);
 
-        if (mastersResponse.statusCode == 200 && usersResponse.statusCode == 200) {
+        if (mastersResponse.statusCode == 200 &&
+            usersResponse.statusCode == 200) {
           final mastersData = jsonDecode(mastersResponse.body);
           final usersData = jsonDecode(usersResponse.body);
 
@@ -79,7 +81,8 @@ class _UserManagementViewState extends State<UserManagementView> {
         final mastersResponse = await adminService.getChildMasters(limit: 100);
         final usersResponse = await adminService.getChildUsers(limit: 100);
 
-        if (mastersResponse.statusCode == 200 && usersResponse.statusCode == 200) {
+        if (mastersResponse.statusCode == 200 &&
+            usersResponse.statusCode == 200) {
           final mastersData = jsonDecode(mastersResponse.body);
           final usersData = jsonDecode(usersResponse.body);
 
@@ -118,16 +121,16 @@ class _UserManagementViewState extends State<UserManagementView> {
 
   List<dynamic> get _filteredItems {
     final allItems = <dynamic>[..._masters, ..._users];
-    
+
     if (_searchQuery.isEmpty) {
       return allItems;
     }
-    
+
     return allItems.where((item) {
       final username = item is Master ? item.username : (item as User).username;
       final name = item is Master ? item.name : (item as User).name;
       return username.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-             name.toLowerCase().contains(_searchQuery.toLowerCase());
+          name.toLowerCase().contains(_searchQuery.toLowerCase());
     }).toList();
   }
 
@@ -154,7 +157,9 @@ class _UserManagementViewState extends State<UserManagementView> {
                       Consumer<UserProfileProvider>(
                         builder: (context, profileProvider, child) {
                           return Text(
-                            profileProvider.isAdmin ? 'Master and User Management' : 'User Management',
+                            profileProvider.isAdmin
+                                ? 'Master and User Management'
+                                : 'User Management',
                             style: TextStyle(
                               color: Colors.black,
                               fontSize: 16,
@@ -189,7 +194,8 @@ class _UserManagementViewState extends State<UserManagementView> {
                   Expanded(
                     child: Row(
                       children: [
-                        Icon(Icons.search, size: 24, color: const Color(0xFF8E8E93)),
+                        Icon(Icons.search,
+                            size: 24, color: const Color(0xFF8E8E93)),
                         SizedBox(width: 10),
                         Expanded(
                           child: TextField(
@@ -215,7 +221,8 @@ class _UserManagementViewState extends State<UserManagementView> {
                       ],
                     ),
                   ),
-                  Icon(Icons.filter_list, size: 24, color: const Color(0xFF8E8E93)),
+                  Icon(Icons.filter_list,
+                      size: 24, color: const Color(0xFF8E8E93)),
                 ],
               ),
             ),
@@ -231,7 +238,8 @@ class _UserManagementViewState extends State<UserManagementView> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text(_error!, style: TextStyle(color: Colors.red)),
+                              Text(_error!,
+                                  style: TextStyle(color: Colors.red)),
                               SizedBox(height: 16),
                               ElevatedButton(
                                 onPressed: _fetchData,
@@ -243,7 +251,9 @@ class _UserManagementViewState extends State<UserManagementView> {
                       : _filteredItems.isEmpty
                           ? Center(
                               child: Text(
-                                _searchQuery.isEmpty ? 'No users or masters found' : 'No results found',
+                                _searchQuery.isEmpty
+                                    ? 'No users or masters found'
+                                    : 'No results found',
                                 style: TextStyle(
                                   color: const Color(0xFF8E8E93),
                                   fontSize: 16,
@@ -252,17 +262,27 @@ class _UserManagementViewState extends State<UserManagementView> {
                               ),
                             )
                           : ListView.separated(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
                               itemCount: _filteredItems.length,
-                              separatorBuilder: (context, index) => SizedBox(height: 4),
+                              separatorBuilder: (context, index) =>
+                                  SizedBox(height: 4),
                               itemBuilder: (context, index) {
                                 final item = _filteredItems[index];
                                 final isMaster = item is Master;
-                                final username = isMaster ? item.username : (item as User).username;
-                                final credits = isMaster ? item.credits : (item as User).credits;
-                                final pnlSharing = isMaster ? item.pnlSharing : (item as User).pnlSharing;
-                                final isActive = isMaster ? item.activeStatus : (item as User).status == 'active';
-                                
+                                final username = isMaster
+                                    ? item.username
+                                    : (item as User).username;
+                                final balance = isMaster
+                                    ? item.balance
+                                    : (item as User).balance;
+                                final pnlSharing = isMaster
+                                    ? item.pnlSharing
+                                    : (item as User).pnlSharing;
+                                final isActive = isMaster
+                                    ? item.activeStatus
+                                    : (item as User).status == 'active';
+
                                 return GestureDetector(
                                   onTap: () async {
                                     final result = await Navigator.push(
@@ -274,7 +294,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                                         ),
                                       ),
                                     );
-                                    
+
                                     // Refresh data if changes were made
                                     if (result == true) {
                                       _fetchData();
@@ -290,14 +310,18 @@ class _UserManagementViewState extends State<UserManagementView> {
                                     ),
                                     child: Row(
                                       children: [
-                                        Icon(Icons.person, size: 24, color: Colors.black),
+                                        Icon(Icons.person,
+                                            size: 24, color: Colors.black),
                                         SizedBox(width: 10),
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
                                                 children: [
                                                   Expanded(
                                                     child: Text(
@@ -306,44 +330,78 @@ class _UserManagementViewState extends State<UserManagementView> {
                                                         color: Colors.black,
                                                         fontSize: 14,
                                                         fontFamily: 'Inter',
-                                                        fontWeight: FontWeight.w400,
+                                                        fontWeight:
+                                                            FontWeight.w400,
                                                       ),
-                                                      overflow: TextOverflow.ellipsis,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                     ),
                                                   ),
                                                   SizedBox(width: 8),
                                                   Row(
                                                     children: [
                                                       Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                        decoration: ShapeDecoration(
-                                                          color: isMaster ? const Color(0xFF007AFF) : const Color(0xFFFF9500),
-                                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 4,
+                                                                vertical: 2),
+                                                        decoration:
+                                                            ShapeDecoration(
+                                                          color: isMaster
+                                                              ? const Color(
+                                                                  0xFF007AFF)
+                                                              : const Color(
+                                                                  0xFFFF9500),
+                                                          shape: RoundedRectangleBorder(
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          4)),
                                                         ),
                                                         child: Text(
-                                                          isMaster ? 'MASTER' : 'USER',
+                                                          isMaster
+                                                              ? 'MASTER'
+                                                              : 'USER',
                                                           style: TextStyle(
                                                             color: Colors.white,
                                                             fontSize: 10,
                                                             fontFamily: 'Inter',
-                                                            fontWeight: FontWeight.w500,
+                                                            fontWeight:
+                                                                FontWeight.w500,
                                                           ),
                                                         ),
                                                       ),
                                                       SizedBox(width: 4),
                                                       Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                        decoration: ShapeDecoration(
-                                                          color: isActive ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
-                                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 4,
+                                                                vertical: 2),
+                                                        decoration:
+                                                            ShapeDecoration(
+                                                          color: isActive
+                                                              ? const Color(
+                                                                  0xFF34C759)
+                                                              : const Color(
+                                                                  0xFFFF3B30),
+                                                          shape: RoundedRectangleBorder(
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          4)),
                                                         ),
                                                         child: Text(
-                                                          isActive ? 'ACTIVE' : 'INACTIVE',
+                                                          isActive
+                                                              ? 'ACTIVE'
+                                                              : 'INACTIVE',
                                                           style: TextStyle(
                                                             color: Colors.white,
                                                             fontSize: 10,
                                                             fontFamily: 'Inter',
-                                                            fontWeight: FontWeight.w400,
+                                                            fontWeight:
+                                                                FontWeight.w400,
                                                           ),
                                                         ),
                                                       ),
@@ -353,25 +411,34 @@ class _UserManagementViewState extends State<UserManagementView> {
                                               ),
                                               SizedBox(height: 6),
                                               Container(
-                                                padding: const EdgeInsets.only(top: 6),
+                                                padding: const EdgeInsets.only(
+                                                    top: 6),
                                                 decoration: BoxDecoration(
                                                   border: Border(
-                                                    bottom: BorderSide(width: 1, color: const Color(0xFFD1D1D6)),
+                                                    bottom: BorderSide(
+                                                        width: 1,
+                                                        color: const Color(
+                                                            0xFFD1D1D6)),
                                                   ),
                                                 ),
                                                 child: Row(
-                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment
+                                                          .spaceBetween,
                                                   children: [
                                                     Flexible(
                                                       child: Text(
-                                                        'CREDIT: ${credits.toStringAsFixed(2)}',
+                                                        'BAL: ${balance.toStringAsFixed(2)}',
                                                         style: TextStyle(
-                                                          color: const Color(0xFF007AFF),
+                                                          color: const Color(
+                                                              0xFF007AFF),
                                                           fontSize: 11,
                                                           fontFamily: 'Inter',
-                                                          fontWeight: FontWeight.w500,
+                                                          fontWeight:
+                                                              FontWeight.w500,
                                                         ),
-                                                        overflow: TextOverflow.ellipsis,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
                                                       ),
                                                     ),
                                                     SizedBox(width: 4),
@@ -382,9 +449,11 @@ class _UserManagementViewState extends State<UserManagementView> {
                                                           color: Colors.black,
                                                           fontSize: 11,
                                                           fontFamily: 'Inter',
-                                                          fontWeight: FontWeight.w500,
+                                                          fontWeight:
+                                                              FontWeight.w500,
                                                         ),
-                                                        overflow: TextOverflow.ellipsis,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
                                                       ),
                                                     ),
                                                   ],
@@ -412,7 +481,8 @@ class _UserManagementViewState extends State<UserManagementView> {
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 decoration: ShapeDecoration(
                   color: const Color(0xFF22547C),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                 ),
                 child: Text(
                   'CREATE',
@@ -433,11 +503,12 @@ class _UserManagementViewState extends State<UserManagementView> {
   }
 
   void _showCreateOptionsBottomSheet(BuildContext context) {
-    final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+    final profileProvider =
+        Provider.of<UserProfileProvider>(context, listen: false);
     final isAdmin = profileProvider.isAdmin;
     final isMaster = profileProvider.isMaster;
     final canAddMaster = profileProvider.canAddMaster;
-    
+
     // Debug logging
     log('🔍 Bottom sheet debug:');
     log('   isAdmin: $isAdmin');
@@ -446,7 +517,7 @@ class _UserManagementViewState extends State<UserManagementView> {
     log('   role: ${profileProvider.role}');
     log('   master: ${profileProvider.master?.username}');
     log('   master.addMaster: ${profileProvider.master?.addMaster}');
-    
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -472,9 +543,9 @@ class _UserManagementViewState extends State<UserManagementView> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              
+
               const SizedBox(height: 20),
-              
+
               // Title
               const Text(
                 'Create New',
@@ -485,9 +556,9 @@ class _UserManagementViewState extends State<UserManagementView> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              
+
               const SizedBox(height: 20),
-              
+
               // Create Master Option
               // Show for: Admin (always) OR Master with add_master=true
               if (isAdmin || (isMaster && canAddMaster))
@@ -565,9 +636,10 @@ class _UserManagementViewState extends State<UserManagementView> {
                     ),
                   ),
                 ),
-              
-              if (isAdmin || (isMaster && canAddMaster)) const SizedBox(height: 12),
-              
+
+              if (isAdmin || (isMaster && canAddMaster))
+                const SizedBox(height: 12),
+
               // Create User Option
               // Show for: Master (always, including those with add_master=true)
               // Hide for: Admin (admins can only create masters)
@@ -646,9 +718,9 @@ class _UserManagementViewState extends State<UserManagementView> {
                     ),
                   ),
                 ),
-              
+
               const SizedBox(height: 12),
-              
+
               // Cancel Button
               GestureDetector(
                 onTap: () => Navigator.pop(context),
@@ -674,7 +746,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 32),
             ],
           ),

@@ -1,18 +1,24 @@
-# Stocker — Product Overview
+# Product Overview
 
-Stocker is a stock trading and portfolio management platform built for the Indian stock market. It integrates with Zerodha's Kite Connect API for real-time market data, instrument search, option chains, and market depth.
+Stocker is a Flutter-based stock trading management application that integrates with Kite (Zerodha's trading platform) for real-time market data and trading operations.
 
-The system has two user roles:
-- **Admin**: Manages users, masters, servers, brokerage settings, trade margins, and platform configuration.
-- **User**: Views watchlists with live prices, places orders, tracks trade history, and manages their portfolio.
+## Core Functionality
 
-Key capabilities:
-- Real-time price streaming via WebSocket
-- Watchlist management with live price updates
-- Option chain and market depth views
-- Order placement (buy/sell) with stop-loss and trigger prices
-- Admin dashboard for user management, credit/balance tracking, and settlement reports
-- Automated Kite login via Puppeteer for unattended server starts
-- Instrument data fetched daily from Kite and stored in MongoDB (FUT, CE, PE, EQ types)
+- User authentication and authorization with JWT tokens
+- Real-time stock price monitoring via WebSocket connections
+- Watchlist management for tracking instruments
+- Trade execution and order management
+- Position tracking (intraday and margin trades)
+- Market depth and option chain analysis
+- Admin panel for user and master account management
+- Trade history and profit/loss reporting
+- Brokerage and quantity settings configuration
 
-The backend runs as a Node.js/Express API server. The frontend is a cross-platform Flutter app (mobile + web).
+## User Roles
+
+- Regular users: Execute trades, manage watchlists, view positions
+- Admin users: Manage users, configure settings, view reports, control market hours
+
+## Backend Integration
+
+The app communicates with a backend API (default: http://127.0.0.1:3000) for authentication, trade management, and data persistence. Real-time market data is fetched via Kite API integration.

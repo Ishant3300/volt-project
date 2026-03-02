@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
+import 'package:stocker/providers/trade_metrics_provider.dart';
 import 'pages/login_page.dart';
 import 'home_page.dart';
 
@@ -25,24 +26,31 @@ class _InitialScreenState extends State<InitialScreen> {
 
   Future<void> _checkAuthStatus() async {
     log('🔐 Checking authentication status...');
-    
+
     // Small delay for splash screen effect
     await Future.delayed(const Duration(seconds: 1));
-    
+
     try {
       final token = await _storage.getToken();
-      
+
       if (!mounted) return;
-      
+
       if (token != null && token.isNotEmpty) {
         log('✅ Token found, fetching user profile...');
-        
+
         // Fetch user profile
-        final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+        final profileProvider =
+            Provider.of<UserProfileProvider>(context, listen: false);
         await profileProvider.fetchProfile();
-        
+
+        // Fetch base trade data
         if (!mounted) return;
-        
+        final tradeMetricsProvider =
+            Provider.of<TradeMetricsProvider>(context, listen: false);
+        await tradeMetricsProvider.fetchBaseData();
+
+        if (!mounted) return;
+
         log('✅ Profile loaded, navigating to home');
         Navigator.pushReplacement(
           context,
@@ -109,7 +117,7 @@ class Screen extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             // Bottom indicator
             Positioned(
               left: 0,
@@ -128,7 +136,7 @@ class Screen extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             // Tap instruction
             Positioned(
               left: 0,

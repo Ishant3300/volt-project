@@ -37,21 +37,28 @@ class Trade {
 
   factory Trade.fromJson(Map<String, dynamic> json) {
     return Trade(
-      id: json['id']?.toString() ?? '',
+      id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
       userId: json['user_id']?.toString() ?? '',
       masterId: json['master_id']?.toString(),
       instrumentToken: json['instrument_token']?.toString() ?? '',
-      tradingSymbol: json['trading_symbol']?.toString() ?? '',
+      tradingSymbol: json['tradingsymbol']?.toString() ??
+          json['trading_symbol']?.toString() ??
+          '',
       exchange: json['exchange']?.toString() ?? '',
       transactionType: json['transaction_type']?.toString() ?? '',
-      quantity: json['quantity'] as int? ?? 0,
-      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      quantity:
+          json['executed_quantity'] as int? ?? json['quantity'] as int? ?? 0,
+      price: (json['executed_price'] as num?)?.toDouble() ??
+          (json['price'] as num?)?.toDouble() ??
+          0.0,
       orderType: json['order_type']?.toString(),
       productType: json['product_type']?.toString(),
       status: json['status']?.toString() ?? '',
       userName: json['user_name']?.toString(),
       masterName: json['master_name']?.toString(),
-      createdAt: json['created_at']?.toString() ?? '',
+      createdAt: json['executed_at']?.toString() ??
+          json['created_at']?.toString() ??
+          '',
       updatedAt: json['updated_at']?.toString() ?? '',
     );
   }

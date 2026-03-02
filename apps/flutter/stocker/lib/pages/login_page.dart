@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/services/auth_service.dart';
+import 'package:stocker/providers/trade_metrics_provider.dart';
 import '../home_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -73,11 +74,12 @@ class _LoginPageState extends State<LoginPage> {
       if (mounted) {
         if (response.success) {
           // Login successful - fetch user profile
-          final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+          final profileProvider =
+              Provider.of<UserProfileProvider>(context, listen: false);
           await profileProvider.fetchProfile();
-          
+
           if (!mounted) return;
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(response.message),
@@ -86,8 +88,14 @@ class _LoginPageState extends State<LoginPage> {
           );
 
           // Reload watchlist after login
-          final watchlistProvider = Provider.of<WatchlistProvider>(context, listen: false);
+          final watchlistProvider =
+              Provider.of<WatchlistProvider>(context, listen: false);
           watchlistProvider.loadWatchlist();
+
+          // Fetch trade history and metrics base data
+          final tradeMetricsProvider =
+              Provider.of<TradeMetricsProvider>(context, listen: false);
+          tradeMetricsProvider.fetchBaseData();
 
           // Navigate to home page
           Navigator.pushReplacement(
@@ -265,7 +273,8 @@ class _LoginPageState extends State<LoginPage> {
                             child: DropdownButtonHideUnderline(
                               child: DropdownButton<String>(
                                 value: _selectedRole,
-                                items: ['ADMIN', 'MASTER', 'USER'].map((String value) {
+                                items: ['ADMIN', 'MASTER', 'USER']
+                                    .map((String value) {
                                   return DropdownMenuItem<String>(
                                     value: value,
                                     child: Text(value),

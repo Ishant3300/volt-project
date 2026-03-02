@@ -13,7 +13,7 @@ class MasterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final balance = master.credits.toStringAsFixed(2);
+    final balance = master.balance.toStringAsFixed(2);
     final credit = master.credits.toStringAsFixed(2);
     final plShare = '${master.pnlSharing.toStringAsFixed(1)}%';
 
@@ -51,9 +51,12 @@ class MasterCard extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                   decoration: BoxDecoration(
-                    color: master.activeStatus ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
+                    color: master.activeStatus
+                        ? const Color(0xFF34C759)
+                        : const Color(0xFFFF3B30),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(

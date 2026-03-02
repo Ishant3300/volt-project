@@ -47,10 +47,10 @@ class _MasterManagementViewState extends State<MasterManagementView> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        
+
         if (data['success'] == true) {
           final List<dynamic> mastersJson = data['data']['masters'] ?? [];
-          
+
           final List<Master> fetchedMasters = [];
           for (var i = 0; i < mastersJson.length; i++) {
             try {
@@ -101,10 +101,12 @@ class _MasterManagementViewState extends State<MasterManagementView> {
     if (_searchQuery.isEmpty) {
       return _masters;
     }
-    
+
     return _masters.where((master) {
-      return master.username.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-             master.name.toLowerCase().contains(_searchQuery.toLowerCase());
+      return master.username
+              .toLowerCase()
+              .contains(_searchQuery.toLowerCase()) ||
+          master.name.toLowerCase().contains(_searchQuery.toLowerCase());
     }).toList();
   }
 
@@ -162,7 +164,8 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                   Expanded(
                     child: Row(
                       children: [
-                        Icon(Icons.search, size: 24, color: const Color(0xFF8E8E93)),
+                        Icon(Icons.search,
+                            size: 24, color: const Color(0xFF8E8E93)),
                         SizedBox(width: 10),
                         Expanded(
                           child: TextField(
@@ -188,7 +191,8 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                       ],
                     ),
                   ),
-                  Icon(Icons.filter_list, size: 24, color: const Color(0xFF8E8E93)),
+                  Icon(Icons.filter_list,
+                      size: 24, color: const Color(0xFF8E8E93)),
                 ],
               ),
             ),
@@ -204,7 +208,8 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text(_errorMessage!, style: TextStyle(color: Colors.red)),
+                              Text(_errorMessage!,
+                                  style: TextStyle(color: Colors.red)),
                               SizedBox(height: 16),
                               ElevatedButton(
                                 onPressed: _fetchMasters,
@@ -216,7 +221,9 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                       : _filteredMasters.isEmpty
                           ? Center(
                               child: Text(
-                                _searchQuery.isEmpty ? 'No masters found' : 'No results found',
+                                _searchQuery.isEmpty
+                                    ? 'No masters found'
+                                    : 'No results found',
                                 style: TextStyle(
                                   color: const Color(0xFF8E8E93),
                                   fontSize: 16,
@@ -225,21 +232,25 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                               ),
                             )
                           : ListView.separated(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
                               itemCount: _filteredMasters.length,
-                              separatorBuilder: (context, index) => SizedBox(height: 4),
+                              separatorBuilder: (context, index) =>
+                                  SizedBox(height: 4),
                               itemBuilder: (context, index) {
                                 final master = _filteredMasters[index];
-                                
+
                                 return GestureDetector(
                                   onTap: () async {
                                     final result = await Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => MasterManagementCardView(master: master),
+                                        builder: (context) =>
+                                            MasterManagementCardView(
+                                                master: master),
                                       ),
                                     );
-                                    
+
                                     // Refresh data if changes were made
                                     if (result == true) {
                                       _fetchMasters();
@@ -255,35 +266,52 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                                     ),
                                     child: Row(
                                       children: [
-                                        Icon(Icons.person, size: 24, color: Colors.black),
+                                        Icon(Icons.person,
+                                            size: 24, color: Colors.black),
                                         SizedBox(width: 10),
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment
+                                                        .spaceBetween,
                                                 children: [
                                                   Expanded(
                                                     child: Text(
-                                                      master.username.toUpperCase(),
+                                                      master.username
+                                                          .toUpperCase(),
                                                       style: TextStyle(
                                                         color: Colors.black,
                                                         fontSize: 14,
                                                         fontFamily: 'Inter',
-                                                        fontWeight: FontWeight.w400,
+                                                        fontWeight:
+                                                            FontWeight.w400,
                                                       ),
-                                                      overflow: TextOverflow.ellipsis,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                     ),
                                                   ),
                                                   SizedBox(width: 8),
                                                   Row(
                                                     children: [
                                                       Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                        decoration: ShapeDecoration(
-                                                          color: const Color(0xFF007AFF),
-                                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 4,
+                                                                vertical: 2),
+                                                        decoration:
+                                                            ShapeDecoration(
+                                                          color: const Color(
+                                                              0xFF007AFF),
+                                                          shape: RoundedRectangleBorder(
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          4)),
                                                         ),
                                                         child: Text(
                                                           'MASTER',
@@ -291,24 +319,42 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                                                             color: Colors.white,
                                                             fontSize: 10,
                                                             fontFamily: 'Inter',
-                                                            fontWeight: FontWeight.w500,
+                                                            fontWeight:
+                                                                FontWeight.w500,
                                                           ),
                                                         ),
                                                       ),
                                                       SizedBox(width: 4),
                                                       Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                        decoration: ShapeDecoration(
-                                                          color: master.activeStatus ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
-                                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                                                        padding:
+                                                            const EdgeInsets
+                                                                .symmetric(
+                                                                horizontal: 4,
+                                                                vertical: 2),
+                                                        decoration:
+                                                            ShapeDecoration(
+                                                          color: master
+                                                                  .activeStatus
+                                                              ? const Color(
+                                                                  0xFF34C759)
+                                                              : const Color(
+                                                                  0xFFFF3B30),
+                                                          shape: RoundedRectangleBorder(
+                                                              borderRadius:
+                                                                  BorderRadius
+                                                                      .circular(
+                                                                          4)),
                                                         ),
                                                         child: Text(
-                                                          master.activeStatus ? 'ACTIVE' : 'INACTIVE',
+                                                          master.activeStatus
+                                                              ? 'ACTIVE'
+                                                              : 'INACTIVE',
                                                           style: TextStyle(
                                                             color: Colors.white,
                                                             fontSize: 10,
                                                             fontFamily: 'Inter',
-                                                            fontWeight: FontWeight.w400,
+                                                            fontWeight:
+                                                                FontWeight.w400,
                                                           ),
                                                         ),
                                                       ),
@@ -318,25 +364,34 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                                               ),
                                               SizedBox(height: 6),
                                               Container(
-                                                padding: const EdgeInsets.only(top: 6),
+                                                padding: const EdgeInsets.only(
+                                                    top: 6),
                                                 decoration: BoxDecoration(
                                                   border: Border(
-                                                    bottom: BorderSide(width: 1, color: const Color(0xFFD1D1D6)),
+                                                    bottom: BorderSide(
+                                                        width: 1,
+                                                        color: const Color(
+                                                            0xFFD1D1D6)),
                                                   ),
                                                 ),
                                                 child: Row(
-                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment
+                                                          .spaceBetween,
                                                   children: [
                                                     Flexible(
                                                       child: Text(
-                                                        'CREDIT: ${master.credits.toStringAsFixed(2)}',
+                                                        'BAL: ${master.balance.toStringAsFixed(2)}',
                                                         style: TextStyle(
-                                                          color: const Color(0xFF007AFF),
+                                                          color: const Color(
+                                                              0xFF007AFF),
                                                           fontSize: 11,
                                                           fontFamily: 'Inter',
-                                                          fontWeight: FontWeight.w500,
+                                                          fontWeight:
+                                                              FontWeight.w500,
                                                         ),
-                                                        overflow: TextOverflow.ellipsis,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
                                                       ),
                                                     ),
                                                     SizedBox(width: 4),
@@ -347,9 +402,11 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                                                           color: Colors.black,
                                                           fontSize: 11,
                                                           fontFamily: 'Inter',
-                                                          fontWeight: FontWeight.w500,
+                                                          fontWeight:
+                                                              FontWeight.w500,
                                                         ),
-                                                        overflow: TextOverflow.ellipsis,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
                                                       ),
                                                     ),
                                                   ],

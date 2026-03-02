@@ -9,7 +9,7 @@ import '../providers/user_profile_provider.dart';
 
 class CreateMasterView extends StatefulWidget {
   final Master? master; // If provided, we're in edit mode
-  
+
   const CreateMasterView({super.key, this.master});
 
   @override
@@ -20,7 +20,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
   final TextEditingController _creditController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
   final TextEditingController _profitLossController = TextEditingController();
@@ -32,7 +33,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   String? _selectedServerId;
   List<Map<String, dynamic>> _servers = [];
   bool _isLoadingServers = false;
-  
+
   Map<String, bool> _exchangeAllow = {
     'NSE': false,
     'MCX': false,
@@ -67,23 +68,23 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   @override
   void initState() {
     super.initState();
-    
+
     // Fetch servers for admin users
     _fetchServers();
-    
+
     // Add listeners to P&L and Brokerage controllers for real-time updates
     _profitLossController.addListener(() {
       setState(() {
         // Trigger rebuild to update "Remaining" display
       });
     });
-    
+
     _brkSharingController.addListener(() {
       setState(() {
         // Trigger rebuild to update "Remaining" display
       });
     });
-    
+
     // If we're editing an existing master, pre-fill the form
     if (widget.master != null) {
       final master = widget.master!;
@@ -93,18 +94,18 @@ class _CreateMasterViewState extends State<CreateMasterView> {
       _noteController.text = master.note;
       _profitLossController.text = master.pnlSharing.toString();
       _brkSharingController.text = master.brokerageSharing.toString();
-      
+
       _addMaster = master.addMaster; // Load the current value
       _changePasswordOnFirstLogin = master.changePassOnFirstLogin;
       _selectedServerId = master.serverId;
-      
+
       // Set exchange allow
       for (var exchange in master.exchangesAllowed) {
         if (_exchangeAllow.containsKey(exchange)) {
           _exchangeAllow[exchange] = true;
         }
       }
-      
+
       // Set high low between trade limit (tradeLimit in the model)
       for (var exchange in master.tradeLimit) {
         if (_highLowBetweenTradeLimit.containsKey(exchange)) {
@@ -122,15 +123,16 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
       final adminService = AdminService(apiService);
-      
+
       // Fetch all servers
       final response = await adminService.getAllServers();
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true && data['data'] != null) {
           setState(() {
-            _servers = List<Map<String, dynamic>>.from(data['data']['servers'] ?? []);
+            _servers =
+                List<Map<String, dynamic>>.from(data['data']['servers'] ?? []);
             _isLoadingServers = false;
           });
           log('✅ Loaded ${_servers.length} servers');
@@ -208,9 +210,12 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                       ),
                       child: Column(
                         children: [
-                          _buildTextField(label: 'Name', controller: _nameController),
+                          _buildTextField(
+                              label: 'Name', controller: _nameController),
                           const SizedBox(height: 16),
-                          _buildTextField(label: 'Username', controller: _usernameController),
+                          _buildTextField(
+                              label: 'Username',
+                              controller: _usernameController),
                           const SizedBox(height: 16),
                           // Server selection dropdown (for Admin users)
                           Consumer<UserProfileProvider>(
@@ -221,15 +226,23 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                                   children: [
                                     _buildDropdownField(
                                       label: 'Server',
-                                      hint: _isLoadingServers ? 'Loading servers...' : 'Select Server',
+                                      hint: _isLoadingServers
+                                          ? 'Loading servers...'
+                                          : 'Select Server',
                                       value: _selectedServerId,
                                       onChanged: (value) {
                                         setState(() {
                                           _selectedServerId = value;
                                         });
                                       },
-                                      items: _servers.map((server) => server['id'] as String).toList(),
-                                      itemLabels: _servers.map((server) => server['name'] as String).toList(),
+                                      items: _servers
+                                          .map((server) =>
+                                              server['id'] as String)
+                                          .toList(),
+                                      itemLabels: _servers
+                                          .map((server) =>
+                                              server['name'] as String)
+                                          .toList(),
                                     ),
                                     const SizedBox(height: 16),
                                   ],
@@ -242,14 +255,18 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                             label: 'Password',
                             controller: _passwordController,
                             obscureText: true,
-                            hint: widget.master != null ? 'Leave empty to keep current password' : 'Enter password',
+                            hint: widget.master != null
+                                ? 'Leave empty to keep current password'
+                                : 'Enter password',
                           ),
                           const SizedBox(height: 16),
                           _buildTextField(
                             label: 'Confirm Password',
                             controller: _confirmPasswordController,
                             obscureText: true,
-                            hint: widget.master != null ? 'Leave empty to keep current password' : 'Confirm password',
+                            hint: widget.master != null
+                                ? 'Leave empty to keep current password'
+                                : 'Confirm password',
                           ),
                           const SizedBox(height: 16),
                           _buildTextField(
@@ -258,7 +275,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                             keyboardType: TextInputType.number,
                           ),
                           const SizedBox(height: 16),
-                          _buildTextField(label: 'Note/Remark', controller: _noteController),
+                          _buildTextField(
+                              label: 'Note/Remark',
+                              controller: _noteController),
                         ],
                       ),
                     ),
@@ -280,12 +299,18 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                     // Profit & Loss Sharing
                     Builder(
                       builder: (context) {
-                        final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+                        final profileProvider =
+                            Provider.of<UserProfileProvider>(context,
+                                listen: false);
                         final isMaster = profileProvider.isMaster;
-                        final parentPnl = profileProvider.master?.pnlSharing ?? 100;
-                        final enteredPnl = double.tryParse(_profitLossController.text) ?? 0;
-                        final remainingPnl = isMaster ? (parentPnl - enteredPnl) : (100 - enteredPnl);
-                        
+                        final parentPnl =
+                            profileProvider.master?.pnlSharing ?? 100;
+                        final enteredPnl =
+                            double.tryParse(_profitLossController.text) ?? 0;
+                        final remainingPnl = isMaster
+                            ? (parentPnl - enteredPnl)
+                            : (100 - enteredPnl);
+
                         return Container(
                           padding: const EdgeInsets.all(16),
                           decoration: ShapeDecoration(
@@ -316,7 +341,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                                 children: [
                                   Expanded(
                                     child: _buildInfoBox(
-                                      isMaster ? 'Our: ${parentPnl.toStringAsFixed(1)}' : 'Our: 100',
+                                      isMaster
+                                          ? 'Our: ${parentPnl.toStringAsFixed(1)}'
+                                          : 'Our: 100',
                                       const Color(0xFF22547C),
                                     ),
                                   ),
@@ -324,7 +351,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                                   Expanded(
                                     child: _buildInfoBox(
                                       'Remaining: ${remainingPnl.toStringAsFixed(1)}',
-                                      remainingPnl < 0 ? const Color(0xFFFF3B30) : const Color(0xFF34C759),
+                                      remainingPnl < 0
+                                          ? const Color(0xFFFF3B30)
+                                          : const Color(0xFF34C759),
                                     ),
                                   ),
                                 ],
@@ -340,12 +369,18 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                     // BRK Sharing
                     Builder(
                       builder: (context) {
-                        final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+                        final profileProvider =
+                            Provider.of<UserProfileProvider>(context,
+                                listen: false);
                         final isMaster = profileProvider.isMaster;
-                        final parentBrk = profileProvider.master?.brokerageSharing ?? 100;
-                        final enteredBrk = double.tryParse(_brkSharingController.text) ?? 0;
-                        final remainingBrk = isMaster ? (parentBrk - enteredBrk) : (100 - enteredBrk);
-                        
+                        final parentBrk =
+                            profileProvider.master?.brokerageSharing ?? 100;
+                        final enteredBrk =
+                            double.tryParse(_brkSharingController.text) ?? 0;
+                        final remainingBrk = isMaster
+                            ? (parentBrk - enteredBrk)
+                            : (100 - enteredBrk);
+
                         return Container(
                           padding: const EdgeInsets.all(16),
                           decoration: ShapeDecoration(
@@ -376,7 +411,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                                 children: [
                                   Expanded(
                                     child: _buildInfoBox(
-                                      isMaster ? 'Our: ${parentBrk.toStringAsFixed(1)}' : 'Our: 100',
+                                      isMaster
+                                          ? 'Our: ${parentBrk.toStringAsFixed(1)}'
+                                          : 'Our: 100',
                                       const Color(0xFF22547C),
                                     ),
                                   ),
@@ -384,7 +421,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                                   Expanded(
                                     child: _buildInfoBox(
                                       'Remaining: ${remainingBrk.toStringAsFixed(1)}',
-                                      remainingBrk < 0 ? const Color(0xFFFF3B30) : const Color(0xFF34C759),
+                                      remainingBrk < 0
+                                          ? const Color(0xFFFF3B30)
+                                          : const Color(0xFF34C759),
                                     ),
                                   ),
                                 ],
@@ -413,11 +452,14 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                         GestureDetector(
                           onTap: () {
                             setState(() {
-                              bool allSelected = _exchangeAllow.values.every((v) => v);
-                              _exchangeAllow.updateAll((key, value) => !allSelected);
+                              bool allSelected =
+                                  _exchangeAllow.values.every((v) => v);
+                              _exchangeAllow
+                                  .updateAll((key, value) => !allSelected);
                             });
                           },
-                          child: const Icon(Icons.check_circle_outline, size: 24),
+                          child:
+                              const Icon(Icons.check_circle_outline, size: 24),
                         ),
                       ],
                     ),
@@ -436,13 +478,15 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                           Row(
                             children: [
                               Expanded(
-                                child: _buildCheckboxItem('NSE', _exchangeAllow['NSE']!, (value) {
+                                child: _buildCheckboxItem(
+                                    'NSE', _exchangeAllow['NSE']!, (value) {
                                   setState(() => _exchangeAllow['NSE'] = value);
                                 }),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: _buildCheckboxItem('MCX', _exchangeAllow['MCX']!, (value) {
+                                child: _buildCheckboxItem(
+                                    'MCX', _exchangeAllow['MCX']!, (value) {
                                   setState(() => _exchangeAllow['MCX'] = value);
                                 }),
                               ),
@@ -452,14 +496,18 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                           Row(
                             children: [
                               Expanded(
-                                child: _buildCheckboxItem('SGX', _exchangeAllow['SGX']!, (value) {
+                                child: _buildCheckboxItem(
+                                    'SGX', _exchangeAllow['SGX']!, (value) {
                                   setState(() => _exchangeAllow['SGX'] = value);
                                 }),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: _buildCheckboxItem('CALLPUT', _exchangeAllow['CALLPUT']!, (value) {
-                                  setState(() => _exchangeAllow['CALLPUT'] = value);
+                                child: _buildCheckboxItem(
+                                    'CALLPUT', _exchangeAllow['CALLPUT']!,
+                                    (value) {
+                                  setState(
+                                      () => _exchangeAllow['CALLPUT'] = value);
                                 }),
                               ),
                             ],
@@ -468,14 +516,20 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                           Row(
                             children: [
                               Expanded(
-                                child: _buildCheckboxItem('OTHERS', _exchangeAllow['OTHERS']!, (value) {
-                                  setState(() => _exchangeAllow['OTHERS'] = value);
+                                child: _buildCheckboxItem(
+                                    'OTHERS', _exchangeAllow['OTHERS']!,
+                                    (value) {
+                                  setState(
+                                      () => _exchangeAllow['OTHERS'] = value);
                                 }),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: _buildCheckboxItem('MCX-OPT', _exchangeAllow['MCX-OPT']!, (value) {
-                                  setState(() => _exchangeAllow['MCX-OPT'] = value);
+                                child: _buildCheckboxItem(
+                                    'MCX-OPT', _exchangeAllow['MCX-OPT']!,
+                                    (value) {
+                                  setState(
+                                      () => _exchangeAllow['MCX-OPT'] = value);
                                 }),
                               ),
                             ],
@@ -502,11 +556,15 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                         GestureDetector(
                           onTap: () {
                             setState(() {
-                              bool allSelected = _highLowBetweenTradeLimit.values.every((v) => v);
-                              _highLowBetweenTradeLimit.updateAll((key, value) => !allSelected);
+                              bool allSelected = _highLowBetweenTradeLimit
+                                  .values
+                                  .every((v) => v);
+                              _highLowBetweenTradeLimit
+                                  .updateAll((key, value) => !allSelected);
                             });
                           },
-                          child: const Icon(Icons.check_circle_outline, size: 24),
+                          child:
+                              const Icon(Icons.check_circle_outline, size: 24),
                         ),
                       ],
                     ),
@@ -525,14 +583,20 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                           Row(
                             children: [
                               Expanded(
-                                child: _buildCheckboxItem('NSE', _highLowBetweenTradeLimit['NSE']!, (value) {
-                                  setState(() => _highLowBetweenTradeLimit['NSE'] = value);
+                                child: _buildCheckboxItem(
+                                    'NSE', _highLowBetweenTradeLimit['NSE']!,
+                                    (value) {
+                                  setState(() =>
+                                      _highLowBetweenTradeLimit['NSE'] = value);
                                 }),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: _buildCheckboxItem('MCX', _highLowBetweenTradeLimit['MCX']!, (value) {
-                                  setState(() => _highLowBetweenTradeLimit['MCX'] = value);
+                                child: _buildCheckboxItem(
+                                    'MCX', _highLowBetweenTradeLimit['MCX']!,
+                                    (value) {
+                                  setState(() =>
+                                      _highLowBetweenTradeLimit['MCX'] = value);
                                 }),
                               ),
                             ],
@@ -541,14 +605,21 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                           Row(
                             children: [
                               Expanded(
-                                child: _buildCheckboxItem('SGX', _highLowBetweenTradeLimit['SGX']!, (value) {
-                                  setState(() => _highLowBetweenTradeLimit['SGX'] = value);
+                                child: _buildCheckboxItem(
+                                    'SGX', _highLowBetweenTradeLimit['SGX']!,
+                                    (value) {
+                                  setState(() =>
+                                      _highLowBetweenTradeLimit['SGX'] = value);
                                 }),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: _buildCheckboxItem('CALLPUT', _highLowBetweenTradeLimit['CALLPUT']!, (value) {
-                                  setState(() => _highLowBetweenTradeLimit['CALLPUT'] = value);
+                                child: _buildCheckboxItem('CALLPUT',
+                                    _highLowBetweenTradeLimit['CALLPUT']!,
+                                    (value) {
+                                  setState(() =>
+                                      _highLowBetweenTradeLimit['CALLPUT'] =
+                                          value);
                                 }),
                               ),
                             ],
@@ -557,14 +628,22 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                           Row(
                             children: [
                               Expanded(
-                                child: _buildCheckboxItem('OTHERS', _highLowBetweenTradeLimit['OTHERS']!, (value) {
-                                  setState(() => _highLowBetweenTradeLimit['OTHERS'] = value);
+                                child: _buildCheckboxItem('OTHERS',
+                                    _highLowBetweenTradeLimit['OTHERS']!,
+                                    (value) {
+                                  setState(() =>
+                                      _highLowBetweenTradeLimit['OTHERS'] =
+                                          value);
                                 }),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: _buildCheckboxItem('MCX-OPT', _highLowBetweenTradeLimit['MCX-OPT']!, (value) {
-                                  setState(() => _highLowBetweenTradeLimit['MCX-OPT'] = value);
+                                child: _buildCheckboxItem('MCX-OPT',
+                                    _highLowBetweenTradeLimit['MCX-OPT']!,
+                                    (value) {
+                                  setState(() =>
+                                      _highLowBetweenTradeLimit['MCX-OPT'] =
+                                          value);
                                 }),
                               ),
                             ],
@@ -592,11 +671,14 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                             (value) => setState(() => _addMaster = value),
                           ),
                           const SizedBox(height: 16),
-                          _buildToggleRow(
-                            'Change password on first login',
-                            _changePasswordOnFirstLogin,
-                            (value) => setState(() => _changePasswordOnFirstLogin = value),
-                          ),
+                          if (widget.master == null) ...[
+                            _buildToggleRow(
+                              'Change password on first login',
+                              _changePasswordOnFirstLogin,
+                              (value) => setState(
+                                  () => _changePasswordOnFirstLogin = value),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -607,231 +689,285 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                     SizedBox(
                       width: double.infinity,
                       child: GestureDetector(
-                        onTap: _isSubmitting ? null : () async {
-                          // Validate required fields
-                          if (_nameController.text.trim().isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Please enter name'),
-                                backgroundColor: Color(0xFFFF3B30),
-                              ),
-                            );
-                            return;
-                          }
-                          
-                          if (_usernameController.text.trim().isEmpty) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Please enter username'),
-                                backgroundColor: Color(0xFFFF3B30),
-                              ),
-                            );
-                            return;
-                          }
-                          
-                          // Validate password fields if provided
-                          if (_passwordController.text.isNotEmpty || _confirmPasswordController.text.isNotEmpty) {
-                            if (_passwordController.text != _confirmPasswordController.text) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Passwords do not match'),
-                                  backgroundColor: Color(0xFFFF3B30),
-                                ),
-                              );
-                              return;
-                            }
-                          }
-                          
-                          setState(() {
-                            _isSubmitting = true;
-                          });
-                          
-                          try {
-                            final apiService = Provider.of<ApiService>(context, listen: false);
-                            final adminService = AdminService(apiService);
-                            
-                            // Get selected exchanges
-                            final selectedExchanges = _exchangeAllow.entries
-                                .where((entry) => entry.value)
-                                .map((entry) => entry.key)
-                                .toList();
-                            
-                            // Get selected trade limits
-                            final selectedTradeLimit = _highLowBetweenTradeLimit.entries
-                                .where((entry) => entry.value)
-                                .map((entry) => entry.key)
-                                .toList();
-                            
-                            if (widget.master != null) {
-                              // Update existing master
-                              log('💾 Updating master: ${widget.master!.id}');
-                              
-                              final response = await adminService.updateMaster(
-                                masterId: widget.master!.id,
-                                name: _nameController.text.trim(),
-                                username: _usernameController.text.trim(),
-                                password: _passwordController.text.isNotEmpty ? _passwordController.text : null,
-                                credits: double.tryParse(_creditController.text.trim()),
-                                note: _noteController.text.trim(),
-                                pnlSharing: double.tryParse(_profitLossController.text.trim()),
-                                brokerageSharing: double.tryParse(_brkSharingController.text.trim()),
-                                exchangesAllowed: selectedExchanges,
-                                tradeLimit: selectedTradeLimit,
-                                addMaster: _addMaster,
-                                changePassOnFirstLogin: _changePasswordOnFirstLogin,
-                              );
-                              
-                              if (response.statusCode == 200) {
-                                log('✅ Master updated successfully');
-                                if (mounted) {
+                        onTap: _isSubmitting
+                            ? null
+                            : () async {
+                                // Validate required fields
+                                if (_nameController.text.trim().isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Master updated successfully'),
-                                      backgroundColor: Color(0xFF34C759),
-                                      duration: Duration(seconds: 2),
-                                    ),
-                                  );
-                                  Navigator.pop(context, true);
-                                }
-                              } else {
-                                log('❌ Failed to update master: ${response.statusCode}');
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Failed to update master'),
+                                      content: Text('Please enter name'),
                                       backgroundColor: Color(0xFFFF3B30),
                                     ),
                                   );
-                                }
-                              }
-                            } else {
-                              // Create new master
-                              log('💾 Creating new master');
-                              
-                              // Validate password is provided for new master
-                              if (_passwordController.text.trim().isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Password is required for new master'),
-                                    backgroundColor: Color(0xFFFF3B30),
-                                  ),
-                                );
-                                setState(() => _isSubmitting = false);
-                                return;
-                              }
-                              
-                              // Get current user's serverId
-                              final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
-                              
-                              String? serverId;
-                              
-                              if (profileProvider.isAdmin) {
-                                // Admin: Use selected server from dropdown
-                                serverId = _selectedServerId;
-                                
-                                if (serverId == null || serverId.isEmpty) {
-                                  log('❌ No server selected');
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Please select a server'),
-                                      backgroundColor: Color(0xFFFF3B30),
-                                    ),
-                                  );
-                                  setState(() => _isSubmitting = false);
                                   return;
                                 }
-                                
-                                log('✅ Admin using selected serverId: $serverId');
-                              } else {
-                                // Master: Use their own serverId
-                                serverId = profileProvider.master?.serverId;
-                                
-                                log('🔍 Checking serverId from master profile');
-                                log('   Role: ${profileProvider.role}');
-                                log('   Master serverId: ${profileProvider.master?.serverId}');
-                                log('   Master username: ${profileProvider.master?.username}');
-                                
-                                if (serverId == null || serverId.isEmpty) {
-                                  log('❌ ServerId not found in master profile');
-                                  
+
+                                if (_usernameController.text.trim().isEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
-                                      content: Text('Server ID not found. Please logout and login again.'),
+                                      content: Text('Please enter username'),
                                       backgroundColor: Color(0xFFFF3B30),
                                     ),
                                   );
-                                  setState(() => _isSubmitting = false);
                                   return;
                                 }
-                                
-                                log('✅ Master using serverId: $serverId');
-                              }
-                              
-                              final response = await adminService.createMaster(
-                                name: _nameController.text.trim(),
-                                username: _usernameController.text.trim(),
-                                password: _passwordController.text,
-                                credits: double.tryParse(_creditController.text.trim()) ?? 0,
-                                note: _noteController.text.trim(),
-                                pnlSharing: double.tryParse(_profitLossController.text.trim()) ?? 0,
-                                brokerageSharing: double.tryParse(_brkSharingController.text.trim()) ?? 0,
-                                exchangesAllowed: selectedExchanges,
-                                tradeLimit: selectedTradeLimit,
-                                addMaster: _addMaster,
-                                changePassOnFirstLogin: _changePasswordOnFirstLogin,
-                                serverId: serverId,
-                              );
-                              
-                              if (response.statusCode == 201) {
-                                log('✅ Master created successfully');
-                                if (mounted) {
-                                  // Refresh profile to update credits
-                                  await profileProvider.fetchProfile();
-                                  
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Master created successfully'),
-                                      backgroundColor: Color(0xFF34C759),
-                                      duration: Duration(seconds: 2),
-                                    ),
-                                  );
-                                  Navigator.pop(context, true);
+
+                                // Validate password fields if provided
+                                if (_passwordController.text.isNotEmpty ||
+                                    _confirmPasswordController
+                                        .text.isNotEmpty) {
+                                  if (_passwordController.text !=
+                                      _confirmPasswordController.text) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Passwords do not match'),
+                                        backgroundColor: Color(0xFFFF3B30),
+                                      ),
+                                    );
+                                    return;
+                                  }
                                 }
-                              } else {
-                                log('❌ Failed to create master: ${response.statusCode}');
-                                log('   Response body: ${response.body}');
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Failed to create master: ${response.body}'),
-                                      backgroundColor: const Color(0xFFFF3B30),
-                                    ),
-                                  );
+
+                                setState(() {
+                                  _isSubmitting = true;
+                                });
+
+                                try {
+                                  final apiService = Provider.of<ApiService>(
+                                      context,
+                                      listen: false);
+                                  final adminService = AdminService(apiService);
+
+                                  // Get selected exchanges
+                                  final selectedExchanges = _exchangeAllow
+                                      .entries
+                                      .where((entry) => entry.value)
+                                      .map((entry) => entry.key)
+                                      .toList();
+
+                                  // Get selected trade limits
+                                  final selectedTradeLimit =
+                                      _highLowBetweenTradeLimit.entries
+                                          .where((entry) => entry.value)
+                                          .map((entry) => entry.key)
+                                          .toList();
+
+                                  if (widget.master != null) {
+                                    // Update existing master
+                                    log('💾 Updating master: ${widget.master!.id}');
+
+                                    final response =
+                                        await adminService.updateMaster(
+                                      masterId: widget.master!.id,
+                                      name: _nameController.text.trim(),
+                                      username: _usernameController.text.trim(),
+                                      password:
+                                          _passwordController.text.isNotEmpty
+                                              ? _passwordController.text
+                                              : null,
+                                      credits: double.tryParse(
+                                          _creditController.text.trim()),
+                                      note: _noteController.text.trim(),
+                                      pnlSharing: double.tryParse(
+                                          _profitLossController.text.trim()),
+                                      brokerageSharing: double.tryParse(
+                                          _brkSharingController.text.trim()),
+                                      exchangesAllowed: selectedExchanges,
+                                      tradeLimit: selectedTradeLimit,
+                                      addMaster: _addMaster,
+                                      changePassOnFirstLogin:
+                                          _changePasswordOnFirstLogin,
+                                    );
+
+                                    if (response.statusCode == 200) {
+                                      log('✅ Master updated successfully');
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                                'Master updated successfully'),
+                                            backgroundColor: Color(0xFF34C759),
+                                            duration: Duration(seconds: 2),
+                                          ),
+                                        );
+                                        Navigator.pop(context, true);
+                                      }
+                                    } else {
+                                      log('❌ Failed to update master: ${response.statusCode}');
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                            content:
+                                                Text('Failed to update master'),
+                                            backgroundColor: Color(0xFFFF3B30),
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  } else {
+                                    // Create new master
+                                    log('💾 Creating new master');
+
+                                    // Validate password is provided for new master
+                                    if (_passwordController.text
+                                        .trim()
+                                        .isEmpty) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                              'Password is required for new master'),
+                                          backgroundColor: Color(0xFFFF3B30),
+                                        ),
+                                      );
+                                      setState(() => _isSubmitting = false);
+                                      return;
+                                    }
+
+                                    // Get current user's serverId
+                                    final profileProvider =
+                                        Provider.of<UserProfileProvider>(
+                                            context,
+                                            listen: false);
+
+                                    String? serverId;
+
+                                    if (profileProvider.isAdmin) {
+                                      // Admin: Use selected server from dropdown
+                                      serverId = _selectedServerId;
+
+                                      if (serverId == null ||
+                                          serverId.isEmpty) {
+                                        log('❌ No server selected');
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                            content:
+                                                Text('Please select a server'),
+                                            backgroundColor: Color(0xFFFF3B30),
+                                          ),
+                                        );
+                                        setState(() => _isSubmitting = false);
+                                        return;
+                                      }
+
+                                      log('✅ Admin using selected serverId: $serverId');
+                                    } else {
+                                      // Master: Use their own serverId
+                                      serverId =
+                                          profileProvider.master?.serverId;
+
+                                      log('🔍 Checking serverId from master profile');
+                                      log('   Role: ${profileProvider.role}');
+                                      log('   Master serverId: ${profileProvider.master?.serverId}');
+                                      log('   Master username: ${profileProvider.master?.username}');
+
+                                      if (serverId == null ||
+                                          serverId.isEmpty) {
+                                        log('❌ ServerId not found in master profile');
+
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                                'Server ID not found. Please logout and login again.'),
+                                            backgroundColor: Color(0xFFFF3B30),
+                                          ),
+                                        );
+                                        setState(() => _isSubmitting = false);
+                                        return;
+                                      }
+
+                                      log('✅ Master using serverId: $serverId');
+                                    }
+
+                                    final response =
+                                        await adminService.createMaster(
+                                      name: _nameController.text.trim(),
+                                      username: _usernameController.text.trim(),
+                                      password: _passwordController.text,
+                                      credits: double.tryParse(
+                                              _creditController.text.trim()) ??
+                                          0,
+                                      note: _noteController.text.trim(),
+                                      pnlSharing: double.tryParse(
+                                              _profitLossController.text
+                                                  .trim()) ??
+                                          0,
+                                      brokerageSharing: double.tryParse(
+                                              _brkSharingController.text
+                                                  .trim()) ??
+                                          0,
+                                      exchangesAllowed: selectedExchanges,
+                                      tradeLimit: selectedTradeLimit,
+                                      addMaster: _addMaster,
+                                      changePassOnFirstLogin:
+                                          _changePasswordOnFirstLogin,
+                                      serverId: serverId,
+                                    );
+
+                                    if (response.statusCode == 201) {
+                                      log('✅ Master created successfully');
+                                      if (mounted) {
+                                        // Refresh profile to update credits
+                                        await profileProvider.fetchProfile();
+
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                                'Master created successfully'),
+                                            backgroundColor: Color(0xFF34C759),
+                                            duration: Duration(seconds: 2),
+                                          ),
+                                        );
+                                        Navigator.pop(context, true);
+                                      }
+                                    } else {
+                                      log('❌ Failed to create master: ${response.statusCode}');
+                                      log('   Response body: ${response.body}');
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                                'Failed to create master: ${response.body}'),
+                                            backgroundColor:
+                                                const Color(0xFFFF3B30),
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  }
+                                } catch (e) {
+                                  log('❌ Error: $e');
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Error: $e'),
+                                        backgroundColor:
+                                            const Color(0xFFFF3B30),
+                                      ),
+                                    );
+                                  }
+                                } finally {
+                                  if (mounted) {
+                                    setState(() {
+                                      _isSubmitting = false;
+                                    });
+                                  }
                                 }
-                              }
-                            }
-                          } catch (e) {
-                            log('❌ Error: $e');
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Error: $e'),
-                                  backgroundColor: const Color(0xFFFF3B30),
-                                ),
-                              );
-                            }
-                          } finally {
-                            if (mounted) {
-                              setState(() {
-                                _isSubmitting = false;
-                              });
-                            }
-                          }
-                        },
+                              },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 32, vertical: 18),
                           decoration: ShapeDecoration(
-                            color: _isSubmitting ? const Color(0xFF8E8E93) : const Color(0xFF22547C),
+                            color: _isSubmitting
+                                ? const Color(0xFF8E8E93)
+                                : const Color(0xFF22547C),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -848,7 +984,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                                   ),
                                 )
                               : Text(
-                                  widget.master != null ? 'UPDATE MASTER' : 'CREATE MASTER',
+                                  widget.master != null
+                                      ? 'UPDATE MASTER'
+                                      : 'CREATE MASTER',
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(
                                     color: Colors.white,
@@ -922,8 +1060,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               items: items.asMap().entries.map((entry) {
                 final index = entry.key;
                 final item = entry.value;
-                final label = itemLabels != null && index < itemLabels.length 
-                    ? itemLabels[index] 
+                final label = itemLabels != null && index < itemLabels.length
+                    ? itemLabels[index]
                     : item;
                 return DropdownMenuItem<String>(
                   value: item,
@@ -1045,7 +1183,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     );
   }
 
-  Widget _buildCheckboxItem(String label, bool value, Function(bool) onChanged) {
+  Widget _buildCheckboxItem(
+      String label, bool value, Function(bool) onChanged) {
     return GestureDetector(
       onTap: () => onChanged(!value),
       child: Container(
@@ -1066,7 +1205,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               decoration: BoxDecoration(
                 color: value ? const Color(0xFF22547C) : Colors.transparent,
                 border: Border.all(
-                  color: value ? const Color(0xFF22547C) : const Color(0xFFC7C7CC),
+                  color:
+                      value ? const Color(0xFF22547C) : const Color(0xFFC7C7CC),
                   width: 2,
                 ),
                 borderRadius: BorderRadius.circular(4),

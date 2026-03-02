@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
+import 'package:stocker/providers/trade_metrics_provider.dart';
 import 'package:stocker/services/admin_service.dart';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/auth_service.dart';
+import 'package:stocker/services/user_service.dart';
 import 'package:stocker/services/kite_service.dart';
 import 'package:stocker/services/navigation_service.dart';
 import 'package:stocker/utils/contants.dart';
@@ -27,7 +29,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         Provider<ApiService>(
-          create: (_) {   
+          create: (_) {
             log('   Creating ApiService with URL: $backendUrl');
             return ApiService(backendUrl);
           },
@@ -44,16 +46,16 @@ class MyApp extends StatelessWidget {
             return AdminService(apiService);
           },
         ),
+        ProxyProvider<ApiService, UserService>(
+          update: (_, apiService, __) {
+            log('   Creating UserService');
+            return UserService(apiService);
+          },
+        ),
         ProxyProvider<ApiService, KiteService>(
           update: (_, apiService, __) {
             log('   Creating KiteService');
             return KiteService(apiService);
-          },
-        ),
-        ChangeNotifierProvider<WatchlistProvider>(
-          create: (_) {
-            log('   Creating WatchlistProvider');
-            return WatchlistProvider();
           },
         ),
         ChangeNotifierProxyProvider<ApiService, UserProfileProvider>(
@@ -67,6 +69,35 @@ class MyApp extends StatelessWidget {
             return previous ?? UserProfileProvider(apiService);
           },
         ),
+        ChangeNotifierProxyProvider<UserProfileProvider, TradeMetricsProvider>(
+          create: (context) {
+            log('   Creating TradeMetricsProvider');
+            return TradeMetricsProvider(
+              userProfileProvider:
+                  Provider.of<UserProfileProvider>(context, listen: false),
+            );
+          },
+          update: (_, userProfileProvider, previous) {
+            log('   Updating TradeMetricsProvider');
+            return previous ??
+                TradeMetricsProvider(userProfileProvider: userProfileProvider);
+          },
+        ),
+        ChangeNotifierProxyProvider<TradeMetricsProvider, WatchlistProvider>(
+          create: (context) {
+            log('   Creating WatchlistProvider');
+            return WatchlistProvider(
+              tradeMetricsProvider:
+                  Provider.of<TradeMetricsProvider>(context, listen: false),
+            );
+          },
+          update: (_, tradeMetricsProvider, previous) {
+            previous ??=
+                WatchlistProvider(tradeMetricsProvider: tradeMetricsProvider);
+            previous.tradeMetricsProvider = tradeMetricsProvider;
+            return previous;
+          },
+        ),
       ],
       child: MaterialApp(
         title: 'Stocker',
@@ -75,6 +106,7 @@ class MyApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
           useMaterial3: true,
         ),
+        debugShowCheckedModeBanner: false,
         home: const InitialScreen(),
         routes: {
           '/login': (context) => const LoginPage(),

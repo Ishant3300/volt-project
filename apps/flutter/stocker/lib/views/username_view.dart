@@ -24,9 +24,10 @@ import 'settlement_report_view.dart';
 class UsernameView extends StatefulWidget {
   final Master? master;
   final User? user;
-  
+
   const UsernameView({super.key, this.master, this.user})
-      : assert(master != null || user != null, 'Either master or user must be provided');
+      : assert(master != null || user != null,
+            'Either master or user must be provided');
 
   @override
   State<UsernameView> createState() => _UsernameViewState();
@@ -34,23 +35,23 @@ class UsernameView extends StatefulWidget {
 
 class _UsernameViewState extends State<UsernameView> {
   int _selectedTabIndex = 0;
-  
+
   // Local state for permissions that can be updated
   late bool _activeStatus;
   late bool _closeOnly;
   late bool _bet;
   late bool _marginSquare;
   late bool _freshStoploss;
-  
+
   // Local state for master/user data that can be updated
   late Master? _currentMaster;
   late User? _currentUser;
-  
+
   // Trade list state
   List<Trade> _trades = [];
   bool _isLoadingTrades = false;
   String? _tradesError;
-  
+
   // Position state
   Position? _position;
   bool _isLoadingPosition = false;
@@ -61,14 +62,20 @@ class _UsernameViewState extends State<UsernameView> {
     super.initState();
     _currentMaster = widget.master;
     _currentUser = widget.user;
-    
+
     // Initialize local state from the master/user object
     _activeStatus = _currentMaster?.activeStatus ?? _currentUser!.activeStatus;
-    _closeOnly = _currentMaster?.permissions?.closeOnly ?? _currentUser?.closeOnly ?? false;
+    _closeOnly = _currentMaster?.permissions?.closeOnly ??
+        _currentUser?.closeOnly ??
+        false;
     _bet = _currentMaster?.permissions?.bet ?? _currentUser?.bet ?? false;
-    _marginSquare = _currentMaster?.permissions?.marginSquare ?? _currentUser?.marginSquareOff ?? false;
-    _freshStoploss = _currentMaster?.permissions?.freshStoploss ?? _currentUser?.freshStoploss ?? false;
-    
+    _marginSquare = _currentMaster?.permissions?.marginSquare ??
+        _currentUser?.marginSquareOff ??
+        false;
+    _freshStoploss = _currentMaster?.permissions?.freshStoploss ??
+        _currentUser?.freshStoploss ??
+        false;
+
     // Fetch trades and position when initialized
     _fetchTrades();
     _fetchPosition();
@@ -88,9 +95,9 @@ class _UsernameViewState extends State<UsernameView> {
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
       final adminService = AdminService(apiService);
-      
+
       final response = await adminService.getMasterPosition(_currentMaster!.id);
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
@@ -127,13 +134,13 @@ class _UsernameViewState extends State<UsernameView> {
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
       final adminService = AdminService(apiService);
-      
+
       final response = await adminService.getAllTrades(
         masterId: _currentMaster?.id,
         userId: _currentUser?.id,
         limit: 50,
       );
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
@@ -167,9 +174,9 @@ class _UsernameViewState extends State<UsernameView> {
       try {
         final apiService = Provider.of<ApiService>(context, listen: false);
         final adminService = AdminService(apiService);
-        
+
         final response = await adminService.getMasterById(_currentMaster!.id);
-        
+
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
           if (data['success'] == true) {
@@ -178,8 +185,10 @@ class _UsernameViewState extends State<UsernameView> {
               _activeStatus = _currentMaster!.activeStatus;
               _closeOnly = _currentMaster!.permissions?.closeOnly ?? false;
               _bet = _currentMaster!.permissions?.bet ?? false;
-              _marginSquare = _currentMaster!.permissions?.marginSquare ?? false;
-              _freshStoploss = _currentMaster!.permissions?.freshStoploss ?? false;
+              _marginSquare =
+                  _currentMaster!.permissions?.marginSquare ?? false;
+              _freshStoploss =
+                  _currentMaster!.permissions?.freshStoploss ?? false;
             });
           }
         }
@@ -190,9 +199,9 @@ class _UsernameViewState extends State<UsernameView> {
       try {
         final apiService = Provider.of<ApiService>(context, listen: false);
         final adminService = AdminService(apiService);
-        
+
         final response = await adminService.getUserById(_currentUser!.id);
-        
+
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
           if (data['success'] == true) {
@@ -215,6 +224,7 @@ class _UsernameViewState extends State<UsernameView> {
   // Helper getters to access common fields
   String get username => _currentMaster?.username ?? _currentUser!.username;
   double get credits => _currentMaster?.credits ?? _currentUser!.credits;
+  double get balance => _currentMaster?.balance ?? _currentUser!.balance;
   String get createdAt => _currentMaster?.createdAt ?? _currentUser!.createdAt;
   String? get lastLogin => _currentMaster?.lastLogin ?? _currentUser?.lastLogin;
   String? get ipAddress => _currentMaster?.ipAddress ?? _currentUser?.ipAddress;
@@ -242,7 +252,8 @@ class _UsernameViewState extends State<UsernameView> {
                   Row(
                     children: [
                       GestureDetector(
-                        onTap: () => Navigator.pop(context, true), // Return true to trigger refresh
+                        onTap: () => Navigator.pop(
+                            context, true), // Return true to trigger refresh
                         child: Icon(Icons.arrow_back, color: Colors.black),
                       ),
                       SizedBox(width: 12),
@@ -264,10 +275,11 @@ class _UsernameViewState extends State<UsernameView> {
                         final result = await Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => CreateMasterView(master: _currentMaster),
+                            builder: (context) =>
+                                CreateMasterView(master: _currentMaster),
                           ),
                         );
-                        
+
                         // Refresh data if update was successful
                         if (result == true && mounted) {
                           await _refreshData();
@@ -277,10 +289,11 @@ class _UsernameViewState extends State<UsernameView> {
                         final result = await Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => CreateUserView(user: _currentUser),
+                            builder: (context) =>
+                                CreateUserView(user: _currentUser),
                           ),
                         );
-                        
+
                         // Refresh data if update was successful
                         if (result == true && mounted) {
                           await _refreshData();
@@ -288,10 +301,12 @@ class _UsernameViewState extends State<UsernameView> {
                       }
                     },
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: ShapeDecoration(
                         color: const Color(0xFF8E8E93),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6)),
                       ),
                       child: Row(
                         children: [
@@ -320,7 +335,8 @@ class _UsernameViewState extends State<UsernameView> {
               padding: const EdgeInsets.all(10),
               decoration: ShapeDecoration(
                 color: const Color(0xFFE5E5EA),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -335,7 +351,7 @@ class _UsernameViewState extends State<UsernameView> {
                     ),
                   ),
                   Text(
-                    'Balance: ${credits.toStringAsFixed(2)}',
+                    'Balance: ${balance.toStringAsFixed(2)}',
                     style: TextStyle(
                       color: Colors.black,
                       fontSize: 16,
@@ -358,11 +374,15 @@ class _UsernameViewState extends State<UsernameView> {
                     child: GestureDetector(
                       onTap: () => setState(() => _selectedTabIndex = 0),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 11),
                         decoration: ShapeDecoration(
-                          color: _selectedTabIndex == 0 ? const Color(0xFF22547C) : Colors.white,
+                          color: _selectedTabIndex == 0
+                              ? const Color(0xFF22547C)
+                              : Colors.white,
                           shape: RoundedRectangleBorder(
-                            side: BorderSide(width: 1, color: const Color(0xFF22547C)),
+                            side: BorderSide(
+                                width: 1, color: const Color(0xFF22547C)),
                             borderRadius: BorderRadius.only(
                               topLeft: Radius.circular(8),
                               bottomLeft: Radius.circular(8),
@@ -373,7 +393,9 @@ class _UsernameViewState extends State<UsernameView> {
                           'Overview',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: _selectedTabIndex == 0 ? Colors.white : const Color(0xFF333333),
+                            color: _selectedTabIndex == 0
+                                ? Colors.white
+                                : const Color(0xFF333333),
                             fontSize: 16,
                             fontFamily: 'Inter',
                             fontWeight: FontWeight.w500,
@@ -386,18 +408,24 @@ class _UsernameViewState extends State<UsernameView> {
                     child: GestureDetector(
                       onTap: () => setState(() => _selectedTabIndex = 1),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 11),
                         decoration: ShapeDecoration(
-                          color: _selectedTabIndex == 1 ? const Color(0xFF22547C) : Colors.white,
+                          color: _selectedTabIndex == 1
+                              ? const Color(0xFF22547C)
+                              : Colors.white,
                           shape: RoundedRectangleBorder(
-                            side: BorderSide(width: 1, color: const Color(0xFF22547C)),
+                            side: BorderSide(
+                                width: 1, color: const Color(0xFF22547C)),
                           ),
                         ),
                         child: Text(
                           'Tradelist',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: _selectedTabIndex == 1 ? Colors.white : const Color(0xFF333333),
+                            color: _selectedTabIndex == 1
+                                ? Colors.white
+                                : const Color(0xFF333333),
                             fontSize: 16,
                             fontFamily: 'Inter',
                             fontWeight: FontWeight.w500,
@@ -410,11 +438,15 @@ class _UsernameViewState extends State<UsernameView> {
                     child: GestureDetector(
                       onTap: () => setState(() => _selectedTabIndex = 2),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 11),
                         decoration: ShapeDecoration(
-                          color: _selectedTabIndex == 2 ? const Color(0xFF22547C) : Colors.white,
+                          color: _selectedTabIndex == 2
+                              ? const Color(0xFF22547C)
+                              : Colors.white,
                           shape: RoundedRectangleBorder(
-                            side: BorderSide(width: 1, color: const Color(0xFF22547C)),
+                            side: BorderSide(
+                                width: 1, color: const Color(0xFF22547C)),
                             borderRadius: BorderRadius.only(
                               topRight: Radius.circular(8),
                               bottomRight: Radius.circular(8),
@@ -425,7 +457,9 @@ class _UsernameViewState extends State<UsernameView> {
                           'Position',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: _selectedTabIndex == 2 ? Colors.white : Colors.black,
+                            color: _selectedTabIndex == 2
+                                ? Colors.white
+                                : Colors.black,
                             fontSize: 16,
                             fontFamily: 'Inter',
                             fontWeight: FontWeight.w500,
@@ -463,14 +497,21 @@ class _UsernameViewState extends State<UsernameView> {
             margin: const EdgeInsets.symmetric(horizontal: 16),
             decoration: ShapeDecoration(
               color: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
             child: Column(
               children: [
-                _buildInfoRow('Created Date', DateFormatter.formatDateTime(createdAt), showBorder: true),
-                _buildInfoRow('Last Login', DateFormatter.formatDateTime(lastLogin), showBorder: true),
-                _buildInfoRow('IP Address', ipAddress ?? 'N/A', showBorder: true),
-                _buildInfoRow('Exchanges', exchangesAllowed.join(', '), showBorder: false),
+                _buildInfoRow(
+                    'Created Date', DateFormatter.formatDateTime(createdAt),
+                    showBorder: true),
+                _buildInfoRow(
+                    'Last Login', DateFormatter.formatDateTime(lastLogin),
+                    showBorder: true),
+                _buildInfoRow('IP Address', ipAddress ?? 'N/A',
+                    showBorder: true),
+                _buildInfoRow('Exchanges', exchangesAllowed.join(', '),
+                    showBorder: false),
               ],
             ),
           ),
@@ -502,7 +543,8 @@ class _UsernameViewState extends State<UsernameView> {
             padding: const EdgeInsets.all(16),
             decoration: ShapeDecoration(
               color: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
             child: Column(
               children: [
@@ -545,18 +587,27 @@ class _UsernameViewState extends State<UsernameView> {
             margin: const EdgeInsets.symmetric(horizontal: 16),
             decoration: ShapeDecoration(
               color: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
             child: Column(
               children: [
-                _buildSettingRow('Credit/Debit', Icons.account_balance_wallet, showBorder: true),
-                _buildSettingRow('Group Quantity Settings', Icons.settings, showBorder: true),
-                _buildSettingRow('Margin SquareOff Settings', Icons.settings, showBorder: true),
-                _buildSettingRow('Brk Settings', Icons.settings, showBorder: true),
-                _buildSettingRow('Intraday SquareOff', Icons.settings, showBorder: true),
-                _buildSettingRow('Trade Margin', Icons.settings, showBorder: true),
-                _buildSettingRow('Sharing Details', Icons.share, showBorder: true),
-                _buildSettingRow('Script Quantity Setting', Icons.settings, showBorder: false),
+                _buildSettingRow('Credit/Debit', Icons.account_balance_wallet,
+                    showBorder: true),
+                _buildSettingRow('Group Quantity Settings', Icons.settings,
+                    showBorder: true),
+                _buildSettingRow('Margin SquareOff Settings', Icons.settings,
+                    showBorder: true),
+                _buildSettingRow('Brk Settings', Icons.settings,
+                    showBorder: true),
+                _buildSettingRow('Intraday SquareOff', Icons.settings,
+                    showBorder: true),
+                _buildSettingRow('Trade Margin', Icons.settings,
+                    showBorder: true),
+                _buildSettingRow('Sharing Details', Icons.share,
+                    showBorder: true),
+                _buildSettingRow('Script Quantity Setting', Icons.settings,
+                    showBorder: false),
               ],
             ),
           ),
@@ -587,14 +638,17 @@ class _UsernameViewState extends State<UsernameView> {
             margin: const EdgeInsets.symmetric(horizontal: 16),
             decoration: ShapeDecoration(
               color: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
             child: Column(
               children: [
-                _buildSettingRow('Change Password', Icons.lock, showBorder: true),
-                _buildSettingRow('Rejection Log', Icons.error_outline, showBorder: true),
-                _buildSettingRow('Generate PDF', Icons.picture_as_pdf, showBorder: true),
-                _buildSettingRow('Settlement Report', Icons.description, showBorder: false),
+                _buildSettingRow('Rejection Log', Icons.error_outline,
+                    showBorder: true),
+                _buildSettingRow('Generate PDF', Icons.picture_as_pdf,
+                    showBorder: true),
+                _buildSettingRow('Settlement Report', Icons.description,
+                    showBorder: false),
               ],
             ),
           ),
@@ -615,7 +669,8 @@ class _UsernameViewState extends State<UsernameView> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: ShapeDecoration(
             color: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -637,7 +692,8 @@ class _UsernameViewState extends State<UsernameView> {
               ),
               GestureDetector(
                 onTap: _fetchTrades,
-                child: Icon(Icons.refresh, size: 24, color: const Color(0xFF8E8E93)),
+                child: Icon(Icons.refresh,
+                    size: 24, color: const Color(0xFF8E8E93)),
               ),
             ],
           ),
@@ -649,14 +705,16 @@ class _UsernameViewState extends State<UsernameView> {
         Expanded(
           child: _isLoadingTrades
               ? Center(
-                  child: CircularProgressIndicator(color: const Color(0xFF22547C)),
+                  child:
+                      CircularProgressIndicator(color: const Color(0xFF22547C)),
                 )
               : _tradesError != null
                   ? Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.error_outline, size: 48, color: Colors.red),
+                          Icon(Icons.error_outline,
+                              size: 48, color: Colors.red),
                           SizedBox(height: 16),
                           Text(
                             _tradesError!,
@@ -679,11 +737,13 @@ class _UsernameViewState extends State<UsernameView> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.receipt_long, size: 48, color: Colors.grey),
+                              Icon(Icons.receipt_long,
+                                  size: 48, color: Colors.grey),
                               SizedBox(height: 16),
                               Text(
                                 'No trades found',
-                                style: TextStyle(color: Colors.grey, fontSize: 16),
+                                style:
+                                    TextStyle(color: Colors.grey, fontSize: 16),
                               ),
                             ],
                           ),
@@ -693,8 +753,10 @@ class _UsernameViewState extends State<UsernameView> {
                           child: ListView.separated(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             itemCount: _trades.length,
-                            separatorBuilder: (context, index) => SizedBox(height: 8),
-                            itemBuilder: (context, index) => _buildTradeCard(_trades[index]),
+                            separatorBuilder: (context, index) =>
+                                SizedBox(height: 8),
+                            itemBuilder: (context, index) =>
+                                _buildTradeCard(_trades[index]),
                           ),
                         ),
         ),
@@ -739,7 +801,8 @@ class _UsernameViewState extends State<UsernameView> {
                   ? Container(
                       height: 200,
                       child: Center(
-                        child: CircularProgressIndicator(color: const Color(0xFF22547C)),
+                        child: CircularProgressIndicator(
+                            color: const Color(0xFF22547C)),
                       ),
                     )
                   : _positionError != null
@@ -749,12 +812,14 @@ class _UsernameViewState extends State<UsernameView> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.error_outline, size: 48, color: Colors.red),
+                                Icon(Icons.error_outline,
+                                    size: 48, color: Colors.red),
                                 SizedBox(height: 16),
                                 Text(
                                   _positionError!,
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.red, fontSize: 14),
+                                  style: TextStyle(
+                                      color: Colors.red, fontSize: 14),
                                 ),
                                 SizedBox(height: 16),
                                 ElevatedButton(
@@ -777,11 +842,14 @@ class _UsernameViewState extends State<UsernameView> {
                                     padding: const EdgeInsets.all(10),
                                     decoration: ShapeDecoration(
                                       shape: RoundedRectangleBorder(
-                                        side: BorderSide(width: 1, color: const Color(0xFFD1D1D6)),
+                                        side: BorderSide(
+                                            width: 1,
+                                            color: const Color(0xFFD1D1D6)),
                                       ),
                                     ),
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
                                           'REALISED P&L',
@@ -793,9 +861,15 @@ class _UsernameViewState extends State<UsernameView> {
                                           ),
                                         ),
                                         Text(
-                                          _position?.realisedPnl.toStringAsFixed(2) ?? '0.0',
+                                          _position?.realisedPnl
+                                                  .toStringAsFixed(2) ??
+                                              '0.0',
                                           style: TextStyle(
-                                            color: (_position?.realisedPnl ?? 0) >= 0 ? Colors.green : Colors.red,
+                                            color:
+                                                (_position?.realisedPnl ?? 0) >=
+                                                        0
+                                                    ? Colors.green
+                                                    : Colors.red,
                                             fontSize: 12,
                                             fontFamily: 'Inter',
                                             fontWeight: FontWeight.w400,
@@ -809,7 +883,8 @@ class _UsernameViewState extends State<UsernameView> {
                                   child: Container(
                                     padding: const EdgeInsets.all(10),
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
                                           'M2M P&L',
@@ -821,9 +896,13 @@ class _UsernameViewState extends State<UsernameView> {
                                           ),
                                         ),
                                         Text(
-                                          _position?.m2mPnl.toStringAsFixed(2) ?? '0.0',
+                                          _position?.m2mPnl
+                                                  .toStringAsFixed(2) ??
+                                              '0.0',
                                           style: TextStyle(
-                                            color: (_position?.m2mPnl ?? 0) >= 0 ? Colors.green : Colors.red,
+                                            color: (_position?.m2mPnl ?? 0) >= 0
+                                                ? Colors.green
+                                                : Colors.red,
                                             fontSize: 12,
                                             fontFamily: 'Inter',
                                             fontWeight: FontWeight.w400,
@@ -842,11 +921,14 @@ class _UsernameViewState extends State<UsernameView> {
                                     padding: const EdgeInsets.all(10),
                                     decoration: ShapeDecoration(
                                       shape: RoundedRectangleBorder(
-                                        side: BorderSide(width: 1, color: const Color(0xFFD1D1D6)),
+                                        side: BorderSide(
+                                            width: 1,
+                                            color: const Color(0xFFD1D1D6)),
                                       ),
                                     ),
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
                                           'CREDIT',
@@ -858,7 +940,9 @@ class _UsernameViewState extends State<UsernameView> {
                                           ),
                                         ),
                                         Text(
-                                          _position?.credit.toStringAsFixed(2) ?? '0.0',
+                                          _position?.credit
+                                                  .toStringAsFixed(2) ??
+                                              '0.0',
                                           style: TextStyle(
                                             color: Colors.black,
                                             fontSize: 12,
@@ -874,7 +958,8 @@ class _UsernameViewState extends State<UsernameView> {
                                   child: Container(
                                     padding: const EdgeInsets.all(10),
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
                                           'EQUITY',
@@ -886,7 +971,9 @@ class _UsernameViewState extends State<UsernameView> {
                                           ),
                                         ),
                                         Text(
-                                          _position?.equity.toStringAsFixed(2) ?? '0.0',
+                                          _position?.equity
+                                                  .toStringAsFixed(2) ??
+                                              '0.0',
                                           style: TextStyle(
                                             color: Colors.black,
                                             fontSize: 12,
@@ -907,11 +994,14 @@ class _UsernameViewState extends State<UsernameView> {
                                     padding: const EdgeInsets.all(10),
                                     decoration: ShapeDecoration(
                                       shape: RoundedRectangleBorder(
-                                        side: BorderSide(width: 1, color: const Color(0xFFD1D1D6)),
+                                        side: BorderSide(
+                                            width: 1,
+                                            color: const Color(0xFFD1D1D6)),
                                       ),
                                     ),
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
                                           'MARGIN USED',
@@ -923,7 +1013,9 @@ class _UsernameViewState extends State<UsernameView> {
                                           ),
                                         ),
                                         Text(
-                                          _position?.marginUsed.toStringAsFixed(2) ?? '0.0',
+                                          _position?.marginUsed
+                                                  .toStringAsFixed(2) ??
+                                              '0.0',
                                           style: TextStyle(
                                             color: Colors.black,
                                             fontSize: 12,
@@ -939,7 +1031,8 @@ class _UsernameViewState extends State<UsernameView> {
                                   child: Container(
                                     padding: const EdgeInsets.all(10),
                                     child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         Text(
                                           'FREE MARGIN',
@@ -951,7 +1044,9 @@ class _UsernameViewState extends State<UsernameView> {
                                           ),
                                         ),
                                         Text(
-                                          _position?.freeMargin.toStringAsFixed(2) ?? '0.0',
+                                          _position?.freeMargin
+                                                  .toStringAsFixed(2) ??
+                                              '0.0',
                                           style: TextStyle(
                                             color: Colors.black,
                                             fontSize: 12,
@@ -978,12 +1073,14 @@ class _UsernameViewState extends State<UsernameView> {
                 padding: const EdgeInsets.all(12),
                 decoration: ShapeDecoration(
                   color: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.access_time, size: 16, color: const Color(0xFF8E8E93)),
+                    Icon(Icons.access_time,
+                        size: 16, color: const Color(0xFF8E8E93)),
                     SizedBox(width: 8),
                     Text(
                       'Last updated: ${DateFormatter.formatDateTime(_position!.lastUpdated)}',
@@ -1006,9 +1103,10 @@ class _UsernameViewState extends State<UsernameView> {
   }
 
   Widget _buildTradeCard(Trade trade) {
-    final isSuccess = trade.status.toLowerCase() == 'success' || trade.status.toLowerCase() == 'completed';
+    final isSuccess = trade.status.toLowerCase() == 'success' ||
+        trade.status.toLowerCase() == 'completed';
     final isBuy = trade.transactionType.toUpperCase() == 'BUY';
-    
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: ShapeDecoration(
@@ -1057,10 +1155,14 @@ class _UsernameViewState extends State<UsernameView> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 2),
                       decoration: ShapeDecoration(
-                        color: isSuccess ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                        color: isSuccess
+                            ? const Color(0xFF34C759)
+                            : const Color(0xFFFF3B30),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4)),
                       ),
                       child: Text(
                         trade.status.toUpperCase(),
@@ -1078,7 +1180,9 @@ class _UsernameViewState extends State<UsernameView> {
                 Container(
                   padding: const EdgeInsets.only(top: 6),
                   decoration: BoxDecoration(
-                    border: Border(top: BorderSide(width: 1, color: const Color(0xFFD1D1D6))),
+                    border: Border(
+                        top: BorderSide(
+                            width: 1, color: const Color(0xFFD1D1D6))),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1086,7 +1190,9 @@ class _UsernameViewState extends State<UsernameView> {
                       Text(
                         '${isBuy ? "BUY" : "SELL"}: ${trade.quantity} @ ₹${trade.price.toStringAsFixed(2)}',
                         style: TextStyle(
-                          color: isBuy ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
+                          color: isBuy
+                              ? const Color(0xFF34C759)
+                              : const Color(0xFFFF3B30),
                           fontSize: 12,
                           fontFamily: 'Inter',
                           fontWeight: FontWeight.w500,
@@ -1094,7 +1200,8 @@ class _UsernameViewState extends State<UsernameView> {
                       ),
                       Row(
                         children: [
-                          Icon(Icons.access_time, size: 16, color: const Color(0xFF999999)),
+                          Icon(Icons.access_time,
+                              size: 16, color: const Color(0xFF999999)),
                           SizedBox(width: 4),
                           Text(
                             DateFormatter.formatDateTime(trade.createdAt),
@@ -1130,6 +1237,7 @@ class _UsernameViewState extends State<UsernameView> {
           : null,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
@@ -1140,13 +1248,19 @@ class _UsernameViewState extends State<UsernameView> {
               fontWeight: FontWeight.w400,
             ),
           ),
-          Text(
-            value,
-            style: TextStyle(
-              color: Colors.black,
-              fontSize: 16,
-              fontFamily: 'Inter',
-              fontWeight: FontWeight.w400,
+          SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 16,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w400,
+              ),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -1170,19 +1284,20 @@ class _UsernameViewState extends State<UsernameView> {
         GestureDetector(
           onTap: () async {
             final newValue = !isOn;
-            
+
             // Handle User Status separately (uses different API)
             if (label == 'User Status') {
               try {
-                final apiService = Provider.of<ApiService>(context, listen: false);
+                final apiService =
+                    Provider.of<ApiService>(context, listen: false);
                 final adminService = AdminService(apiService);
-                
+
                 if (_currentMaster != null) {
                   final response = await adminService.updateMasterStatus(
                     masterId: _currentMaster!.id,
                     activeStatus: newValue,
                   );
-                  
+
                   if (response.statusCode == 200) {
                     setState(() {
                       _activeStatus = newValue;
@@ -1201,7 +1316,7 @@ class _UsernameViewState extends State<UsernameView> {
                     userId: _currentUser!.id,
                     activeStatus: newValue,
                   );
-                  
+
                   if (response.statusCode == 200) {
                     setState(() {
                       _activeStatus = newValue;
@@ -1226,24 +1341,28 @@ class _UsernameViewState extends State<UsernameView> {
             // For Margin Square Off on users
             if (label == 'Margin Square Off' && _currentUser != null) {
               try {
-                final apiService = Provider.of<ApiService>(context, listen: false);
+                final apiService =
+                    Provider.of<ApiService>(context, listen: false);
                 final adminService = AdminService(apiService);
-                
+
                 final response = await adminService.updateUserDetails(
                   userId: _currentUser!.id,
                   marginSquareOff: newValue,
                 );
-                
+
                 if (response.statusCode == 200) {
                   setState(() {
                     _marginSquare = newValue;
                   });
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Margin Square Off updated successfully')),
+                    SnackBar(
+                        content:
+                            Text('Margin Square Off updated successfully')),
                   );
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to update Margin Square Off')),
+                    SnackBar(
+                        content: Text('Failed to update Margin Square Off')),
                   );
                 }
               } catch (e) {
@@ -1255,13 +1374,17 @@ class _UsernameViewState extends State<UsernameView> {
             }
 
             // For Close Only, BET, Fresh Stop-Loss on users
-            if (_currentUser != null && (label == 'Close Only' || label == 'BET' || label == 'Fresh Stop-Loss')) {
+            if (_currentUser != null &&
+                (label == 'Close Only' ||
+                    label == 'BET' ||
+                    label == 'Fresh Stop-Loss')) {
               try {
-                final apiService = Provider.of<ApiService>(context, listen: false);
+                final apiService =
+                    Provider.of<ApiService>(context, listen: false);
                 final adminService = AdminService(apiService);
-                
+
                 String fieldName = '';
-                
+
                 switch (label) {
                   case 'Close Only':
                     fieldName = 'Close Only';
@@ -1273,14 +1396,14 @@ class _UsernameViewState extends State<UsernameView> {
                     fieldName = 'Fresh Stop-Loss';
                     break;
                 }
-                
+
                 final response = await adminService.updateUserDetails(
                   userId: _currentUser!.id,
                   closeOnly: label == 'Close Only' ? newValue : null,
                   bet: label == 'BET' ? newValue : null,
                   freshStoploss: label == 'Fresh Stop-Loss' ? newValue : null,
                 );
-                
+
                 if (response.statusCode == 200) {
                   setState(() {
                     switch (label) {
@@ -1314,7 +1437,9 @@ class _UsernameViewState extends State<UsernameView> {
             // For other user permissions (not applicable)
             if (_currentUser != null) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('This permission is not available for users')),
+                SnackBar(
+                    content:
+                        Text('This permission is not available for users')),
               );
               return;
             }
@@ -1322,26 +1447,27 @@ class _UsernameViewState extends State<UsernameView> {
             // For master permissions
             if (_currentMaster == null) return;
 
-            final currentPermissions = _currentMaster!.permissions ?? MasterPermissions(
-              accountSummary: false,
-              pnlSummary: false,
-              clientSummary: false,
-              settlementReport: false,
-              generatePdf: false,
-              weeklyAdmin: false,
-              intradayHistory: false,
-              userwiseOpenPosition: false,
-              scriptQuantity: false,
-              deletedTrade: false,
-              tradeAccount: false,
-              closeOnly: _closeOnly,
-              bet: _bet,
-              marginSquare: _marginSquare,
-              freshStoploss: _freshStoploss,
-            );
+            final currentPermissions = _currentMaster!.permissions ??
+                MasterPermissions(
+                  accountSummary: false,
+                  pnlSummary: false,
+                  clientSummary: false,
+                  settlementReport: false,
+                  generatePdf: false,
+                  weeklyAdmin: false,
+                  intradayHistory: false,
+                  userwiseOpenPosition: false,
+                  scriptQuantity: false,
+                  deletedTrade: false,
+                  tradeAccount: false,
+                  closeOnly: _closeOnly,
+                  bet: _bet,
+                  marginSquare: _marginSquare,
+                  freshStoploss: _freshStoploss,
+                );
 
             MasterPermissions updatedPermissions;
-            
+
             switch (label) {
               case 'Close Only':
                 updatedPermissions = MasterPermissions(
@@ -1425,14 +1551,15 @@ class _UsernameViewState extends State<UsernameView> {
 
             // Call API to update permissions
             try {
-              final apiService = Provider.of<ApiService>(context, listen: false);
+              final apiService =
+                  Provider.of<ApiService>(context, listen: false);
               final adminService = AdminService(apiService);
-              
+
               final response = await adminService.updateMasterPermissions(
                 masterId: _currentMaster!.id,
                 permissions: updatedPermissions,
               );
-              
+
               if (response.statusCode == 200) {
                 setState(() {
                   switch (label) {
@@ -1470,7 +1597,8 @@ class _UsernameViewState extends State<UsernameView> {
             padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
             decoration: ShapeDecoration(
               color: isOn ? const Color(0xFF22547C) : const Color(0xFF8E8E93),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.50)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.50)),
             ),
             child: Align(
               alignment: isOn ? Alignment.centerRight : Alignment.centerLeft,
@@ -1489,7 +1617,8 @@ class _UsernameViewState extends State<UsernameView> {
     );
   }
 
-  Widget _buildSettingRow(String label, IconData icon, {required bool showBorder}) {
+  Widget _buildSettingRow(String label, IconData icon,
+      {required bool showBorder}) {
     return GestureDetector(
       onTap: () async {
         if (label == 'Credit/Debit') {
@@ -1502,7 +1631,7 @@ class _UsernameViewState extends State<UsernameView> {
               user: _currentUser,
             ),
           );
-          
+
           // If credit/debit was successful, refresh the data
           if (result == true && mounted) {
             await _refreshData();
@@ -1528,7 +1657,8 @@ class _UsernameViewState extends State<UsernameView> {
         } else if (label == 'Brk Settings') {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const BrokerageSettingsView()),
+            MaterialPageRoute(
+                builder: (context) => const BrokerageSettingsView()),
           );
         } else if (label == 'Intraday SquareOff') {
           showModalBottomSheet(
@@ -1543,12 +1673,14 @@ class _UsernameViewState extends State<UsernameView> {
         } else if (label == 'Trade Margin') {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const TradeMarginSettingsView()),
+            MaterialPageRoute(
+                builder: (context) => const TradeMarginSettingsView()),
           );
         } else if (label == 'Script Quantity Setting') {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const ScriptQuantitySettingsView()),
+            MaterialPageRoute(
+                builder: (context) => const ScriptQuantitySettingsView()),
           );
         } else if (label == 'Sharing Details') {
           Navigator.push(
@@ -1558,12 +1690,14 @@ class _UsernameViewState extends State<UsernameView> {
         } else if (label == 'Rejection Log') {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const RejectionLogHistoryView()),
+            MaterialPageRoute(
+                builder: (context) => const RejectionLogHistoryView()),
           );
         } else if (label == 'Settlement Report') {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const SettlementReportView()),
+            MaterialPageRoute(
+                builder: (context) => const SettlementReportView()),
           );
         }
       },

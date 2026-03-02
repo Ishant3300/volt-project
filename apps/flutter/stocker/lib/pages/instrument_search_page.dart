@@ -14,12 +14,23 @@ class InstrumentSearchPage extends StatefulWidget {
 class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
   final TextEditingController _searchController = TextEditingController();
   List<KiteInstrument> _searchResults = [];
+  final Map<String, KiteInstrument> _selectedInstruments = {};
   bool _isSearching = false;
-  String? _selectedExchange;
-  String? _selectedType;
+  String _activeTab = 'ALL';
 
-  final List<String> _exchanges = ['NFO', 'BFO', 'MCX'];
-  final List<String> _types = ['FUT', 'CE', 'PE'];
+  final List<String> _tabs = [
+    'ALL',
+    'NSE',
+    'CALLPUT',
+    'MCX',
+    'MCX-OPT',
+    'OTHERS'
+  ];
+
+  // Colors based on Stitch design
+  final Color primaryColor = const Color(0xFF254b7a);
+  final Color backgroundColor = const Color(0xFFFFFFFF);
+  final Color surfaceColor = const Color(0xFFF8F9FA);
 
   @override
   void dispose() {
@@ -28,316 +39,466 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
   }
 
   Future<void> _performSearch(String query) async {
-    print('🔍 Search triggered with query: "$query"');
-    
     if (query.isEmpty) {
-      print('   Query is empty, clearing results');
       setState(() {
         _searchResults = [];
       });
       return;
     }
 
-    print('   Setting isSearching = true');
     setState(() {
       _isSearching = true;
     });
 
     try {
-      print('   Getting KiteService from provider...');
       final kiteService = Provider.of<KiteService>(context, listen: false);
-      
-      print('   Calling searchInstruments...');
-      print('   - Query: $query');
-      print('   - Exchange: $_selectedExchange');
-      
+
+      String? exchange;
+      if (_activeTab == 'NSE') {
+        exchange = 'NSE';
+      } else if (_activeTab == 'MCX' || _activeTab == 'MCX-OPT') {
+        exchange = 'MCX'; // Simplification, backend handles detailed routing
+      } else if (_activeTab == 'CALLPUT') {
+        exchange = 'NFO'; // Assuming NSE Derivatives for Call/Put
+      }
+
       final results = await kiteService.searchInstruments(
         query,
-        exchange: _selectedExchange,
+        exchange: exchange,
         limit: 50,
       );
 
-      print('   ✅ Search completed');
-      print('   Found ${results.length} results');
-
-      // Convert Map results to KiteInstrument objects
       final instruments = results
           .map((json) => KiteInstrument.fromJson(json))
           .where((instrument) {
-            // Apply type filter if selected
-            if (_selectedType != null) {
-              return instrument.instrumentType == _selectedType;
-            }
-            return true;
-          })
-          .toList();
+        if (_activeTab == 'CALLPUT') {
+          return instrument.instrumentType == 'CE' ||
+              instrument.instrumentType == 'PE';
+        }
+        return true;
+      }).toList();
 
       setState(() {
         _searchResults = instruments;
         _isSearching = false;
       });
-      
-      print('   State updated with ${instruments.length} results after filtering');
-    } catch (e, stackTrace) {
-      print('   ❌ Search error: $e');
-      print('   Stack trace: $stackTrace');
-      
+    } catch (e) {
       setState(() {
         _isSearching = false;
       });
-      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Search failed: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+              content: Text('Search failed: $e'), backgroundColor: Colors.red),
         );
       }
     }
   }
 
-  void _addToWatchlist(KiteInstrument instrument) {
-    print('➕ Adding to watchlist: ${instrument.tradingsymbol}');
-    
-    final watchlistProvider = Provider.of<WatchlistProvider>(context, listen: false);
-    
-    if (watchlistProvider.contains(instrument.instrumentToken)) {
-      print('   ⚠️ Already in watchlist');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Already in watchlist'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
+  void _saveSelected() {
+    final watchlistProvider =
+        Provider.of<WatchlistProvider>(context, listen: false);
+    int addedCount = 0;
+
+    for (var instrument in _selectedInstruments.values) {
+      if (!watchlistProvider.contains(instrument.instrumentToken)) {
+        watchlistProvider.addInstrument(instrument);
+        addedCount++;
+      }
     }
 
-    watchlistProvider.addInstrument(instrument);
-    print('   ✅ Added to watchlist');
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${instrument.tradingsymbol} added to watchlist'),
-        backgroundColor: Colors.green,
-      ),
-    );
+    if (addedCount > 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$addedCount instruments added to watchlist'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
     Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FC),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Search Instruments',
-          style: TextStyle(
-            color: Colors.black,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-      body: Column(
-        children: [
-          // Search bar
-          Container(
-            color: Colors.white,
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search by symbol (e.g., NIFTY, BANKNIFTY)',
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _searchController.clear();
-                              _performSearch('');
-                            },
-                          )
-                        : null,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+      backgroundColor: backgroundColor,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header: Search Input and SAVE Button
+            Padding(
+              padding: const EdgeInsets.only(
+                  left: 16, right: 16, top: 16, bottom: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC), // slate-50 equivalent
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back,
+                                color: Color(0xFF94A3B8)), // slate-400
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          Expanded(
+                            child: TextField(
+                              controller: _searchController,
+                              style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFF0F172A),
+                                  fontFamily: 'Inter'),
+                              decoration: const InputDecoration(
+                                hintText: 'Search eg: NSE, CALL PUT, MCX',
+                                hintStyle: TextStyle(
+                                    color: Color(0xFF94A3B8),
+                                    fontSize: 14,
+                                    fontFamily: 'Inter'),
+                                border: InputBorder.none,
+                                isDense: true,
+                                contentPadding:
+                                    EdgeInsets.symmetric(vertical: 14),
+                              ),
+                              onChanged: (value) => _performSearch(value),
+                            ),
+                          ),
+                          if (_searchController.text.isNotEmpty)
+                            IconButton(
+                              icon: const Icon(Icons.close,
+                                  color: Color(0xFF94A3B8), size: 20),
+                              onPressed: () {
+                                _searchController.clear();
+                                _performSearch('');
+                              },
+                            ),
+                        ],
+                      ),
                     ),
                   ),
-                  onChanged: (value) {
-                    _performSearch(value);
-                  },
-                ),
-                const SizedBox(height: 12),
-                // Filters
-                Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: _selectedExchange,
-                        decoration: InputDecoration(
-                          labelText: 'Exchange',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                        ),
-                        items: [
-                          const DropdownMenuItem(
-                            value: null,
-                            child: Text('All'),
-                          ),
-                          ..._exchanges.map((exchange) => DropdownMenuItem(
-                                value: exchange,
-                                child: Text(exchange),
-                              )),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedExchange = value;
-                          });
-                          if (_searchController.text.isNotEmpty) {
-                            _performSearch(_searchController.text);
-                          }
-                        },
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed:
+                        _selectedInstruments.isEmpty ? null : _saveSelected,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      disabledBackgroundColor: primaryColor.withOpacity(0.5),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
                       ),
+                      elevation: 0,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        value: _selectedType,
-                        decoration: InputDecoration(
-                          labelText: 'Type',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                        ),
-                        items: [
-                          const DropdownMenuItem(
-                            value: null,
-                            child: Text('All'),
-                          ),
-                          ..._types.map((type) => DropdownMenuItem(
-                                value: type,
-                                child: Text(type),
-                              )),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedType = value;
-                          });
-                          if (_searchController.text.isNotEmpty) {
-                            _performSearch(_searchController.text);
-                          }
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                    child: const Text('SAVE',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            fontFamily: 'Inter')),
+                  ),
+                ],
+              ),
             ),
-          ),
 
-          // Results
-          Expanded(
-            child: _isSearching
-                ? const Center(child: CircularProgressIndicator())
-                : _searchResults.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.search,
-                              size: 64,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              _searchController.text.isEmpty
-                                  ? 'Search for instruments'
-                                  : 'No results found',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: _searchResults.length,
-                        itemBuilder: (context, index) {
-                          final instrument = _searchResults[index];
-                          final watchlistProvider = Provider.of<WatchlistProvider>(context);
-                          final isInWatchlist = watchlistProvider.contains(instrument.instrumentToken);
+            // Horizontal Filter Tabs
+            Container(
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: _tabs.map((tab) => _buildTab(tab)).toList(),
+                ),
+              ),
+            ),
 
-                          return Container(
-                            margin: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: ListTile(
-                              title: Text(
-                                instrument.tradingsymbol,
+            // Search Results List
+            Expanded(
+              child: Stack(
+                children: [
+                  _isSearching
+                      ? const Center(child: CircularProgressIndicator())
+                      : _searchResults.isEmpty
+                          ? Center(
+                              child: Text(
+                                _searchController.text.isEmpty
+                                    ? 'Search for instruments'
+                                    : 'No results found',
                                 style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
+                                    color: Color(0xFF64748B),
+                                    fontSize: 14,
+                                    fontFamily: 'Inter'),
                               ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '${instrument.exchange} • ${instrument.instrumentType}',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.only(
+                                  bottom: 80), // Space for floating counter
+                              itemCount: _searchResults.length,
+                              separatorBuilder: (context, index) =>
+                                  const Divider(
+                                      height: 1, color: Color(0xFFE2E8F0)),
+                              itemBuilder: (context, index) {
+                                final instrument = _searchResults[index];
+                                final isSelected = _selectedInstruments
+                                    .containsKey(instrument.instrumentToken);
+
+                                return InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      if (isSelected) {
+                                        _selectedInstruments
+                                            .remove(instrument.instrumentToken);
+                                      } else {
+                                        _selectedInstruments[instrument
+                                            .instrumentToken] = instrument;
+                                      }
+                                    });
+                                  },
+                                  child: Container(
+                                    color: isSelected
+                                        ? const Color(0xFFF8FAFC)
+                                        : Colors.white,
+                                    padding: const EdgeInsets.all(16),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        // Left Badge
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: const Color(
+                                                0xFFF1F5F9), // slate-100
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            instrument.exchange,
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: Color(
+                                                  0xFF475569), // slate-600
+                                              fontFamily: 'Inter',
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+
+                                        // Middle Content
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Flexible(
+                                                    child: Text(
+                                                      instrument.tradingsymbol,
+                                                      style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        fontSize: 14,
+                                                        color: Color(
+                                                            0xFF0F172A), // slate-900
+                                                        fontFamily: 'Inter',
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  if (instrument.expiryDisplay
+                                                      .isNotEmpty) ...[
+                                                    const SizedBox(width: 8),
+                                                    Container(
+                                                      width: 6,
+                                                      height: 6,
+                                                      decoration:
+                                                          const BoxDecoration(
+                                                        color: Color(
+                                                            0xFFCBD5E1), // slate-300
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Text(
+                                                      instrument.expiryDisplay,
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        color: Color(
+                                                            0xFF0F172A), // slate-900
+                                                        fontFamily: 'Inter',
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Row(
+                                                children: [
+                                                  const Text(
+                                                    'MAX: 0', // Placeholder from design
+                                                    style: TextStyle(
+                                                        fontSize: 10,
+                                                        color: Color(
+                                                            0xFF64748B), // slate-500
+                                                        fontFamily: 'Inter'),
+                                                  ),
+                                                  const Padding(
+                                                    padding:
+                                                        EdgeInsets.symmetric(
+                                                            horizontal: 8),
+                                                    child: Text('|',
+                                                        style: TextStyle(
+                                                            fontSize: 10,
+                                                            color: Color(
+                                                                0xFFCBD5E1))),
+                                                  ),
+                                                  const Text(
+                                                    'BREAKUP: 0', // Placeholder
+                                                    style: TextStyle(
+                                                        fontSize: 10,
+                                                        color:
+                                                            Color(0xFF64748B),
+                                                        fontFamily: 'Inter'),
+                                                  ),
+                                                  const Padding(
+                                                    padding:
+                                                        EdgeInsets.symmetric(
+                                                            horizontal: 8),
+                                                    child: Text('|',
+                                                        style: TextStyle(
+                                                            fontSize: 10,
+                                                            color: Color(
+                                                                0xFFCBD5E1))),
+                                                  ),
+                                                  Text(
+                                                    'LOTSIZE: ${instrument.lotSize}',
+                                                    style: const TextStyle(
+                                                        fontSize: 10,
+                                                        color:
+                                                            Color(0xFF64748B),
+                                                        fontFamily: 'Inter'),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+
+                                        // Right Checkbox
+                                        Container(
+                                          width: 24,
+                                          height: 24,
+                                          margin: const EdgeInsets.only(top: 4),
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: isSelected
+                                                  ? primaryColor
+                                                  : const Color(0xFFCBD5E1),
+                                              width: 2,
+                                            ),
+                                            color: isSelected
+                                                ? primaryColor
+                                                : Colors.transparent,
+                                          ),
+                                          child: isSelected
+                                              ? const Icon(Icons.check,
+                                                  size: 16, color: Colors.white)
+                                              : null,
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  if (instrument.expiry != null)
-                                    Text(
-                                      'Expiry: ${instrument.expiryDisplay}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              trailing: isInWatchlist
-                                  ? const Icon(
-                                      Icons.check_circle,
-                                      color: Colors.green,
-                                    )
-                                  : IconButton(
-                                      icon: const Icon(Icons.add_circle_outline),
-                                      onPressed: () => _addToWatchlist(instrument),
-                                    ),
-                              onTap: () => _addToWatchlist(instrument),
+                                );
+                              },
                             ),
-                          );
-                        },
+
+                  // Floating Result Counter Pill
+                  if (_searchResults.isNotEmpty)
+                    Positioned(
+                      bottom: 24,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFCBD5E1)
+                                .withOpacity(0.9), // slate-300
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              )
+                            ],
+                          ),
+                          child: Text(
+                            'RESULT: ${_searchResults.length}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF1E293B), // slate-800
+                              fontFamily: 'Inter',
+                            ),
+                          ),
+                        ),
                       ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTab(String title) {
+    final isActive = _activeTab == title;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _activeTab = title;
+        });
+        if (_searchController.text.isNotEmpty) {
+          _performSearch(_searchController.text);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.only(bottom: 12, right: 24),
+        decoration: BoxDecoration(
+          border: isActive
+              ? const Border(
+                  bottom: BorderSide(
+                      color: Color(0xFF0F172A), width: 2)) // slate-900
+              : null,
+        ),
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 14,
+            fontFamily: 'Inter',
+            fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+            color: isActive
+                ? const Color(0xFF0F172A)
+                : const Color(0xFF64748B), // slate-900 / slate-500
           ),
-        ],
+        ),
       ),
     );
   }

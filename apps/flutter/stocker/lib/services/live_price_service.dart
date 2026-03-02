@@ -11,6 +11,8 @@ class LivePriceService {
   Timer? _reconnectTimer;
   Function(Map<String, dynamic>)? onTickReceived;
   Function(bool)? onConnectionChanged;
+  Function(Map<String, dynamic>)? onTradeExecuted;
+  Function(Map<String, dynamic>)? onTradePlaced;
 
   bool get isConnected => _isConnected;
 
@@ -82,12 +84,38 @@ class LivePriceService {
           }
           break;
 
+        case 'trade_executed':
+          log('⚡ Trade executed event: ${data['tradingsymbol']} ${data['transaction_type']} ${data['quantity']} @ ${data['executed_price']}');
+          onTradeExecuted?.call(data);
+          break;
+
+        case 'trade_placed':
+          log('📝 Trade placed event: ${data['tradingsymbol']} ${data['transaction_type']} ${data['quantity']} @ ${data['price']}');
+          onTradePlaced?.call(data);
+          break;
+
         default:
           log('❓ Unknown message type: $type');
       }
     } catch (e) {
       log('❌ Error handling WebSocket message: $e');
     }
+  }
+
+  /// Authenticate this WebSocket connection with the user's ID
+  /// so the backend can send targeted trade_executed events
+  void authenticate(String userId) {
+    if (!_isConnected || _channel == null) {
+      log('⚠️  Cannot authenticate, not connected');
+      return;
+    }
+
+    log('🔐 Authenticating WebSocket as user: $userId');
+    final message = jsonEncode({
+      'type': 'auth',
+      'userId': userId,
+    });
+    _channel!.sink.add(message);
   }
 
   /// Subscribe to instrument tokens for live prices

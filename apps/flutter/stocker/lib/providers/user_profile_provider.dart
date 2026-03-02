@@ -30,7 +30,7 @@ class UserProfileProvider with ChangeNotifier {
   bool get isAdmin => _role == 'ADMIN';
   bool get isMaster => _role == 'MASTER';
   bool get isUser => _role == 'USER';
-  
+
   // Check if master can add child masters
   bool get canAddMaster {
     if (_master != null) {
@@ -90,8 +90,8 @@ class UserProfileProvider with ChangeNotifier {
 
   Future<void> _fetchUserProfile(String userId, String token) async {
     try {
-      final response = await _apiService.get('/admin/users/$userId', token: token);
-      
+      final response = await _apiService.get('/users/$userId', token: token);
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true && data['data'] != null) {
@@ -110,10 +110,11 @@ class UserProfileProvider with ChangeNotifier {
   Future<void> _fetchMasterProfile(String masterId, String token) async {
     try {
       log('🔍 Fetching master profile for ID: $masterId');
-      final response = await _apiService.get('/masters/$masterId', token: token);
-      
+      final response =
+          await _apiService.get('/masters/$masterId', token: token);
+
       log('🔍 Master profile response: ${response.statusCode}');
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true && data['data'] != null) {
@@ -133,7 +134,7 @@ class UserProfileProvider with ChangeNotifier {
   Future<void> _fetchAdminProfile(String adminId, String token) async {
     try {
       final response = await _apiService.get('/admin/$adminId', token: token);
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true && data['data'] != null) {

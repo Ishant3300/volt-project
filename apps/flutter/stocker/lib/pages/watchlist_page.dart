@@ -4,8 +4,27 @@ import 'package:stocker/pages/instrument_search_page.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import '../views/trade_card_view.dart';
 
-class WatchlistPage extends StatelessWidget {
+class WatchlistPage extends StatefulWidget {
   const WatchlistPage({super.key});
+
+  @override
+  State<WatchlistPage> createState() => _WatchlistPageState();
+}
+
+class _WatchlistPageState extends State<WatchlistPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Load watchlist fresh each time this page is shown (e.g. after login) if it's currently empty
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final provider = Provider.of<WatchlistProvider>(context, listen: false);
+        if (provider.isEmpty) {
+          provider.loadWatchlist();
+        }
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +46,8 @@ class WatchlistPage extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.security, color: const Color(0xFFFF3B30), size: 18),
+                  Icon(Icons.security,
+                      color: const Color(0xFFFF3B30), size: 18),
                   SizedBox(width: 10),
                   Flexible(
                     child: Text(
@@ -57,7 +77,8 @@ class WatchlistPage extends StatelessWidget {
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: ShapeDecoration(
                   color: Colors.white,
                   shape: RoundedRectangleBorder(
@@ -81,7 +102,8 @@ class WatchlistPage extends StatelessWidget {
                     Consumer<WatchlistProvider>(
                       builder: (context, provider, child) {
                         return IconButton(
-                          icon: Icon(Icons.refresh, color: const Color(0xFF8E8E93)),
+                          icon: Icon(Icons.refresh,
+                              color: const Color(0xFF8E8E93)),
                           onPressed: () {
                             provider.loadWatchlist();
                           },
@@ -108,11 +130,13 @@ class WatchlistPage extends StatelessWidget {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.add_chart, size: 64, color: Colors.grey[400]),
+                          Icon(Icons.add_chart,
+                              size: 64, color: Colors.grey[400]),
                           const SizedBox(height: 16),
                           Text(
                             'No instruments in watchlist',
-                            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                            style: TextStyle(
+                                fontSize: 16, color: Colors.grey[600]),
                           ),
                           const SizedBox(height: 8),
                           ElevatedButton.icon(
@@ -120,7 +144,8 @@ class WatchlistPage extends StatelessWidget {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const InstrumentSearchPage(),
+                                  builder: (context) =>
+                                      const InstrumentSearchPage(),
                                 ),
                               );
                             },
@@ -168,7 +193,8 @@ class WatchlistPage extends StatelessWidget {
                               alignment: Alignment.centerRight,
                               padding: const EdgeInsets.only(right: 20),
                               color: Colors.red,
-                              child: const Icon(Icons.delete, color: Colors.white),
+                              child:
+                                  const Icon(Icons.delete, color: Colors.white),
                             ),
                             onDismissed: (direction) {
                               watchlistProvider.removeInstrument(item.id);
@@ -180,7 +206,8 @@ class WatchlistPage extends StatelessWidget {
                                 ),
                               );
                             },
-                            child: _buildWatchlistCard(context, item, instrument),
+                            child:
+                                _buildWatchlistCard(context, item, instrument),
                           );
                         },
                       ),
@@ -197,8 +224,10 @@ class WatchlistPage extends StatelessWidget {
     );
   }
 
-  Widget _buildWatchlistCard(BuildContext context, dynamic item, dynamic instrument) {
+  Widget _buildWatchlistCard(
+      BuildContext context, dynamic item, dynamic instrument) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: () {
         Navigator.push(
           context,
@@ -273,7 +302,9 @@ class WatchlistPage extends StatelessWidget {
                       SizedBox(width: 4),
                       Flexible(
                         child: Text(
-                          item.changeDisplay.isEmpty ? '--' : item.changeDisplay,
+                          item.changeDisplay.isEmpty
+                              ? '--'
+                              : item.changeDisplay,
                           style: TextStyle(
                             color: item.isPositive
                                 ? const Color(0xFF34C759)
@@ -340,7 +371,8 @@ class WatchlistPage extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      padding: const EdgeInsets.only(top: 2, right: 8, bottom: 2),
+                      padding:
+                          const EdgeInsets.only(top: 2, right: 8, bottom: 2),
                       decoration: ShapeDecoration(
                         shape: RoundedRectangleBorder(
                           side: BorderSide(

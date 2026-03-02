@@ -33,20 +33,22 @@ class KiteInstrument {
 
   factory KiteInstrument.fromJson(Map<String, dynamic> json) {
     return KiteInstrument(
-      id: json['_id'] ?? json['id'],
-      instrumentToken: json['instrument_token'],
-      exchangeToken: json['exchange_token'],
-      tradingsymbol: json['tradingsymbol'],
+      id: json['_id'] ?? json['id'] ?? '',
+      instrumentToken: json['instrument_token'] ?? '',
+      exchangeToken: json['exchange_token'] ?? '',
+      tradingsymbol: json['tradingsymbol'] ?? '',
       name: json['name'] ?? '',
       lastPrice: (json['last_price'] ?? 0).toDouble(),
       expiry: json['expiry'] != null ? DateTime.parse(json['expiry']) : null,
       strike: (json['strike'] ?? 0).toDouble(),
       tickSize: (json['tick_size'] ?? 0).toDouble(),
       lotSize: json['lot_size'] ?? 0,
-      instrumentType: json['instrument_type'],
-      segment: json['segment'],
-      exchange: json['exchange'],
-      updatedAt: DateTime.parse(json['updated_at']),
+      instrumentType: json['instrument_type'] ?? '',
+      segment: json['segment'] ?? '',
+      exchange: json['exchange'] ?? '',
+      updatedAt: json['updated_at'] != null
+          ? DateTime.parse(json['updated_at'])
+          : DateTime.now(),
     );
   }
 
@@ -85,8 +87,18 @@ class KiteInstrument {
 
   String _getMonthName(int month) {
     const months = [
-      'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-      'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC'
     ];
     return months[month - 1];
   }

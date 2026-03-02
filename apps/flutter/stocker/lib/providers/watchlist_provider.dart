@@ -1,11 +1,15 @@
 import 'dart:developer';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:jwt_decode/jwt_decode.dart';
 import 'package:stocker/models/kite_instrument.dart';
 import 'package:stocker/models/watchlist_item.dart';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/live_price_service.dart';
+import 'package:stocker/services/navigation_service.dart';
+import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/services/watchlist_service.dart';
 import 'package:stocker/utils/contants.dart';
+import 'package:stocker/providers/trade_metrics_provider.dart';
 
 class WatchlistProvider with ChangeNotifier {
   final List<WatchlistItem> _items = [];
@@ -13,23 +17,13 @@ class WatchlistProvider with ChangeNotifier {
   final LivePriceService _livePriceService = LivePriceService();
   WatchlistService? _watchlistService;
   final Map<String, String> _backendIdMap = {};
-  bool _hasLoaded = false;
+  TradeMetricsProvider? tradeMetricsProvider;
 
-  WatchlistProvider() {
-    _initializeServices();
-  }
-
-  void _initializeServices() {
-    log('🚀 Initializing WatchlistProvider services');
-    if (!_hasLoaded) {
-      _hasLoaded = true;
-      loadWatchlist();
-    }
-  }
+  WatchlistProvider({this.tradeMetricsProvider});
 
   void _setupLivePriceCallbacks() {
     log('📞 Setting up live price callbacks');
-    
+
     _livePriceService.onTickReceived = (tick) {
       final token = tick['instrument_token']?.toString();
       if (token == null) {
@@ -40,7 +34,12 @@ class WatchlistProvider with ChangeNotifier {
       final price = (tick['last_price'] as num?)?.toDouble();
       final change = (tick['change'] as num?)?.toDouble();
       final changePercent = (tick['change_percent'] as num?)?.toDouble();
-      
+
+      // Send to Metrics Provider for realtime calculation
+      if (price != null) {
+        tradeMetricsProvider?.updateLtp(token, price);
+      }
+
       // log('💰 Price update for token $token: LTP=$price, Change=$change, Change%=$changePercent');
 
       updatePrice(
@@ -53,24 +52,85 @@ class WatchlistProvider with ChangeNotifier {
       );
     };
 
+    _livePriceService.onTradeExecuted = (data) {
+      log('⚡ Trade executed via WebSocket: ${data['tradingsymbol']} ${data['transaction_type']} ${data['quantity']}');
+      // Re-fetch trades so positions and orders tabs update instantly
+      tradeMetricsProvider?.fetchBaseData();
+
+      // Show snackbar notification to the user
+      _showTradeNotification(data);
+    };
+
+    _livePriceService.onTradePlaced = (data) {
+      log('📝 Trade placed via WebSocket: ${data['tradingsymbol']} ${data['transaction_type']} ${data['quantity']}');
+      // Re-fetch trades so orders tab updates instantly
+      tradeMetricsProvider?.fetchBaseData();
+    };
+
     _livePriceService.onConnectionChanged = (connected) {
       log('🔌 WebSocket connection changed: $connected');
-      if (connected && _items.isNotEmpty) {
-        log('   Re-subscribing to ${_items.length} tokens');
-        _subscribeCurrentTokens();
+      if (connected) {
+        // Authenticate so backend can send targeted trade_executed events
+        _authenticateWebSocket();
+        if (_items.isNotEmpty) {
+          log('   Re-subscribing to ${_items.length} tokens');
+          _subscribeCurrentTokens();
+        }
       }
       notifyListeners();
     };
 
     log('✅ Live price callbacks setup complete');
-    
+
     // Connect to WebSocket
     log('🔌 Initiating WebSocket connection...');
     _livePriceService.connect();
   }
 
+  Future<void> _authenticateWebSocket() async {
+    try {
+      final storage = SecureStorageService();
+      final token = await storage.getToken();
+      if (token != null) {
+        final payload = Jwt.parseJwt(token);
+        final userId = payload['id'] as String?;
+        if (userId != null) {
+          _livePriceService.authenticate(userId);
+        }
+      }
+    } catch (e) {
+      log('⚠️  Failed to authenticate WebSocket: $e');
+    }
+  }
+
+  void _showTradeNotification(Map<String, dynamic> data) {
+    final ctx = NavigationService.navigatorKey.currentContext;
+    if (ctx == null) return;
+
+    final symbol = data['tradingsymbol'] ?? '';
+    final side = data['transaction_type'] ?? '';
+    final qty = data['quantity'] ?? '';
+    final price = data['executed_price'] ?? '';
+    final pnl = data['pnl'];
+
+    String message = '✅ $symbol $side $qty @ $price';
+    if (pnl != null && pnl != 0) {
+      final pnlNum = (pnl as num);
+      message += ' | P&L: ${pnlNum >= 0 ? '+' : ''}${pnlNum.toStringAsFixed(2)}';
+    }
+
+    ScaffoldMessenger.of(ctx).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   void _subscribeCurrentTokens() {
-    final tokens = _items.map((item) => item.instrument.instrumentToken).toList();
+    final tokens =
+        _items.map((item) => item.instrument.instrumentToken).toList();
     if (tokens.isNotEmpty) {
       log('📡 Subscribing to ${tokens.length} tokens: ${tokens.join(', ')}');
       _livePriceService.subscribe(tokens);
@@ -104,7 +164,7 @@ class WatchlistProvider with ChangeNotifier {
 
       for (final item in watchlistData) {
         log('   Processing item: ${item['id']}');
-        
+
         // Backend returns 'instrument' not 'kiteInstrument'
         final instrumentData = item['instrument'] as Map<String, dynamic>?;
         if (instrumentData == null) {
@@ -113,7 +173,7 @@ class WatchlistProvider with ChangeNotifier {
         }
 
         log('   Instrument data: ${instrumentData['tradingsymbol']}');
-        
+
         final instrument = KiteInstrument.fromJson(instrumentData);
         final backendId = item['id'].toString();
         final localId = instrument.instrumentToken;
@@ -126,15 +186,16 @@ class WatchlistProvider with ChangeNotifier {
           currentPrice: instrument.lastPrice,
           lastUpdated: DateTime.now(),
         ));
-        
+
         log('   ✅ Added: ${instrument.tradingsymbol} (Token: $localId)');
       }
 
       log('📋 Loaded ${_items.length} watchlist items from backend');
-      
+
       _setupLivePriceCallbacks();
-      
-      final tokens = _items.map((item) => item.instrument.instrumentToken).toList();
+
+      final tokens =
+          _items.map((item) => item.instrument.instrumentToken).toList();
       log('   Tokens to subscribe: ${tokens.join(', ')}');
 
       if (_livePriceService.isConnected) {
@@ -143,6 +204,8 @@ class WatchlistProvider with ChangeNotifier {
       } else {
         log('   WebSocket not connected yet, will subscribe when connected');
       }
+
+      notifyListeners();
     } catch (e) {
       log('❌ Error loading watchlist: $e');
     }
@@ -151,7 +214,7 @@ class WatchlistProvider with ChangeNotifier {
 
   Future<void> addInstrument(KiteInstrument instrument) async {
     final localId = instrument.instrumentToken;
-    
+
     if (_items.any((item) => item.instrument.instrumentToken == localId)) {
       log('⚠️  Instrument already in watchlist: ${instrument.tradingsymbol}');
       return;
@@ -168,17 +231,20 @@ class WatchlistProvider with ChangeNotifier {
     notifyListeners();
     _livePriceService.subscribe([instrument.instrumentToken]);
 
-    if (_watchlistService != null) {
-      final result = await _watchlistService!.addToWatchlist(
-        kiteInstrumentId: instrument.id,
-        instrumentToken: instrument.instrumentToken,
-      );
-      if (result != null) {
-        _backendIdMap[localId] = result['id'].toString();
-        log('✅ Saved to backend with ID: ${result['id']}');
-      } else {
-        log('❌ Failed to save to backend');
-      }
+    if (_watchlistService == null) {
+      final apiService = ApiService(backendUrl);
+      _watchlistService = WatchlistService(apiService);
+    }
+
+    final result = await _watchlistService!.addToWatchlist(
+      kiteInstrumentId: instrument.id,
+      instrumentToken: instrument.instrumentToken,
+    );
+    if (result != null) {
+      _backendIdMap[localId] = result['id'].toString();
+      log('✅ Saved to backend with ID: ${result['id']}');
+    } else {
+      log('❌ Failed to save to backend');
     }
   }
 
@@ -194,13 +260,23 @@ class WatchlistProvider with ChangeNotifier {
     notifyListeners();
     _livePriceService.unsubscribe([token]);
 
-    if (_watchlistService != null && backendId != null) {
+    if (_watchlistService == null) {
+      final apiService = ApiService(backendUrl);
+      _watchlistService = WatchlistService(apiService);
+    }
+
+    if (backendId != null) {
       await _watchlistService!.removeFromWatchlist(backendId);
       log('✅ Removed from backend');
+    } else {
+      // If we don't have the backendId locally for some reason, we might need to fetch it first,
+      // but typically we'll have it if it was loaded or just added.
+      log('⚠️ Cannot remove from backend: backendId is null');
     }
   }
 
-  void updatePrice(String instrumentToken, {
+  void updatePrice(
+    String instrumentToken, {
     double? price,
     double? change,
     double? changePercent,
@@ -213,7 +289,7 @@ class WatchlistProvider with ChangeNotifier {
 
     if (index != -1) {
       // log('🔄 Updating price for token $instrumentToken at index $index');
-      
+
       _items[index] = _items[index].copyWith(
         currentPrice: price,
         change: change,
@@ -222,7 +298,7 @@ class WatchlistProvider with ChangeNotifier {
         low: low,
         lastUpdated: DateTime.now(),
       );
-      
+
       // log('   ✅ Updated: ${_items[index].instrument.tradingsymbol} -> Price: $price');
       notifyListeners();
     } else {
@@ -247,7 +323,8 @@ class WatchlistProvider with ChangeNotifier {
   }
 
   Future<void> clearAll() async {
-    final tokens = _items.map((item) => item.instrument.instrumentToken).toList();
+    final tokens =
+        _items.map((item) => item.instrument.instrumentToken).toList();
     if (tokens.isNotEmpty) {
       _livePriceService.unsubscribe(tokens);
     }

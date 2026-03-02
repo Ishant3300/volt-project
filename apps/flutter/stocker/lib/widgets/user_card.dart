@@ -13,7 +13,7 @@ class UserCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final balance = user.credits.toStringAsFixed(2);
+    final balance = user.balance.toStringAsFixed(2);
     final credit = user.credits.toStringAsFixed(2);
     final plShare = '${user.pnlSharing.toStringAsFixed(1)}%';
 
@@ -51,9 +51,12 @@ class UserCard extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                   decoration: BoxDecoration(
-                    color: user.status == 'active' ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
+                    color: user.status == 'active'
+                        ? const Color(0xFF34C759)
+                        : const Color(0xFFFF3B30),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(

@@ -9,7 +9,7 @@ import '../models/user.dart';
 
 class CreateUserView extends StatefulWidget {
   final User? user; // Optional user parameter for edit mode
-  
+
   const CreateUserView({super.key, this.user});
 
   @override
@@ -20,7 +20,8 @@ class _CreateUserViewState extends State<CreateUserView> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
   final TextEditingController _creditController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
 
@@ -30,8 +31,9 @@ class _CreateUserViewState extends State<CreateUserView> {
 
   Map<String, Map<String, dynamic>> _exchangeSettings = {};
   Map<String, bool> _tradeLimit = {};
-  Map<String, List<String>> _exchangeLotNames = {}; // Store lot names for each exchange
-  
+  Map<String, List<String>> _exchangeLotNames =
+      {}; // Store lot names for each exchange
+
   List<String> _allowedExchanges = [];
   List<String> _allowedTradeLimit = [];
 
@@ -39,7 +41,7 @@ class _CreateUserViewState extends State<CreateUserView> {
   void initState() {
     super.initState();
     _loadMasterPermissions();
-    
+
     // Pre-fill data if editing existing user
     if (widget.user != null) {
       _nameController.text = widget.user!.name;
@@ -52,15 +54,16 @@ class _CreateUserViewState extends State<CreateUserView> {
   }
 
   void _loadMasterPermissions() async {
-    final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+    final profileProvider =
+        Provider.of<UserProfileProvider>(context, listen: false);
     final adminService = Provider.of<AdminService>(context, listen: false);
-    
+
     if (profileProvider.master != null) {
       setState(() {
         // Get allowed exchanges from master
         _allowedExchanges = profileProvider.master!.exchangesAllowed;
         _allowedTradeLimit = profileProvider.master!.tradeLimit;
-        
+
         // Initialize exchange settings only for allowed exchanges
         _exchangeSettings = {};
         for (var exchange in _allowedExchanges) {
@@ -71,7 +74,7 @@ class _CreateUserViewState extends State<CreateUserView> {
             'group': null
           };
         }
-        
+
         // If editing, pre-fill exchange settings from user data
         if (widget.user != null) {
           for (var userExchange in widget.user!.exchangesAllowed) {
@@ -80,19 +83,22 @@ class _CreateUserViewState extends State<CreateUserView> {
                 'enabled': true,
                 'turnover': userExchange.turnover,
                 'lot': userExchange.lot,
-                'group': userExchange.groupName.isNotEmpty ? userExchange.groupName : null
+                'group': userExchange.groupName.isNotEmpty
+                    ? userExchange.groupName
+                    : null
               };
             }
           }
         }
-        
+
         // Initialize trade limit only for allowed exchanges
         _tradeLimit = {};
         for (var exchange in _allowedTradeLimit) {
-          _tradeLimit[exchange] = widget.user?.tradeLimit.contains(exchange) ?? false;
+          _tradeLimit[exchange] =
+              widget.user?.tradeLimit.contains(exchange) ?? false;
         }
       });
-      
+
       // Fetch lot names for each exchange
       for (var exchange in _allowedExchanges) {
         _fetchLotNamesForExchange(exchange, adminService);
@@ -100,11 +106,12 @@ class _CreateUserViewState extends State<CreateUserView> {
     }
   }
 
-  Future<void> _fetchLotNamesForExchange(String exchange, AdminService adminService) async {
+  Future<void> _fetchLotNamesForExchange(
+      String exchange, AdminService adminService) async {
     try {
       log('🔍 Fetching lot names for exchange: $exchange');
       final response = await adminService.getLotNamesByExchange(exchange);
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true && data['data'] != null) {
@@ -159,7 +166,8 @@ class _CreateUserViewState extends State<CreateUserView> {
       }
     } else {
       // Updating existing user - password is optional
-      if (_passwordController.text.isNotEmpty && _passwordController.text != _confirmPasswordController.text) {
+      if (_passwordController.text.isNotEmpty &&
+          _passwordController.text != _confirmPasswordController.text) {
         _showError('Passwords do not match');
         return;
       }
@@ -177,7 +185,8 @@ class _CreateUserViewState extends State<CreateUserView> {
     }
 
     // Get profile provider to access master data
-    final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+    final profileProvider =
+        Provider.of<UserProfileProvider>(context, listen: false);
     if (profileProvider.master == null) {
       _showError('Master profile not found');
       return;
@@ -215,9 +224,9 @@ class _CreateUserViewState extends State<CreateUserView> {
 
     try {
       final adminService = Provider.of<AdminService>(context, listen: false);
-      
+
       http.Response response;
-      
+
       if (widget.user != null) {
         // Update existing user
         log('📤 Updating user...');
@@ -225,7 +234,9 @@ class _CreateUserViewState extends State<CreateUserView> {
           userId: widget.user!.id,
           name: _nameController.text.trim(),
           username: _usernameController.text.trim(),
-          password: _passwordController.text.isNotEmpty ? _passwordController.text : null,
+          password: _passwordController.text.isNotEmpty
+              ? _passwordController.text
+              : null,
           credits: credit,
           note: _noteController.text.trim(),
           pnlSharing: profileProvider.master!.pnlSharing,
@@ -257,30 +268,37 @@ class _CreateUserViewState extends State<CreateUserView> {
       if (!mounted) return;
 
       final data = jsonDecode(response.body);
-      
-      if ((response.statusCode == 201 || response.statusCode == 200) && data['success'] == true) {
-        log(widget.user != null ? '✅ User updated successfully' : '✅ User created successfully');
-        
+
+      if ((response.statusCode == 201 || response.statusCode == 200) &&
+          data['success'] == true) {
+        log(widget.user != null
+            ? '✅ User updated successfully'
+            : '✅ User created successfully');
+
         // Refresh master profile to update credits
         await profileProvider.refreshProfile();
-        
+
         if (!mounted) return;
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(widget.user != null ? 'User updated successfully' : 'User created successfully'),
+            content: Text(widget.user != null
+                ? 'User updated successfully'
+                : 'User created successfully'),
             backgroundColor: Colors.green,
           ),
         );
         Navigator.pop(context, true); // Return true to indicate success
       } else {
         log('❌ Failed to ${widget.user != null ? 'update' : 'create'} user: ${data['message']}');
-        _showError(data['message'] ?? 'Failed to ${widget.user != null ? 'update' : 'create'} user');
+        _showError(data['message'] ??
+            'Failed to ${widget.user != null ? 'update' : 'create'} user');
       }
     } catch (e) {
       log('❌ Error ${widget.user != null ? 'updating' : 'creating'} user: $e');
       if (mounted) {
-        _showError('Error ${widget.user != null ? 'updating' : 'creating'} user: $e');
+        _showError(
+            'Error ${widget.user != null ? 'updating' : 'creating'} user: $e');
       }
     } finally {
       if (mounted) {
@@ -359,9 +377,12 @@ class _CreateUserViewState extends State<CreateUserView> {
                       ),
                       child: Column(
                         children: [
-                          _buildTextField(label: 'Name', controller: _nameController),
+                          _buildTextField(
+                              label: 'Name', controller: _nameController),
                           const SizedBox(height: 16),
-                          _buildTextField(label: 'Username', controller: _usernameController),
+                          _buildTextField(
+                              label: 'Username',
+                              controller: _usernameController),
                           const SizedBox(height: 16),
                           _buildTextField(
                             label: 'Password',
@@ -381,7 +402,9 @@ class _CreateUserViewState extends State<CreateUserView> {
                             keyboardType: TextInputType.number,
                           ),
                           const SizedBox(height: 16),
-                          _buildTextField(label: 'Note/Remark', controller: _noteController),
+                          _buildTextField(
+                              label: 'Note/Remark',
+                              controller: _noteController),
                         ],
                       ),
                     ),
@@ -404,13 +427,15 @@ class _CreateUserViewState extends State<CreateUserView> {
                         GestureDetector(
                           onTap: () {
                             setState(() {
-                              bool allEnabled = _exchangeSettings.values.every((v) => v['enabled']);
+                              bool allEnabled = _exchangeSettings.values
+                                  .every((v) => v['enabled']);
                               _exchangeSettings.forEach((key, value) {
                                 value['enabled'] = !allEnabled;
                               });
                             });
                           },
-                          child: const Icon(Icons.check_circle_outline, size: 24),
+                          child:
+                              const Icon(Icons.check_circle_outline, size: 24),
                         ),
                       ],
                     ),
@@ -438,90 +463,91 @@ class _CreateUserViewState extends State<CreateUserView> {
                             ),
                           )
                         : Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: ShapeDecoration(
-                        color: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          // Header Row
-                          Row(
-                            children: [
-                              const Expanded(
-                                flex: 2,
-                                child: Padding(
-                                  padding: EdgeInsets.only(left: 8),
-                                  child: Text(
-                                    'Exchange',
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 12,
-                                      fontFamily: 'Inter',
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                  ),
-                                ),
+                            padding: const EdgeInsets.all(12),
+                            decoration: ShapeDecoration(
+                              color: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              const Expanded(
-                                flex: 1,
-                                child: Center(
-                                  child: Text(
-                                    'Turnover',
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 12,
-                                      fontFamily: 'Inter',
-                                      fontWeight: FontWeight.w400,
+                            ),
+                            child: Column(
+                              children: [
+                                // Header Row
+                                Row(
+                                  children: [
+                                    const Expanded(
+                                      flex: 2,
+                                      child: Padding(
+                                        padding: EdgeInsets.only(left: 8),
+                                        child: Text(
+                                          'Exchange',
+                                          style: TextStyle(
+                                            color: Colors.black,
+                                            fontSize: 12,
+                                            fontFamily: 'Inter',
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                        ),
+                                      ),
                                     ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.visible,
-                                  ),
-                                ),
-                              ),
-                              const Expanded(
-                                flex: 1,
-                                child: Center(
-                                  child: Text(
-                                    'Lot',
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 12,
-                                      fontFamily: 'Inter',
-                                      fontWeight: FontWeight.w400,
+                                    const Expanded(
+                                      flex: 1,
+                                      child: Center(
+                                        child: Text(
+                                          'Turnover',
+                                          style: TextStyle(
+                                            color: Colors.black,
+                                            fontSize: 12,
+                                            fontFamily: 'Inter',
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.visible,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(
-                                width: 148,
-                                child: Center(
-                                  child: Text(
-                                    'Assign Group',
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 12,
-                                      fontFamily: 'Inter',
-                                      fontWeight: FontWeight.w400,
+                                    const Expanded(
+                                      flex: 1,
+                                      child: Center(
+                                        child: Text(
+                                          'Lot',
+                                          style: TextStyle(
+                                            color: Colors.black,
+                                            fontSize: 12,
+                                            fontFamily: 'Inter',
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                    const SizedBox(
+                                      width: 148,
+                                      child: Center(
+                                        child: Text(
+                                          'Assign Group',
+                                          style: TextStyle(
+                                            color: Colors.black,
+                                            fontSize: 12,
+                                            fontFamily: 'Inter',
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 16),
+                                // Exchange Rows
+                                ..._exchangeSettings.entries.map((entry) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: _buildExchangeRow(
+                                        entry.key, entry.value),
+                                  );
+                                }).toList(),
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 16),
-                          // Exchange Rows
-                          ..._exchangeSettings.entries.map((entry) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: _buildExchangeRow(entry.key, entry.value),
-                            );
-                          }).toList(),
-                        ],
-                      ),
-                    ),
 
                     const SizedBox(height: 24),
 
@@ -541,11 +567,14 @@ class _CreateUserViewState extends State<CreateUserView> {
                         GestureDetector(
                           onTap: () {
                             setState(() {
-                              bool allSelected = _tradeLimit.values.every((v) => v);
-                              _tradeLimit.updateAll((key, value) => !allSelected);
+                              bool allSelected =
+                                  _tradeLimit.values.every((v) => v);
+                              _tradeLimit
+                                  .updateAll((key, value) => !allSelected);
                             });
                           },
-                          child: const Icon(Icons.check_circle_outline, size: 24),
+                          child:
+                              const Icon(Icons.check_circle_outline, size: 24),
                         ),
                       ],
                     ),
@@ -573,17 +602,17 @@ class _CreateUserViewState extends State<CreateUserView> {
                             ),
                           )
                         : Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: ShapeDecoration(
-                        color: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Column(
-                        children: _buildTradeLimitRows(),
-                      ),
-                    ),
+                            padding: const EdgeInsets.all(16),
+                            decoration: ShapeDecoration(
+                              color: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Column(
+                              children: _buildTradeLimitRows(),
+                            ),
+                          ),
 
                     const SizedBox(height: 24),
 
@@ -604,11 +633,14 @@ class _CreateUserViewState extends State<CreateUserView> {
                             (value) => setState(() => _marginSquareOff = value),
                           ),
                           const SizedBox(height: 16),
-                          _buildToggleRow(
-                            'Change password on first login',
-                            _changePasswordOnFirstLogin,
-                            (value) => setState(() => _changePasswordOnFirstLogin = value),
-                          ),
+                          if (widget.user == null) ...[
+                            _buildToggleRow(
+                              'Change password on first login',
+                              _changePasswordOnFirstLogin,
+                              (value) => setState(
+                                  () => _changePasswordOnFirstLogin = value),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -621,9 +653,12 @@ class _CreateUserViewState extends State<CreateUserView> {
                       child: GestureDetector(
                         onTap: _isSubmitting ? null : _createUser,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 32, vertical: 18),
                           decoration: ShapeDecoration(
-                            color: _isSubmitting ? const Color(0xFF8E8E93) : const Color(0xFF22547C),
+                            color: _isSubmitting
+                                ? const Color(0xFF8E8E93)
+                                : const Color(0xFF22547C),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -635,12 +670,15 @@ class _CreateUserViewState extends State<CreateUserView> {
                                     height: 20,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                          Colors.white),
                                     ),
                                   ),
                                 )
                               : Text(
-                                  widget.user != null ? 'UPDATE USER' : 'CREATE USER',
+                                  widget.user != null
+                                      ? 'UPDATE USER'
+                                      : 'CREATE USER',
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(
                                     color: Colors.white,
@@ -733,9 +771,13 @@ class _CreateUserViewState extends State<CreateUserView> {
                   width: 24,
                   height: 24,
                   decoration: BoxDecoration(
-                    color: settings['enabled'] ? const Color(0xFF22547C) : Colors.transparent,
+                    color: settings['enabled']
+                        ? const Color(0xFF22547C)
+                        : Colors.transparent,
                     border: Border.all(
-                      color: settings['enabled'] ? const Color(0xFF22547C) : const Color(0xFFC7C7CC),
+                      color: settings['enabled']
+                          ? const Color(0xFF22547C)
+                          : const Color(0xFFC7C7CC),
                       width: 2,
                     ),
                     borderRadius: BorderRadius.circular(4),
@@ -774,9 +816,13 @@ class _CreateUserViewState extends State<CreateUserView> {
                 width: 24,
                 height: 24,
                 decoration: BoxDecoration(
-                  color: settings['turnover'] ? const Color(0xFF22547C) : Colors.transparent,
+                  color: settings['turnover']
+                      ? const Color(0xFF22547C)
+                      : Colors.transparent,
                   border: Border.all(
-                    color: settings['turnover'] ? const Color(0xFF22547C) : const Color(0xFFC7C7CC),
+                    color: settings['turnover']
+                        ? const Color(0xFF22547C)
+                        : const Color(0xFFC7C7CC),
                     width: 2,
                   ),
                   borderRadius: BorderRadius.circular(4),
@@ -801,9 +847,13 @@ class _CreateUserViewState extends State<CreateUserView> {
                 width: 24,
                 height: 24,
                 decoration: BoxDecoration(
-                  color: settings['lot'] ? const Color(0xFF22547C) : Colors.transparent,
+                  color: settings['lot']
+                      ? const Color(0xFF22547C)
+                      : Colors.transparent,
                   border: Border.all(
-                    color: settings['lot'] ? const Color(0xFF22547C) : const Color(0xFFC7C7CC),
+                    color: settings['lot']
+                        ? const Color(0xFF22547C)
+                        : const Color(0xFFC7C7CC),
                     width: 2,
                   ),
                   borderRadius: BorderRadius.circular(4),
@@ -831,7 +881,9 @@ class _CreateUserViewState extends State<CreateUserView> {
               child: DropdownButton<String>(
                 value: settings['group'],
                 hint: Text(
-                  _exchangeLotNames[exchange]?.isEmpty ?? true ? 'No groups' : 'Select Item',
+                  _exchangeLotNames[exchange]?.isEmpty ?? true
+                      ? 'No groups'
+                      : 'Select Item',
                   style: const TextStyle(
                     color: Color(0xFF8E8E93),
                     fontSize: 16,
@@ -841,14 +893,15 @@ class _CreateUserViewState extends State<CreateUserView> {
                 ),
                 isExpanded: true,
                 icon: const Icon(Icons.arrow_forward_ios, size: 16),
-                onChanged: (_exchangeLotNames[exchange]?.isEmpty ?? true) 
-                    ? null 
+                onChanged: (_exchangeLotNames[exchange]?.isEmpty ?? true)
+                    ? null
                     : (value) {
                         setState(() {
                           settings['group'] = value;
                         });
                       },
-                items: (_exchangeLotNames[exchange] ?? []).map((String lotName) {
+                items:
+                    (_exchangeLotNames[exchange] ?? []).map((String lotName) {
                   return DropdownMenuItem<String>(
                     value: lotName,
                     child: Text(
@@ -869,7 +922,8 @@ class _CreateUserViewState extends State<CreateUserView> {
     );
   }
 
-  Widget _buildCheckboxItem(String label, bool value, Function(bool) onChanged) {
+  Widget _buildCheckboxItem(
+      String label, bool value, Function(bool) onChanged) {
     return GestureDetector(
       onTap: () => onChanged(!value),
       child: Container(
@@ -890,7 +944,8 @@ class _CreateUserViewState extends State<CreateUserView> {
               decoration: BoxDecoration(
                 color: value ? const Color(0xFF22547C) : Colors.transparent,
                 border: Border.all(
-                  color: value ? const Color(0xFF22547C) : const Color(0xFFC7C7CC),
+                  color:
+                      value ? const Color(0xFF22547C) : const Color(0xFFC7C7CC),
                   width: 2,
                 ),
                 borderRadius: BorderRadius.circular(4),
@@ -960,11 +1015,11 @@ class _CreateUserViewState extends State<CreateUserView> {
   List<Widget> _buildTradeLimitRows() {
     List<Widget> rows = [];
     List<String> exchanges = _tradeLimit.keys.toList();
-    
+
     // Build rows with 2 items each
     for (int i = 0; i < exchanges.length; i += 2) {
       List<Widget> rowItems = [];
-      
+
       // First item
       rowItems.add(
         Expanded(
@@ -979,7 +1034,7 @@ class _CreateUserViewState extends State<CreateUserView> {
           ),
         ),
       );
-      
+
       // Second item if exists
       if (i + 1 < exchanges.length) {
         rowItems.add(const SizedBox(width: 12));
@@ -1001,7 +1056,7 @@ class _CreateUserViewState extends State<CreateUserView> {
         rowItems.add(const SizedBox(width: 12));
         rowItems.add(const Expanded(child: SizedBox()));
       }
-      
+
       rows.add(
         Padding(
           padding: EdgeInsets.only(bottom: i + 2 < exchanges.length ? 12 : 0),
@@ -1009,7 +1064,7 @@ class _CreateUserViewState extends State<CreateUserView> {
         ),
       );
     }
-    
+
     return rows;
   }
 }

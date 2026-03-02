@@ -5,6 +5,7 @@ class User {
   final String name;
   final String username;
   final double credits;
+  final double balance;
   final String note;
   final double pnlSharing;
   final double brokerageSharing;
@@ -31,6 +32,7 @@ class User {
     required this.name,
     required this.username,
     required this.credits,
+    required this.balance,
     required this.note,
     required this.pnlSharing,
     required this.brokerageSharing,
@@ -59,8 +61,9 @@ class User {
     if (json['server_id'] is String) {
       serverIdValue = json['server_id'] as String;
     } else if (json['server_id'] is Map) {
-      serverIdValue = (json['server_id'] as Map)['_id']?.toString() ?? 
-                      (json['server_id'] as Map)['id']?.toString() ?? '';
+      serverIdValue = (json['server_id'] as Map)['_id']?.toString() ??
+          (json['server_id'] as Map)['id']?.toString() ??
+          '';
     } else {
       serverIdValue = json['server_id']?.toString() ?? '';
     }
@@ -70,8 +73,9 @@ class User {
     if (json['master_id'] is String) {
       masterIdValue = json['master_id'] as String;
     } else if (json['master_id'] is Map) {
-      masterIdValue = (json['master_id'] as Map)['_id']?.toString() ?? 
-                      (json['master_id'] as Map)['id']?.toString() ?? '';
+      masterIdValue = (json['master_id'] as Map)['_id']?.toString() ??
+          (json['master_id'] as Map)['id']?.toString() ??
+          '';
     } else {
       masterIdValue = json['master_id']?.toString() ?? '';
     }
@@ -80,25 +84,40 @@ class User {
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       username: json['username']?.toString() ?? '',
-      credits: json['credits'] != null ? (json['credits'] as num).toDouble() : 0.0,
+      credits:
+          json['credits'] != null ? (json['credits'] as num).toDouble() : 0.0,
+      balance:
+          json['balance'] != null ? (json['balance'] as num).toDouble() : 0.0,
       note: json['note']?.toString() ?? '',
-      pnlSharing: json['pnl_sharing'] != null ? (json['pnl_sharing'] as num).toDouble() : 0.0,
-      brokerageSharing: json['brokerage_sharing'] != null ? (json['brokerage_sharing'] as num).toDouble() : 0.0,
+      pnlSharing: json['pnl_sharing'] != null
+          ? (json['pnl_sharing'] as num).toDouble()
+          : 0.0,
+      brokerageSharing: json['brokerage_sharing'] != null
+          ? (json['brokerage_sharing'] as num).toDouble()
+          : 0.0,
       exchangesAllowed: json['exchanges_allowed'] != null
           ? (json['exchanges_allowed'] as List)
               .map((e) => ExchangeConfig.fromJson(e as Map<String, dynamic>))
               .toList()
           : [],
-      tradeLimit: json['trade_limit'] != null ? List<String>.from(json['trade_limit'] as List) : [],
-      intradaySquareoff: json['intraday_squareoff'] != null 
-          ? (json['intraday_squareoff'] as List).map((e) => IntradaySquareoffSetting.fromJson(e as Map<String, dynamic>)).toList()
+      tradeLimit: json['trade_limit'] != null
+          ? List<String>.from(json['trade_limit'] as List)
           : [],
-      marginSquareOffPercentage: json['margin_square_off_percentage'] != null ? (json['margin_square_off_percentage'] as num).toDouble() : null,
+      intradaySquareoff: json['intraday_squareoff'] != null
+          ? (json['intraday_squareoff'] as List)
+              .map((e) =>
+                  IntradaySquareoffSetting.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : [],
+      marginSquareOffPercentage: json['margin_square_off_percentage'] != null
+          ? (json['margin_square_off_percentage'] as num).toDouble()
+          : null,
       marginSquareOff: json['margin_square_off'] as bool? ?? false,
       closeOnly: json['close_only'] as bool? ?? false,
       bet: json['bet'] as bool? ?? false,
       freshStoploss: json['fresh_stoploss'] as bool? ?? false,
-      changePassOnFirstLogin: json['change_pass_on_first_login'] as bool? ?? false,
+      changePassOnFirstLogin:
+          json['change_pass_on_first_login'] as bool? ?? false,
       serverId: serverIdValue,
       masterId: masterIdValue,
       status: json['status']?.toString() ?? 'active',
@@ -116,13 +135,15 @@ class User {
       'name': name,
       'username': username,
       'credits': credits,
+      'balance': balance,
       'note': note,
       'pnl_sharing': pnlSharing,
       'brokerage_sharing': brokerageSharing,
       'exchanges_allowed': exchangesAllowed.map((e) => e.toJson()).toList(),
       'trade_limit': tradeLimit,
       'intraday_squareoff': intradaySquareoff.map((e) => e.toJson()).toList(),
-      if (marginSquareOffPercentage != null) 'margin_square_off_percentage': marginSquareOffPercentage,
+      if (marginSquareOffPercentage != null)
+        'margin_square_off_percentage': marginSquareOffPercentage,
       'margin_square_off': marginSquareOff,
       'change_pass_on_first_login': changePassOnFirstLogin,
       'server_id': serverId,
@@ -172,12 +193,14 @@ class UserPosition {
   final double realisedPnl;
   final double m2mPnl;
   final double credit;
+  final double balance;
   final double equity;
 
   UserPosition({
     required this.realisedPnl,
     required this.m2mPnl,
     required this.credit,
+    required this.balance,
     required this.equity,
   });
 
@@ -185,7 +208,9 @@ class UserPosition {
     return UserPosition(
       realisedPnl: (json['realised_pnl'] as num).toDouble(),
       m2mPnl: (json['m2m_pnl'] as num).toDouble(),
-      credit: (json['credit'] as num).toDouble(),
+      credit: json['credit'] != null ? (json['credit'] as num).toDouble() : 0.0,
+      balance:
+          json['balance'] != null ? (json['balance'] as num).toDouble() : 0.0,
       equity: (json['equity'] as num).toDouble(),
     );
   }
@@ -195,6 +220,7 @@ class UserPosition {
       'realised_pnl': realisedPnl,
       'm2m_pnl': m2mPnl,
       'credit': credit,
+      'balance': balance,
       'equity': equity,
     };
   }
