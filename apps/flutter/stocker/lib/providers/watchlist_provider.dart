@@ -34,6 +34,18 @@ class WatchlistProvider with ChangeNotifier {
       final price = (tick['last_price'] as num?)?.toDouble();
       final change = (tick['change'] as num?)?.toDouble();
       final changePercent = (tick['change_percent'] as num?)?.toDouble();
+      final bidPrice = (tick['bid_price'] as num?)?.toDouble();
+      final askPrice = (tick['ask_price'] as num?)?.toDouble();
+      final open = (tick['open'] as num?)?.toDouble();
+      final close = (tick['close'] as num?)?.toDouble();
+
+      // Debug log to check if bid/ask are received
+      if (bidPrice != null || askPrice != null) {
+        log('💰 Token $token: LTP=$price, Bid=$bidPrice, Ask=$askPrice');
+      } else {
+        // Log when bid/ask are missing (only for first few ticks to avoid spam)
+        log('⚠️  Token $token: LTP=$price, Bid/Ask=NULL (using fallback spread)');
+      }
 
       // Send to Metrics Provider for realtime calculation
       if (price != null) {
@@ -49,13 +61,21 @@ class WatchlistProvider with ChangeNotifier {
         changePercent: changePercent,
         high: (tick['high'] as num?)?.toDouble(),
         low: (tick['low'] as num?)?.toDouble(),
+        open: open,
+        close: close,
+        bidPrice: bidPrice,
+        askPrice: askPrice,
       );
     };
 
     _livePriceService.onTradeExecuted = (data) {
-      log('⚡ Trade executed via WebSocket: ${data['tradingsymbol']} ${data['transaction_type']} ${data['quantity']}');
-      // Re-fetch trades so positions and orders tabs update instantly
-      tradeMetricsProvider?.fetchBaseData();
+      log('⚡ onTradeExecuted callback fired: ${data['tradingsymbol']} ${data['transaction_type']} ${data['quantity']}');
+      if (tradeMetricsProvider == null) {
+        log('⚠️  tradeMetricsProvider is NULL – UI will not update automatically!');
+      } else {
+        log('🔄 Calling fetchBaseData() to refresh trades...');
+        tradeMetricsProvider!.fetchBaseData();
+      }
 
       // Show snackbar notification to the user
       _showTradeNotification(data);
@@ -82,7 +102,17 @@ class WatchlistProvider with ChangeNotifier {
 
     log('✅ Live price callbacks setup complete');
 
-    // Connect to WebSocket
+    // If already connected, immediately re-authenticate and re-subscribe.
+    // (onConnectionChanged won't fire again for an existing connection.)
+    if (_livePriceService.isConnected) {
+      log('🔐 Already connected – re-authenticating now');
+      _authenticateWebSocket();
+      if (_items.isNotEmpty) {
+        _subscribeCurrentTokens();
+      }
+    }
+
+    // Connect to WebSocket (no-op if already connected)
     log('🔌 Initiating WebSocket connection...');
     _livePriceService.connect();
   }
@@ -95,7 +125,10 @@ class WatchlistProvider with ChangeNotifier {
         final payload = Jwt.parseJwt(token);
         final userId = payload['id'] as String?;
         if (userId != null) {
+          log('🔐 Authenticating WebSocket as userId: "$userId"');
           _livePriceService.authenticate(userId);
+        } else {
+          log('⚠️  JWT payload has no "id" field – auth skipped. Payload keys: ${payload.keys.join(', ')}');
         }
       }
     } catch (e) {
@@ -116,7 +149,8 @@ class WatchlistProvider with ChangeNotifier {
     String message = '✅ $symbol $side $qty @ $price';
     if (pnl != null && pnl != 0) {
       final pnlNum = (pnl as num);
-      message += ' | P&L: ${pnlNum >= 0 ? '+' : ''}${pnlNum.toStringAsFixed(2)}';
+      message +=
+          ' | P&L: ${pnlNum >= 0 ? '+' : ''}${pnlNum.toStringAsFixed(2)}';
     }
 
     ScaffoldMessenger.of(ctx).showSnackBar(
@@ -282,6 +316,10 @@ class WatchlistProvider with ChangeNotifier {
     double? changePercent,
     double? high,
     double? low,
+    double? open,
+    double? close,
+    double? bidPrice,
+    double? askPrice,
   }) {
     final index = _items.indexWhere(
       (item) => item.instrument.instrumentToken == instrumentToken,
@@ -296,6 +334,10 @@ class WatchlistProvider with ChangeNotifier {
         changePercent: changePercent,
         high: high,
         low: low,
+        open: open,
+        close: close,
+        bidPrice: bidPrice,
+        askPrice: askPrice,
         lastUpdated: DateTime.now(),
       );
 

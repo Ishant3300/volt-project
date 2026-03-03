@@ -8,6 +8,10 @@ class WatchlistItem {
   double? changePercent;
   double? high;
   double? low;
+  double? open;
+  double? close;
+  double? bidPrice;  // Best bid (buy) price
+  double? askPrice;  // Best ask (sell) price
   DateTime? lastUpdated;
 
   WatchlistItem({
@@ -18,6 +22,10 @@ class WatchlistItem {
     this.changePercent,
     this.high,
     this.low,
+    this.open,
+    this.close,
+    this.bidPrice,
+    this.askPrice,
     this.lastUpdated,
   });
 
@@ -29,6 +37,10 @@ class WatchlistItem {
     double? changePercent,
     double? high,
     double? low,
+    double? open,
+    double? close,
+    double? bidPrice,
+    double? askPrice,
     DateTime? lastUpdated,
   }) {
     return WatchlistItem(
@@ -39,6 +51,10 @@ class WatchlistItem {
       changePercent: changePercent ?? this.changePercent,
       high: high ?? this.high,
       low: low ?? this.low,
+      open: open ?? this.open,
+      close: close ?? this.close,
+      bidPrice: bidPrice ?? this.bidPrice,
+      askPrice: askPrice ?? this.askPrice,
       lastUpdated: lastUpdated ?? this.lastUpdated,
     );
   }

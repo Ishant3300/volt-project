@@ -9,6 +9,7 @@ import 'package:stocker/services/trade_service.dart';
 import 'option_chain_view.dart';
 import 'market_depth_sheet.dart';
 import 'info_sheet.dart';
+import 'chart_view.dart';
 
 class TradeCardPage extends StatefulWidget {
   final WatchlistItem item;
@@ -294,9 +295,18 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                             .getByToken(widget.item.instrument
                                                 .instrumentToken) ??
                                         widget.item;
-                                _priceController.text = currentItem.currentPrice
-                                        ?.toStringAsFixed(2) ??
-                                    '';
+                                
+                                // Set appropriate price based on order type
+                                final ltp = currentItem.currentPrice ?? 0.0;
+                                final spread = ltp * 0.0005;
+                                
+                                double defaultPrice;
+                                if (newValue == 'Buy Limit') {
+                                  defaultPrice = currentItem.askPrice ?? (ltp > 0 ? ltp + spread : ltp);
+                                } else {
+                                  defaultPrice = currentItem.bidPrice ?? (ltp > 0 ? ltp - spread : ltp);
+                                }
+                                _priceController.text = defaultPrice.toStringAsFixed(2);
                               }
                             });
                           }
@@ -562,9 +572,18 @@ class _TradeCardPageState extends State<TradeCardPage> {
                       final currentItem = provider.getByToken(
                               widget.item.instrument.instrumentToken) ??
                           widget.item;
-                      final priceStr =
-                          currentItem.currentPrice?.toStringAsFixed(2) ??
-                              '0.00';
+                      
+                      // For SELL: show bid price (price at which buyers are willing to buy)
+                      // For BUY: show ask price (price at which sellers are willing to sell)
+                      // If bid/ask not available, use LTP with a small spread (0.05% typical for liquid instruments)
+                      final ltp = currentItem.currentPrice ?? 0.0;
+                      final spread = ltp * 0.0005; // 0.05% spread
+                      
+                      final sellPrice = currentItem.bidPrice ?? (ltp > 0 ? ltp - spread : ltp);
+                      final buyPrice = currentItem.askPrice ?? (ltp > 0 ? ltp + spread : ltp);
+                      
+                      final sellPriceStr = sellPrice.toStringAsFixed(2);
+                      final buyPriceStr = buyPrice.toStringAsFixed(2);
 
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -588,7 +607,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                       ),
                                     ),
                                     child: Text(
-                                      priceStr,
+                                      sellPriceStr,
                                       textAlign: TextAlign.center,
                                       style: const TextStyle(
                                         color: Colors.black,
@@ -602,8 +621,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                   const SizedBox(height: 14),
                                   GestureDetector(
                                     onTap: () {
-                                      _handleTrade('SELL',
-                                          currentItem.currentPrice ?? 0);
+                                      _handleTrade('SELL', sellPrice);
                                     },
                                     child: Container(
                                       width: double.infinity,
@@ -651,7 +669,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                       ),
                                     ),
                                     child: Text(
-                                      priceStr,
+                                      buyPriceStr,
                                       textAlign: TextAlign.center,
                                       style: const TextStyle(
                                         color: Colors.black,
@@ -665,8 +683,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                   const SizedBox(height: 14),
                                   GestureDetector(
                                     onTap: () {
-                                      _handleTrade(
-                                          'BUY', currentItem.currentPrice ?? 0);
+                                      _handleTrade('BUY', buyPrice);
                                     },
                                     child: Container(
                                       width: double.infinity,
@@ -733,7 +750,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                           border: InputBorder.none,
                                           isDense: true,
                                           contentPadding: EdgeInsets.zero,
-                                          hintText: priceStr,
+                                          hintText: _orderType == 'Buy Limit' ? buyPriceStr : sellPriceStr,
                                           hintStyle: const TextStyle(
                                             color: Color(0xFFC7C7CC),
                                             fontSize: 16,
@@ -749,7 +766,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                     onTap: () {
                                       final isBuy = _orderType == 'Buy Limit';
                                       _handleTrade(isBuy ? 'BUY' : 'SELL',
-                                          currentItem.currentPrice ?? 0);
+                                          isBuy ? buyPrice : sellPrice);
                                     },
                                     child: Container(
                                       width: double.infinity,
@@ -802,7 +819,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                     children: [
                       _buildStatCard(
                           'OPEN',
-                          currentItem.currentPrice?.toStringAsFixed(2) ??
+                          currentItem.open?.toStringAsFixed(2) ??
                               '0.00'),
                       const SizedBox(width: 8),
                       _buildStatCard(
@@ -813,7 +830,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                       const SizedBox(width: 8),
                       _buildStatCard(
                           'CLOSE',
-                          currentItem.currentPrice?.toStringAsFixed(2) ??
+                          currentItem.close?.toStringAsFixed(2) ??
                               '0.00'),
                     ],
                   ),
@@ -856,21 +873,33 @@ class _TradeCardPageState extends State<TradeCardPage> {
                       ],
                     ),
                   ),
-                  const Row(
-                    children: [
-                      Icon(Icons.show_chart,
-                          size: 16, color: Color(0xFF22547C)),
-                      SizedBox(width: 4),
-                      Text(
-                        'View chart',
-                        style: TextStyle(
-                          color: Color(0xFF22547C),
-                          fontSize: 14,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ChartView(
+                            instrument: widget.item.instrument,
+                          ),
                         ),
-                      ),
-                    ],
+                      );
+                    },
+                    child: const Row(
+                      children: [
+                        Icon(Icons.show_chart,
+                            size: 16, color: Color(0xFF22547C)),
+                        SizedBox(width: 4),
+                        Text(
+                          'View chart',
+                          style: TextStyle(
+                            color: Color(0xFF22547C),
+                            fontSize: 14,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   GestureDetector(
                     onTap: () {

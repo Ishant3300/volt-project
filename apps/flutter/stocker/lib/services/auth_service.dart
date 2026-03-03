@@ -53,6 +53,12 @@ class AuthService {
     required String role,
   }) async {
     try {
+      // IMPORTANT: Clear old token before login to prevent using stale credentials
+      // This ensures single-session login works correctly
+      await storage.deleteToken();
+      await storage.deleteRole();
+      log('🗑️  Cleared old credentials before login');
+      
       late String endpoint;
       if (role == 'USER') {
         endpoint = '/auth/user/login';
@@ -71,6 +77,7 @@ class AuthService {
         if (authResponse.success && authResponse.data != null) {
           final token = authResponse.data['token'];
           await storage.saveToken(token: token);
+          log('💾 Saved new token to secure storage');
           
           // Decode JWT to extract role
           try {

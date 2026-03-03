@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
+import 'package:stocker/providers/watchlist_provider.dart';
+import 'package:stocker/models/kite_instrument.dart';
+import 'package:stocker/models/watchlist_item.dart';
+import 'package:stocker/views/trade_card_view.dart';
 
 class OrdersPage extends StatelessWidget {
   const OrdersPage({super.key});
@@ -107,38 +111,6 @@ class OrdersPage extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
-
-                  // Equity and Credit Info Bar (Dark Blue)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
-                    decoration: const BoxDecoration(color: Color(0xFF22547C)),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Equity: ${equity.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        Text(
-                          'Credit: ${credit.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                   const SizedBox(height: 16),
 
                   // Search bar
@@ -212,6 +184,8 @@ class OrdersPage extends StatelessWidget {
                             return Column(
                               children: [
                                 _buildOrderItem(
+                                  context,
+                                  pos,
                                   pos.tradingsymbol,
                                   pos.exchange, // Use exchange instead of date
                                   '${isBuy ? "BUY" : "SELL"}: ${pos.netQty.abs()} QTY',
@@ -294,84 +268,148 @@ class OrdersPage extends StatelessWidget {
     );
   }
 
-  Widget _buildOrderItem(String name, String date, String qtyInfo, String atp,
-      String cmp, String pnl, String value, bool isNegative) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  void _openPositionCard(BuildContext context, PositionAgg position) {
+    final watchlistProvider =
+        Provider.of<WatchlistProvider>(context, listen: false);
+
+    final isLong = position.netQty > 0;
+    final closeQuantity = position.netQty.abs();
+
+    WatchlistItem? existingItem =
+        watchlistProvider.getByToken(position.instrumentToken);
+
+    final WatchlistItem itemToUse;
+    if (existingItem != null) {
+      itemToUse = existingItem;
+    } else {
+      final instrument = KiteInstrument(
+        id: '',
+        instrumentToken: position.instrumentToken,
+        exchangeToken: '',
+        tradingsymbol: position.tradingsymbol,
+        name: position.tradingsymbol,
+        lastPrice: position.ltp > 0
+            ? position.ltp
+            : (isLong ? position.avgBuyPrice : position.avgSellPrice),
+        strike: 0,
+        tickSize: 0.05,
+        lotSize: 1,
+        instrumentType: '',
+        segment: '',
+        exchange: position.exchange,
+        updatedAt: DateTime.now(),
+      );
+
+      itemToUse = WatchlistItem(
+        id: position.instrumentToken,
+        instrument: instrument,
+        currentPrice: position.ltp > 0 ? position.ltp : null,
+        lastUpdated: DateTime.now(),
+      );
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TradeCardPage(
+          item: itemToUse,
+          initialOrderType: 'Market Execution',
+          initialQuantity: closeQuantity,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrderItem(
+      BuildContext context,
+      PositionAgg position,
+      String name,
+      String date,
+      String qtyInfo,
+      String atp,
+      String cmp,
+      String pnl,
+      String value,
+      bool isNegative) {
+    return GestureDetector(
+      onTap: () => _openPositionCard(context, position),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(name,
+                          style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400)),
+                      const SizedBox(width: 8),
+                      Container(
+                          width: 9,
+                          height: 9,
+                          decoration: const BoxDecoration(
+                              color: Color(0xFFD9D9D9), shape: BoxShape.circle)),
+                      const SizedBox(width: 8),
+                      Text(date,
+                          style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400)),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(qtyInfo,
+                      style: const TextStyle(
+                          color: Color(0xFF999999), fontSize: 12)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Text('ATP: $atp',
+                          style: const TextStyle(
+                              color: Color(0xFF999999), fontSize: 12)),
+                      const SizedBox(width: 16),
+                      Text('CMP: $cmp',
+                          style: const TextStyle(
+                              color: Color(0xFF999999), fontSize: 12)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Row(
                   children: [
-                    Text(name,
-                        style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400)),
-                    const SizedBox(width: 8),
-                    Container(
-                        width: 9,
-                        height: 9,
-                        decoration: const BoxDecoration(
-                            color: Color(0xFFD9D9D9), shape: BoxShape.circle)),
-                    const SizedBox(width: 8),
-                    Text(date,
-                        style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w400)),
+                    Icon(isNegative ? Icons.arrow_downward : Icons.arrow_upward,
+                        size: 16,
+                        color: isNegative
+                            ? const Color(0xFFFF3B30)
+                            : const Color(0xFF34C759)),
+                    const SizedBox(width: 4),
+                    Text(pnl,
+                        style: TextStyle(
+                            color: isNegative
+                                ? const Color(0xFFFF3B30)
+                                : const Color(0xFF34C759),
+                            fontSize: 12)),
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text(qtyInfo,
+                Text(value,
                     style: const TextStyle(
-                        color: Color(0xFF999999), fontSize: 12)),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Text('ATP: $atp',
-                        style: const TextStyle(
-                            color: Color(0xFF999999), fontSize: 12)),
-                    const SizedBox(width: 16),
-                    Text('CMP: $cmp',
-                        style: const TextStyle(
-                            color: Color(0xFF999999), fontSize: 12)),
-                  ],
-                ),
+                        color: Colors.black,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400)),
               ],
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Row(
-                children: [
-                  Icon(isNegative ? Icons.arrow_downward : Icons.arrow_upward,
-                      size: 16,
-                      color: isNegative
-                          ? const Color(0xFFFF3B30)
-                          : const Color(0xFF34C759)),
-                  const SizedBox(width: 4),
-                  Text(pnl,
-                      style: TextStyle(
-                          color: isNegative
-                              ? const Color(0xFFFF3B30)
-                              : const Color(0xFF34C759),
-                          fontSize: 12)),
-                ],
-              ),
-              const SizedBox(height: 2),
-              Text(value,
-                  style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w400)),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

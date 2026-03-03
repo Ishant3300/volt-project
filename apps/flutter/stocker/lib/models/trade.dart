@@ -46,8 +46,9 @@ class Trade {
           '',
       exchange: json['exchange']?.toString() ?? '',
       transactionType: json['transaction_type']?.toString() ?? '',
-      quantity:
-          json['executed_quantity'] as int? ?? json['quantity'] as int? ?? 0,
+      quantity: (json['quantity'] as num?)?.toInt() ??
+          (json['executed_quantity'] as num?)?.toInt() ??
+          0,
       price: (json['executed_price'] as num?)?.toDouble() ??
           (json['price'] as num?)?.toDouble() ??
           0.0,

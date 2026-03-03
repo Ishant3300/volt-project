@@ -325,18 +325,23 @@ class _WatchlistPageState extends State<WatchlistPage> {
 
             SizedBox(width: 8),
 
-            // Right side - Price, LTP, High/Low
+            // Right side - Bid/Ask, High/Low
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Chart icon + price
+                    // Chart icon + BID price (for selling)
                     Icon(Icons.show_chart, size: 16, color: Colors.black),
                     SizedBox(width: 4),
                     Text(
-                      item.currentPrice?.toStringAsFixed(2) ?? '0.00',
+                      () {
+                        final ltp = item.currentPrice ?? 0.0;
+                        final spread = ltp * 0.0005;
+                        final bidPrice = item.bidPrice ?? (ltp > 0 ? ltp - spread : ltp);
+                        return bidPrice.toStringAsFixed(2);
+                      }(),
                       style: TextStyle(
                         color: Colors.black,
                         fontSize: 14,
@@ -345,7 +350,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                       ),
                     ),
                     SizedBox(width: 8),
-                    // Green dot + LTP
+                    // Green dot + ASK price (for buying)
                     Container(
                       width: 8,
                       height: 8,
@@ -356,7 +361,12 @@ class _WatchlistPageState extends State<WatchlistPage> {
                     ),
                     SizedBox(width: 2),
                     Text(
-                      item.currentPrice?.toStringAsFixed(2) ?? '0.00',
+                      () {
+                        final ltp = item.currentPrice ?? 0.0;
+                        final spread = ltp * 0.0005;
+                        final askPrice = item.askPrice ?? (ltp > 0 ? ltp + spread : ltp);
+                        return askPrice.toStringAsFixed(2);
+                      }(),
                       style: TextStyle(
                         color: Colors.black,
                         fontSize: 14,

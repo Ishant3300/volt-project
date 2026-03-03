@@ -90,12 +90,12 @@ class _LoginPageState extends State<LoginPage> {
           // Reload watchlist after login
           final watchlistProvider =
               Provider.of<WatchlistProvider>(context, listen: false);
-          watchlistProvider.loadWatchlist();
+          await watchlistProvider.loadWatchlist();
 
           // Fetch trade history and metrics base data
           final tradeMetricsProvider =
               Provider.of<TradeMetricsProvider>(context, listen: false);
-          tradeMetricsProvider.fetchBaseData();
+          await tradeMetricsProvider.fetchBaseData();
 
           // Navigate to home page
           Navigator.pushReplacement(

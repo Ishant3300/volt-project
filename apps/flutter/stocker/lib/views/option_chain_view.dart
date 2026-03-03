@@ -92,8 +92,38 @@ class _OptionChainViewState extends State<OptionChainView> {
   }
 
   String _extractBaseSymbol(String tradingSymbol) {
-    // Extract base symbol (e.g., "NIFTY" from "NIFTY2410050000CE")
-    final match = RegExp(r'^([A-Z]+)').firstMatch(tradingSymbol);
+    // Handle special cases first
+    final upperSymbol = tradingSymbol.toUpperCase();
+    
+    // GIFT NIFTY -> NIFTY
+    if (upperSymbol.contains('GIFT') && upperSymbol.contains('NIFTY')) {
+      return 'NIFTY';
+    }
+    
+    // NIFTY BANK or BANKNIFTY -> BANKNIFTY
+    if (upperSymbol.contains('BANK') && upperSymbol.contains('NIFTY')) {
+      return 'BANKNIFTY';
+    }
+    
+    // NIFTY FIN SERVICE -> FINNIFTY
+    if (upperSymbol.contains('FIN') && upperSymbol.contains('NIFTY')) {
+      return 'FINNIFTY';
+    }
+    
+    // NIFTY MIDCAP SELECT -> MIDCPNIFTY
+    if (upperSymbol.contains('MIDCAP') || upperSymbol.contains('MIDCP')) {
+      return 'MIDCPNIFTY';
+    }
+    
+    // Extract base symbol (e.g., "NIFTY" from "NIFTY24DEC24850CE")
+    // First try to match the pattern with numbers (option contracts)
+    final optionMatch = RegExp(r'^([A-Z]+)\d').firstMatch(upperSymbol);
+    if (optionMatch != null) {
+      return optionMatch.group(1)!;
+    }
+    
+    // Otherwise just extract leading alphabets
+    final match = RegExp(r'^([A-Z]+)').firstMatch(upperSymbol);
     return match?.group(1) ?? tradingSymbol;
   }
 

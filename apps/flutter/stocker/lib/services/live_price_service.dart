@@ -35,6 +35,7 @@ class LivePriceService {
 
       _subscription = _channel!.stream.listen(
         (message) {
+          log('RAW SOCKET EVENT RECEIVED: $message');
           _handleMessage(message);
         },
         onDone: () {
