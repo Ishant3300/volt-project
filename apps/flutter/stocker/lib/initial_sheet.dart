@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
+import 'package:stocker/services/api_service.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
 import 'pages/login_page.dart';
@@ -38,6 +39,10 @@ class _InitialScreenState extends State<InitialScreen> {
       if (token != null && token.isNotEmpty) {
         log('✅ Token found, fetching user profile...');
 
+        // Set initializing mode to prevent 401 handling during data fetch
+        final apiService = Provider.of<ApiService>(context, listen: false);
+        apiService.setInitializing(true);
+
         // Fetch user profile
         final profileProvider =
             Provider.of<UserProfileProvider>(context, listen: false);
@@ -48,6 +53,9 @@ class _InitialScreenState extends State<InitialScreen> {
         final tradeMetricsProvider =
             Provider.of<TradeMetricsProvider>(context, listen: false);
         await tradeMetricsProvider.fetchBaseData();
+
+        // Done initializing
+        apiService.setInitializing(false);
 
         if (!mounted) return;
 
@@ -67,6 +75,13 @@ class _InitialScreenState extends State<InitialScreen> {
       }
     } catch (e) {
       log('❌ Error checking auth status: $e');
+      
+      // Reset initializing mode on error
+      if (mounted) {
+        final apiService = Provider.of<ApiService>(context, listen: false);
+        apiService.setInitializing(false);
+      }
+      
       if (!mounted) return;
       Navigator.pushReplacement(
         context,

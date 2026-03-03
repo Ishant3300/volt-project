@@ -1,5 +1,6 @@
 
 
+import 'dart:developer';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SecureStorageService {
@@ -22,14 +23,18 @@ class SecureStorageService {
   }
 
   Future<void> saveRole({required String role}) async {
+    log('💾 SecureStorage: Saving role: "$role"');
     await storage.write(key: roleKey, value: role);
   }
 
   Future<String?> getRole() async {
-    return await storage.read(key: roleKey);
+    final role = await storage.read(key: roleKey);
+    log('📖 SecureStorage: Retrieved role: "$role"');
+    return role;
   }
 
   Future<void> deleteRole() async {
+    log('🗑️ SecureStorage: Deleting role');
     await storage.delete(key: roleKey);
   }
 

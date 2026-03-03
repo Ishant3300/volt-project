@@ -3,34 +3,55 @@ import 'dart:developer';
 import 'package:http/http.dart' as http;
 import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/services/navigation_service.dart';
-import 'package:flutter/material.dart';
 
 class ApiService {
   final String baseUrl;
   final SecureStorageService _storage = SecureStorageService();
+  bool _isInitializing = false;
 
   ApiService(this.baseUrl);
 
+  /// Call this to prevent 401 handling during login/initialization
+  void setInitializing(bool value) {
+    _isInitializing = value;
+    log('🔄 ApiService: Initializing mode = $_isInitializing');
+  }
+
   Future<void> _handleUnauthorized() async {
-    log('🚨 401 Unauthorized - Session expired');
-    
-    // Clear stored token
-    await _storage.deleteToken();
-    
-    // Show snackbar
-    final context = NavigationService.currentContext;
-    if (context != null && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Session expired. Please login again.'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 3),
-        ),
-      );
+    // Don't handle 401 during initialization (login flow)
+    if (_isInitializing) {
+      log('⚠️  401 during initialization - ignoring (login in progress)');
+      return;
     }
     
-    // Navigate to login after a short delay
-    await Future.delayed(const Duration(milliseconds: 500));
+    // Get the current role before clearing (to check if we just logged in)
+    final currentRole = await _storage.getRole();
+    final currentToken = await _storage.getToken();
+    
+    log('🚨 401 Unauthorized - Current role: $currentRole, Has token: ${currentToken != null}');
+    
+    // If we have both a token and role, this might be a transient 401 during login
+    // Don't clear immediately - give it a moment
+    if (currentToken != null && currentRole != null) {
+      log('⚠️  Have token and role - might be transient 401, waiting 500ms...');
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      // Check again
+      final tokenAfterWait = await _storage.getToken();
+      if (tokenAfterWait != null && tokenAfterWait == currentToken) {
+        log('⚠️  Token still valid after wait - ignoring 401');
+        return;
+      }
+    }
+    
+    log('🚨 Clearing session and redirecting to login');
+    
+    // Clear all stored data
+    await _storage.deleteToken();
+    await _storage.deleteRole();
+    await _storage.deleteAddMasterPermission();
+    
+    // Navigate to login silently (no error message shown to user)
     await NavigationService.navigateToLogin();
   }
 

@@ -41,8 +41,9 @@ class KiteService {
       log('   Response: ${response.statusCode}');
 
       if (response.statusCode == 401) {
-        log('❌ Authentication failed - token expired');
-        throw Exception('Session expired. Please login again');
+        log('❌ Authentication failed - redirecting to login');
+        // ApiService already handles 401 and redirects to login
+        throw Exception('Authentication required');
       }
 
       if (decoded['success'] == true && decoded['data'] != null) {
@@ -82,8 +83,9 @@ class KiteService {
       log('   Response body: ${response.body}');
 
       if (response.statusCode == 401) {
-        log('❌ Authentication failed - token expired');
-        throw Exception('Session expired. Please login again');
+        log('❌ Authentication failed - redirecting to login');
+        // ApiService already handles 401 and redirects to login
+        throw Exception('Authentication required');
       }
 
       if (decoded['success'] == true && decoded['data'] != null) {

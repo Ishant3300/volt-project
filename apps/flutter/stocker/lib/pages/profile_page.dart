@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:developer';
 import '../views/account_detail_view.dart';
 import '../views/user_management_view.dart';
 import '../views/login_history_view.dart';
@@ -31,12 +32,29 @@ class _ProfilePageState extends State<ProfilePage> {
     _checkAdminStatus();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Re-check admin status when widget becomes visible
+    _checkAdminStatus();
+  }
+
   Future<void> _checkAdminStatus() async {
     final role = await _storage.getRole();
-    setState(() {
-      _isAdmin = role == 'ADMIN';
-      _isMaster = role == 'MASTER';
-    });
+    log('🔍 Profile page - Retrieved role: "$role"');
+    
+    final isAdmin = role == 'ADMIN';
+    final isMaster = role == 'MASTER';
+    
+    log('📊 Profile page - Comparison: role=="ADMIN" = $isAdmin, role=="MASTER" = $isMaster');
+    
+    if (mounted) {
+      setState(() {
+        _isAdmin = isAdmin;
+        _isMaster = isMaster;
+      });
+      log('✅ Profile page - State updated: _isAdmin: $_isAdmin, _isMaster: $_isMaster');
+    }
   }
 
   Future<void> _handleLogout() async {
@@ -95,6 +113,8 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    log('🏗️ Building ProfilePage - _isAdmin: $_isAdmin, _isMaster: $_isMaster');
+    
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FC),
       body: SafeArea(
@@ -248,7 +268,11 @@ class _ProfilePageState extends State<ProfilePage> {
                       _buildMenuItem(
                           context, Icons.admin_panel_settings, 'Admin Setting'),
                       _buildDivider(),
-                    ],
+                    ] else
+                      Builder(builder: (context) {
+                        log('⚠️  Admin Setting NOT shown - _isAdmin: $_isAdmin');
+                        return const SizedBox.shrink();
+                      }),
                     _buildMenuItem(
                         context, Icons.account_circle, 'Account Detail'),
                     _buildDivider(),
@@ -256,7 +280,11 @@ class _ProfilePageState extends State<ProfilePage> {
                       _buildMenuItem(
                           context, Icons.people, 'Master And User Management'),
                       _buildDivider(),
-                    ],
+                    ] else
+                      Builder(builder: (context) {
+                        log('⚠️  User Management NOT shown - _isAdmin: $_isAdmin, _isMaster: $_isMaster');
+                        return const SizedBox.shrink();
+                      }),
                     _buildMenuItem(context, Icons.assessment, 'Reports'),
                     _buildDivider(),
                     _buildMenuItem(context, Icons.settings, 'Settings'),
