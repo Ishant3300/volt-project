@@ -23,19 +23,19 @@ class ApiService {
       log('⚠️  401 during initialization - ignoring (login in progress)');
       return;
     }
-    
+
     // Get the current role before clearing (to check if we just logged in)
     final currentRole = await _storage.getRole();
     final currentToken = await _storage.getToken();
-    
+
     log('🚨 401 Unauthorized - Current role: $currentRole, Has token: ${currentToken != null}');
-    
+
     // If we have both a token and role, this might be a transient 401 during login
     // Don't clear immediately - give it a moment
     if (currentToken != null && currentRole != null) {
       log('⚠️  Have token and role - might be transient 401, waiting 500ms...');
       await Future.delayed(const Duration(milliseconds: 500));
-      
+
       // Check again
       final tokenAfterWait = await _storage.getToken();
       if (tokenAfterWait != null && tokenAfterWait == currentToken) {
@@ -43,14 +43,14 @@ class ApiService {
         return;
       }
     }
-    
+
     log('🚨 Clearing session and redirecting to login');
-    
+
     // Clear all stored data
     await _storage.deleteToken();
     await _storage.deleteRole();
     await _storage.deleteAddMasterPermission();
-    
+
     // Navigate to login silently (no error message shown to user)
     await NavigationService.navigateToLogin();
   }
@@ -75,22 +75,24 @@ class ApiService {
     if (token != null) {
       log('   Token: ${token.substring(0, 20)}...');
     }
-    
+
     try {
-      final response = await http.get(
-        Uri.parse(url),
-        headers: _defaultHeaders(token: token),
-      );
-      
+      final response = await http
+          .get(
+            Uri.parse(url),
+            headers: _defaultHeaders(token: token),
+          )
+          .timeout(const Duration(seconds: 30));
+
       log('   ✅ Response: ${response.statusCode}');
       log('   Body length: ${response.body.length}');
       log('   Body preview: ${response.body.substring(0, response.body.length > 200 ? 200 : response.body.length)}');
-      
+
       // Handle 401 Unauthorized
       if (response.statusCode == 401) {
         await _handleUnauthorized();
       }
-      
+
       return response;
     } catch (e, stackTrace) {
       log('   ❌ Request failed: $e');
@@ -106,22 +108,24 @@ class ApiService {
     log('   URL: $url');
     log('   Has Token: ${token != null}');
     log('   Body: ${jsonEncode(body)}');
-    
+
     try {
-      final response = await http.post(
-        Uri.parse(url),
-        headers: _defaultHeaders(token: token),
-        body: jsonEncode(body),
-      );
-      
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: _defaultHeaders(token: token),
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 10));
+
       log('   ✅ Response: ${response.statusCode}');
       log('   Body: ${response.body}');
-      
+
       // Handle 401 Unauthorized
       if (response.statusCode == 401) {
         await _handleUnauthorized();
       }
-      
+
       return response;
     } catch (e, stackTrace) {
       log('   ❌ Request failed: $e');
@@ -137,22 +141,24 @@ class ApiService {
     log('   URL: $url');
     log('   Has Token: ${token != null}');
     log('   Body: ${jsonEncode(body)}');
-    
+
     try {
-      final response = await http.put(
-        Uri.parse(url),
-        headers: _defaultHeaders(token: token),
-        body: jsonEncode(body),
-      );
-      
+      final response = await http
+          .put(
+            Uri.parse(url),
+            headers: _defaultHeaders(token: token),
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 10));
+
       log('   ✅ Response: ${response.statusCode}');
       log('   Body: ${response.body}');
-      
+
       // Handle 401 Unauthorized
       if (response.statusCode == 401) {
         await _handleUnauthorized();
       }
-      
+
       return response;
     } catch (e, stackTrace) {
       log('   ❌ Request failed: $e');
@@ -166,21 +172,23 @@ class ApiService {
     log('📡 DELETE Request');
     log('   URL: $url');
     log('   Has Token: ${token != null}');
-    
+
     try {
-      final response = await http.delete(
-        Uri.parse(url),
-        headers: _defaultHeaders(token: token),
-      );
-      
+      final response = await http
+          .delete(
+            Uri.parse(url),
+            headers: _defaultHeaders(token: token),
+          )
+          .timeout(const Duration(seconds: 10));
+
       log('   ✅ Response: ${response.statusCode}');
       log('   Body: ${response.body}');
-      
+
       // Handle 401 Unauthorized
       if (response.statusCode == 401) {
         await _handleUnauthorized();
       }
-      
+
       return response;
     } catch (e, stackTrace) {
       log('   ❌ Request failed: $e');

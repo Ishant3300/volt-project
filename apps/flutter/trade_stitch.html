@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Stalker - Order Execution (Light)</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: "#0062FF", // High contrast Electric Blue for light theme
+              secondary: "#FF7A00", // High contrast Neon Orange for light theme
+              "bg-main": "#FFFFFF",
+              "bg-soft": "#F4F4F7",
+              "card-light": "#FFFFFF",
+              "input-fill": "#EBEBEF",
+            },
+            fontFamily: {
+              display: ["Inter", "sans-serif"],
+            },
+            borderRadius: {
+              DEFAULT: "12px",
+            },
+          },
+        },
+      };
+    </script>
+<style type="text/tailwindcss">
+        @layer base {
+            body {
+                @apply bg-bg-soft text-slate-900 font-display antialiased;
+                -webkit-tap-highlight-color: transparent;
+            }
+        }
+        .light-frosted {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        .soft-glow-primary {
+            box-shadow: 0 8px 20px rgba(0, 98, 255, 0.25);
+        }
+        .soft-glow-secondary {
+            box-shadow: 0 8px 20px rgba(255, 122, 0, 0.25);
+        }
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen flex justify-center">
+<div class="w-full max-w-[430px] bg-bg-main min-h-screen relative flex flex-col overflow-hidden shadow-xl">
+<div class="px-8 pt-12 pb-2 flex justify-between items-center text-sm font-semibold text-slate-900">
+<span>9:41</span>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[18px] font-bold">signal_cellular_alt</span>
+<span class="material-symbols-outlined text-[18px] font-bold">wifi</span>
+<span class="material-symbols-outlined text-[18px] font-bold">battery_very_low</span>
+</div>
+</div>
+<header class="px-6 py-4 flex items-center justify-between">
+<div class="flex items-center gap-4">
+<button class="w-10 h-10 flex items-center justify-center rounded-full bg-bg-soft border border-slate-200 text-slate-900 active:scale-90 transition-transform">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<div>
+<h1 class="text-xl font-extrabold tracking-tight text-slate-900">BANKNIFTY</h1>
+<p class="text-[11px] font-bold text-slate-400 tracking-wider">JAN 27 EXPIRY</p>
+</div>
+</div>
+<div class="text-right">
+<div class="text-xl font-black text-rose-600">59554.50</div>
+<div class="text-xs font-bold text-rose-500">-562.40 (0.56%)</div>
+</div>
+</header>
+<div class="px-6 py-2">
+<div class="h-14 w-full flex items-end gap-1.5 overflow-hidden opacity-30">
+<div class="flex-1 bg-rose-500 rounded-t-sm" style="height: 45%;"></div>
+<div class="flex-1 bg-rose-500 rounded-t-sm" style="height: 65%;"></div>
+<div class="flex-1 bg-rose-500 rounded-t-sm" style="height: 30%;"></div>
+<div class="flex-1 bg-rose-500 rounded-t-sm" style="height: 75%;"></div>
+<div class="flex-1 bg-rose-500 rounded-t-sm" style="height: 55%;"></div>
+<div class="flex-1 bg-rose-500 rounded-t-sm" style="height: 40%;"></div>
+<div class="flex-1 bg-rose-500 rounded-t-sm" style="height: 35%;"></div>
+<div class="flex-1 bg-rose-500 rounded-t-sm" style="height: 60%;"></div>
+<div class="flex-1 bg-rose-500 rounded-t-sm" style="height: 85%;"></div>
+<div class="flex-1 bg-rose-500 rounded-t-sm" style="height: 70%;"></div>
+<div class="flex-1 bg-rose-500 rounded-t-sm" style="height: 45%;"></div>
+<div class="flex-1 bg-rose-500 rounded-t-sm" style="height: 30%;"></div>
+</div>
+</div>
+<main class="flex-1 px-6 space-y-5 pt-4">
+<div class="space-y-3">
+<div class="relative group">
+<select class="w-full bg-bg-soft border-slate-200 border rounded-2xl py-4 px-5 appearance-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-bold text-slate-700">
+<option>Select Item</option>
+<option selected="">NIFTY BANK 25 JAN 59500 CE</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">keyboard_arrow_down</span>
+</div>
+<div class="relative group">
+<select class="w-full bg-bg-soft border-slate-200 border rounded-2xl py-4 px-5 appearance-none focus:ring-2 focus:ring-primary/20 focus:border-primary font-bold text-slate-700">
+<option>Market Execution</option>
+<option>Limit Order</option>
+<option>Stop Loss</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">keyboard_arrow_down</span>
+</div>
+</div>
+<div class="bg-bg-soft p-5 rounded-[32px] space-y-4 border border-slate-100">
+<div class="flex justify-between items-center px-1">
+<span class="text-xs font-black text-slate-400 uppercase tracking-widest">Quantity</span>
+<span class="material-symbols-outlined text-primary text-xl font-bold">info</span>
+</div>
+<div class="bg-white border border-slate-200 rounded-2xl p-2 flex items-center justify-between shadow-sm">
+<button class="w-12 h-12 flex items-center justify-center rounded-xl bg-bg-soft text-slate-900 active:bg-slate-200 transition-colors">
+<span class="material-symbols-outlined font-bold">remove</span>
+</button>
+<input class="bg-transparent border-none text-center text-2xl font-black w-full focus:ring-0 text-slate-900" type="number" value="100"/>
+<button class="w-12 h-12 flex items-center justify-center rounded-xl bg-bg-soft text-slate-900 active:bg-slate-200 transition-colors">
+<span class="material-symbols-outlined font-bold">add</span>
+</button>
+</div>
+<div class="grid grid-cols-3 gap-2">
+<button class="py-2.5 rounded-xl bg-primary text-white font-black text-xs shadow-md shadow-primary/20">100</button>
+<button class="py-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 font-black text-xs hover:border-slate-300">200</button>
+<button class="py-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 font-black text-xs hover:border-slate-300">500</button>
+<button class="py-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 font-black text-xs hover:border-slate-300">1000</button>
+<button class="py-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 font-black text-xs hover:border-slate-300">2000</button>
+<button class="py-2.5 rounded-xl bg-white border border-slate-200 text-slate-500 font-black text-xs hover:border-slate-300">5000</button>
+</div>
+<div class="grid grid-cols-2 gap-3 pt-1">
+<div class="bg-white py-3.5 rounded-2xl text-center border border-slate-200 shadow-sm">
+<span class="text-lg font-black text-slate-900">59657.50</span>
+</div>
+<div class="bg-white py-3.5 rounded-2xl text-center border border-slate-200 shadow-sm">
+<span class="text-lg font-black text-slate-900">59657.50</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-2">
+<button class="bg-secondary soft-glow-secondary text-white py-5 rounded-2xl font-black text-lg tracking-widest active:scale-[0.97] transition-all uppercase">
+                        Sell
+                    </button>
+<button class="bg-primary soft-glow-primary text-white py-5 rounded-2xl font-black text-lg tracking-widest active:scale-[0.97] transition-all uppercase">
+                        Place
+                    </button>
+</div>
+</div>
+<div class="flex justify-between px-2 pt-2">
+<button class="flex flex-col items-center gap-2 group">
+<div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-primary group-active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-[20px] font-bold">format_list_bulleted</span>
+</div>
+<span class="text-[10px] font-black text-slate-500 uppercase tracking-tighter">Option Chain</span>
+</button>
+<button class="flex flex-col items-center gap-2 group">
+<div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-primary group-active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-[20px] font-bold">query_stats</span>
+</div>
+<span class="text-[10px] font-black text-slate-500 uppercase tracking-tighter">View Chart</span>
+</button>
+<button class="flex flex-col items-center gap-2 group">
+<div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-primary group-active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-[20px] font-bold">layers</span>
+</div>
+<span class="text-[10px] font-black text-slate-500 uppercase tracking-tighter">Market Depth</span>
+</button>
+</div>
+<div class="grid grid-cols-2 gap-3 pb-8">
+<div class="bg-bg-soft border border-slate-200 p-4 rounded-2xl">
+<p class="text-[10px] text-slate-400 font-black uppercase tracking-[0.15em]">Open</p>
+<p class="text-lg font-black text-slate-900 mt-0.5">59995</p>
+</div>
+<div class="bg-bg-soft border border-slate-200 p-4 rounded-2xl">
+<p class="text-[10px] text-slate-400 font-black uppercase tracking-[0.15em]">Low</p>
+<p class="text-lg font-black text-slate-900 mt-0.5">59995</p>
+</div>
+<div class="bg-bg-soft border border-slate-200 p-4 rounded-2xl">
+<p class="text-[10px] text-slate-400 font-black uppercase tracking-[0.15em]">High</p>
+<p class="text-lg font-black text-slate-900 mt-0.5">59995</p>
+</div>
+<div class="bg-bg-soft border border-slate-200 p-4 rounded-2xl">
+<p class="text-[10px] text-slate-400 font-black uppercase tracking-[0.15em]">Close</p>
+<p class="text-lg font-black text-slate-900 mt-0.5">59995</p>
+</div>
+</div>
+</main>
+<div class="flex justify-center pb-4">
+<div class="w-32 h-1.5 bg-slate-200 rounded-full"></div>
+</div>
+</div>
+
+</body></html>

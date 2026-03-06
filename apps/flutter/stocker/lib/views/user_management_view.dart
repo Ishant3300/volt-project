@@ -24,11 +24,18 @@ class _UserManagementViewState extends State<UserManagementView> {
   bool _isLoading = true;
   String? _error;
   String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _fetchData();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchData() async {
@@ -44,7 +51,6 @@ class _UserManagementViewState extends State<UserManagementView> {
           Provider.of<UserProfileProvider>(context, listen: false);
 
       if (profileProvider.isAdmin) {
-        // Admin: Fetch all masters and users
         final mastersResponse = await adminService.getAllMasters(limit: 100);
         final usersResponse = await adminService.getAllUsers(limit: 100);
 
@@ -77,7 +83,6 @@ class _UserManagementViewState extends State<UserManagementView> {
           });
         }
       } else {
-        // Master: Fetch only child masters and users
         final mastersResponse = await adminService.getChildMasters(limit: 100);
         final usersResponse = await adminService.getChildUsers(limit: 100);
 
@@ -121,10 +126,7 @@ class _UserManagementViewState extends State<UserManagementView> {
 
   List<dynamic> get _filteredItems {
     final allItems = <dynamic>[..._masters, ..._users];
-
-    if (_searchQuery.isEmpty) {
-      return allItems;
-    }
+    if (_searchQuery.isEmpty) return allItems;
 
     return allItems.where((item) {
       final username = item is Master ? item.username : (item as User).username;
@@ -136,362 +138,241 @@ class _UserManagementViewState extends State<UserManagementView> {
 
   @override
   Widget build(BuildContext context) {
+    final profileProvider = Provider.of<UserProfileProvider>(context);
+    final title =
+        profileProvider.isAdmin ? 'Master & User Management' : 'User Management';
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FC),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: Column(
           children: [
             // Header
             Padding(
-              padding: const EdgeInsets.all(17),
+              padding: const EdgeInsets.all(16),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: Icon(Icons.arrow_back, color: Colors.black),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      height: 40,
+                      width: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.02),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
-                      SizedBox(width: 12),
-                      Consumer<UserProfileProvider>(
-                        builder: (context, profileProvider, child) {
-                          return Text(
-                            profileProvider.isAdmin
-                                ? 'Master and User Management'
-                                : 'User Management',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 16,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w600,
-                            ),
-                          );
-                        },
-                      ),
-                    ],
+                      child: const Icon(Icons.arrow_back_ios_new,
+                          size: 16, color: Color(0xFF475569)),
+                    ),
                   ),
-                  Icon(Icons.close, color: Colors.black),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 16,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                  ),
+                  // Count badge
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF22547C).withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${_filteredItems.length}',
+                      style: const TextStyle(
+                        color: Color(0xFF22547C),
+                        fontSize: 13,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
 
             // Search bar
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: ShapeDecoration(
-                color: Colors.white,
-                shape: RoundedRectangleBorder(
-                  side: BorderSide(width: 1, color: const Color(0xFFD1D1D6)),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Row(
-                      children: [
-                        Icon(Icons.search,
-                            size: 24, color: const Color(0xFF8E8E93)),
-                        SizedBox(width: 10),
-                        Expanded(
-                          child: TextField(
-                            onChanged: (value) {
-                              setState(() {
-                                _searchQuery = value;
-                              });
-                            },
-                            decoration: InputDecoration(
-                              border: InputBorder.none,
-                              hintText: 'Search users',
-                              hintStyle: TextStyle(
-                                color: const Color(0xFF8E8E93),
-                                fontSize: 16,
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w400,
-                              ),
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          ),
-                        ),
-                      ],
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
                     ),
-                  ),
-                  Icon(Icons.filter_list,
-                      size: 24, color: const Color(0xFF8E8E93)),
-                ],
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search,
+                        color: Color(0xFF94A3B8), size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (value) {
+                          setState(() => _searchQuery = value);
+                        },
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontSize: 14,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w400,
+                        ),
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          hintText: 'Search users or masters',
+                          hintStyle: TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 14,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w400,
+                          ),
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                    ),
+                    if (_searchQuery.isNotEmpty)
+                      GestureDetector(
+                        onTap: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                        child: const Icon(Icons.close,
+                            color: Color(0xFF94A3B8), size: 18),
+                      ),
+                  ],
+                ),
               ),
             ),
 
-            SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-            // User list
+            // Summary row
+            if (!_isLoading && _error == null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    _buildCountChip(
+                        'Masters', _masters.length, const Color(0xFF22547C)),
+                    const SizedBox(width: 8),
+                    _buildCountChip(
+                        'Users', _users.length, const Color(0xFFD97706)),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 12),
+
+            // List
             Expanded(
               child: _isLoading
-                  ? Center(child: CircularProgressIndicator())
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF22547C),
+                        strokeWidth: 2.5,
+                      ),
+                    )
                   : _error != null
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(_error!,
-                                  style: TextStyle(color: Colors.red)),
-                              SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed: _fetchData,
-                                child: Text('Retry'),
-                              ),
-                            ],
-                          ),
-                        )
+                      ? _buildErrorState()
                       : _filteredItems.isEmpty
-                          ? Center(
-                              child: Text(
-                                _searchQuery.isEmpty
-                                    ? 'No users or masters found'
-                                    : 'No results found',
-                                style: TextStyle(
-                                  color: const Color(0xFF8E8E93),
-                                  fontSize: 16,
-                                  fontFamily: 'Inter',
+                          ? _buildEmptyState()
+                          : RefreshIndicator(
+                              onRefresh: _fetchData,
+                              child: Container(
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 16),
+                                clipBehavior: Clip.antiAlias,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(24),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black
+                                          .withValues(alpha: 0.02),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
-                              ),
-                            )
-                          : ListView.separated(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16),
-                              itemCount: _filteredItems.length,
-                              separatorBuilder: (context, index) =>
-                                  SizedBox(height: 4),
-                              itemBuilder: (context, index) {
-                                final item = _filteredItems[index];
-                                final isMaster = item is Master;
-                                final username = isMaster
-                                    ? item.username
-                                    : (item as User).username;
-                                final balance = isMaster
-                                    ? item.balance
-                                    : (item as User).balance;
-                                final pnlSharing = isMaster
-                                    ? item.pnlSharing
-                                    : (item as User).pnlSharing;
-                                final isActive = isMaster
-                                    ? item.activeStatus
-                                    : (item as User).status == 'active';
-
-                                return GestureDetector(
-                                  onTap: () async {
-                                    final result = await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => UsernameView(
-                                          master: isMaster ? item : null,
-                                          user: isMaster ? null : item,
-                                        ),
-                                      ),
-                                    );
-
-                                    // Refresh data if changes were made
-                                    if (result == true) {
-                                      _fetchData();
+                                child: ListView.separated(
+                                  padding: EdgeInsets.zero,
+                                  itemCount: _filteredItems.length,
+                                  separatorBuilder: (_, __) => const Divider(
+                                    height: 1,
+                                    color: Color(0xFFF1F5F9),
+                                  ),
+                                  itemBuilder: (context, index) {
+                                    final item = _filteredItems[index];
+                                    if (item is Master) {
+                                      return _buildMasterRow(item);
+                                    } else {
+                                      return _buildUserRow(item as User);
                                     }
                                   },
-                                  child: Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: ShapeDecoration(
-                                      color: Colors.white,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.person,
-                                            size: 24, color: Colors.black),
-                                        SizedBox(width: 10),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment
-                                                        .spaceBetween,
-                                                children: [
-                                                  Expanded(
-                                                    child: Text(
-                                                      username.toUpperCase(),
-                                                      style: TextStyle(
-                                                        color: Colors.black,
-                                                        fontSize: 14,
-                                                        fontFamily: 'Inter',
-                                                        fontWeight:
-                                                            FontWeight.w400,
-                                                      ),
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                  SizedBox(width: 8),
-                                                  Row(
-                                                    children: [
-                                                      Container(
-                                                        padding:
-                                                            const EdgeInsets
-                                                                .symmetric(
-                                                                horizontal: 4,
-                                                                vertical: 2),
-                                                        decoration:
-                                                            ShapeDecoration(
-                                                          color: isMaster
-                                                              ? const Color(
-                                                                  0xFF007AFF)
-                                                              : const Color(
-                                                                  0xFFFF9500),
-                                                          shape: RoundedRectangleBorder(
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                          4)),
-                                                        ),
-                                                        child: Text(
-                                                          isMaster
-                                                              ? 'MASTER'
-                                                              : 'USER',
-                                                          style: TextStyle(
-                                                            color: Colors.white,
-                                                            fontSize: 10,
-                                                            fontFamily: 'Inter',
-                                                            fontWeight:
-                                                                FontWeight.w500,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      SizedBox(width: 4),
-                                                      Container(
-                                                        padding:
-                                                            const EdgeInsets
-                                                                .symmetric(
-                                                                horizontal: 4,
-                                                                vertical: 2),
-                                                        decoration:
-                                                            ShapeDecoration(
-                                                          color: isActive
-                                                              ? const Color(
-                                                                  0xFF34C759)
-                                                              : const Color(
-                                                                  0xFFFF3B30),
-                                                          shape: RoundedRectangleBorder(
-                                                              borderRadius:
-                                                                  BorderRadius
-                                                                      .circular(
-                                                                          4)),
-                                                        ),
-                                                        child: Text(
-                                                          isActive
-                                                              ? 'ACTIVE'
-                                                              : 'INACTIVE',
-                                                          style: TextStyle(
-                                                            color: Colors.white,
-                                                            fontSize: 10,
-                                                            fontFamily: 'Inter',
-                                                            fontWeight:
-                                                                FontWeight.w400,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ],
-                                              ),
-                                              SizedBox(height: 6),
-                                              Container(
-                                                padding: const EdgeInsets.only(
-                                                    top: 6),
-                                                decoration: BoxDecoration(
-                                                  border: Border(
-                                                    bottom: BorderSide(
-                                                        width: 1,
-                                                        color: const Color(
-                                                            0xFFD1D1D6)),
-                                                  ),
-                                                ),
-                                                child: Row(
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment
-                                                          .spaceBetween,
-                                                  children: [
-                                                    Flexible(
-                                                      child: Text(
-                                                        'BAL: ${balance.toStringAsFixed(2)}',
-                                                        style: TextStyle(
-                                                          color: const Color(
-                                                              0xFF007AFF),
-                                                          fontSize: 11,
-                                                          fontFamily: 'Inter',
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                        ),
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                      ),
-                                                    ),
-                                                    SizedBox(width: 4),
-                                                    Flexible(
-                                                      child: Text(
-                                                        'P&L: ${pnlSharing.toStringAsFixed(0)}%',
-                                                        style: TextStyle(
-                                                          color: Colors.black,
-                                                          fontSize: 11,
-                                                          fontFamily: 'Inter',
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                        ),
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
+                                ),
+                              ),
                             ),
             ),
 
-            // Create user button
-            GestureDetector(
-              onTap: () {
-                _showCreateOptionsBottomSheet(context);
-              },
-              child: Container(
-                margin: const EdgeInsets.all(16),
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: ShapeDecoration(
-                  color: const Color(0xFF22547C),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                ),
-                child: Text(
-                  'CREATE',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w500,
+            // Create button
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: GestureDetector(
+                onTap: () => _showCreateSheet(context),
+                child: Container(
+                  width: double.infinity,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF22547C),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF22547C).withValues(alpha: 0.2),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add, color: Colors.white, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Create',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -502,256 +383,584 @@ class _UserManagementViewState extends State<UserManagementView> {
     );
   }
 
-  void _showCreateOptionsBottomSheet(BuildContext context) {
+  Widget _buildCountChip(String label, int count, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$count',
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.error_outline,
+                size: 32, color: Color(0xFFEF4444)),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _error ?? 'Something went wrong',
+            style: const TextStyle(
+              color: Color(0xFF475569),
+              fontSize: 14,
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 16),
+          GestureDetector(
+            onTap: _fetchData,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF22547C),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Retry',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Icon(Icons.people_outline,
+                size: 32, color: Color(0xFFCBD5E1)),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _searchQuery.isEmpty
+                ? 'No users or masters found'
+                : 'No results for "$_searchQuery"',
+            style: const TextStyle(
+              color: Color(0xFF475569),
+              fontSize: 14,
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMasterRow(Master master) {
+    final bool isActive = master.activeStatus;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => UsernameView(master: master, user: null),
+          ),
+        );
+        if (result == true) _fetchData();
+      },
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            // Avatar
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFF22547C).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Text(
+                  master.name.isNotEmpty
+                      ? master.name[0].toUpperCase()
+                      : 'M',
+                  style: const TextStyle(
+                    color: Color(0xFF22547C),
+                    fontSize: 16,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          master.username.toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 14,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.3,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF22547C).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'MASTER',
+                          style: TextStyle(
+                            color: Color(0xFF22547C),
+                            fontSize: 9,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFFEF4444),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        'BAL: ${master.balance.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 11,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 6),
+                        child: Text('·',
+                            style: TextStyle(
+                                fontSize: 10, color: Color(0xFFCBD5E1))),
+                      ),
+                      Text(
+                        'P&L: ${master.pnlSharing.toStringAsFixed(0)}%',
+                        style: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 11,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right,
+                size: 20, color: Color(0xFF94A3B8)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserRow(User user) {
+    final bool isActive = user.status == 'active';
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => UsernameView(master: null, user: user),
+          ),
+        );
+        if (result == true) _fetchData();
+      },
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            // Avatar
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFFD97706).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Text(
+                  user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+                  style: const TextStyle(
+                    color: Color(0xFFD97706),
+                    fontSize: 16,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          user.username.toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 14,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.3,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFD97706).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text(
+                          'USER',
+                          style: TextStyle(
+                            color: Color(0xFFD97706),
+                            fontSize: 9,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFFEF4444),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                        'BAL: ${user.balance.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 11,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 6),
+                        child: Text('·',
+                            style: TextStyle(
+                                fontSize: 10, color: Color(0xFFCBD5E1))),
+                      ),
+                      Text(
+                        'P&L: ${user.pnlSharing.toStringAsFixed(0)}%',
+                        style: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 11,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right,
+                size: 20, color: Color(0xFF94A3B8)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCreateSheet(BuildContext context) {
     final profileProvider =
         Provider.of<UserProfileProvider>(context, listen: false);
     final isAdmin = profileProvider.isAdmin;
     final isMaster = profileProvider.isMaster;
     final canAddMaster = profileProvider.canAddMaster;
 
-    // Debug logging
-    log('🔍 Bottom sheet debug:');
-    log('   isAdmin: $isAdmin');
-    log('   isMaster: $isMaster');
-    log('   canAddMaster: $canAddMaster');
-    log('   role: ${profileProvider.role}');
-    log('   master: ${profileProvider.master?.username}');
-    log('   master.addMaster: ${profileProvider.master?.addMaster}');
-
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (BuildContext context) {
+      builder: (BuildContext ctx) {
         return Container(
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
             ),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle bar
-              Container(
-                margin: const EdgeInsets.only(top: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD1D1D6),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Title
-              const Text(
-                'Create New',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 18,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              // Create Master Option
-              // Show for: Admin (always) OR Master with add_master=true
-              if (isAdmin || (isMaster && canAddMaster))
-                GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const CreateMasterView(),
-                      ),
-                    ).then((result) {
-                      if (result == true) {
-                        _fetchData();
-                      }
-                    });
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                    padding: const EdgeInsets.all(16),
-                    decoration: ShapeDecoration(
-                      color: const Color(0xFFF7F8FC),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: const ShapeDecoration(
-                            color: Color(0xFF007AFF),
-                            shape: OvalBorder(),
-                          ),
-                          child: const Icon(
-                            Icons.admin_panel_settings,
-                            color: Colors.white,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Create Master',
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 16,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Create a new master account',
-                                style: TextStyle(
-                                  color: Color(0xFF8E8E93),
-                                  fontSize: 14,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(
-                          Icons.arrow_forward_ios,
-                          size: 16,
-                          color: Color(0xFF8E8E93),
-                        ),
-                      ],
-                    ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Handle
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-
-              if (isAdmin || (isMaster && canAddMaster))
-                const SizedBox(height: 12),
-
-              // Create User Option
-              // Show for: Master (always, including those with add_master=true)
-              // Hide for: Admin (admins can only create masters)
-              if (isMaster)
-                GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const CreateUserView(),
-                      ),
-                    ).then((result) {
-                      if (result == true) {
-                        _fetchData();
-                      }
-                    });
-                  },
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                    padding: const EdgeInsets.all(16),
-                    decoration: ShapeDecoration(
-                      color: const Color(0xFFF7F8FC),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: const ShapeDecoration(
-                            color: Color(0xFFFF9500),
-                            shape: OvalBorder(),
-                          ),
-                          child: const Icon(
-                            Icons.person_add,
-                            color: Colors.white,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Create User',
-                                style: TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 16,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Create a new user account',
-                                style: TextStyle(
-                                  color: Color(0xFF8E8E93),
-                                  fontSize: 14,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(
-                          Icons.arrow_forward_ios,
-                          size: 16,
-                          color: Color(0xFF8E8E93),
-                        ),
-                      ],
-                    ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Create New',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 16,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
+                const SizedBox(height: 16),
 
-              const SizedBox(height: 12),
-
-              // Cancel Button
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: ShapeDecoration(
-                    color: const Color(0xFFD1D1D6),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
+                // Create Master
+                if (isAdmin || (isMaster && canAddMaster))
+                  _buildCreateOption(
+                    icon: Icons.admin_panel_settings,
+                    iconColor: const Color(0xFF22547C),
+                    title: 'Create Master',
+                    subtitle: 'Create a new master account',
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CreateMasterView(),
+                        ),
+                      ).then((result) {
+                        if (result == true) _fetchData();
+                      });
+                    },
                   ),
-                  child: const Center(
-                    child: Text(
-                      'Cancel',
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 16,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
+
+                // Create User
+                if (isMaster)
+                  _buildCreateOption(
+                    icon: Icons.person_add,
+                    iconColor: const Color(0xFFD97706),
+                    title: 'Create User',
+                    subtitle: 'Create a new user account',
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CreateUserView(),
+                        ),
+                      ).then((result) {
+                        if (result == true) _fetchData();
+                      });
+                    },
+                  ),
+
+                const SizedBox(height: 8),
+
+                // Cancel
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: GestureDetector(
+                    onTap: () => Navigator.pop(ctx),
+                    child: Container(
+                      width: double.infinity,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: Color(0xFF475569),
+                            fontSize: 15,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-
-              const SizedBox(height: 32),
-            ],
+                const SizedBox(height: 16),
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildCreateOption({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: 12,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right,
+                size: 20, color: Color(0xFF94A3B8)),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:animated_flip_counter/animated_flip_counter.dart';
 import 'package:stocker/models/watchlist_item.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
@@ -13,7 +14,8 @@ import 'chart_view.dart';
 
 class TradeCardPage extends StatefulWidget {
   final WatchlistItem item;
-  final String? initialOrderType; // 'Buy Limit', 'Sell Limit', or null for default
+  final String?
+      initialOrderType; // 'Buy Limit', 'Sell Limit', or null for default
   final int? initialQuantity;
 
   const TradeCardPage({
@@ -37,10 +39,42 @@ class _TradeCardPageState extends State<TradeCardPage> {
     'Buy Limit',
     'Sell Limit'
   ];
+
+  /// Returns the available order types, filtering out Sell Limit for options
+  /// when the user has no position.
+  List<String> get _availableOrderTypes {
+    if (_isOption) {
+      // Only show Sell Limit if user holds this option
+      final netQty = _getNetPosition(context);
+      if (netQty <= 0) {
+        return ['Market Execution', 'Buy Limit'];
+      }
+    }
+    return _orderTypes;
+  }
   final TextEditingController _qtyController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
   final TradeService _tradeService = TradeService();
   bool _isLoading = false;
+
+  /// Returns true if the current instrument is an option (CE or PE).
+  bool get _isOption {
+    final type = widget.item.instrument.instrumentType;
+    return type == 'CE' || type == 'PE';
+  }
+
+  /// Returns the user's net quantity for this exact instrument token.
+  /// Positive = long position, 0 or negative = no sellable position.
+  int _getNetPosition(BuildContext context) {
+    final positions =
+        Provider.of<TradeMetricsProvider>(context, listen: false).positions;
+    for (final pos in positions) {
+      if (pos.instrumentToken == widget.item.instrument.instrumentToken) {
+        return pos.netQty;
+      }
+    }
+    return 0;
+  }
 
   @override
   void initState() {
@@ -91,6 +125,31 @@ class _TradeCardPageState extends State<TradeCardPage> {
 
   Future<void> _handleTrade(String transactionType, double currentPrice) async {
     if (_isLoading) return;
+
+    // Block option sell if user doesn't hold this option
+    if (transactionType == 'SELL' && _isOption) {
+      final netQty = _getNetPosition(context);
+      if (netQty <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Option selling is not allowed. You must own this option before you can sell it.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+      if (_quantity > netQty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'You can only sell up to $netQty units (your current holding).'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+    }
 
     setState(() {
       _isLoading = true;
@@ -207,17 +266,38 @@ class _TradeCardPageState extends State<TradeCardPage> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text(
-                            currentItem.currentPrice?.toStringAsFixed(2) ??
-                                '0.00',
-                            textAlign: TextAlign.right,
-                            style: TextStyle(
-                              color: currentItem.isPositive
-                                  ? const Color(0xFF34C759)
-                                  : const Color(0xFFFF3B30),
-                              fontSize: 18,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w600,
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF22547C).withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                const Text(
+                                  'LTP',
+                                  style: TextStyle(
+                                    color: Color(0xFF94A3B8),
+                                    fontSize: 9,
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(height: 1),
+                                AnimatedFlipCounter(
+                                  value: currentItem.currentPrice ?? 0.0,
+                                  fractionDigits: 2,
+                                  prefix: '₹',
+                                  textStyle: const TextStyle(
+                                    color: Color(0xFF22547C),
+                                    fontSize: 14,
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -228,9 +308,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
                             textAlign: TextAlign.right,
                             style: TextStyle(
                               color: currentItem.isPositive
-                                  ? const Color(0xFF34C759)
-                                  : const Color(0xFFFF3B30),
-                              fontSize: 13,
+                                  ? const Color(0xFF10B981)
+                                  : const Color(0xFFEF4444),
+                              fontSize: 11,
                               fontFamily: 'Inter',
                               fontWeight: FontWeight.w500,
                             ),
@@ -295,23 +375,26 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                             .getByToken(widget.item.instrument
                                                 .instrumentToken) ??
                                         widget.item;
-                                
+
                                 // Set appropriate price based on order type
                                 final ltp = currentItem.currentPrice ?? 0.0;
                                 final spread = ltp * 0.0005;
-                                
+
                                 double defaultPrice;
                                 if (newValue == 'Buy Limit') {
-                                  defaultPrice = currentItem.askPrice ?? (ltp > 0 ? ltp + spread : ltp);
+                                  defaultPrice = currentItem.askPrice ??
+                                      (ltp > 0 ? ltp + spread : ltp);
                                 } else {
-                                  defaultPrice = currentItem.bidPrice ?? (ltp > 0 ? ltp - spread : ltp);
+                                  defaultPrice = currentItem.bidPrice ??
+                                      (ltp > 0 ? ltp - spread : ltp);
                                 }
-                                _priceController.text = defaultPrice.toStringAsFixed(2);
+                                _priceController.text =
+                                    defaultPrice.toStringAsFixed(2);
                               }
                             });
                           }
                         },
-                        items: _orderTypes
+                        items: _availableOrderTypes
                             .map<DropdownMenuItem<String>>((String value) {
                           return DropdownMenuItem<String>(
                             value: value,
@@ -572,16 +655,18 @@ class _TradeCardPageState extends State<TradeCardPage> {
                       final currentItem = provider.getByToken(
                               widget.item.instrument.instrumentToken) ??
                           widget.item;
-                      
+
                       // For SELL: show bid price (price at which buyers are willing to buy)
                       // For BUY: show ask price (price at which sellers are willing to sell)
                       // If bid/ask not available, use LTP with a small spread (0.05% typical for liquid instruments)
                       final ltp = currentItem.currentPrice ?? 0.0;
                       final spread = ltp * 0.0005; // 0.05% spread
-                      
-                      final sellPrice = currentItem.bidPrice ?? (ltp > 0 ? ltp - spread : ltp);
-                      final buyPrice = currentItem.askPrice ?? (ltp > 0 ? ltp + spread : ltp);
-                      
+
+                      final sellPrice = currentItem.bidPrice ??
+                          (ltp > 0 ? ltp - spread : ltp);
+                      final buyPrice = currentItem.askPrice ??
+                          (ltp > 0 ? ltp + spread : ltp);
+
                       final sellPriceStr = sellPrice.toStringAsFixed(2);
                       final buyPriceStr = buyPrice.toStringAsFixed(2);
 
@@ -590,66 +675,81 @@ class _TradeCardPageState extends State<TradeCardPage> {
                         children: [
                           if (_orderType == 'Market Execution') ...[
                             // Sell side
-                            Expanded(
-                              child: Column(
-                                children: [
-                                  Container(
-                                    width: double.infinity,
-                                    height: 46,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16, vertical: 13),
-                                    decoration: ShapeDecoration(
-                                      color: const Color(0xFFF2F2F7),
-                                      shape: RoundedRectangleBorder(
-                                        side: const BorderSide(
-                                            width: 1, color: Color(0xFFC7C7CC)),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                    ),
-                                    child: Text(
-                                      sellPriceStr,
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        color: Colors.black,
-                                        fontSize: 16,
-                                        fontFamily: 'Inter',
-                                        fontWeight: FontWeight.w500,
-                                        height: 1.25,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 14),
-                                  GestureDetector(
-                                    onTap: () {
-                                      _handleTrade('SELL', sellPrice);
-                                    },
-                                    child: Container(
+                            Builder(builder: (context) {
+                              final sellDisabled =
+                                  _isOption && _getNetPosition(context) <= 0;
+                              return Expanded(
+                                child: Column(
+                                  children: [
+                                    Container(
                                       width: double.infinity,
-                                      height: 56,
+                                      height: 46,
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 32, vertical: 18),
+                                          horizontal: 16, vertical: 13),
                                       decoration: ShapeDecoration(
-                                        color: const Color(0xFFFF9500),
+                                        color: const Color(0xFFF2F2F7),
                                         shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(8)),
+                                          side: const BorderSide(
+                                              width: 1,
+                                              color: Color(0xFFC7C7CC)),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
                                       ),
-                                      child: const Text(
-                                        'SELL',
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontFamily: 'Inter',
-                                          fontWeight: FontWeight.w600,
-                                          height: 1.25,
+                                      child: Center(
+                                        child: AnimatedFlipCounter(
+                                          value: sellPrice,
+                                          fractionDigits: 2,
+                                          textStyle: const TextStyle(
+                                            color: Colors.black,
+                                            fontSize: 16,
+                                            fontFamily: 'Inter',
+                                            fontWeight: FontWeight.w500,
+                                            height: 1.25,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                                    const SizedBox(height: 14),
+                                    GestureDetector(
+                                      onTap: sellDisabled
+                                          ? null
+                                          : () {
+                                              _handleTrade('SELL', sellPrice);
+                                            },
+                                      child: Opacity(
+                                        opacity: sellDisabled ? 0.4 : 1.0,
+                                        child: Container(
+                                          width: double.infinity,
+                                          height: 56,
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 32, vertical: 18),
+                                          decoration: ShapeDecoration(
+                                            color: const Color(0xFFFF9500),
+                                            shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8)),
+                                          ),
+                                          child: Text(
+                                            sellDisabled
+                                                ? 'SELL (No Position)'
+                                                : 'SELL',
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 16,
+                                              fontFamily: 'Inter',
+                                              fontWeight: FontWeight.w600,
+                                              height: 1.25,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }),
                             const SizedBox(width: 14),
                             // Buy side
                             Expanded(
@@ -668,15 +768,17 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                     ),
-                                    child: Text(
-                                      buyPriceStr,
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        color: Colors.black,
-                                        fontSize: 16,
-                                        fontFamily: 'Inter',
-                                        fontWeight: FontWeight.w500,
-                                        height: 1.25,
+                                    child: Center(
+                                      child: AnimatedFlipCounter(
+                                        value: buyPrice,
+                                        fractionDigits: 2,
+                                        textStyle: const TextStyle(
+                                          color: Colors.black,
+                                          fontSize: 16,
+                                          fontFamily: 'Inter',
+                                          fontWeight: FontWeight.w500,
+                                          height: 1.25,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -750,7 +852,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                           border: InputBorder.none,
                                           isDense: true,
                                           contentPadding: EdgeInsets.zero,
-                                          hintText: _orderType == 'Buy Limit' ? buyPriceStr : sellPriceStr,
+                                          hintText: _orderType == 'Buy Limit'
+                                              ? buyPriceStr
+                                              : sellPriceStr,
                                           hintStyle: const TextStyle(
                                             color: Color(0xFFC7C7CC),
                                             fontSize: 16,
@@ -817,10 +921,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                   margin: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
                     children: [
-                      _buildStatCard(
-                          'OPEN',
-                          currentItem.open?.toStringAsFixed(2) ??
-                              '0.00'),
+                      _buildStatCard('OPEN',
+                          currentItem.open?.toStringAsFixed(2) ?? '0.00'),
                       const SizedBox(width: 8),
                       _buildStatCard(
                           'LOW', currentItem.low?.toStringAsFixed(2) ?? '0.00'),
@@ -828,10 +930,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                       _buildStatCard('HIGH',
                           currentItem.high?.toStringAsFixed(2) ?? '0.00'),
                       const SizedBox(width: 8),
-                      _buildStatCard(
-                          'CLOSE',
-                          currentItem.close?.toStringAsFixed(2) ??
-                              '0.00'),
+                      _buildStatCard('CLOSE',
+                          currentItem.close?.toStringAsFixed(2) ?? '0.00'),
                     ],
                   ),
                 );

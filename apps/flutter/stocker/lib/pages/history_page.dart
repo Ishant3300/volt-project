@@ -6,6 +6,7 @@ import 'package:stocker/models/trade.dart';
 import 'package:stocker/models/kite_instrument.dart';
 import 'package:stocker/models/watchlist_item.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
+import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/views/trade_card_view.dart';
 import 'package:stocker/services/api_service.dart';
@@ -23,19 +24,31 @@ class PortfolioPage extends StatefulWidget {
 class _PortfolioPageState extends State<PortfolioPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  bool _isSelectionMode = false;
-  final Set<String> _selectedTradeIds = {};
+
+  // Master-specific state
+  bool _isMaster = false;
+  bool _masterLoading = false;
+  List<Trade> _masterTrades = [];
+  int _masterPage = 1;
+  int _masterTotalPages = 1;
+  bool _masterLoadingMore = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
-      setState(() {
-        // Exit selection mode when switching tabs
-        _isSelectionMode = false;
-        _selectedTradeIds.clear();
-      });
+      if (!_tabController.indexIsChanging) {
+        setState(() {});
+      }
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userProfile =
+          Provider.of<UserProfileProvider>(context, listen: false);
+      if (userProfile.isMaster) {
+        setState(() => _isMaster = true);
+        _fetchMasterTrades();
+      }
     });
   }
 
@@ -45,195 +58,326 @@ class _PortfolioPageState extends State<PortfolioPage>
     super.dispose();
   }
 
+  Future<void> _fetchMasterTrades({bool loadMore = false}) async {
+    if (loadMore) {
+      if (_masterLoadingMore || _masterPage >= _masterTotalPages) return;
+      setState(() => _masterLoadingMore = true);
+    } else {
+      setState(() {
+        _masterLoading = true;
+        _masterPage = 1;
+      });
+    }
+
+    try {
+      final storage = SecureStorageService();
+      final token = await storage.getToken();
+      final apiService = ApiService(backendUrl);
+      final page = loadMore ? _masterPage + 1 : 1;
+      final res = await apiService.get(
+        '/master/trades?limit=50&page=$page',
+        token: token,
+      );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final data = body['data'] ?? {};
+        final List tradesJson = data['trades'] ?? [];
+        final trades = tradesJson.map((e) => Trade.fromJson(e)).toList();
+        setState(() {
+          if (loadMore) {
+            _masterTrades.addAll(trades);
+          } else {
+            _masterTrades = trades;
+          }
+          _masterPage = data['page'] ?? 1;
+          _masterTotalPages = data['pages'] ?? 1;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching master trades: $e');
+    } finally {
+      setState(() {
+        _masterLoading = false;
+        _masterLoadingMore = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FC),
-      appBar: _isSelectionMode
-          ? AppBar(
-              backgroundColor: const Color(0xFF22547C),
-              leading: IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
-                onPressed: () {
-                  setState(() {
-                    _isSelectionMode = false;
-                    _selectedTradeIds.clear();
-                  });
-                },
-              ),
-              title: const Text(
-                'Select Trades to Square Off',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            )
-          : null,
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: Column(
           children: [
-            // Search bar
-            Container(
-              margin: const EdgeInsets.all(16),
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: ShapeDecoration(
-                color: Colors.white,
-                shape: RoundedRectangleBorder(
-                  side: const BorderSide(width: 1, color: Color(0xFFD1D1D6)),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
+            // Search bar + filter
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               child: Row(
                 children: [
-                  const Icon(Icons.search, color: Color(0xFF8E8E93)),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'Search & Add',
-                    style: TextStyle(
-                      color: Color(0xFF8E8E93),
-                      fontSize: 16,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w400,
+                  Expanded(
+                    child: Container(
+                      height: 48,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.search, color: Color(0xFF94A3B8), size: 20),
+                          SizedBox(width: 12),
+                          Text(
+                            'Search & Add',
+                            style: TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 14,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 12),
                   GestureDetector(
-                    onTap: () {
-                      showPortfolioFilterSheet(context);
-                    },
-                    child:
-                        const Icon(Icons.filter_list, color: Color(0xFF8E8E93)),
+                    onTap: () => showPortfolioFilterSheet(context),
+                    child: Container(
+                      height: 48,
+                      width: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.tune,
+                          color: Color(0xFF475569), size: 20),
+                    ),
                   ),
                 ],
               ),
             ),
 
             // Tab selector
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              height: 42,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => _tabController.animateTo(0),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: _tabController.index == 0
-                              ? const Color(0xFF22547C)
-                              : Colors.transparent,
-                          border: Border.all(
-                              width: 1, color: const Color(0xFF22547C)),
-                          borderRadius: const BorderRadius.only(
-                            topLeft: Radius.circular(8),
-                            bottomLeft: Radius.circular(8),
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            'Trade',
-                            style: TextStyle(
-                              color: _tabController.index == 0
-                                  ? Colors.white
-                                  : const Color(0xFF333333),
-                              fontSize: 16,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                height: 44,
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.02),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
                     ),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => _tabController.animateTo(1),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: _tabController.index == 1
-                              ? const Color(0xFF22547C)
-                              : Colors.transparent,
-                          border: Border.all(
-                              width: 1, color: const Color(0xFF22547C)),
-                          borderRadius: const BorderRadius.only(
-                            topRight: Radius.circular(8),
-                            bottomRight: Radius.circular(8),
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            'Orders',
-                            style: TextStyle(
-                              color: _tabController.index == 1
-                                  ? Colors.white
-                                  : const Color(0xFF333333),
-                              fontSize: 16,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    _buildTabButton(0, 'Trade'),
+                    _buildTabButton(1, 'Orders'),
+                  ],
+                ),
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
             // Tab content
             Expanded(
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _buildPositionsList(),
-                  _buildOrdersList(),
+                  _isMaster ? _buildMasterTradesList('completed') : _buildPositionsList(),
+                  _isMaster ? _buildMasterTradesList('pending') : _buildOrdersList(),
                 ],
               ),
             ),
           ],
         ),
       ),
-      floatingActionButton: _tabController.index == 0 && !_isSelectionMode
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                setState(() {
-                  _isSelectionMode = true;
-                });
-              },
-              backgroundColor: const Color(0xFF22547C),
-              icon: const Icon(Icons.check_box, color: Colors.white),
-              label: const Text(
-                'Square Off',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            )
-          : null,
     );
   }
 
-  /// Trade tab: shows individual completed trades
+  Widget _buildTabButton(int index, String label) {
+    final isActive = _tabController.index == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _tabController.animateTo(index),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isActive ? const Color(0xFF22547C) : Colors.transparent,
+            borderRadius: BorderRadius.circular(13),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isActive ? Colors.white : const Color(0xFF94A3B8),
+                fontSize: 14,
+                fontFamily: 'Inter',
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMasterTradesList(String statusFilter) {
+    if (_masterLoading && _masterTrades.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(
+          color: Color(0xFF22547C),
+          strokeWidth: 2.5,
+        ),
+      );
+    }
+
+    final filtered = _masterTrades
+        .where((t) => t.status.toLowerCase() == statusFilter)
+        .toList();
+
+    if (filtered.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _fetchMasterTrades,
+        child: ListView(
+          children: [
+            const SizedBox(height: 200),
+            Center(
+              child: Column(
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      statusFilter == 'completed'
+                          ? Icons.receipt_long
+                          : Icons.pending_actions,
+                      size: 32,
+                      color: const Color(0xFFCBD5E1),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    statusFilter == 'completed'
+                        ? 'No completed trades from users'
+                        : 'No pending orders from users',
+                    style: const TextStyle(
+                      color: Color(0xFF475569),
+                      fontSize: 16,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _fetchMasterTrades,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (scrollInfo) {
+            if (scrollInfo.metrics.pixels >=
+                    scrollInfo.metrics.maxScrollExtent - 200 &&
+                !_masterLoadingMore &&
+                _masterPage < _masterTotalPages) {
+              _fetchMasterTrades(loadMore: true);
+            }
+            return false;
+          },
+          child: ListView.separated(
+            padding: EdgeInsets.zero,
+            itemCount: filtered.length + (_masterLoadingMore ? 1 : 0),
+            separatorBuilder: (_, __) => const Divider(
+              height: 1,
+              color: Color(0xFFF1F5F9),
+            ),
+            itemBuilder: (context, index) {
+              if (index >= filtered.length) {
+                return const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                );
+              }
+              final trade = filtered[index];
+              if (statusFilter == 'completed') {
+                return _buildCompletedTradeCard(trade);
+              } else {
+                return _buildTradeCard(trade);
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildPositionsList() {
     return Consumer<TradeMetricsProvider>(
       builder: (context, provider, child) {
         if (provider.isLoading && provider.trades.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(
+              color: Color(0xFF22547C),
+              strokeWidth: 2.5,
+            ),
+          );
         }
 
-        // Show all completed trades (not aggregated)
         final completedTrades = provider.trades
             .where((t) => t.status.toLowerCase() == 'completed')
             .toList();
@@ -242,16 +386,39 @@ class _PortfolioPageState extends State<PortfolioPage>
           return RefreshIndicator(
             onRefresh: () => provider.fetchBaseData(),
             child: ListView(
-              children: const [
-                SizedBox(height: 200),
+              children: [
+                const SizedBox(height: 200),
                 Center(
-                  child: Text(
-                    'No completed trades.',
-                    style: TextStyle(
-                      color: Color(0xFF8E8E93),
-                      fontSize: 16,
-                      fontFamily: 'Inter',
-                    ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.04),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.receipt_long,
+                            size: 32, color: Color(0xFFCBD5E1)),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        'No completed trades',
+                        style: TextStyle(
+                          color: Color(0xFF475569),
+                          fontSize: 16,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -261,109 +428,47 @@ class _PortfolioPageState extends State<PortfolioPage>
 
         return RefreshIndicator(
           onRefresh: () => provider.fetchBaseData(),
-          child: Column(
-            children: [
-              // Square Off button bar
-              if (_isSelectionMode)
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF22547C),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${_selectedTradeIds.length} selected',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          TextButton(
-                            onPressed: () {
-                              setState(() {
-                                if (_selectedTradeIds.length == completedTrades.length) {
-                                  _selectedTradeIds.clear();
-                                } else {
-                                  _selectedTradeIds.clear();
-                                  _selectedTradeIds.addAll(completedTrades.map((t) => t.id));
-                                }
-                              });
-                            },
-                            child: Text(
-                              _selectedTradeIds.length == completedTrades.length
-                                  ? 'Deselect All'
-                                  : 'Select All',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          ElevatedButton(
-                            onPressed: _selectedTradeIds.isEmpty
-                                ? null
-                                : () => _squareOffSelected(completedTrades),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFF3B30),
-                              disabledBackgroundColor: const Color(0xFF8E8E93),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                            ),
-                            child: const Text(
-                              'Square Off',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
                 ),
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  child: ListView.separated(
-                    padding: EdgeInsets.zero,
-                    itemCount: completedTrades.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      final trade = completedTrades[index];
-                      final isSelected = _selectedTradeIds.contains(trade.id);
-                      return _buildCompletedTradeCard(trade, isSelected);
-                    },
-                  ),
-                ),
+              ],
+            ),
+            child: ListView.separated(
+              padding: EdgeInsets.zero,
+              itemCount: completedTrades.length,
+              separatorBuilder: (context, index) => const Divider(
+                height: 1,
+                color: Color(0xFFF1F5F9),
               ),
-            ],
+              itemBuilder: (context, index) {
+                return _buildCompletedTradeCard(completedTrades[index]);
+              },
+            ),
           ),
         );
       },
     );
   }
 
-  /// Orders tab: shows pending/cancelled/rejected trades
   Widget _buildOrdersList() {
     return Consumer<TradeMetricsProvider>(
       builder: (context, provider, child) {
         if (provider.isLoading && provider.trades.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(
+              color: Color(0xFF22547C),
+              strokeWidth: 2.5,
+            ),
+          );
         }
 
         final pendingTrades = provider.trades
@@ -371,27 +476,65 @@ class _PortfolioPageState extends State<PortfolioPage>
             .toList();
 
         if (pendingTrades.isEmpty) {
-          return const Center(
-            child: Text(
-              'No pending orders.',
-              style: TextStyle(
-                color: Color(0xFF8E8E93),
-                fontSize: 16,
-                fontFamily: 'Inter',
-              ),
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.pending_actions,
+                      size: 32, color: Color(0xFFCBD5E1)),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'No pending orders',
+                  style: TextStyle(
+                    color: Color(0xFF475569),
+                    fontSize: 16,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           );
         }
 
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
           child: ListView.separated(
             padding: EdgeInsets.zero,
             itemCount: pendingTrades.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 8),
+            separatorBuilder: (context, index) => const Divider(
+              height: 1,
+              color: Color(0xFFF1F5F9),
+            ),
             itemBuilder: (context, index) {
-              final trade = pendingTrades[index];
-              return _buildTradeCard(trade);
+              return _buildTradeCard(pendingTrades[index]);
             },
           ),
         );
@@ -399,183 +542,361 @@ class _PortfolioPageState extends State<PortfolioPage>
     );
   }
 
-  Widget _buildCompletedTradeCard(Trade trade, bool isSelected) {
+  Widget _buildCompletedTradeCard(Trade trade) {
     final bool isBuy = trade.transactionType.toUpperCase() == 'BUY';
     final Color sideColor =
-        isBuy ? const Color(0xFF34C759) : const Color(0xFFFF3B30);
+        isBuy ? const Color(0xFF10B981) : const Color(0xFFEF4444);
     final String sideLabel = isBuy ? 'BUY' : 'SELL';
 
-    // Get current market price from watchlist provider
-    final watchlistProvider =
-        Provider.of<WatchlistProvider>(context, listen: false);
-    final item = watchlistProvider.getByToken(trade.instrumentToken);
-    final currentPrice = item?.currentPrice ?? trade.price;
+    String formattedDate = trade.createdAt;
+    try {
+      final DateTime dt = DateTime.parse(trade.createdAt).toLocal();
+      formattedDate = DateFormat("dd MMM hh:mm a").format(dt).toUpperCase();
+    } catch (_) {}
 
-    // Calculate P&L (simplified - actual P&L would need position context)
-    // For now, show difference between current price and trade price
-    double pnl = 0;
-    if (isBuy) {
-      pnl = (currentPrice - trade.price) * trade.quantity;
-    } else {
-      pnl = (trade.price - currentPrice) * trade.quantity;
-    }
-
-    return GestureDetector(
-      onTap: _isSelectionMode
-          ? () {
-              setState(() {
-                if (isSelected) {
-                  _selectedTradeIds.remove(trade.id);
-                } else {
-                  _selectedTradeIds.add(trade.id);
-                }
-              });
-            }
-          : null,
-      onLongPress: () {
-        setState(() {
-          _isSelectionMode = true;
-          _selectedTradeIds.add(trade.id);
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: ShapeDecoration(
-          color: isSelected ? const Color(0xFFE3F2FD) : Colors.white,
-          shape: RoundedRectangleBorder(
-            side: BorderSide(
-              width: isSelected ? 2 : 1,
-              color: isSelected ? const Color(0xFF22547C) : const Color(0xFFF2F2F7),
-            ),
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Symbol and checkbox
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      color: Colors.transparent,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Left side
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    trade.tradingSymbol,
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 16,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                if (_isSelectionMode)
-                  Icon(
-                    isSelected ? Icons.check_circle : Icons.circle_outlined,
-                    color: isSelected ? const Color(0xFF22547C) : const Color(0xFF8E8E93),
-                    size: 24,
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            // SELL/BUY with bag icon and quantity, and P&L
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
+                // Symbol + badge
                 Row(
                   children: [
-                    Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: ShapeDecoration(
-                        color: sideColor,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4)),
-                      ),
+                    Flexible(
                       child: Text(
-                        sideLabel,
+                        trade.tradingSymbol,
                         style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
+                          color: Colors.black,
+                          fontSize: 14,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -0.3,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Icon(Icons.shopping_bag, size: 16, color: Color(0xFF8E8E93)),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${trade.quantity}',
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 14,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w400,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: sideColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        sideLabel,
+                        style: TextStyle(
+                          color: sideColor,
+                          fontSize: 10,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.3,
+                        ),
                       ),
                     ),
                   ],
                 ),
-                Text(
-                  '${pnl >= 0 ? '+' : ''}${pnl.toStringAsFixed(0)}',
-                  style: TextStyle(
-                    color: pnl >= 0 ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
-                    fontSize: 16,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w500,
-                  ),
+                const SizedBox(height: 6),
+                // Metadata row with dot separators
+                Row(
+                  children: [
+                    Text(
+                      'Qty ${trade.quantity.toStringAsFixed(0)}',
+                      style: const TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 10,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6),
+                      child: Text('·',
+                          style: TextStyle(
+                              fontSize: 10, color: Color(0xFFCBD5E1))),
+                    ),
+                    Icon(Icons.access_time,
+                        size: 11, color: const Color(0xFF94A3B8)),
+                    const SizedBox(width: 3),
+                    Text(
+                      formattedDate,
+                      style: const TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 10,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
+                if (trade.userName != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.person_outline,
+                          size: 11, color: Color(0xFF94A3B8)),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          trade.userName!,
+                          style: const TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 10,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
-            const SizedBox(height: 12),
-            // ATP and CMP
-            Row(
-              children: [
-                const Text(
-                  'ATP ',
-                  style: TextStyle(
-                    color: Color(0xFF8E8E93),
-                    fontSize: 14,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
-                  ),
+          ),
+
+          const SizedBox(width: 8),
+
+          // Right side — price
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              const Text(
+                'PRICE',
+                style: TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 10,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
                 ),
-                Text(
-                  trade.price.toStringAsFixed(2),
-                  style: const TextStyle(
-                    color: Color(0xFFFF3B30),
-                    fontSize: 14,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w500,
-                  ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                trade.price.toStringAsFixed(2),
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 14,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.bold,
                 ),
-                const SizedBox(width: 16),
-                const Text(
-                  '|',
-                  style: TextStyle(
-                    color: Color(0xFF8E8E93),
-                    fontSize: 14,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTradeCard(Trade trade) {
+    String formattedDate = trade.createdAt;
+    try {
+      final DateTime dt = DateTime.parse(trade.createdAt).toLocal();
+      formattedDate = DateFormat("dd MMM hh:mm:ss a").format(dt).toUpperCase();
+    } catch (_) {}
+
+    final bool isPending = trade.status.toLowerCase() == 'pending';
+    final bool isBuy = trade.transactionType.toUpperCase() == 'BUY';
+    final Color sideColor =
+        isBuy ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _openTradeCard(trade),
+      child: Container(
+        color: Colors.transparent,
+        child: Column(
+          children: [
+            // Main content
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Left side
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Symbol
+                        Text(
+                          trade.tradingSymbol,
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 14,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.3,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 6),
+                        // Metadata row
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: sideColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '${trade.transactionType} · ${trade.quantity.toStringAsFixed(0)} QTY',
+                                style: TextStyle(
+                                  color: sideColor,
+                                  fontSize: 10,
+                                  fontFamily: 'Inter',
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (trade.userName != null) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(Icons.person_outline,
+                                  size: 11, color: Color(0xFF94A3B8)),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  trade.userName!,
+                                  style: const TextStyle(
+                                    color: Color(0xFF94A3B8),
+                                    fontSize: 10,
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                const Text(
-                  'CMP ',
-                  style: TextStyle(
-                    color: Color(0xFF8E8E93),
-                    fontSize: 14,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
+
+                  const SizedBox(width: 8),
+
+                  // Right side — price
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text(
+                        'PRICE',
+                        style: TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 10,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        trade.price.toStringAsFixed(2),
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontSize: 14,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
+                ],
+              ),
+            ),
+
+            // Bottom status bar
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF8FAFC),
+                border: Border(
+                  top: BorderSide(color: Color(0xFFF1F5F9)),
                 ),
-                Text(
-                  currentPrice.toStringAsFixed(2),
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 14,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w500,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: isPending
+                              ? const Color(0xFFFEF3C7)
+                              : const Color(0xFFFEE2E2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          trade.status.toUpperCase(),
+                          style: TextStyle(
+                            color: isPending
+                                ? const Color(0xFFB45309)
+                                : const Color(0xFFEF4444),
+                            fontSize: 10,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Icon(Icons.access_time,
+                          size: 11, color: const Color(0xFF94A3B8)),
+                      const SizedBox(width: 3),
+                      Text(
+                        formattedDate,
+                        style: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 10,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                  if (isPending)
+                    GestureDetector(
+                      onTap: () => _cancelOrder(trade),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEF4444).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: Color(0xFFEF4444),
+                            fontSize: 12,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ],
         ),
@@ -587,116 +908,133 @@ class _PortfolioPageState extends State<PortfolioPage>
     final isLong = position.netQty > 0;
     final sideLabel = isLong ? 'LONG' : 'SHORT';
     final sideColor =
-        isLong ? const Color(0xFF34C759) : const Color(0xFFFF3B30);
+        isLong ? const Color(0xFF10B981) : const Color(0xFFEF4444);
     final avgPrice = isLong ? position.avgBuyPrice : position.avgSellPrice;
     final pnl = position.realised + position.floating;
-    final pnlColor = pnl >= 0 ? const Color(0xFF34C759) : const Color(0xFFFF3B30);
+    final pnlColor =
+        pnl >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444);
 
     return Container(
-      decoration: ShapeDecoration(
-        color: Colors.white,
-        shape: RoundedRectangleBorder(
-          side: const BorderSide(width: 1, color: Color(0xFFF2F2F7)),
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
+      padding: const EdgeInsets.all(16),
+      color: Colors.transparent,
       child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Left side
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      position.tradingsymbol,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 14,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.3,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
                       children: [
-                        Text(
-                          position.tradingsymbol,
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 14,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: sideColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          overflow: TextOverflow.ellipsis,
+                          child: Text(
+                            sideLabel,
+                            style: TextStyle(
+                              color: sideColor,
+                              fontSize: 10,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
                         ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
-                              decoration: ShapeDecoration(
-                                color: sideColor,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(4)),
-                              ),
-                              child: Text(
-                                sideLabel,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${position.netQty.abs()} QTY @ ${avgPrice.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                color: Color(0xFF8E8E93),
-                                fontSize: 12,
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ],
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 4,
+                          height: 4,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFCBD5E1),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${position.netQty.abs()} QTY @ ${avgPrice.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 10,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ],
                     ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 8),
+
+              // Right side
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    position.ltp > 0
+                        ? position.ltp.toStringAsFixed(2)
+                        : avgPrice.toStringAsFixed(2),
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        position.ltp > 0
-                            ? position.ltp.toStringAsFixed(2)
-                            : avgPrice.toStringAsFixed(2),
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 16,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
-                        ),
+                      Icon(
+                        pnl >= 0 ? Icons.north_east : Icons.south_west,
+                        size: 12,
+                        color: pnlColor,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(width: 3),
                       Text(
                         '${pnl >= 0 ? '+' : ''}${pnl.toStringAsFixed(2)}',
                         style: TextStyle(
                           color: pnlColor,
-                          fontSize: 13,
+                          fontSize: 12,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
                   ),
                 ],
               ),
-            ),
+            ],
+          ),
+          if (position.floating != 0) ...[
+            const SizedBox(height: 8),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: const ShapeDecoration(
-                color: Color(0xFFF2F2F7),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(12),
-                    bottomRight: Radius.circular(12),
-                  ),
-                ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -704,29 +1042,30 @@ class _PortfolioPageState extends State<PortfolioPage>
                   Text(
                     position.exchange,
                     style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 12,
+                      color: Color(0xFF94A3B8),
+                      fontSize: 10,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w400,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   Text(
                     'Floating: ${position.floating >= 0 ? '+' : ''}${position.floating.toStringAsFixed(2)}',
                     style: TextStyle(
                       color: position.floating >= 0
-                          ? const Color(0xFF34C759)
-                          : const Color(0xFFFF3B30),
-                      fontSize: 12,
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFFEF4444),
+                      fontSize: 10,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
             ),
           ],
-        ),
-      );
+        ],
+      ),
+    );
   }
 
   void _openTradeCard(Trade trade) {
@@ -735,7 +1074,6 @@ class _PortfolioPageState extends State<PortfolioPage>
     final watchlistProvider =
         Provider.of<WatchlistProvider>(context, listen: false);
 
-    // Find the net position for this instrument from aggregated positions
     PositionAgg? position;
     try {
       position = metricsProvider.positions.firstWhere(
@@ -745,25 +1083,17 @@ class _PortfolioPageState extends State<PortfolioPage>
       position = null;
     }
 
-    // Determine the closing side and quantity based on net position
-    // netQty > 0 means net long → need to SELL to close
-    // netQty < 0 means net short → need to BUY to close
-    // netQty == 0 means flat → default to opposite of this trade
     String closeOrderType;
     int closeQuantity;
 
     if (position != null && position.netQty != 0) {
-      final isLong = position.netQty > 0;
-      closeOrderType = isLong ? 'Market Execution' : 'Market Execution';
+      closeOrderType = 'Market Execution';
       closeQuantity = position.netQty.abs();
     } else {
-      // Position is flat or not found — use the individual trade info
-      final isBuy = trade.transactionType.toUpperCase() == 'BUY';
-      closeOrderType = isBuy ? 'Market Execution' : 'Market Execution';
+      closeOrderType = 'Market Execution';
       closeQuantity = trade.quantity;
     }
 
-    // Check if instrument is in watchlist for live price data
     WatchlistItem? existingItem =
         watchlistProvider.getByToken(trade.instrumentToken);
 
@@ -771,7 +1101,6 @@ class _PortfolioPageState extends State<PortfolioPage>
     if (existingItem != null) {
       itemToUse = existingItem;
     } else {
-      // Build a WatchlistItem from the trade data
       final instrument = KiteInstrument(
         id: '',
         instrumentToken: trade.instrumentToken,
@@ -812,24 +1141,41 @@ class _PortfolioPageState extends State<PortfolioPage>
     final metricsProvider =
         Provider.of<TradeMetricsProvider>(context, listen: false);
 
-    // Show confirmation dialog
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Cancel Order'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Cancel Order',
+          style: TextStyle(
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         content: Text(
           'Are you sure you want to cancel this ${trade.transactionType} order for ${trade.tradingSymbol}?',
+          style: const TextStyle(fontFamily: 'Inter'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('No'),
+            child: const Text(
+              'No',
+              style: TextStyle(
+                color: Color(0xFF94A3B8),
+                fontFamily: 'Inter',
+              ),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text(
               'Yes, Cancel',
-              style: TextStyle(color: Color(0xFFFF3B30)),
+              style: TextStyle(
+                color: Color(0xFFEF4444),
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -839,15 +1185,13 @@ class _PortfolioPageState extends State<PortfolioPage>
     if (confirmed != true) return;
 
     try {
-      // Get token
       final storage = SecureStorageService();
       final token = await storage.getToken();
-      
+
       if (token == null) {
         throw Exception('Not authenticated');
       }
 
-      // Call backend cancel endpoint
       final apiService = ApiService(backendUrl);
       final response = await apiService.put(
         '/trade/${trade.id}/cancel',
@@ -858,14 +1202,13 @@ class _PortfolioPageState extends State<PortfolioPage>
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
         if (body['success'] == true) {
-          // Refresh data
           await metricsProvider.fetchBaseData();
 
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Order cancelled: ${trade.tradingSymbol}'),
-                backgroundColor: const Color(0xFF34C759),
+                backgroundColor: const Color(0xFF10B981),
               ),
             );
           }
@@ -880,341 +1223,10 @@ class _PortfolioPageState extends State<PortfolioPage>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
-            backgroundColor: const Color(0xFFFF3B30),
+            backgroundColor: const Color(0xFFEF4444),
           ),
         );
       }
     }
-  }
-
-  Future<void> _squareOffSelected(List<Trade> allTrades) async {
-    final selectedTrades = allTrades.where((t) => _selectedTradeIds.contains(t.id)).toList();
-
-    if (selectedTrades.isEmpty) return;
-
-    // Show confirmation dialog
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Square Off Positions'),
-        content: Text(
-          'Are you sure you want to square off ${selectedTrades.length} trade(s)?\n\n'
-          'This will place opposite market orders to close these positions.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'Square Off',
-              style: TextStyle(color: Color(0xFFFF3B30)),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    try {
-      final storage = SecureStorageService();
-      final token = await storage.getToken();
-      
-      if (token == null) {
-        throw Exception('Not authenticated');
-      }
-
-      final apiService = ApiService(backendUrl);
-      int successCount = 0;
-      int failCount = 0;
-      final List<String> errors = [];
-
-      // Show loading indicator
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => const Center(
-            child: CircularProgressIndicator(),
-          ),
-        );
-      }
-
-      // Place opposite orders for each selected trade
-      for (final trade in selectedTrades) {
-        try {
-          // Determine opposite side
-          final oppositeType = trade.transactionType.toUpperCase() == 'BUY' ? 'SELL' : 'BUY';
-          
-          // Place market order to close position
-          final response = await apiService.post(
-            '/trade',
-            {
-              'instrument_token': trade.instrumentToken,
-              'tradingsymbol': trade.tradingSymbol,
-              'exchange': trade.exchange,
-              'transaction_type': oppositeType,
-              'quantity': trade.quantity,
-              'order_type': 'MARKET',
-              'price': 0, // Market order
-            },
-            token: token,
-          );
-
-          if (response.statusCode == 200 || response.statusCode == 201) {
-            successCount++;
-          } else {
-            failCount++;
-            final body = jsonDecode(response.body);
-            errors.add('${trade.tradingSymbol}: ${body['message'] ?? 'Failed'}');
-          }
-        } catch (e) {
-          failCount++;
-          errors.add('${trade.tradingSymbol}: ${e.toString()}');
-        }
-      }
-
-      // Close loading dialog
-      if (mounted) {
-        Navigator.pop(context);
-      }
-
-      // Refresh data
-      final metricsProvider = Provider.of<TradeMetricsProvider>(context, listen: false);
-      await metricsProvider.fetchBaseData();
-
-      // Exit selection mode
-      setState(() {
-        _isSelectionMode = false;
-        _selectedTradeIds.clear();
-      });
-
-      // Show result
-      if (mounted) {
-        String message = '';
-        if (successCount > 0 && failCount == 0) {
-          message = 'Successfully squared off $successCount position(s)';
-        } else if (successCount > 0 && failCount > 0) {
-          message = 'Squared off $successCount position(s), $failCount failed';
-        } else {
-          message = 'Failed to square off positions';
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: failCount == 0 ? const Color(0xFF34C759) : const Color(0xFFFF9500),
-            duration: const Duration(seconds: 3),
-          ),
-        );
-
-        // Show errors if any
-        if (errors.isNotEmpty && mounted) {
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Square Off Errors'),
-              content: SingleChildScrollView(
-                child: Text(errors.join('\n')),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      // Close loading dialog if open
-      if (mounted) {
-        Navigator.pop(context);
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: const Color(0xFFFF3B30),
-          ),
-        );
-      }
-    }
-  }
-
-  Widget _buildTradeCard(Trade trade) {
-    String formattedDate = trade.createdAt;
-    try {
-      final DateTime dt = DateTime.parse(trade.createdAt).toLocal();
-      formattedDate = DateFormat("dd MMM hh:mm:ss a").format(dt).toUpperCase();
-    } catch (_) {}
-
-    final bool isBuy = trade.transactionType.toUpperCase() == 'BUY';
-    final Color valueColor =
-        isBuy ? const Color(0xFF34C759) : const Color(0xFFFF3B30);
-    final bool isPending = trade.status.toLowerCase() == 'pending';
-
-    return Container(
-      decoration: ShapeDecoration(
-        color: Colors.white,
-        shape: RoundedRectangleBorder(
-          side: const BorderSide(width: 1, color: Color(0xFFF2F2F7)),
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-      child: Column(
-        children: [
-          GestureDetector(
-            onTap: () => _openTradeCard(trade),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          trade.tradingSymbol,
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 14,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '${trade.transactionType}: ${trade.quantity} QTY',
-                          style: const TextStyle(
-                            color: Color(0xFF8E8E93),
-                            fontSize: 12,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        trade.price.toStringAsFixed(2),
-                        style: TextStyle(
-                          color: valueColor,
-                          fontSize: 16,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          const Icon(Icons.access_time,
-                              size: 16, color: Color(0xFF8E8E93)),
-                          const SizedBox(width: 4),
-                          Text(
-                            formattedDate,
-                            style: const TextStyle(
-                              color: Color(0xFF8E8E93),
-                              fontSize: 12,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: const ShapeDecoration(
-              color: Color(0xFFF2F2F7),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(12),
-                  bottomRight: Radius.circular(12),
-                ),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.person, size: 16, color: Colors.black),
-                    const SizedBox(width: 6),
-                    Text(
-                      trade.userName ?? 'User',
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 12,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Text(
-                      'Status: ${trade.status.toUpperCase()}',
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 12,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-                if (isPending)
-                  GestureDetector(
-                    onTap: () => _cancelOrder(trade),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFF3B30),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  const Text(
-                    'Duration',
-                    style: TextStyle(
-                      color: Color(0xFF22547C),
-                      fontSize: 12,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w500,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

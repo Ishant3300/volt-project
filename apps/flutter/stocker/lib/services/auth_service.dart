@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 import 'dart:developer';
 import 'package:jwt_decode/jwt_decode.dart';
@@ -50,7 +49,6 @@ class AuthService {
 
   Future<AuthenticationResponse> login({
     required AuthenticateData data,
-    required String role,
   }) async {
     try {
       // IMPORTANT: Clear old token before login to prevent using stale credentials
@@ -58,15 +56,8 @@ class AuthService {
       await storage.deleteToken();
       await storage.deleteRole();
       log('🗑️  Cleared old credentials before login');
-      
-      late String endpoint;
-      if (role == 'USER') {
-        endpoint = '/auth/user/login';
-      } else if (role == 'MASTER') {
-        endpoint = '/auth/master/login';
-      } else {
-        endpoint = '/auth/admin/login';
-      }
+
+      String endpoint = '/auth/login';
 
       var response = await api.post(endpoint, data.toJson());
       if (response.statusCode == 200) {
@@ -78,7 +69,7 @@ class AuthService {
           final token = authResponse.data['token'];
           await storage.saveToken(token: token);
           log('💾 Saved new token to secure storage');
-          
+
           // Decode JWT to extract role
           try {
             Map<String, dynamic> payload = Jwt.parseJwt(token);
@@ -86,9 +77,10 @@ class AuthService {
             // Convert to uppercase to match the role parameter
             await storage.saveRole(role: tokenRole.toUpperCase());
             log('Saved role from token: ${tokenRole.toUpperCase()}');
-            
+
             // If master login, save add_master permission
-            if (tokenRole.toUpperCase() == 'MASTER' && authResponse.data['master'] != null) {
+            if (tokenRole.toUpperCase() == 'MASTER' &&
+                authResponse.data['master'] != null) {
               final masterData = authResponse.data['master'];
               final addMaster = masterData['add_master'] ?? false;
               await storage.saveAddMasterPermission(addMaster: addMaster);
@@ -96,8 +88,10 @@ class AuthService {
             }
           } catch (e) {
             log('Error decoding JWT: $e');
-            // Fallback to the role parameter if JWT decode fails
-            await storage.saveRole(role: role);
+            // Fallback to the role returned from the backend if JWT decode fails
+            if (authResponse.data['role'] != null) {
+              await storage.saveRole(role: authResponse.data['role']);
+            }
           }
         }
 

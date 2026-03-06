@@ -29,51 +29,77 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  Widget _buildNavItem(IconData icon, IconData activeIcon, String label, int index) {
+    final bool isSelected = _selectedIndex == index;
+    return GestureDetector(
+      onTap: () => _onItemTapped(index),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF22547C).withValues(alpha: 0.08) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? activeIcon : icon,
+              size: 22,
+              color: isSelected ? const Color(0xFF22547C) : const Color(0xFF94A3B8),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected ? const Color(0xFF22547C) : const Color(0xFF94A3B8),
+                letterSpacing: 0.2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: _pages[_selectedIndex],
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFFF9F9F9),
+          color: Colors.white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
           boxShadow: [
             BoxShadow(
-              color: Color(0x19000000),
-              blurRadius: 10,
-              offset: Offset(0, -1),
-              spreadRadius: 0,
-            )
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 4,
+              offset: const Offset(0, -2),
+            ),
           ],
         ),
-        child: BottomNavigationBar(
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: const Color(0xFFF9F9F9),
-          selectedItemColor: const Color(0xFF22547C),
-          unselectedItemColor: const Color(0xFF8E8E93),
-          currentIndex: _selectedIndex,
-          onTap: _onItemTapped,
-          items: [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.bookmark_outline),
-              activeIcon: Icon(Icons.bookmark),
-              label: 'Watchlist',
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildNavItem(Icons.bookmark_outline, Icons.bookmark, 'Watchlist', 0),
+                _buildNavItem(Icons.receipt_long_outlined, Icons.receipt_long, 'Orders', 1),
+                _buildNavItem(Icons.pie_chart_outline, Icons.pie_chart, 'History', 2),
+                _buildNavItem(Icons.person_outline, Icons.person, 'Profile', 3),
+              ],
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.receipt_long_outlined),
-              activeIcon: Icon(Icons.receipt_long),
-              label: 'Orders',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.pie_chart_outline),
-              activeIcon: Icon(Icons.pie_chart),
-              label: 'History',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'Profile',
-            ),
-          ],
+          ),
         ),
       ),
     );

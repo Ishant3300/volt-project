@@ -11,6 +11,11 @@ class KiteService {
 
   KiteService(this.api);
 
+  // Client-side search result cache (key -> {result, timestamp})
+  final Map<String, _CacheEntry> _searchCache = {};
+  static const _searchCacheTtl = Duration(seconds: 30);
+  static const _maxCacheEntries = 50;
+
   Future<String?> _getToken() async {
     return await storage.getToken();
   }
@@ -132,4 +137,70 @@ class KiteService {
       return [];
     }
   }
+
+  /// Smart search instruments with fuzzy matching and grouping
+  Future<Map<String, dynamic>> smartSearchInstruments(
+    String query, {
+    String category = 'ALL',
+    int limit = 50,
+  }) async {
+    final cacheKey = '${query.toLowerCase()}_${category}_$limit';
+
+    // Check client-side cache first
+    final cached = _searchCache[cacheKey];
+    if (cached != null &&
+        DateTime.now().difference(cached.timestamp) < _searchCacheTtl) {
+      return cached.result;
+    }
+
+    try {
+      final token = await _getToken();
+
+      final endpoint =
+          '/kite/instruments/smart-search?q=$query&category=$category&limit=$limit';
+      final response = await api.get(endpoint, token: token);
+      final decoded = jsonDecode(response.body);
+
+      if (decoded['success'] == true && decoded['data'] != null) {
+        final data = Map<String, dynamic>.from(decoded['data']);
+
+        // Store in client cache
+        if (_searchCache.length >= _maxCacheEntries) {
+          _searchCache.remove(_searchCache.keys.first);
+        }
+        _searchCache[cacheKey] = _CacheEntry(data, DateTime.now());
+
+        return data;
+      }
+
+      return {'groups': [], 'total': 0, 'query': query};
+    } catch (e) {
+      log('   ❌ Error smart searching instruments: $e');
+      return {'groups': [], 'total': 0, 'query': query};
+    }
+  }
+
+  /// Get search categories
+  Future<List<Map<String, dynamic>>> getSearchCategories() async {
+    try {
+      final token = await _getToken();
+      final response = await api.get('/kite/instruments/categories', token: token);
+      final decoded = jsonDecode(response.body);
+
+      if (decoded['success'] == true && decoded['data'] != null) {
+        return List<Map<String, dynamic>>.from(decoded['data']);
+      }
+
+      return [];
+    } catch (e) {
+      log('   ❌ Error getting categories: $e');
+      return [];
+    }
+  }
+}
+
+class _CacheEntry {
+  final Map<String, dynamic> result;
+  final DateTime timestamp;
+  _CacheEntry(this.result, this.timestamp);
 }

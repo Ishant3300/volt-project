@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:animated_flip_counter/animated_flip_counter.dart';
 import 'package:stocker/pages/instrument_search_page.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import '../views/trade_card_view.dart';
@@ -29,34 +30,32 @@ class _WatchlistPageState extends State<WatchlistPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FC),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: Column(
           children: [
             // Security notice
             Container(
-              margin: const EdgeInsets.all(16),
-              padding: const EdgeInsets.all(4),
-              decoration: ShapeDecoration(
-                color: const Color(0x19FF3B30),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                border: Border.all(color: const Color(0xFFFEE2E2)),
+                borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.security,
-                      color: const Color(0xFFFF3B30), size: 18),
-                  SizedBox(width: 10),
-                  Flexible(
+                  const Icon(Icons.verified_user, color: Colors.red, size: 20),
+                  const SizedBox(width: 12),
+                  const Expanded(
                     child: Text(
-                      'All profile running in this app is secure. The new',
+                      'All profile running in this app is secure. Your data is encrypted.',
                       style: TextStyle(
-                        color: const Color(0xFFFF3B30),
-                        fontSize: 14,
+                        color: Color(0xFFDC2626),
+                        fontSize: 12,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w400,
+                        fontWeight: FontWeight.w500,
+                        height: 1.2,
                       ),
                     ),
                   ),
@@ -65,57 +64,85 @@ class _WatchlistPageState extends State<WatchlistPage> {
             ),
 
             // Search bar
-            GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const InstrumentSearchPage(),
-                  ),
-                );
-              },
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                height: 48,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: ShapeDecoration(
-                  color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.search, color: const Color(0xFF8E8E93)),
-                    SizedBox(width: 10),
-                    Text(
-                      'Search & Add',
-                      style: TextStyle(
-                        color: const Color(0xFF8E8E93),
-                        fontSize: 16,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    Spacer(),
-                    Consumer<WatchlistProvider>(
-                      builder: (context, provider, child) {
-                        return IconButton(
-                          icon: Icon(Icons.refresh,
-                              color: const Color(0xFF8E8E93)),
-                          onPressed: () {
-                            provider.loadWatchlist();
-                          },
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const InstrumentSearchPage(),
+                          ),
                         );
                       },
+                      child: Container(
+                        height: 48,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.02),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.search,
+                                color: Color(0xFF94A3B8), size: 20),
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Search & Add',
+                              style: TextStyle(
+                                color: Color(0xFF94A3B8),
+                                fontSize: 14,
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 12),
+                  Consumer<WatchlistProvider>(
+                    builder: (context, provider, child) {
+                      return GestureDetector(
+                        onTap: () {
+                          provider.loadWatchlist();
+                        },
+                        child: Container(
+                          height: 48,
+                          width: 48,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.02),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(Icons.tune,
+                              color: Color(0xFF475569), size: 20),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
 
-            SizedBox(height: 16),
+            const SizedBox(height: 8),
 
             // Watchlist items
             Expanded(
@@ -169,18 +196,24 @@ class _WatchlistPageState extends State<WatchlistPage> {
                     onRefresh: () => watchlistProvider.loadWatchlist(),
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: ShapeDecoration(
+                      clipBehavior: Clip.antiAlias,
+                      decoration: BoxDecoration(
                         color: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.02),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: ListView.separated(
                         padding: EdgeInsets.zero,
                         itemCount: watchlistProvider.items.length,
-                        separatorBuilder: (context, index) => Divider(
+                        separatorBuilder: (context, index) => const Divider(
                           height: 1,
-                          color: const Color(0xFFD1D1D6),
+                          color: Color(0xFFF1F5F9),
                         ),
                         itemBuilder: (context, index) {
                           final item = watchlistProvider.items[index];
@@ -201,8 +234,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    '${instrument.tradingsymbol} removed from watchlist',
-                                  ),
+                                      '${instrument.tradingsymbol} removed from watchlist'),
                                 ),
                               );
                             },
@@ -217,7 +249,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
               ),
             ),
 
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
           ],
         ),
       ),
@@ -226,6 +258,8 @@ class _WatchlistPageState extends State<WatchlistPage> {
 
   Widget _buildWatchlistCard(
       BuildContext context, dynamic item, dynamic instrument) {
+    final bool isPositive = item.isPositive;
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
@@ -238,10 +272,12 @@ class _WatchlistPageState extends State<WatchlistPage> {
       },
       child: Container(
         padding: const EdgeInsets.all(16),
+        color: Colors.transparent,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Left side - Name, expiry, change
+            // Left side
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -253,65 +289,64 @@ class _WatchlistPageState extends State<WatchlistPage> {
                           instrument.name.isNotEmpty
                               ? instrument.name.toString().toUpperCase()
                               : instrument.tradingsymbol,
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: Colors.black,
                             fontSize: 14,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.3,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (instrument.expiry != null) ...[
-                        SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         Container(
-                          width: 9,
-                          height: 9,
-                          decoration: ShapeDecoration(
-                            color: const Color(0xFFD9D9D9),
-                            shape: OvalBorder(),
+                          width: 4,
+                          height: 4,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFCBD5E1),
+                            shape: BoxShape.circle,
                           ),
                         ),
-                        SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         Text(
-                          instrument.expiryDisplay,
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 12,
+                          instrument.expiryDisplay.toString().toUpperCase(),
+                          style: const TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 10,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ],
                     ],
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
-                      Text(
-                        item.isPositive ? '↑' : '↓',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: item.isPositive
-                              ? const Color(0xFF34C759)
-                              : const Color(0xFFFF3B30),
-                        ),
+                      Icon(
+                        isPositive ? Icons.north_east : Icons.south_west,
+                        size: 14,
+                        color: isPositive
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFEF4444),
                       ),
-                      SizedBox(width: 4),
+                      const SizedBox(width: 4),
                       Flexible(
                         child: Text(
                           item.changeDisplay.isEmpty
                               ? '--'
                               : item.changeDisplay,
                           style: TextStyle(
-                            color: item.isPositive
-                                ? const Color(0xFF34C759)
-                                : const Color(0xFFFF3B30),
+                            color: isPositive
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFFEF4444),
                             fontSize: 12,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
+                            fontWeight: FontWeight.w600,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -323,98 +358,114 @@ class _WatchlistPageState extends State<WatchlistPage> {
               ),
             ),
 
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
 
-            // Right side - Bid/Ask, High/Low
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+            // Right side — ASK and BID side by side
+            Builder(builder: (context) {
+              final ltp = item.currentPrice ?? 0.0;
+              final spread = ltp * 0.0005;
+
+              final rawAsk = item.askPrice;
+              final rawBid = item.bidPrice;
+              final effectiveAsk = (rawAsk != null && rawAsk > 0.1)
+                  ? rawAsk
+                  : (ltp > 0 ? ltp + spread : null);
+              final effectiveBid = (rawBid != null && rawBid > 0.1)
+                  ? rawBid
+                  : (ltp > 0 ? ltp - spread : null);
+
+              return SizedBox(
+                width: 180,
+                child: Row(
                   children: [
-                    // Chart icon + BID price (for selling)
-                    Icon(Icons.show_chart, size: 16, color: Colors.black),
-                    SizedBox(width: 4),
-                    Text(
-                      () {
-                        final ltp = item.currentPrice ?? 0.0;
-                        final spread = ltp * 0.0005;
-                        final bidPrice = item.bidPrice ?? (ltp > 0 ? ltp - spread : ltp);
-                        return bidPrice.toStringAsFixed(2);
-                      }(),
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 14,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    SizedBox(width: 8),
-                    // Green dot + ASK price (for buying)
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: ShapeDecoration(
-                        color: const Color(0xFF34C759),
-                        shape: OvalBorder(),
-                      ),
-                    ),
-                    SizedBox(width: 2),
-                    Text(
-                      () {
-                        final ltp = item.currentPrice ?? 0.0;
-                        final spread = ltp * 0.0005;
-                        final askPrice = item.askPrice ?? (ltp > 0 ? ltp + spread : ltp);
-                        return askPrice.toStringAsFixed(2);
-                      }(),
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 14,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 4),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      padding:
-                          const EdgeInsets.only(top: 2, right: 8, bottom: 2),
-                      decoration: ShapeDecoration(
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(
-                            width: 1,
-                            color: const Color(0xFFC7C7CC),
+                    // BID
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Text(
+                            'BID',
+                            style: TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 9,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
+                            ),
                           ),
-                        ),
-                      ),
-                      child: Text(
-                        'L: ${item.low?.toStringAsFixed(1) ?? '0.0'}',
-                        style: TextStyle(
-                          color: const Color(0xFF999999),
-                          fontSize: 12,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
-                        ),
+                          const SizedBox(height: 2),
+                          effectiveBid != null
+                              ? AnimatedFlipCounter(
+                                  value: effectiveBid,
+                                  fractionDigits: 2,
+                                  textStyle: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF10B981),
+                                  ),
+                                )
+                              : const Text(
+                                  '--',
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF10B981),
+                                  ),
+                                ),
+                        ],
                       ),
                     ),
-                    SizedBox(width: 8),
-                    Text(
-                      'H: ${item.high?.toStringAsFixed(1) ?? '0.0'}',
-                      style: TextStyle(
-                        color: const Color(0xFF999999),
-                        fontSize: 12,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w400,
+                    Container(
+                      width: 1,
+                      height: 28,
+                      margin: const EdgeInsets.symmetric(horizontal: 10),
+                      color: const Color(0xFFF1F5F9),
+                    ),
+                    // ASK
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Text(
+                            'ASK',
+                            style: TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 9,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          effectiveAsk != null
+                              ? AnimatedFlipCounter(
+                                  value: effectiveAsk,
+                                  fractionDigits: 2,
+                                  textStyle: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFEF4444),
+                                  ),
+                                )
+                              : const Text(
+                                  '--',
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFFEF4444),
+                                  ),
+                                ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ],
-            ),
+              );
+            }),
           ],
         ),
       ),

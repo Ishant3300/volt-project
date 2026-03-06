@@ -10,44 +10,48 @@ class LoginHistoryView extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               child: Row(
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: Icon(Icons.arrow_back, color: Colors.black),
+                    child: const Icon(Icons.arrow_back,
+                        size: 24, color: Color(0xFF0F172A)),
                   ),
-                  SizedBox(width: 12),
-                  Text(
+                  const SizedBox(width: 16),
+                  const Text(
                     'Login History',
                     style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 16,
+                      color: Color(0xFF0F172A),
+                      fontSize: 24,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
                     ),
                   ),
                 ],
               ),
             ),
 
-            // Search Bar
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               height: 48,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: ShapeDecoration(
                 color: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  side: const BorderSide(width: 1, color: Color(0xFFE2E8F0)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.search, size: 24, color: const Color(0xFF8E8E93)),
+                      Icon(Icons.search,
+                          size: 24, color: const Color(0xFF8E8E93)),
                       SizedBox(width: 10),
                       Text(
                         'Search users',
@@ -60,7 +64,8 @@ class LoginHistoryView extends StatelessWidget {
                       ),
                     ],
                   ),
-                  Icon(Icons.filter_list, size: 24, color: const Color(0xFF8E8E93)),
+                  Icon(Icons.filter_list,
+                      size: 24, color: const Color(0xFF8E8E93)),
                 ],
               ),
             ),
@@ -102,14 +107,17 @@ class LoginHistoryView extends StatelessWidget {
 
             SizedBox(height: 6),
 
-            // Login History List
             Expanded(
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: ShapeDecoration(
                   color: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    side: const BorderSide(width: 1, color: Color(0xFFE2E8F0)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
+                clipBehavior: Clip.antiAlias,
                 child: ListView.builder(
                   itemCount: 10,
                   itemBuilder: (context, index) => _buildHistoryRow(
@@ -127,43 +135,35 @@ class LoginHistoryView extends StatelessWidget {
 
   Widget _buildHistoryRow({bool isFirst = false, bool isLast = false}) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: ShapeDecoration(
-        shape: RoundedRectangleBorder(
-          side: BorderSide(width: 1, color: const Color(0xFFC7C7CC)),
-          borderRadius: isFirst
-              ? BorderRadius.only(
-                  topLeft: Radius.circular(12),
-                  topRight: Radius.circular(12),
-                )
-              : isLast
-                  ? BorderRadius.only(
-                      bottomLeft: Radius.circular(12),
-                      bottomRight: Radius.circular(12),
-                    )
-                  : BorderRadius.zero,
-        ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: !isLast
+            ? const Border(
+                bottom: BorderSide(width: 1, color: Color(0xFFF1F5F9)),
+              )
+            : null,
       ),
       child: Row(
         children: [
-          Expanded(
+          const Expanded(
             child: Text(
               'USERNAME',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.black,
+                color: Color(0xFF1E293B),
                 fontSize: 14,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w400,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
-          Expanded(
+          const Expanded(
             child: Text(
               '12/12/12 12:43:56',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.black,
+                color: Color(0xFF64748B),
                 fontSize: 14,
                 fontFamily: 'Inter',
                 fontWeight: FontWeight.w400,

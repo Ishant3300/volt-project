@@ -35,7 +35,7 @@ class LivePriceService {
 
       _subscription = _channel!.stream.listen(
         (message) {
-          log('RAW SOCKET EVENT RECEIVED: $message');
+          if (kLogWebSockets) log('RAW SOCKET EVENT RECEIVED: $message');
           _handleMessage(message);
         },
         onDone: () {
@@ -80,7 +80,9 @@ class LivePriceService {
           // log('📈 Received ${ticks.length} tick(s)');
           for (final tick in ticks) {
             final tickMap = tick as Map<String, dynamic>;
-            log('   Token: ${tickMap['instrument_token']} | LTP: ${tickMap['last_price']} | Change: ${tickMap['change']?.toStringAsFixed(2) ?? 'N/A'}');
+            if (kLogLivePrices) {
+              log('   Token: ${tickMap['instrument_token']} | LTP: ${tickMap['last_price']} | Change: ${tickMap['change']?.toStringAsFixed(2) ?? 'N/A'}');
+            }
             onTickReceived?.call(tickMap);
           }
           break;

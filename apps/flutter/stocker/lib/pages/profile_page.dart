@@ -42,12 +42,12 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _checkAdminStatus() async {
     final role = await _storage.getRole();
     log('🔍 Profile page - Retrieved role: "$role"');
-    
+
     final isAdmin = role == 'ADMIN';
     final isMaster = role == 'MASTER';
-    
+
     log('📊 Profile page - Comparison: role=="ADMIN" = $isAdmin, role=="MASTER" = $isMaster');
-    
+
     if (mounted) {
       setState(() {
         _isAdmin = isAdmin;
@@ -114,7 +114,7 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   Widget build(BuildContext context) {
     log('🏗️ Building ProfilePage - _isAdmin: $_isAdmin, _isMaster: $_isMaster');
-    
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FC),
       body: SafeArea(
@@ -123,47 +123,58 @@ class _ProfilePageState extends State<ProfilePage> {
             children: [
               // Header
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
+                    const Text(
                       'Profile',
                       style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 16,
+                        color: Color(0xFF0F172A),
+                        fontSize: 24,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.5,
                       ),
                     ),
-                    Icon(Icons.settings, size: 24, color: Colors.black),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        color: Colors.transparent,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.settings,
+                          size: 24, color: Color(0xFF334155)),
+                    ),
                   ],
                 ),
               ),
 
               // Security notice
               Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.all(4),
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.all(10),
                 decoration: ShapeDecoration(
-                  color: const Color(0x19FF3B30),
+                  color: const Color(0xFFFEF2F2),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(12)),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.security,
-                        color: const Color(0xFFFF3B30), size: 18),
-                    SizedBox(width: 10),
-                    Flexible(
+                    const Icon(Icons.shield,
+                        color: Color(0xFFEF4444), size: 20),
+                    const SizedBox(width: 12),
+                    const Expanded(
                       child: Text(
-                        'All profile running in this app is secure. The new',
+                        'All profile running in this app is secure. The new security features are active.',
                         style: TextStyle(
-                          color: const Color(0xFFFF3B30),
-                          fontSize: 14,
+                          color: Color(0xFFDC2626),
+                          fontSize: 12,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
+                          fontWeight: FontWeight.w500,
+                          height: 1.2,
                         ),
                       ),
                     ),
@@ -171,17 +182,20 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
 
-              SizedBox(height: 16),
+              const SizedBox(height: 8),
 
               // Balance and Credit summary
               Consumer<TradeMetricsProvider>(
                 builder: (context, metricsProvider, child) {
                   return Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                    padding: const EdgeInsets.all(16),
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    padding: const EdgeInsets.all(14),
                     decoration: ShapeDecoration(
                       color: Colors.white,
                       shape: RoundedRectangleBorder(
+                        side: const BorderSide(
+                            width: 1, color: Color(0xFFE2E8F0)),
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
@@ -194,20 +208,21 @@ class _ProfilePageState extends State<ProfilePage> {
                               const Text(
                                 'BALANCE',
                                 style: TextStyle(
-                                  color: Color(0xFF8E8E93),
+                                  color: Color(0xFF64748B),
                                   fontSize: 12,
                                   fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.5,
                                 ),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 metricsProvider.balance.toStringAsFixed(2),
                                 style: const TextStyle(
-                                  color: Colors.black,
+                                  color: Color(0xFF0F172A),
                                   fontSize: 20,
                                   fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ],
@@ -215,10 +230,10 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                         Container(
                           width: 1,
-                          height: 40,
-                          color: const Color(0xFFE5E5EA),
+                          height: 48,
+                          color: const Color(0xFFE2E8F0),
                         ),
-                        const SizedBox(width: 24),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,20 +241,21 @@ class _ProfilePageState extends State<ProfilePage> {
                               const Text(
                                 'CREDIT',
                                 style: TextStyle(
-                                  color: Color(0xFF8E8E93),
+                                  color: Color(0xFF64748B),
                                   fontSize: 12,
                                   fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.5,
                                 ),
                               ),
                               const SizedBox(height: 4),
                               Text(
                                 metricsProvider.credit.toStringAsFixed(2),
                                 style: const TextStyle(
-                                  color: Colors.black,
+                                  color: Color(0xFF0F172A),
                                   fontSize: 20,
                                   fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ],
@@ -251,7 +267,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 },
               ),
 
-              SizedBox(height: 16),
+              const SizedBox(height: 8),
 
               // Menu items
               Container(
@@ -259,9 +275,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 decoration: ShapeDecoration(
                   color: Colors.white,
                   shape: RoundedRectangleBorder(
+                    side: const BorderSide(width: 1, color: Color(0xFFE2E8F0)),
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
+                clipBehavior: Clip.antiAlias,
                 child: Column(
                   children: [
                     if (_isAdmin) ...[
@@ -270,11 +288,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       _buildDivider(),
                     ] else
                       Builder(builder: (context) {
-                        log('⚠️  Admin Setting NOT shown - _isAdmin: $_isAdmin');
                         return const SizedBox.shrink();
                       }),
-                    _buildMenuItem(
-                        context, Icons.account_circle, 'Account Detail'),
+                    _buildMenuItem(context, Icons.person, 'Account Detail'),
                     _buildDivider(),
                     if (_isAdmin || _isMaster) ...[
                       _buildMenuItem(
@@ -282,10 +298,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       _buildDivider(),
                     ] else
                       Builder(builder: (context) {
-                        log('⚠️  User Management NOT shown - _isAdmin: $_isAdmin, _isMaster: $_isMaster');
                         return const SizedBox.shrink();
                       }),
-                    _buildMenuItem(context, Icons.assessment, 'Reports'),
+                    _buildMenuItem(context, Icons.insert_chart, 'Reports'),
                     _buildDivider(),
                     _buildMenuItem(context, Icons.settings, 'Settings'),
                     _buildDivider(),
@@ -299,20 +314,22 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
 
-              SizedBox(height: 24),
+              const SizedBox(height: 8),
 
               // Delete account
-              Text(
-                'Delete Account',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 16,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w500,
+              const Center(
+                child: Text(
+                  'Delete Account',
+                  style: TextStyle(
+                    color: Color(0xFF334155),
+                    fontSize: 14,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
 
-              SizedBox(height: 40),
+              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -365,46 +382,63 @@ class _ProfilePageState extends State<ProfilePage> {
               }
             },
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        color: Colors.transparent, // allow full width tap
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
               children: [
-                Icon(
-                  icon,
-                  size: 24,
-                  color: isRed ? const Color(0xFFFF3B30) : Colors.black,
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: isRed
+                        ? const Color(0xFFFEF2F2)
+                        : const Color(0xFFF1F5F9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      icon,
+                      size: 16,
+                      color: isRed
+                          ? const Color(0xFFEF4444)
+                          : const Color(0xFF1E3A8A),
+                    ),
+                  ),
                 ),
-                SizedBox(width: 16),
+                const SizedBox(width: 16),
                 Text(
                   title,
                   style: TextStyle(
-                    color: isRed ? const Color(0xFFFF3B30) : Colors.black,
+                    color: isRed
+                        ? const Color(0xFFEF4444)
+                        : const Color(0xFF1E293B),
                     fontSize: 16,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 if (_isLoggingOut && title == 'Logout') ...[
-                  SizedBox(width: 8),
-                  SizedBox(
+                  const SizedBox(width: 8),
+                  const SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        const Color(0xFFFF3B30),
+                        Color(0xFFEF4444),
                       ),
                     ),
                   ),
                 ],
               ],
             ),
-            Icon(
+            const Icon(
               Icons.chevron_right,
               size: 24,
-              color: Colors.grey,
+              color: Color(0xFF94A3B8),
             ),
           ],
         ),
@@ -413,7 +447,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Widget _buildDivider() {
-    return Divider(
-        height: 1, color: const Color(0xFFC7C7CC), indent: 16, endIndent: 16);
+    return const Divider(
+        height: 1, color: Color(0xFFF1F5F9), indent: 16, endIndent: 16);
   }
 }

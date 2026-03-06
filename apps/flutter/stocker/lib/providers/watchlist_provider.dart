@@ -41,10 +41,12 @@ class WatchlistProvider with ChangeNotifier {
 
       // Debug log to check if bid/ask are received
       if (bidPrice != null || askPrice != null) {
-        log('💰 Token $token: LTP=$price, Bid=$bidPrice, Ask=$askPrice');
+        if (kLogLivePrices)
+          log('💰 Token $token: LTP=$price, Bid=$bidPrice, Ask=$askPrice');
       } else {
         // Log when bid/ask are missing (only for first few ticks to avoid spam)
-        log('⚠️  Token $token: LTP=$price, Bid/Ask=NULL (using fallback spread)');
+        if (kLogLivePrices)
+          log('⚠️  Token $token: LTP=$price, Bid/Ask=NULL (using fallback spread)');
       }
 
       // Send to Metrics Provider for realtime calculation
@@ -344,7 +346,7 @@ class WatchlistProvider with ChangeNotifier {
       // log('   ✅ Updated: ${_items[index].instrument.tradingsymbol} -> Price: $price');
       notifyListeners();
     } else {
-      log('⚠️  Token $instrumentToken not found in watchlist');
+      if (kLogTokenWarnings) log('⚠️  Token $instrumentToken not found in watchlist');
     }
   }
 

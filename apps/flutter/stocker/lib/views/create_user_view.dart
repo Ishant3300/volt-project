@@ -8,7 +8,7 @@ import '../services/admin_service.dart';
 import '../models/user.dart';
 
 class CreateUserView extends StatefulWidget {
-  final User? user; // Optional user parameter for edit mode
+  final User? user;
 
   const CreateUserView({super.key, this.user});
 
@@ -20,8 +20,7 @@ class _CreateUserViewState extends State<CreateUserView> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController =
-      TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
   final TextEditingController _creditController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
 
@@ -31,8 +30,7 @@ class _CreateUserViewState extends State<CreateUserView> {
 
   Map<String, Map<String, dynamic>> _exchangeSettings = {};
   Map<String, bool> _tradeLimit = {};
-  Map<String, List<String>> _exchangeLotNames =
-      {}; // Store lot names for each exchange
+  Map<String, List<String>> _exchangeLotNames = {};
 
   List<String> _allowedExchanges = [];
   List<String> _allowedTradeLimit = [];
@@ -42,7 +40,6 @@ class _CreateUserViewState extends State<CreateUserView> {
     super.initState();
     _loadMasterPermissions();
 
-    // Pre-fill data if editing existing user
     if (widget.user != null) {
       _nameController.text = widget.user!.name;
       _usernameController.text = widget.user!.username;
@@ -54,28 +51,24 @@ class _CreateUserViewState extends State<CreateUserView> {
   }
 
   void _loadMasterPermissions() async {
-    final profileProvider =
-        Provider.of<UserProfileProvider>(context, listen: false);
+    final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
     final adminService = Provider.of<AdminService>(context, listen: false);
 
     if (profileProvider.master != null) {
       setState(() {
-        // Get allowed exchanges from master
         _allowedExchanges = profileProvider.master!.exchangesAllowed;
         _allowedTradeLimit = profileProvider.master!.tradeLimit;
 
-        // Initialize exchange settings only for allowed exchanges
         _exchangeSettings = {};
         for (var exchange in _allowedExchanges) {
           _exchangeSettings[exchange] = {
             'enabled': false,
             'turnover': false,
             'lot': false,
-            'group': null
+            'group': null,
           };
         }
 
-        // If editing, pre-fill exchange settings from user data
         if (widget.user != null) {
           for (var userExchange in widget.user!.exchangesAllowed) {
             if (_exchangeSettings.containsKey(userExchange.exchangeName)) {
@@ -83,46 +76,34 @@ class _CreateUserViewState extends State<CreateUserView> {
                 'enabled': true,
                 'turnover': userExchange.turnover,
                 'lot': userExchange.lot,
-                'group': userExchange.groupName.isNotEmpty
-                    ? userExchange.groupName
-                    : null
+                'group': userExchange.groupName.isNotEmpty ? userExchange.groupName : null,
               };
             }
           }
         }
 
-        // Initialize trade limit only for allowed exchanges
         _tradeLimit = {};
         for (var exchange in _allowedTradeLimit) {
-          _tradeLimit[exchange] =
-              widget.user?.tradeLimit.contains(exchange) ?? false;
+          _tradeLimit[exchange] = widget.user?.tradeLimit.contains(exchange) ?? false;
         }
       });
 
-      // Fetch lot names for each exchange
       for (var exchange in _allowedExchanges) {
         _fetchLotNamesForExchange(exchange, adminService);
       }
     }
   }
 
-  Future<void> _fetchLotNamesForExchange(
-      String exchange, AdminService adminService) async {
+  Future<void> _fetchLotNamesForExchange(String exchange, AdminService adminService) async {
     try {
-      log('🔍 Fetching lot names for exchange: $exchange');
       final response = await adminService.getLotNamesByExchange(exchange);
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true && data['data'] != null) {
-          final lotNames = List<String>.from(data['data']);
           setState(() {
-            _exchangeLotNames[exchange] = lotNames;
+            _exchangeLotNames[exchange] = List<String>.from(data['data']);
           });
-          log('✅ Loaded ${lotNames.length} lot names for $exchange');
         }
-      } else {
-        log('❌ Failed to fetch lot names for $exchange: ${response.statusCode}');
       }
     } catch (e) {
       log('❌ Error fetching lot names for $exchange: $e');
@@ -140,64 +121,41 @@ class _CreateUserViewState extends State<CreateUserView> {
     super.dispose();
   }
 
+  void _showSnack(String msg, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: isError ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+      ),
+    );
+  }
+
   Future<void> _createUser() async {
-    // Validation
-    if (_nameController.text.trim().isEmpty) {
-      _showError('Please enter name');
-      return;
-    }
+    if (_nameController.text.trim().isEmpty) { _showSnack('Please enter name', isError: true); return; }
+    if (_usernameController.text.trim().isEmpty) { _showSnack('Please enter username', isError: true); return; }
 
-    if (_usernameController.text.trim().isEmpty) {
-      _showError('Please enter username');
-      return;
-    }
-
-    // Password validation - required for create, optional for update
     if (widget.user == null) {
-      // Creating new user - password is required
-      if (_passwordController.text.isEmpty) {
-        _showError('Please enter password');
-        return;
-      }
-
-      if (_passwordController.text != _confirmPasswordController.text) {
-        _showError('Passwords do not match');
-        return;
-      }
+      if (_passwordController.text.isEmpty) { _showSnack('Please enter password', isError: true); return; }
+      if (_passwordController.text != _confirmPasswordController.text) { _showSnack('Passwords do not match', isError: true); return; }
     } else {
-      // Updating existing user - password is optional
-      if (_passwordController.text.isNotEmpty &&
-          _passwordController.text != _confirmPasswordController.text) {
-        _showError('Passwords do not match');
-        return;
+      if (_passwordController.text.isNotEmpty && _passwordController.text != _confirmPasswordController.text) {
+        _showSnack('Passwords do not match', isError: true); return;
       }
     }
 
-    if (_creditController.text.trim().isEmpty) {
-      _showError('Please enter credit amount');
-      return;
-    }
-
+    if (_creditController.text.trim().isEmpty) { _showSnack('Please enter credit amount', isError: true); return; }
     final credit = double.tryParse(_creditController.text.trim());
-    if (credit == null || credit < 0) {
-      _showError('Please enter a valid credit amount');
-      return;
-    }
+    if (credit == null || credit < 0) { _showSnack('Please enter a valid credit amount', isError: true); return; }
 
-    // Get profile provider to access master data
-    final profileProvider =
-        Provider.of<UserProfileProvider>(context, listen: false);
-    if (profileProvider.master == null) {
-      _showError('Master profile not found');
-      return;
-    }
+    final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+    if (profileProvider.master == null) { _showSnack('Master profile not found', isError: true); return; }
 
-    // Prepare exchanges_allowed array
     List<Map<String, dynamic>> exchangesAllowed = [];
     _exchangeSettings.forEach((exchange, settings) {
       if (settings['enabled'] == true) {
         exchangesAllowed.add({
-          'exchange_name': exchange.toUpperCase(), // Ensure uppercase
+          'exchange_name': exchange.toUpperCase(),
           'turnover': settings['turnover'] ?? false,
           'lot': settings['lot'] ?? false,
           'group_name': settings['group'] ?? '',
@@ -205,38 +163,25 @@ class _CreateUserViewState extends State<CreateUserView> {
       }
     });
 
-    if (exchangesAllowed.isEmpty) {
-      _showError('Please select at least one exchange');
-      return;
-    }
+    if (exchangesAllowed.isEmpty) { _showSnack('Please select at least one exchange', isError: true); return; }
 
-    // Prepare trade_limit array
     List<String> tradeLimitList = [];
     _tradeLimit.forEach((exchange, enabled) {
-      if (enabled) {
-        tradeLimitList.add(exchange.toUpperCase()); // Ensure uppercase
-      }
+      if (enabled) tradeLimitList.add(exchange.toUpperCase());
     });
 
-    setState(() {
-      _isSubmitting = true;
-    });
+    setState(() => _isSubmitting = true);
 
     try {
       final adminService = Provider.of<AdminService>(context, listen: false);
-
       http.Response response;
 
       if (widget.user != null) {
-        // Update existing user
-        log('📤 Updating user...');
         response = await adminService.updateUser(
           userId: widget.user!.id,
           name: _nameController.text.trim(),
           username: _usernameController.text.trim(),
-          password: _passwordController.text.isNotEmpty
-              ? _passwordController.text
-              : null,
+          password: _passwordController.text.isNotEmpty ? _passwordController.text : null,
           credits: credit,
           note: _noteController.text.trim(),
           pnlSharing: profileProvider.master!.pnlSharing,
@@ -247,8 +192,6 @@ class _CreateUserViewState extends State<CreateUserView> {
           changePassOnFirstLogin: _changePasswordOnFirstLogin,
         );
       } else {
-        // Create new user
-        log('📤 Creating user...');
         response = await adminService.createUser(
           name: _nameController.text.trim(),
           username: _usernameController.text.trim(),
@@ -266,62 +209,27 @@ class _CreateUserViewState extends State<CreateUserView> {
       }
 
       if (!mounted) return;
-
       final data = jsonDecode(response.body);
 
-      if ((response.statusCode == 201 || response.statusCode == 200) &&
-          data['success'] == true) {
-        log(widget.user != null
-            ? '✅ User updated successfully'
-            : '✅ User created successfully');
-
-        // Refresh master profile to update credits
+      if ((response.statusCode == 201 || response.statusCode == 200) && data['success'] == true) {
         await profileProvider.refreshProfile();
-
         if (!mounted) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(widget.user != null
-                ? 'User updated successfully'
-                : 'User created successfully'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context, true); // Return true to indicate success
+        _showSnack(widget.user != null ? 'User updated successfully' : 'User created successfully');
+        Navigator.pop(context, true);
       } else {
-        log('❌ Failed to ${widget.user != null ? 'update' : 'create'} user: ${data['message']}');
-        _showError(data['message'] ??
-            'Failed to ${widget.user != null ? 'update' : 'create'} user');
+        _showSnack(data['message'] ?? 'Failed', isError: true);
       }
     } catch (e) {
-      log('❌ Error ${widget.user != null ? 'updating' : 'creating'} user: $e');
-      if (mounted) {
-        _showError(
-            'Error ${widget.user != null ? 'updating' : 'creating'} user: $e');
-      }
+      if (mounted) _showSnack('Error: $e', isError: true);
     } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
-  }
-
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FC),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: Column(
           children: [
@@ -332,14 +240,29 @@ class _CreateUserViewState extends State<CreateUserView> {
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.arrow_back, color: Colors.black),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.02),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Text(
                     widget.user != null ? 'Edit User' : 'Create User',
                     style: const TextStyle(
                       color: Colors.black,
-                      fontSize: 16,
+                      fontSize: 18,
                       fontFamily: 'Inter',
                       fontWeight: FontWeight.w600,
                     ),
@@ -348,298 +271,179 @@ class _CreateUserViewState extends State<CreateUserView> {
               ),
             ),
 
-            // Scrollable Content
+            // Content
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Personal Details Section
-                    const Text(
-                      'PERSONAL DETAILS',
-                      style: TextStyle(
-                        color: Color(0xFF8E8E93),
-                        fontSize: 12,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: ShapeDecoration(
-                        color: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
+                    _sectionLabel('PERSONAL DETAILS'),
+                    const SizedBox(height: 12),
+                    _card(
                       child: Column(
                         children: [
-                          _buildTextField(
-                              label: 'Name', controller: _nameController),
-                          const SizedBox(height: 16),
-                          _buildTextField(
-                              label: 'Username',
-                              controller: _usernameController),
-                          const SizedBox(height: 16),
-                          _buildTextField(
-                            label: 'Password',
-                            controller: _passwordController,
-                            obscureText: true,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildTextField(
-                            label: 'Confirm Password',
-                            controller: _confirmPasswordController,
-                            obscureText: true,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildTextField(
-                            label: 'Credit',
-                            controller: _creditController,
-                            keyboardType: TextInputType.number,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildTextField(
-                              label: 'Note/Remark',
-                              controller: _noteController),
+                          _buildTextField(label: 'Name', controller: _nameController),
+                          _divider(),
+                          _buildTextField(label: 'Username', controller: _usernameController),
+                          _divider(),
+                          _buildTextField(label: 'Password', controller: _passwordController, obscureText: true),
+                          _divider(),
+                          _buildTextField(label: 'Confirm', controller: _confirmPasswordController, obscureText: true),
+                          _divider(),
+                          _buildTextField(label: 'Credit', controller: _creditController, keyboardType: TextInputType.number),
+                          _divider(),
+                          _buildTextField(label: 'Note', controller: _noteController),
                         ],
                       ),
                     ),
 
                     const SizedBox(height: 24),
 
-                    // Exchange Allow Section
+                    // Exchange Allow
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'EXCHANGE ALLOW',
-                          style: TextStyle(
-                            color: Color(0xFF8E8E93),
-                            fontSize: 12,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                        _sectionLabel('EXCHANGE ALLOW'),
                         GestureDetector(
                           onTap: () {
                             setState(() {
-                              bool allEnabled = _exchangeSettings.values
-                                  .every((v) => v['enabled']);
-                              _exchangeSettings.forEach((key, value) {
-                                value['enabled'] = !allEnabled;
-                              });
+                              final all = _exchangeSettings.values.every((v) => v['enabled']);
+                              _exchangeSettings.forEach((k, v) => v['enabled'] = !all);
                             });
                           },
-                          child:
-                              const Icon(Icons.check_circle_outline, size: 24),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF22547C).withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _exchangeSettings.values.every((v) => v['enabled']) ? 'Deselect All' : 'Select All',
+                              style: const TextStyle(color: Color(0xFF22547C), fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w600),
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
 
-                    _exchangeSettings.isEmpty
-                        ? Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: ShapeDecoration(
-                              color: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                'No exchanges available',
-                                style: TextStyle(
-                                  color: Color(0xFF8E8E93),
-                                  fontSize: 14,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ),
-                          )
-                        : Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: ShapeDecoration(
-                              color: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: Column(
-                              children: [
-                                // Header Row
-                                Row(
-                                  children: [
-                                    const Expanded(
-                                      flex: 2,
-                                      child: Padding(
-                                        padding: EdgeInsets.only(left: 8),
-                                        child: Text(
-                                          'Exchange',
-                                          style: TextStyle(
-                                            color: Colors.black,
-                                            fontSize: 12,
-                                            fontFamily: 'Inter',
-                                            fontWeight: FontWeight.w400,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const Expanded(
-                                      flex: 1,
-                                      child: Center(
-                                        child: Text(
-                                          'Turnover',
-                                          style: TextStyle(
-                                            color: Colors.black,
-                                            fontSize: 12,
-                                            fontFamily: 'Inter',
-                                            fontWeight: FontWeight.w400,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.visible,
-                                        ),
-                                      ),
-                                    ),
-                                    const Expanded(
-                                      flex: 1,
-                                      child: Center(
-                                        child: Text(
-                                          'Lot',
-                                          style: TextStyle(
-                                            color: Colors.black,
-                                            fontSize: 12,
-                                            fontFamily: 'Inter',
-                                            fontWeight: FontWeight.w400,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(
-                                      width: 148,
-                                      child: Center(
-                                        child: Text(
-                                          'Assign Group',
-                                          style: TextStyle(
-                                            color: Colors.black,
-                                            fontSize: 12,
-                                            fontFamily: 'Inter',
-                                            fontWeight: FontWeight.w400,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                // Exchange Rows
-                                ..._exchangeSettings.entries.map((entry) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: _buildExchangeRow(
-                                        entry.key, entry.value),
-                                  );
-                                }).toList(),
-                              ],
-                            ),
-                          ),
-
-                    const SizedBox(height: 24),
-
-                    // High Low Between Trade Limit Section
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'HIGH LOW BETWEEN TRADE LIMIT',
-                          style: TextStyle(
-                            color: Color(0xFF8E8E93),
-                            fontSize: 12,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500,
+                    if (_exchangeSettings.isEmpty)
+                      _card(
+                        child: const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Text('No exchanges available', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter')),
                           ),
                         ),
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              bool allSelected =
-                                  _tradeLimit.values.every((v) => v);
-                              _tradeLimit
-                                  .updateAll((key, value) => !allSelected);
-                            });
-                          },
-                          child:
-                              const Icon(Icons.check_circle_outline, size: 24),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 11),
-
-                    _tradeLimit.isEmpty
-                        ? Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: ShapeDecoration(
-                              color: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                      )
+                    else
+                      _card(
+                        child: Column(
+                          children: [
+                            // Header
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Row(
+                                children: const [
+                                  Expanded(flex: 2, child: Padding(padding: EdgeInsets.only(left: 8), child: Text('Exchange', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.5)))),
+                                  Expanded(flex: 1, child: Center(child: Text('T/O', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.5)))),
+                                  Expanded(flex: 1, child: Center(child: Text('Lot', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.5)))),
+                                  SizedBox(width: 130, child: Center(child: Text('Group', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.5)))),
+                                ],
                               ),
                             ),
-                            child: const Center(
-                              child: Text(
-                                'No trade limits available',
-                                style: TextStyle(
-                                  color: Color(0xFF8E8E93),
-                                  fontSize: 14,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ),
-                          )
-                        : Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: ShapeDecoration(
-                              color: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: Column(
-                              children: _buildTradeLimitRows(),
-                            ),
-                          ),
-
-                    const SizedBox(height: 24),
-
-                    // Toggle Switches
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: ShapeDecoration(
-                        color: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                            ..._exchangeSettings.entries.map((entry) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: _buildExchangeRow(entry.key, entry.value),
+                              );
+                            }),
+                          ],
                         ),
                       ),
+
+                    const SizedBox(height: 24),
+
+                    // Trade Limit
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _sectionLabel('HIGH LOW BETWEEN TRADE LIMIT'),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              final all = _tradeLimit.values.every((v) => v);
+                              _tradeLimit.updateAll((k, v) => !all);
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF22547C).withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _tradeLimit.values.every((v) => v) ? 'Deselect All' : 'Select All',
+                              style: const TextStyle(color: Color(0xFF22547C), fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    if (_tradeLimit.isEmpty)
+                      _card(
+                        child: const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Text('No trade limits available', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter')),
+                          ),
+                        ),
+                      )
+                    else
+                      _card(
+                        child: Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _tradeLimit.keys.map((key) {
+                            final selected = _tradeLimit[key]!;
+                            return GestureDetector(
+                              onTap: () => setState(() => _tradeLimit[key] = !selected),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: selected ? const Color(0xFF22547C) : const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: selected ? const Color(0xFF22547C) : const Color(0xFFF1F5F9)),
+                                ),
+                                child: Text(
+                                  key,
+                                  style: TextStyle(
+                                    color: selected ? Colors.white : const Color(0xFF64748B),
+                                    fontSize: 13,
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+
+                    const SizedBox(height: 24),
+
+                    // Toggles
+                    _card(
                       child: Column(
                         children: [
-                          _buildToggleRow(
-                            'Margin Square Off',
-                            _marginSquareOff,
-                            (value) => setState(() => _marginSquareOff = value),
-                          ),
-                          const SizedBox(height: 16),
+                          _buildToggleRow('Margin Square Off', _marginSquareOff, (v) => setState(() => _marginSquareOff = v)),
                           if (widget.user == null) ...[
-                            _buildToggleRow(
-                              'Change password on first login',
-                              _changePasswordOnFirstLogin,
-                              (value) => setState(
-                                  () => _changePasswordOnFirstLogin = value),
-                            ),
+                            _divider(),
+                            _buildToggleRow('Change password on first login', _changePasswordOnFirstLogin,
+                                (v) => setState(() => _changePasswordOnFirstLogin = v)),
                           ],
                         ],
                       ),
@@ -647,52 +451,28 @@ class _CreateUserViewState extends State<CreateUserView> {
 
                     const SizedBox(height: 24),
 
-                    // Create Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: GestureDetector(
-                        onTap: _isSubmitting ? null : _createUser,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 32, vertical: 18),
-                          decoration: ShapeDecoration(
-                            color: _isSubmitting
-                                ? const Color(0xFF8E8E93)
-                                : const Color(0xFF22547C),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
+                    // Submit
+                    GestureDetector(
+                      onTap: _isSubmitting ? null : _createUser,
+                      child: Container(
+                        width: double.infinity,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: _isSubmitting ? const Color(0xFF94A3B8) : const Color(0xFF22547C),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Center(
                           child: _isSubmitting
-                              ? const Center(
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                          Colors.white),
-                                    ),
-                                  ),
-                                )
+                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                               : Text(
-                                  widget.user != null
-                                      ? 'UPDATE USER'
-                                      : 'CREATE USER',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w600,
-                                    height: 1.25,
-                                  ),
+                                  widget.user != null ? 'UPDATE USER' : 'CREATE USER',
+                                  style: const TextStyle(color: Colors.white, fontSize: 15, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.3),
                                 ),
                         ),
                       ),
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 32),
                   ],
                 ),
               ),
@@ -703,133 +483,124 @@ class _CreateUserViewState extends State<CreateUserView> {
     );
   }
 
+  // ── Shared widgets ──
+
+  Widget _sectionLabel(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: Color(0xFF94A3B8),
+        fontSize: 11,
+        fontFamily: 'Inter',
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.5,
+      ),
+    );
+  }
+
+  Widget _card({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _divider() {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 2),
+      child: Divider(height: 1, color: Color(0xFFF1F5F9)),
+    );
+  }
+
   Widget _buildTextField({
     required String label,
     required TextEditingController controller,
     bool obscureText = false,
     TextInputType keyboardType = TextInputType.text,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: Color(0xFF2B2B2B),
-            fontSize: 16,
-            fontFamily: 'Inter',
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          height: 48,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: ShapeDecoration(
-            color: Colors.white,
-            shape: RoundedRectangleBorder(
-              side: const BorderSide(width: 1, color: Color(0xFFD1D1D6)),
-              borderRadius: BorderRadius.circular(8),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              label,
+              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500),
             ),
           ),
-          child: TextField(
-            controller: controller,
-            obscureText: obscureText,
-            keyboardType: keyboardType,
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              hintText: 'Placeholder',
-              hintStyle: TextStyle(
-                color: Color(0xFF8E8E93),
-                fontSize: 16,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w400,
+          Expanded(
+            child: TextField(
+              controller: controller,
+              obscureText: obscureText,
+              keyboardType: keyboardType,
+              style: const TextStyle(color: Colors.black, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                hintText: label,
+                hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 14, fontFamily: 'Inter'),
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
               ),
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   Widget _buildExchangeRow(String exchange, Map<String, dynamic> settings) {
+    final enabled = settings['enabled'] as bool;
     return Row(
       children: [
         Expanded(
           flex: 2,
-          child: Row(
-            children: [
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    settings['enabled'] = !settings['enabled'];
-                  });
-                },
-                child: Container(
-                  width: 24,
-                  height: 24,
+          child: GestureDetector(
+            onTap: () => setState(() => settings['enabled'] = !enabled),
+            child: Row(
+              children: [
+                Container(
+                  width: 22, height: 22,
                   decoration: BoxDecoration(
-                    color: settings['enabled']
-                        ? const Color(0xFF22547C)
-                        : Colors.transparent,
-                    border: Border.all(
-                      color: settings['enabled']
-                          ? const Color(0xFF22547C)
-                          : const Color(0xFFC7C7CC),
-                      width: 2,
-                    ),
-                    borderRadius: BorderRadius.circular(4),
+                    color: enabled ? const Color(0xFF22547C) : Colors.transparent,
+                    border: Border.all(color: enabled ? const Color(0xFF22547C) : const Color(0xFFCBD5E1), width: 2),
+                    borderRadius: BorderRadius.circular(6),
                   ),
-                  child: settings['enabled']
-                      ? const Icon(Icons.check, color: Colors.white, size: 16)
-                      : null,
+                  child: enabled ? const Icon(Icons.check, color: Colors.white, size: 14) : null,
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  exchange,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 14,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(exchange, style: const TextStyle(color: Colors.black, fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         Expanded(
           flex: 1,
           child: GestureDetector(
-            onTap: () {
-              setState(() {
-                settings['turnover'] = !settings['turnover'];
-              });
-            },
+            onTap: () => setState(() => settings['turnover'] = !(settings['turnover'] as bool)),
             child: Center(
               child: Container(
-                width: 24,
-                height: 24,
+                width: 22, height: 22,
                 decoration: BoxDecoration(
-                  color: settings['turnover']
-                      ? const Color(0xFF22547C)
-                      : Colors.transparent,
-                  border: Border.all(
-                    color: settings['turnover']
-                        ? const Color(0xFF22547C)
-                        : const Color(0xFFC7C7CC),
-                    width: 2,
-                  ),
-                  borderRadius: BorderRadius.circular(4),
+                  color: (settings['turnover'] as bool) ? const Color(0xFF22547C) : Colors.transparent,
+                  border: Border.all(color: (settings['turnover'] as bool) ? const Color(0xFF22547C) : const Color(0xFFCBD5E1), width: 2),
+                  borderRadius: BorderRadius.circular(6),
                 ),
-                child: settings['turnover']
-                    ? const Icon(Icons.check, color: Colors.white, size: 16)
-                    : null,
+                child: (settings['turnover'] as bool) ? const Icon(Icons.check, color: Colors.white, size: 14) : null,
               ),
             ),
           ),
@@ -837,82 +608,47 @@ class _CreateUserViewState extends State<CreateUserView> {
         Expanded(
           flex: 1,
           child: GestureDetector(
-            onTap: () {
-              setState(() {
-                settings['lot'] = !settings['lot'];
-              });
-            },
+            onTap: () => setState(() => settings['lot'] = !(settings['lot'] as bool)),
             child: Center(
               child: Container(
-                width: 24,
-                height: 24,
+                width: 22, height: 22,
                 decoration: BoxDecoration(
-                  color: settings['lot']
-                      ? const Color(0xFF22547C)
-                      : Colors.transparent,
-                  border: Border.all(
-                    color: settings['lot']
-                        ? const Color(0xFF22547C)
-                        : const Color(0xFFC7C7CC),
-                    width: 2,
-                  ),
-                  borderRadius: BorderRadius.circular(4),
+                  color: (settings['lot'] as bool) ? const Color(0xFF22547C) : Colors.transparent,
+                  border: Border.all(color: (settings['lot'] as bool) ? const Color(0xFF22547C) : const Color(0xFFCBD5E1), width: 2),
+                  borderRadius: BorderRadius.circular(6),
                 ),
-                child: settings['lot']
-                    ? const Icon(Icons.check, color: Colors.white, size: 16)
-                    : null,
+                child: (settings['lot'] as bool) ? const Icon(Icons.check, color: Colors.white, size: 14) : null,
               ),
             ),
           ),
         ),
         SizedBox(
-          width: 148,
-          height: 48,
+          width: 130,
+          height: 40,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: ShapeDecoration(
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                side: const BorderSide(width: 1, color: Color(0xFFC7C7CC)),
-                borderRadius: BorderRadius.circular(8),
-              ),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFF1F5F9)),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
-                value: settings['group'],
+                value: settings['group'] as String?,
                 hint: Text(
-                  _exchangeLotNames[exchange]?.isEmpty ?? true
-                      ? 'No groups'
-                      : 'Select Item',
-                  style: const TextStyle(
-                    color: Color(0xFF8E8E93),
-                    fontSize: 16,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
-                  ),
+                  _exchangeLotNames[exchange]?.isEmpty ?? true ? 'None' : 'Select',
+                  style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 12, fontFamily: 'Inter'),
                 ),
                 isExpanded: true,
-                icon: const Icon(Icons.arrow_forward_ios, size: 16),
+                icon: const Icon(Icons.keyboard_arrow_down, size: 16, color: Color(0xFF94A3B8)),
+                style: const TextStyle(color: Colors.black, fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+                dropdownColor: Colors.white,
+                borderRadius: BorderRadius.circular(12),
                 onChanged: (_exchangeLotNames[exchange]?.isEmpty ?? true)
                     ? null
-                    : (value) {
-                        setState(() {
-                          settings['group'] = value;
-                        });
-                      },
-                items:
-                    (_exchangeLotNames[exchange] ?? []).map((String lotName) {
-                  return DropdownMenuItem<String>(
-                    value: lotName,
-                    child: Text(
-                      lotName,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontFamily: 'Inter',
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  );
+                    : (value) => setState(() => settings['group'] = value),
+                items: (_exchangeLotNames[exchange] ?? []).map((name) {
+                  return DropdownMenuItem<String>(value: name, child: Text(name, overflow: TextOverflow.ellipsis));
                 }).toList(),
               ),
             ),
@@ -922,149 +658,38 @@ class _CreateUserViewState extends State<CreateUserView> {
     );
   }
 
-  Widget _buildCheckboxItem(
-      String label, bool value, Function(bool) onChanged) {
-    return GestureDetector(
-      onTap: () => onChanged(!value),
-      child: Container(
-        height: 48,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: ShapeDecoration(
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
-            side: const BorderSide(width: 1, color: Color(0xFFC7C7CC)),
-            borderRadius: BorderRadius.circular(8),
+  Widget _buildToggleRow(String label, bool value, Function(bool) onChanged) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(label, style: const TextStyle(color: Colors.black, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w500)),
           ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 24,
-              height: 24,
+          GestureDetector(
+            onTap: () => onChanged(!value),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 44,
+              height: 26,
+              padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
-                color: value ? const Color(0xFF22547C) : Colors.transparent,
-                border: Border.all(
-                  color:
-                      value ? const Color(0xFF22547C) : const Color(0xFFC7C7CC),
-                  width: 2,
+                color: value ? const Color(0xFF22547C) : const Color(0xFFCBD5E1),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: AnimatedAlign(
+                duration: const Duration(milliseconds: 200),
+                alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+                child: Container(
+                  width: 22, height: 22,
+                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
                 ),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: value
-                  ? const Icon(Icons.check, color: Colors.white, size: 16)
-                  : null,
-            ),
-            const SizedBox(width: 10),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.black,
-                fontSize: 16,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w400,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
-  }
-
-  Widget _buildToggleRow(String label, bool value, Function(bool) onChanged) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: Color(0xFF2B2B2B),
-            fontSize: 16,
-            fontFamily: 'Inter',
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        GestureDetector(
-          onTap: () => onChanged(!value),
-          child: Container(
-            width: 40,
-            height: 25,
-            padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
-            decoration: ShapeDecoration(
-              color: value ? const Color(0xFF22547C) : const Color(0xFF8E8E93),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12.50),
-              ),
-            ),
-            child: Align(
-              alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-              child: Container(
-                width: 23,
-                height: 23,
-                decoration: const ShapeDecoration(
-                  color: Colors.white,
-                  shape: OvalBorder(),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  List<Widget> _buildTradeLimitRows() {
-    List<Widget> rows = [];
-    List<String> exchanges = _tradeLimit.keys.toList();
-
-    // Build rows with 2 items each
-    for (int i = 0; i < exchanges.length; i += 2) {
-      List<Widget> rowItems = [];
-
-      // First item
-      rowItems.add(
-        Expanded(
-          child: _buildCheckboxItem(
-            exchanges[i],
-            _tradeLimit[exchanges[i]]!,
-            (value) {
-              setState(() {
-                _tradeLimit[exchanges[i]] = value;
-              });
-            },
-          ),
-        ),
-      );
-
-      // Second item if exists
-      if (i + 1 < exchanges.length) {
-        rowItems.add(const SizedBox(width: 12));
-        rowItems.add(
-          Expanded(
-            child: _buildCheckboxItem(
-              exchanges[i + 1],
-              _tradeLimit[exchanges[i + 1]]!,
-              (value) {
-                setState(() {
-                  _tradeLimit[exchanges[i + 1]] = value;
-                });
-              },
-            ),
-          ),
-        );
-      } else {
-        // Add empty space if odd number of items
-        rowItems.add(const SizedBox(width: 12));
-        rowItems.add(const Expanded(child: SizedBox()));
-      }
-
-      rows.add(
-        Padding(
-          padding: EdgeInsets.only(bottom: i + 2 < exchanges.length ? 12 : 0),
-          child: Row(children: rowItems),
-        ),
-      );
-    }
-
-    return rows;
   }
 }

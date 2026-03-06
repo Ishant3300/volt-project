@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style type="text/tailwindcss">
+        :root {
+            --primary-navy: #0A1E46;
+            --bg-light: #F4F5F9;
+            --text-main: #0A1E46;
+            --text-secondary: #7A869A;
+            --pnl-loss: #B34040;
+            --pnl-profit: #2E7D32;
+            --badge-buy-bg: #43A047;
+            --badge-sell-bg: #E53935;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-light);
+        }
+        .ios-status-bar {
+            height: 44px;
+        }
+        .tab-active {
+            background-color: var(--primary-navy);
+            color: white;
+        }
+        .tab-inactive {
+            color: var(--primary-navy);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="flex flex-col min-h-screen">
+<div class="ios-status-bar flex justify-between items-center px-8 pt-4 pb-2 bg-[var(--bg-light)]">
+<span class="text-sm font-semibold">4:15</span>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-lg">signal_cellular_4_bar</span>
+<span class="material-symbols-outlined text-lg">wifi</span>
+<span class="material-symbols-outlined text-lg">battery_full</span>
+</div>
+</div>
+<div class="px-4 pt-2 pb-4 bg-[var(--bg-light)]">
+<div class="flex items-center gap-3 mb-4">
+<div class="flex-1 relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]">search</span>
+<input class="w-full bg-white border border-gray-200 rounded-full py-2.5 pl-10 pr-4 text-sm focus:outline-none" placeholder="Search &amp; Add" type="text"/>
+</div>
+<button class="text-[var(--primary-navy)]">
+<span class="material-symbols-outlined">filter_list</span>
+</button>
+</div>
+<div class="bg-gray-200 p-0.5 rounded-lg flex">
+<button class="flex-1 py-1.5 text-sm font-medium rounded-md tab-active">Trade</button>
+<button class="flex-1 py-1.5 text-sm font-medium rounded-md tab-inactive">Orders</button>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto bg-white border-t border-gray-200">
+<div class="px-4 py-4 border-b border-gray-100">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-3">
+<span class="font-bold text-[var(--text-main)] text-base">GIFT NIFTY</span>
+<span class="bg-[var(--badge-buy-bg)] text-white text-[10px] font-bold px-1.5 py-0.5 rounded">BUY</span>
+<span class="text-[var(--text-main)] font-semibold text-sm">1.0</span>
+</div>
+<div class="text-[var(--pnl-loss)] font-bold text-lg leading-tight">
+                    -31
+                </div>
+</div>
+<div class="flex items-center gap-4">
+<div class="text-[var(--text-secondary)] text-xs flex items-center">
+<span class="mr-1">ATP</span>
+<span class="text-[var(--text-main)] font-medium">24390.69</span>
+</div>
+<div class="w-px h-2.5 bg-gray-300"></div>
+<div class="text-[var(--text-secondary)] text-xs flex items-center">
+<span class="mr-1">CMP</span>
+<span class="text-[var(--text-main)] font-medium">24360.00</span>
+</div>
+</div>
+</div>
+<div class="px-4 py-4 border-b border-gray-100">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-3">
+<span class="font-bold text-[var(--text-main)] text-base">GIFT NIFTY</span>
+<span class="bg-[var(--badge-buy-bg)] text-white text-[10px] font-bold px-1.5 py-0.5 rounded">BUY</span>
+<span class="text-[var(--text-main)] font-semibold text-sm">100.0</span>
+</div>
+<div class="text-[var(--pnl-loss)] font-bold text-lg leading-tight">
+                    -2819
+                </div>
+</div>
+<div class="flex items-center gap-4">
+<div class="text-[var(--text-secondary)] text-xs flex items-center">
+<span class="mr-1">ATP</span>
+<span class="text-[var(--text-main)] font-medium">24388.19</span>
+</div>
+<div class="w-px h-2.5 bg-gray-300"></div>
+<div class="text-[var(--text-secondary)] text-xs flex items-center">
+<span class="mr-1">CMP</span>
+<span class="text-[var(--text-main)] font-medium">24360.00</span>
+</div>
+</div>
+</div>
+<div class="px-4 py-4 border-b border-gray-100">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-3">
+<span class="font-bold text-[var(--text-main)] text-base">GIFT NIFTY</span>
+<span class="bg-[var(--badge-buy-bg)] text-white text-[10px] font-bold px-1.5 py-0.5 rounded">BUY</span>
+<span class="text-[var(--text-main)] font-semibold text-sm">1.0</span>
+</div>
+<div class="text-[var(--pnl-loss)] font-bold text-lg leading-tight">
+                    -20
+                </div>
+</div>
+<div class="flex items-center gap-4">
+<div class="text-[var(--text-secondary)] text-xs flex items-center">
+<span class="mr-1">ATP</span>
+<span class="text-[var(--text-main)] font-medium">24380.19</span>
+</div>
+<div class="w-px h-2.5 bg-gray-300"></div>
+<div class="text-[var(--text-secondary)] text-xs flex items-center">
+<span class="mr-1">CMP</span>
+<span class="text-[var(--text-main)] font-medium">24360.00</span>
+</div>
+</div>
+</div>
+<div class="px-4 py-4 border-b border-gray-100">
+<div class="flex justify-between items-start mb-2">
+<div class="flex items-center gap-3">
+<span class="font-bold text-[var(--text-main)] text-base">GIFT NIFTY</span>
+<span class="bg-[var(--badge-buy-bg)] text-white text-[10px] font-bold px-1.5 py-0.5 rounded">BUY</span>
+<span class="text-[var(--text-main)] font-semibold text-sm">1.0</span>
+</div>
+<div class="text-[var(--pnl-loss)] font-bold text-lg leading-tight">
+                    -12
+                </div>
+</div>
+<div class="flex items-center gap-4">
+<div class="text-[var(--text-secondary)] text-xs flex items-center">
+<span class="mr-1">ATP</span>
+<span class="text-[var(--text-main)] font-medium">24371.69</span>
+</div>
+<div class="w-px h-2.5 bg-gray-300"></div>
+<div class="text-[var(--text-secondary)] text-xs flex items-center">
+<span class="mr-1">CMP</span>
+<span class="text-[var(--text-main)] font-medium">24360.00</span>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-white border-t border-gray-200 pt-2 pb-8 px-4 flex justify-between items-center">
+<div class="flex flex-col items-center gap-1 opacity-40">
+<span class="material-symbols-outlined text-2xl">bookmark</span>
+<span class="text-[10px] font-medium">Watchlist</span>
+</div>
+<div class="flex flex-col items-center gap-1 opacity-40">
+<span class="material-symbols-outlined text-2xl">description</span>
+<span class="text-[10px] font-medium">Orders</span>
+</div>
+<div class="flex flex-col items-center gap-1 text-[var(--primary-navy)]">
+<div class="bg-[var(--primary-navy)] p-1 rounded-full text-white">
+<span class="material-symbols-outlined text-xl block">schedule</span>
+</div>
+<span class="text-[10px] font-bold">History</span>
+</div>
+<div class="flex flex-col items-center gap-1 opacity-40">
+<span class="material-symbols-outlined text-2xl">account_circle</span>
+<span class="text-[10px] font-medium">Profile</span>
+</div>
+</div>
+<div class="fixed bottom-2 left-1/2 -translate-x-1/2 w-32 h-1 bg-black rounded-full"></div>
+
+</body></html>
