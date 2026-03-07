@@ -3,6 +3,7 @@ import 'dart:developer';
 import 'package:jwt_decode/jwt_decode.dart';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
+import 'package:stocker/services/multi_account_service.dart';
 
 class AuthenticateData {
   final String username;
@@ -44,6 +45,7 @@ class AuthenticationResponse {
 class AuthService {
   final ApiService api;
   final SecureStorageService storage = SecureStorageService();
+  final MultiAccountService multiAccount = MultiAccountService();
 
   AuthService(this.api);
 
@@ -86,6 +88,19 @@ class AuthService {
               await storage.saveAddMasterPermission(addMaster: addMaster);
               log('Saved add_master permission: $addMaster');
             }
+
+            // Save to multi-account list
+            final savedAccount = SavedAccount(
+              username: data.username,
+              role: tokenRole.toUpperCase(),
+              token: token,
+              name: authResponse.data['user']?['name'] ??
+                  authResponse.data['master']?['name'] ??
+                  authResponse.data['admin']?['username'] ??
+                  data.username,
+            );
+            await multiAccount.saveAccount(savedAccount);
+            await multiAccount.setActiveKey(savedAccount.key);
           } catch (e) {
             log('Error decoding JWT: $e');
             // Fallback to the role returned from the backend if JWT decode fails

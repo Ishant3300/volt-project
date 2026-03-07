@@ -1,6 +1,9 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:animated_flip_counter/animated_flip_counter.dart';
+import 'package:jwt_decode/jwt_decode.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
@@ -8,6 +11,10 @@ import 'package:stocker/models/kite_instrument.dart';
 import 'package:stocker/models/watchlist_item.dart';
 import 'package:stocker/views/trade_card_view.dart';
 import 'package:stocker/pages/master_instrument_users_page.dart';
+import 'package:stocker/services/live_price_service.dart';
+import 'package:stocker/views/username_view.dart';
+import 'package:stocker/models/master.dart';
+import 'package:stocker/services/admin_service.dart';
 
 import 'dart:convert';
 import 'package:stocker/services/api_service.dart';
@@ -48,15 +55,278 @@ class _OrdersPageState extends State<OrdersPage> {
   bool _masterLoading = false;
   List<Map<String, dynamic>> _masterPositions = [];
 
+  // Live metrics for master view
+  final LivePriceService _livePriceService = LivePriceService();
+  List<Map<String, dynamic>> _userMetrics = [];
+  final Map<String, double> _ltpMap = {};
+  Set<String> _allTokens = {};
+  double _masterPositionPnl = 0;
+
+  // Admin-specific state
+  bool _adminLoading = false;
+  List<Map<String, dynamic>> _adminMasterMetrics = [];
+  final Map<String, double> _adminMasterPnl = {}; // master_id → live P&L
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final userProfile = Provider.of<UserProfileProvider>(context, listen: false);
-      if (userProfile.isMaster) {
+      if (userProfile.isAdmin) {
+        _fetchAdminMasterMetrics();
+        _setupMasterLivePrices();
+      } else if (userProfile.isMaster) {
         _fetchMasterPositions();
+        _fetchUserMetrics();
+        _setupMasterLivePrices();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    final userProfile = Provider.of<UserProfileProvider>(context, listen: false);
+    if ((userProfile.isMaster || userProfile.isAdmin) && _allTokens.isNotEmpty) {
+      _livePriceService.unsubscribe(_allTokens.toList());
+    }
+    super.dispose();
+  }
+
+  void _setupMasterLivePrices() {
+    _livePriceService.onTickReceived = (tick) {
+      final token = tick['instrument_token']?.toString();
+      if (token == null) return;
+      final price = (tick['last_price'] as num?)?.toDouble();
+      if (price == null || !mounted) return;
+
+      setState(() {
+        _ltpMap[token] = price;
+        _recalcMasterMetrics();
+        _recalcAdminMasterPnl();
+      });
+    };
+
+    _livePriceService.onConnectionChanged = (connected) {
+      if (connected) {
+        _authenticateAndSubscribe();
+      }
+    };
+
+    _livePriceService.connect();
+  }
+
+  Future<void> _authenticateAndSubscribe() async {
+    try {
+      final storage = SecureStorageService();
+      final token = await storage.getToken();
+      if (token != null) {
+        final payload = Jwt.parseJwt(token);
+        final userId = payload['id'] as String?;
+        if (userId != null) {
+          _livePriceService.authenticate(userId);
+        }
+      }
+    } catch (e) {
+      log('⚠️ Failed to authenticate WebSocket: $e');
+    }
+    if (_allTokens.isNotEmpty) {
+      _livePriceService.subscribe(_allTokens.toList());
+    }
+  }
+
+  Future<void> _fetchUserMetrics() async {
+    try {
+      final storage = SecureStorageService();
+      final token = await storage.getToken();
+      final apiService = ApiService(backendUrl);
+      final res = await apiService.get('/master/positions/user-metrics', token: token);
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final List data = body['data'] ?? [];
+        final Set<String> tokens = {};
+
+        _userMetrics = data.cast<Map<String, dynamic>>();
+
+        for (final user in _userMetrics) {
+          final List positions = user['positions'] ?? [];
+          for (final pos in positions) {
+            final t = pos['instrument_token']?.toString();
+            if (t != null) tokens.add(t);
+          }
+        }
+
+        _allTokens = tokens;
+        _recalcMasterMetrics();
+
+        if (_livePriceService.isConnected && tokens.isNotEmpty) {
+          _livePriceService.subscribe(tokens.toList());
+        }
+
+        if (mounted) setState(() {});
+      }
+    } catch (e) {
+      debugPrint('Error fetching user metrics: $e');
+    }
+  }
+
+  void _recalcMasterMetrics() {
+    double totalPositionPnl = 0;
+
+    for (final user in _userMetrics) {
+      final List positions = user['positions'] ?? [];
+      if (positions.isEmpty) continue;
+
+      for (final pos in positions) {
+        final String iToken = pos['instrument_token']?.toString() ?? '';
+        final int totalBuyQty = (pos['total_buy_qty'] as num?)?.toInt() ?? 0;
+        final int totalSellQty = (pos['total_sell_qty'] as num?)?.toInt() ?? 0;
+        final double totalBuyValue = (pos['total_buy_value'] as num?)?.toDouble() ?? 0;
+        final double totalSellValue = (pos['total_sell_value'] as num?)?.toDouble() ?? 0;
+        final int netQty = totalBuyQty - totalSellQty;
+
+        final double avgBuyPrice = totalBuyQty > 0 ? totalBuyValue / totalBuyQty : 0;
+        final double avgSellPrice = totalSellQty > 0 ? totalSellValue / totalSellQty : 0;
+
+        final double ltp = _ltpMap[iToken] ??
+            (pos['avg_buy_price'] as num?)?.toDouble() ??
+            avgBuyPrice;
+
+        double realised = 0;
+        double floating = 0;
+
+        if (netQty > 0) {
+          realised = totalSellValue - (totalSellQty * avgBuyPrice);
+          floating = (ltp - avgBuyPrice) * netQty;
+        } else if (netQty < 0) {
+          realised = (totalBuyQty * avgSellPrice) - totalBuyValue;
+          floating = (avgSellPrice - ltp) * netQty.abs();
+        } else {
+          realised = totalSellValue - totalBuyValue;
+          floating = 0;
+        }
+
+        totalPositionPnl += realised + floating;
+      }
+    }
+
+    _masterPositionPnl = (totalPositionPnl * 100).roundToDouble() / 100;
+  }
+
+  // ============================================
+  // ADMIN: Fetch all masters with their users' positions
+  // ============================================
+  Future<void> _fetchAdminMasterMetrics() async {
+    setState(() => _adminLoading = true);
+    try {
+      final storage = SecureStorageService();
+      final token = await storage.getToken();
+      final apiService = ApiService(backendUrl);
+      final res = await apiService.get(
+        '/master/positions/admin-master-metrics',
+        token: token,
+      );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final List data = body['data'] ?? [];
+        final Set<String> tokens = {};
+
+        _adminMasterMetrics = data.cast<Map<String, dynamic>>();
+
+        // Collect all instrument tokens across all masters
+        for (final master in _adminMasterMetrics) {
+          final List positions = master['positions'] ?? [];
+          for (final pos in positions) {
+            final t = pos['instrument_token']?.toString();
+            if (t != null) tokens.add(t);
+          }
+        }
+
+        _allTokens = tokens;
+        _recalcAdminMasterPnl();
+
+        if (_livePriceService.isConnected && tokens.isNotEmpty) {
+          _livePriceService.subscribe(tokens.toList());
+        }
+
+        if (mounted) setState(() {});
+      }
+    } catch (e) {
+      debugPrint('Error fetching admin master metrics: $e');
+    } finally {
+      if (mounted) setState(() => _adminLoading = false);
+    }
+  }
+
+  /// Recalculate per-master P&L using live LTP prices.
+  void _recalcAdminMasterPnl() {
+    for (final master in _adminMasterMetrics) {
+      final String masterId = master['master_id'] ?? '';
+      final List positions = master['positions'] ?? [];
+      double totalPnl = 0;
+
+      for (final pos in positions) {
+        final String iToken = pos['instrument_token']?.toString() ?? '';
+        final int totalBuyQty = (pos['total_buy_qty'] as num?)?.toInt() ?? 0;
+        final int totalSellQty = (pos['total_sell_qty'] as num?)?.toInt() ?? 0;
+        final double totalBuyValue = (pos['total_buy_value'] as num?)?.toDouble() ?? 0;
+        final double totalSellValue = (pos['total_sell_value'] as num?)?.toDouble() ?? 0;
+        final int netQty = totalBuyQty - totalSellQty;
+
+        final double avgBuyPrice = totalBuyQty > 0 ? totalBuyValue / totalBuyQty : 0;
+        final double avgSellPrice = totalSellQty > 0 ? totalSellValue / totalSellQty : 0;
+
+        final double ltp = _ltpMap[iToken] ??
+            (pos['avg_buy_price'] as num?)?.toDouble() ??
+            avgBuyPrice;
+
+        double realised = 0;
+        double floating = 0;
+
+        if (netQty > 0) {
+          realised = totalSellValue - (totalSellQty * avgBuyPrice);
+          floating = (ltp - avgBuyPrice) * netQty;
+        } else if (netQty < 0) {
+          realised = (totalBuyQty * avgSellPrice) - totalBuyValue;
+          floating = (avgSellPrice - ltp) * netQty.abs();
+        } else {
+          realised = totalSellValue - totalBuyValue;
+        }
+
+        totalPnl += realised + floating;
+      }
+
+      _adminMasterPnl[masterId] = (totalPnl * 100).roundToDouble() / 100;
+    }
+  }
+
+  Future<void> _openMasterProfile(String masterId) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFF22547C), strokeWidth: 2.5),
+      ),
+    );
+    try {
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      final adminService = AdminService(apiService);
+      final res = await adminService.getMasterById(masterId);
+      if (!mounted) return;
+      Navigator.pop(context); // dismiss loader
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['success'] == true) {
+          final master = Master.fromJson(body['data']);
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => UsernameView(master: master)),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      debugPrint('Error opening master profile: $e');
+    }
   }
 
   Future<void> _fetchMasterPositions() async {
@@ -83,10 +353,284 @@ class _OrdersPageState extends State<OrdersPage> {
   @override
   Widget build(BuildContext context) {
     final userProfile = Provider.of<UserProfileProvider>(context);
+    if (userProfile.isAdmin) {
+      return _buildAdminView();
+    }
     if (userProfile.isMaster) {
       return _buildMasterView();
     }
     return _buildUserView();
+  }
+
+  // ============================================
+  // ADMIN VIEW
+  // ============================================
+  Widget _buildAdminView() {
+    // Calculate total P&L across all masters
+    double totalPnl = 0;
+    for (final pnl in _adminMasterPnl.values) {
+      totalPnl += pnl;
+    }
+    final bool isTotalPositive = totalPnl >= 0;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _fetchAdminMasterMetrics,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Total P&L card
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'ALL MASTERS P&L',
+                        style: TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 12,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Builder(
+                        builder: (context) {
+                          final fmt = _getShortForm(totalPnl);
+                          return AnimatedFlipCounter(
+                            value: fmt.value,
+                            fractionDigits: 2,
+                            suffix: fmt.suffix,
+                            prefix: '₹',
+                            textStyle: TextStyle(
+                              color: isTotalPositive
+                                  ? const Color(0xFF22C55E)
+                                  : const Color(0xFFEF4444),
+                              fontSize: 30,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w700,
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${_adminMasterMetrics.length} master${_adminMasterMetrics.length != 1 ? "s" : ""}',
+                        style: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 12,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Masters list
+                if (_adminLoading)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(32),
+                      child: CircularProgressIndicator(
+                          color: Color(0xFF22547C), strokeWidth: 2.5),
+                    ),
+                  )
+                else if (_adminMasterMetrics.isEmpty)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.02),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(Icons.people_outline,
+                                size: 28, color: Color(0xFF94A3B8)),
+                          ),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'No masters found',
+                            style: TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 14,
+                              fontFamily: 'Inter',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        for (int i = 0; i < _adminMasterMetrics.length; i++) ...[
+                          _buildAdminMasterItem(_adminMasterMetrics[i]),
+                          if (i < _adminMasterMetrics.length - 1)
+                            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                        ],
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdminMasterItem(Map<String, dynamic> master) {
+    final String masterId = master['master_id'] ?? '';
+    final String name = master['name'] ?? '';
+    final String username = master['username'] ?? '';
+    final int userCount = (master['user_count'] as num?)?.toInt() ?? 0;
+    final double pnl = _adminMasterPnl[masterId] ?? 0;
+    final bool isPnlPositive = pnl >= 0;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _openMasterProfile(masterId),
+      child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          // Avatar
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: const Color(0xFF22547C).withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?',
+                style: const TextStyle(
+                  color: Color(0xFF22547C),
+                  fontSize: 18,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+
+          // Name + username + user count
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 14,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: -0.3,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 3),
+                Row(
+                  children: [
+                    Text(
+                      username,
+                      style: const TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 12,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 6),
+                      child: Text('·',
+                          style: TextStyle(
+                              fontSize: 10, color: Color(0xFFCBD5E1))),
+                    ),
+                    const Icon(Icons.people_outline,
+                        size: 12, color: Color(0xFF94A3B8)),
+                    const SizedBox(width: 3),
+                    Text(
+                      '$userCount user${userCount != 1 ? "s" : ""}',
+                      style: const TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 12,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Live P&L
+          AnimatedFlipCounter(
+            value: pnl,
+            fractionDigits: 2,
+            prefix: '₹',
+            textStyle: TextStyle(
+              color: isPnlPositive
+                  ? const Color(0xFF22C55E)
+                  : const Color(0xFFEF4444),
+              fontSize: 14,
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+      ),
+    );
   }
 
   // ============================================
@@ -99,11 +643,18 @@ class _OrdersPageState extends State<OrdersPage> {
       totalNetQty += (pos['net_qty'] as num?)?.toInt() ?? 0;
     }
 
+    final bool isPnlPositive = _masterPositionPnl >= 0;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: RefreshIndicator(
-          onRefresh: _fetchMasterPositions,
+          onRefresh: () async {
+            await Future.wait([
+              _fetchMasterPositions(),
+              _fetchUserMetrics(),
+            ]);
+          },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
@@ -128,7 +679,7 @@ class _OrdersPageState extends State<OrdersPage> {
                   child: Column(
                     children: [
                       const Text(
-                        'MASTER POSITIONS',
+                        'MASTER POSITION',
                         style: TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: 12,
@@ -138,26 +689,60 @@ class _OrdersPageState extends State<OrdersPage> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        '${_masterPositions.length} instrument${_masterPositions.length != 1 ? "s" : ""}',
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 24,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
-                        ),
+                      Builder(
+                        builder: (context) {
+                          final fmt = _getShortForm(_masterPositionPnl);
+                          return AnimatedFlipCounter(
+                            value: fmt.value,
+                            fractionDigits: 2,
+                            suffix: fmt.suffix,
+                            prefix: '₹',
+                            textStyle: TextStyle(
+                              color: isPnlPositive
+                                  ? const Color(0xFF22C55E)
+                                  : const Color(0xFFEF4444),
+                              fontSize: 30,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w700,
+                            ),
+                          );
+                        },
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Net Qty: ${totalNetQty > 0 ? "+" : ""}$totalNetQty',
-                        style: TextStyle(
-                          color: totalNetQty >= 0
-                              ? const Color(0xFF10B981)
-                              : const Color(0xFFEF4444),
-                          fontSize: 14,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
-                        ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '${_masterPositions.length} instrument${_masterPositions.length != 1 ? "s" : ""}',
+                            style: const TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 12,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Container(
+                            width: 4,
+                            height: 4,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFCBD5E1),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Net Qty: ${totalNetQty > 0 ? "+" : ""}$totalNetQty',
+                            style: TextStyle(
+                              color: totalNetQty >= 0
+                                  ? const Color(0xFF10B981)
+                                  : const Color(0xFFEF4444),
+                              fontSize: 12,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -363,6 +948,9 @@ class _OrdersPageState extends State<OrdersPage> {
   Widget _buildUserView() {
     return Consumer<TradeMetricsProvider>(
       builder: (context, provider, child) {
+        // Filter out closed positions (netQty == 0)
+        final openPositions = provider.positions.where((p) => p.netQty != 0).toList();
+
         final double posPnl = provider.positionPnl;
         final double m2m = provider.m2mPnl;
         final double realised = provider.realisedPnl;
@@ -458,7 +1046,7 @@ class _OrdersPageState extends State<OrdersPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // P&L Grid Card
+                  // P&L Detail Rows
                   Container(
                     width: double.infinity,
                     decoration: ShapeDecoration(
@@ -473,51 +1061,17 @@ class _OrdersPageState extends State<OrdersPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _buildGridRow('Realised P&L', realised, 'M2M P&L', m2m),
-                        const Divider(height: 1, color: Color(0xFFE2E8F0)),
-                        _buildGridRow('Credit', credit, 'Equity', equity),
-                        const Divider(height: 1, color: Color(0xFFE2E8F0)),
-                        _buildGridRow('Margin Used', marginUsed, 'Free Margin',
-                            freeMargin),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Search bar
-                  Container(
-                    width: double.infinity,
-                    height: 48,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: ShapeDecoration(
-                      color: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        side: const BorderSide(
-                            width: 1, color: Color(0xFFE2E8F0)),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.search,
-                                size: 24, color: Color(0xFF64748B)),
-                            SizedBox(width: 10),
-                            Text(
-                              'Search & Add',
-                              style: TextStyle(
-                                color: Color(0xFF64748B),
-                                fontSize: 14,
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Icon(Icons.mic, size: 24, color: Color(0xFF64748B)),
+                        _buildMetricRow('Realised P&L', realised),
+                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                        _buildMetricRow('M2M P&L', m2m),
+                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                        _buildMetricRow('Credit', credit),
+                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                        _buildMetricRow('Equity', equity),
+                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                        _buildMetricRow('Margin Used', marginUsed),
+                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                        _buildMetricRow('Free Margin', freeMargin),
                       ],
                     ),
                   ),
@@ -570,12 +1124,11 @@ class _OrdersPageState extends State<OrdersPage> {
                               onTap: () {
                                 setState(() {
                                   if (_selectedPositionTokens.length ==
-                                      provider.positions.length) {
+                                      openPositions.length) {
                                     _selectedPositionTokens.clear();
                                   } else {
                                     _selectedPositionTokens.clear();
-                                    _selectedPositionTokens.addAll(provider
-                                        .positions
+                                    _selectedPositionTokens.addAll(openPositions
                                         .map((p) => p.instrumentToken));
                                   }
                                 });
@@ -590,7 +1143,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                 ),
                                 child: Text(
                                   _selectedPositionTokens.length ==
-                                          provider.positions.length
+                                          openPositions.length
                                       ? 'Deselect All'
                                       : 'Select All',
                                   style: const TextStyle(
@@ -607,7 +1160,7 @@ class _OrdersPageState extends State<OrdersPage> {
                               onTap: _selectedPositionTokens.isEmpty
                                   ? null
                                   : () =>
-                                      _squareOffSelected(provider.positions),
+                                      _squareOffSelected(openPositions),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 10, vertical: 5),
@@ -632,11 +1185,11 @@ class _OrdersPageState extends State<OrdersPage> {
                             ),
                           ],
                         ),
-                      ] else if (provider.positions.isNotEmpty)
+                      ] else if (openPositions.isNotEmpty)
                         const SizedBox.shrink()
                       else
                         const SizedBox.shrink(),
-                      if (!_isSelectionMode && provider.positions.isNotEmpty)
+                      if (!_isSelectionMode && openPositions.isNotEmpty)
                         GestureDetector(
                           onTap: () {
                             setState(() {
@@ -688,7 +1241,7 @@ class _OrdersPageState extends State<OrdersPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        if (provider.positions.isEmpty)
+                        if (openPositions.isEmpty)
                           const Padding(
                             padding: EdgeInsets.all(32.0),
                             child: Text(
@@ -701,7 +1254,7 @@ class _OrdersPageState extends State<OrdersPage> {
                             ),
                           )
                         else
-                          ...provider.positions.asMap().entries.map((entry) {
+                          ...openPositions.asMap().entries.map((entry) {
                             final idx = entry.key;
                             final pos = entry.value;
                             final isBuy = pos.netQty > 0;
@@ -719,7 +1272,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                   pos.floating,
                                   isNegative,
                                 ),
-                                if (idx != provider.positions.length - 1)
+                                if (idx != openPositions.length - 1)
                                   const Divider(
                                       height: 1, color: Color(0xFFE2E8F0)),
                               ],
@@ -737,56 +1290,36 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
 
-  Widget _buildGridRow(
-      String label1, double value1, String label2, double value2) {
-    return IntrinsicHeight(
-      child: Row(
-        children: [
-          Expanded(
-              child: _buildGridItem(label1, value1, showRightBorder: true)),
-          Expanded(child: _buildGridItem(label2, value2)),
-        ],
-      ),
-    );
-  }
+  Widget _buildMetricRow(String label, double value) {
+    final bool isColored = label.contains('P&L') || label == 'Free Margin';
+    final Color valueColor = isColored
+        ? (value >= 0 ? const Color(0xFF22C55E) : const Color(0xFFEF4444))
+        : const Color(0xFF0F172A);
 
-  Widget _buildGridItem(String label, double value,
-      {bool showRightBorder = false}) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: showRightBorder
-            ? const Border(
-                right: BorderSide(width: 1, color: Color(0xFFE2E8F0)))
-            : null,
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            label.toUpperCase(),
+            label,
             style: const TextStyle(
               color: Color(0xFF64748B),
-              fontSize: 12,
+              fontSize: 13,
               fontFamily: 'Inter',
               fontWeight: FontWeight.w500,
             ),
           ),
-          Builder(
-            builder: (context) {
-              final fmt = _getShortForm(value);
-              return AnimatedFlipCounter(
-                value: fmt.value,
-                fractionDigits: 2,
-                suffix: fmt.suffix,
-                textStyle: const TextStyle(
-                  color: Color(0xFF0F172A),
-                  fontSize: 14,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w600,
-                ),
-              );
-            },
+          AnimatedFlipCounter(
+            value: value,
+            fractionDigits: 2,
+            prefix: '₹',
+            textStyle: TextStyle(
+              color: valueColor,
+              fontSize: 14,
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),

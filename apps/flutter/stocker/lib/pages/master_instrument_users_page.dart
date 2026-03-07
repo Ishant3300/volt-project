@@ -3,29 +3,12 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:jwt_decode/jwt_decode.dart';
 import 'package:animated_flip_counter/animated_flip_counter.dart';
+import 'package:stocker/models/user.dart' as user_model;
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/live_price_service.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/utils/contants.dart';
-
-class _NumberFormat {
-  final double value;
-  final String suffix;
-  const _NumberFormat(this.value, this.suffix);
-}
-
-_NumberFormat _getShortForm(double value) {
-  final absVal = value.abs();
-  if (absVal >= 1000000000) {
-    return _NumberFormat(value / 1000000000, 'B');
-  } else if (absVal >= 1000000) {
-    return _NumberFormat(value / 1000000, 'M');
-  } else if (absVal >= 1000) {
-    return _NumberFormat(value / 1000, 'K');
-  } else {
-    return _NumberFormat(value, '');
-  }
-}
+import 'package:stocker/views/username_view.dart';
 
 class MasterInstrumentUsersPage extends StatefulWidget {
   final String instrumentToken;
@@ -264,6 +247,48 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
 
   double _round2(double v) => (v * 100).roundToDouble() / 100;
 
+  Future<void> _openUserProfile(String userId) async {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final token = await _storage.getToken();
+      final res = await _apiService.get('/master/users/$userId', token: token);
+
+      if (!mounted) return;
+      Navigator.pop(context); // dismiss loading
+
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['success'] == true && body['data'] != null) {
+          final user = user_model.User.fromJson(body['data']);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => UsernameView(user: user),
+            ),
+          );
+          return;
+        }
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to load user details')),
+      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // dismiss loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isNetLong = widget.netQty > 0;
@@ -473,6 +498,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
   }
 
   Widget _buildUserCard(Map<String, dynamic> user) {
+    final String userId = user['user_id']?.toString() ?? '';
     final int netQty = user['net_qty'] ?? 0;
     final String side = user['side'] ?? 'FLAT';
     final bool isBuy = side == 'BUY';
@@ -482,10 +508,6 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
             ? (user['avg_buy_price'] as num?)
             : (user['avg_sell_price'] as num?))
         ?.toDouble() ?? 0.0;
-
-    // Get full metrics for this user
-    final String uid = user['user_id']?.toString() ?? '';
-    final metrics = _userMetrics[uid];
 
     // Floating P&L for THIS instrument using live LTP
     double? instrumentPnl;
@@ -501,17 +523,12 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
       }
     }
 
-    final double positionPnl =
-        (metrics?['position_pnl'] as num?)?.toDouble() ?? 0;
-    final double realisedPnl =
-        (metrics?['realised_pnl'] as num?)?.toDouble() ?? 0;
-    final double m2mPnl = (metrics?['m2m_pnl'] as num?)?.toDouble() ?? 0;
-    final double credit = (metrics?['credit'] as num?)?.toDouble() ?? 0;
-    final double marginUsed =
-        (metrics?['margin_used'] as num?)?.toDouble() ?? 0;
-    final double equity = (metrics?['equity'] as num?)?.toDouble() ?? 0;
-
-    return Container(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        if (userId.isNotEmpty) _openUserProfile(userId);
+      },
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -648,94 +665,11 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
             ),
           ),
 
-          // Divider
-          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-
-          // 6 Metrics grid (same as orders page)
-          if (metrics != null) ...[
-            _buildMetricGridRow(
-                'Position P&L', positionPnl, 'Realised P&L', realisedPnl),
-            const Divider(
-                height: 1,
-                color: Color(0xFFF1F5F9),
-                indent: 16,
-                endIndent: 16),
-            _buildMetricGridRow('M2M P&L', m2mPnl, 'Credit', credit),
-            const Divider(
-                height: 1,
-                color: Color(0xFFF1F5F9),
-                indent: 16,
-                endIndent: 16),
-            _buildMetricGridRow('Margin Used', marginUsed, 'Equity', equity),
-          ],
+          const SizedBox(height: 4),
         ],
       ),
+    ),
     );
   }
 
-  Widget _buildMetricGridRow(
-      String label1, double value1, String label2, double value2) {
-    return IntrinsicHeight(
-      child: Row(
-        children: [
-          Expanded(
-              child: _buildMetricCell(label1, value1, showRightBorder: true)),
-          Expanded(child: _buildMetricCell(label2, value2)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMetricCell(String label, double value,
-      {bool showRightBorder = false}) {
-    final bool isColored = label.contains('P&L') || label == 'Equity';
-    final Color valueColor = isColored
-        ? (value >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444))
-        : const Color(0xFF0F172A);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        border: showRightBorder
-            ? const Border(
-                right: BorderSide(width: 1, color: Color(0xFFF1F5F9)))
-            : null,
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Flexible(
-            child: Text(
-              label.toUpperCase(),
-              style: const TextStyle(
-                color: Color(0xFF94A3B8),
-                fontSize: 9,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.3,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Builder(
-            builder: (context) {
-              final fmt = _getShortForm(value);
-              return AnimatedFlipCounter(
-                value: fmt.value,
-                fractionDigits: 2,
-                suffix: fmt.suffix,
-                textStyle: TextStyle(
-                  color: valueColor,
-                  fontSize: 12,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w600,
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
 }

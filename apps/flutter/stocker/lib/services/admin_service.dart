@@ -261,6 +261,8 @@ class AdminService {
     String? dateFrom,
     String? dateTo,
     String? status,
+    String? exchange,
+    String? tradingsymbol,
   }) async {
     final queryParams = <String>[];
     queryParams.add('page=$page');
@@ -270,6 +272,8 @@ class AdminService {
     if (dateFrom != null) queryParams.add('date_from=$dateFrom');
     if (dateTo != null) queryParams.add('date_to=$dateTo');
     if (status != null) queryParams.add('status=$status');
+    if (exchange != null) queryParams.add('exchange=$exchange');
+    if (tradingsymbol != null) queryParams.add('tradingsymbol=${Uri.encodeComponent(tradingsymbol)}');
     
     final queryString = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
     final token = await _storage.getToken();

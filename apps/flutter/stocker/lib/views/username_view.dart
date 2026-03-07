@@ -12,7 +12,6 @@ import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../services/live_price_service.dart';
 import '../services/sercure_storage_service.dart';
-import '../providers/user_profile_provider.dart';
 import '../utils/contants.dart';
 import '../utils/date_formatter.dart';
 import 'package:intl/intl.dart';
@@ -260,43 +259,23 @@ class _UsernameViewState extends State<UsernameView> {
   Future<void> _fetchTrades() async {
     setState(() { _isLoadingTrades = true; _tradesError = null; });
     try {
-      final userProfile = Provider.of<UserProfileProvider>(context, listen: false);
-      
-      if (userProfile.isMaster) {
-        // Master: use /master/trades endpoint
-        final token = await _storage.getToken();
-        final apiService = ApiService(backendUrl);
-        final queryParams = <String>['page=1', 'limit=50'];
-        if (_currentUser != null) queryParams.add('user_id=${_currentUser!.id}');
-        if (_currentMaster != null) queryParams.add('master_id=${_currentMaster!.id}');
-        final response = await apiService.get('/master/trades?${queryParams.join('&')}', token: token);
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          if (data['success'] == true) {
-            final List<dynamic> tradesJson = data['data']['trades'] ?? [];
-            setState(() { _trades = tradesJson.map((j) => Trade.fromJson(j)).toList(); _isLoadingTrades = false; });
-          } else {
-            setState(() { _tradesError = data['message'] ?? 'Failed'; _isLoadingTrades = false; });
-          }
+      // Use /master/trades for both master and admin (backend supports both roles)
+      final token = await _storage.getToken();
+      final apiService = ApiService(backendUrl);
+      final queryParams = <String>['page=1', 'limit=50'];
+      if (_currentUser != null) queryParams.add('user_id=${_currentUser!.id}');
+      if (_currentMaster != null) queryParams.add('master_id=${_currentMaster!.id}');
+      final response = await apiService.get('/master/trades?${queryParams.join('&')}', token: token);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          final List<dynamic> tradesJson = data['data']['trades'] ?? [];
+          setState(() { _trades = tradesJson.map((j) => Trade.fromJson(j)).toList(); _isLoadingTrades = false; });
         } else {
-          setState(() { _tradesError = 'Failed to load trades'; _isLoadingTrades = false; });
+          setState(() { _tradesError = data['message'] ?? 'Failed'; _isLoadingTrades = false; });
         }
       } else {
-        // Admin: use admin service
-        final apiService = Provider.of<ApiService>(context, listen: false);
-        final adminService = AdminService(apiService);
-        final response = await adminService.getAllTrades(masterId: _currentMaster?.id, userId: _currentUser?.id, limit: 50);
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          if (data['success'] == true) {
-            final List<dynamic> tradesJson = data['data']['trades'] ?? [];
-            setState(() { _trades = tradesJson.map((j) => Trade.fromJson(j)).toList(); _isLoadingTrades = false; });
-          } else {
-            setState(() { _tradesError = data['message'] ?? 'Failed'; _isLoadingTrades = false; });
-          }
-        } else {
-          setState(() { _tradesError = 'Failed to load trades'; _isLoadingTrades = false; });
-        }
+        setState(() { _tradesError = 'Failed to load trades'; _isLoadingTrades = false; });
       }
     } catch (e) {
       setState(() { _tradesError = 'Error: $e'; _isLoadingTrades = false; });
@@ -665,6 +644,9 @@ class _UsernameViewState extends State<UsernameView> {
     final completedTrades = _trades.where((t) => t.status.toLowerCase() == 'completed' || t.status.toLowerCase() == 'success').toList();
     final pendingTrades = _trades.where((t) => t.status.toLowerCase() == 'pending').toList();
 
+    // Compute per-trade P&L
+    final perTradePnl = _computePerTradePnl(completedTrades);
+
     if (_trades.isEmpty) {
       return RefreshIndicator(
         onRefresh: _fetchTrades,
@@ -691,64 +673,119 @@ class _UsernameViewState extends State<UsernameView> {
 
     return RefreshIndicator(
       onRefresh: _fetchTrades,
-      child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        children: [
-          // Completed trades section
-          if (completedTrades.isNotEmpty) ...[
-            Text('${completedTrades.length} completed trade${completedTrades.length != 1 ? "s" : ""}',
-              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w500, letterSpacing: 0.5)),
-            const SizedBox(height: 12),
-            Container(
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
-              ),
-              child: Column(
-                children: [
-                  for (int i = 0; i < completedTrades.length; i++) ...[
-                    _buildCompletedTradeCard(completedTrades[i]),
-                    if (i < completedTrades.length - 1) const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                  ],
-                ],
-              ),
-            ),
-          ],
-          // Pending trades section
-          if (pendingTrades.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            Text('${pendingTrades.length} pending order${pendingTrades.length != 1 ? "s" : ""}',
-              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w500, letterSpacing: 0.5)),
-            const SizedBox(height: 12),
-            Container(
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
-              ),
-              child: Column(
-                children: [
-                  for (int i = 0; i < pendingTrades.length; i++) ...[
-                    _buildPendingTradeCard(pendingTrades[i]),
-                    if (i < pendingTrades.length - 1) const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                  ],
-                ],
-              ),
-            ),
-          ],
-          const SizedBox(height: 32),
-        ],
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
+        ),
+        child: ListView.separated(
+          padding: EdgeInsets.zero,
+          itemCount: completedTrades.length + pendingTrades.length,
+          separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          itemBuilder: (context, index) {
+            if (index < completedTrades.length) {
+              final trade = completedTrades[index];
+              return _buildCompletedTradeCard(trade, tradePnl: perTradePnl[trade.id]);
+            }
+            return _buildPendingTradeCard(pendingTrades[index - completedTrades.length]);
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildCompletedTradeCard(Trade trade) {
+  /// Compute per-trade P&L for closing trades (same logic as history_page.dart)
+  Map<String, _PerTradePnl> _computePerTradePnl(List<Trade> completedTrades) {
+    final Map<String, _PerTradePnl> result = {};
+    final Map<String, List<Trade>> byInstrument = {};
+    for (final t in completedTrades) {
+      if (t.status.toLowerCase() != 'completed' && t.status.toLowerCase() != 'success') continue;
+      byInstrument.putIfAbsent(t.instrumentToken, () => []).add(t);
+    }
+    for (final trades in byInstrument.values) {
+      trades.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      int netQty = 0;
+      double avgEntryPrice = 0;
+      String? openedAt;
+      for (final t in trades) {
+        final qty = t.quantity;
+        final price = t.price;
+        final isBuy = t.transactionType.toUpperCase() == 'BUY';
+        final tradeQty = isBuy ? qty : -qty;
+        if (netQty == 0) {
+          netQty = tradeQty;
+          avgEntryPrice = price;
+          openedAt = t.createdAt;
+        } else if ((netQty > 0 && isBuy) || (netQty < 0 && !isBuy)) {
+          final totalValue = avgEntryPrice * netQty.abs() + price * qty;
+          netQty += tradeQty;
+          avgEntryPrice = netQty != 0 ? totalValue / netQty.abs() : 0;
+        } else {
+          final closingQty = qty.clamp(0, netQty.abs());
+          double pnl;
+          if (netQty > 0) {
+            pnl = (price - avgEntryPrice) * closingQty;
+          } else {
+            pnl = (avgEntryPrice - price) * closingQty;
+          }
+          result[t.id] = _PerTradePnl(pnl: pnl, isClosing: true, openedAt: openedAt);
+          netQty += tradeQty;
+          if ((netQty > 0 && !isBuy) || (netQty < 0 && isBuy)) {
+            avgEntryPrice = price;
+          }
+          if (netQty == 0) {
+            avgEntryPrice = 0;
+            openedAt = null;
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  String _tradeDuration(String? openedAt, String closedAt) {
+    if (openedAt == null) return _timeAgo(closedAt);
+    try {
+      final open = DateTime.parse(openedAt);
+      final close = DateTime.parse(closedAt);
+      final diff = close.difference(open).abs();
+      if (diff.inSeconds < 60) return 'in ${diff.inSeconds}s';
+      if (diff.inMinutes < 60) return 'in ${diff.inMinutes}min';
+      if (diff.inHours < 24) {
+        final hrs = diff.inHours;
+        final mins = diff.inMinutes % 60;
+        return mins > 0 ? 'in ${hrs}hr ${mins}min' : 'in ${hrs}hr';
+      }
+      final days = diff.inDays;
+      final hrs = diff.inHours % 24;
+      return hrs > 0 ? 'in ${days}d ${hrs}hr' : 'in ${days}d';
+    } catch (_) {
+      return _timeAgo(closedAt);
+    }
+  }
+
+  String _timeAgo(String dateStr) {
+    try {
+      final dt = DateTime.parse(dateStr).toLocal();
+      final diff = DateTime.now().difference(dt);
+      if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
+      if (diff.inMinutes < 60) return '${diff.inMinutes}min ago';
+      if (diff.inHours < 24) return '${diff.inHours}hr ago';
+      if (diff.inDays < 7) return '${diff.inDays}d ago';
+      return DateFormat('dd MMM').format(dt);
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Widget _buildCompletedTradeCard(Trade trade, {_PerTradePnl? tradePnl}) {
     final bool isBuy = trade.transactionType.toUpperCase() == 'BUY';
     final Color sideColor = isBuy ? const Color(0xFF10B981) : const Color(0xFFEF4444);
     final String sideLabel = isBuy ? 'BUY' : 'SELL';
+    final bool isClosing = tradePnl != null && tradePnl.isClosing;
 
     String formattedDate = trade.createdAt;
     try {
@@ -780,6 +817,17 @@ class _UsernameViewState extends State<UsernameView> {
                     ),
                   ],
                 ),
+                if (isClosing) ...[
+                  const SizedBox(height: 5),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(8)),
+                    child: Text(
+                      'Closed ${_tradeDuration(tradePnl.openedAt, trade.createdAt)}',
+                      style: const TextStyle(color: Color(0xFF64748B), fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 6),
                 Row(
                   children: [
@@ -790,6 +838,18 @@ class _UsernameViewState extends State<UsernameView> {
                     Text(formattedDate, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.w500)),
                   ],
                 ),
+                if (trade.userName != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.person_outline, size: 11, color: Color(0xFF94A3B8)),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(trade.userName!, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -797,9 +857,24 @@ class _UsernameViewState extends State<UsernameView> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text('PRICE', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.5)),
-              const SizedBox(height: 2),
               Text(trade.price.toStringAsFixed(2), style: const TextStyle(color: Colors.black, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.bold)),
+              if (isClosing) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (tradePnl.pnl >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444)).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'P&L ${tradePnl.pnl >= 0 ? '+' : ''}${tradePnl.pnl.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      color: tradePnl.pnl >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                      fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ],
@@ -838,6 +913,18 @@ class _UsernameViewState extends State<UsernameView> {
                       child: Text('${trade.transactionType} · ${trade.quantity.toStringAsFixed(0)} QTY',
                         style: TextStyle(color: sideColor, fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.bold, letterSpacing: 0.3)),
                     ),
+                    if (trade.userName != null) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.person_outline, size: 11, color: Color(0xFF94A3B8)),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(trade.userName!, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -845,8 +932,6 @@ class _UsernameViewState extends State<UsernameView> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text('PRICE', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.5)),
-                  const SizedBox(height: 2),
                   Text(trade.price.toStringAsFixed(2), style: const TextStyle(color: Colors.black, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.bold)),
                 ],
               ),
@@ -862,7 +947,7 @@ class _UsernameViewState extends State<UsernameView> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(8)),
-                child: Text('PENDING', style: const TextStyle(color: Color(0xFFB45309), fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.bold, letterSpacing: 0.3)),
+                child: const Text('PENDING', style: TextStyle(color: Color(0xFFB45309), fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.bold, letterSpacing: 0.3)),
               ),
               const SizedBox(width: 10),
               const Icon(Icons.access_time, size: 11, color: Color(0xFF94A3B8)),
@@ -1365,4 +1450,11 @@ class _UsernameViewState extends State<UsernameView> {
         break;
     }
   }
+}
+
+class _PerTradePnl {
+  final double pnl;
+  final bool isClosing;
+  final String? openedAt;
+  _PerTradePnl({required this.pnl, required this.isClosing, this.openedAt});
 }

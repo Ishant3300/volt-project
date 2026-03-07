@@ -9,9 +9,11 @@ import '../views/settings_view.dart';
 import '../views/admin_settings_view.dart';
 import '../services/sercure_storage_service.dart';
 import '../services/auth_service.dart';
+import '../services/multi_account_service.dart';
 import '../providers/user_profile_provider.dart';
 import '../providers/trade_metrics_provider.dart';
 import '../pages/login_page.dart';
+import '../pages/account_switcher_sheet.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -22,21 +24,31 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final SecureStorageService _storage = SecureStorageService();
+  final MultiAccountService _multiAccount = MultiAccountService();
   bool _isAdmin = false;
   bool _isMaster = false;
   bool _isLoggingOut = false;
+  int _savedAccountCount = 0;
 
   @override
   void initState() {
     super.initState();
     _checkAdminStatus();
+    _loadAccountCount();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Re-check admin status when widget becomes visible
     _checkAdminStatus();
+    _loadAccountCount();
+  }
+
+  Future<void> _loadAccountCount() async {
+    final accounts = await _multiAccount.getSavedAccounts();
+    if (mounted) {
+      setState(() => _savedAccountCount = accounts.length);
+    }
   }
 
   Future<void> _checkAdminStatus() async {
@@ -72,6 +84,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
       // Call logout API
       await authService.logout(role: role ?? 'USER');
+
+      // Remove this account from saved accounts
+      final activeKey = await _multiAccount.getActiveKey();
+      if (activeKey != null) {
+        await _multiAccount.removeAccount(activeKey);
+      }
 
       // Clear profile data
       profileProvider.clearProfile();
@@ -180,6 +198,150 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ],
                 ),
+              ),
+
+              const SizedBox(height: 8),
+
+              // Account switcher card
+              Consumer<UserProfileProvider>(
+                builder: (context, profileProvider, _) {
+                  final name = profileProvider.user?.name ??
+                      profileProvider.master?.name ??
+                      'Account';
+                  final username = profileProvider.user?.username ??
+                      profileProvider.master?.username ??
+                      '';
+                  final role = profileProvider.role ?? '';
+
+                  Color roleColor;
+                  switch (role) {
+                    case 'ADMIN':
+                      roleColor = const Color(0xFF8B5CF6);
+                      break;
+                    case 'MASTER':
+                      roleColor = const Color(0xFF22547C);
+                      break;
+                    default:
+                      roleColor = const Color(0xFF10B981);
+                  }
+
+                  return GestureDetector(
+                    onTap: () => showAccountSwitcher(context),
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 4),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: const Color(0xFFE2E8F0), width: 1),
+                      ),
+                      child: Row(
+                        children: [
+                          // Avatar
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: roleColor.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                name.isNotEmpty
+                                    ? name.substring(0, 1).toUpperCase()
+                                    : '?',
+                                style: TextStyle(
+                                  color: roleColor,
+                                  fontSize: 20,
+                                  fontFamily: 'Inter',
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: const TextStyle(
+                                    color: Color(0xFF0F172A),
+                                    fontSize: 16,
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Row(
+                                  children: [
+                                    Text(
+                                      username,
+                                      style: const TextStyle(
+                                        color: Color(0xFF94A3B8),
+                                        fontSize: 13,
+                                        fontFamily: 'Inter',
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color:
+                                            roleColor.withValues(alpha: 0.1),
+                                        borderRadius:
+                                            BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        role,
+                                        style: TextStyle(
+                                          color: roleColor,
+                                          fontSize: 10,
+                                          fontFamily: 'Inter',
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (_savedAccountCount > 1) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '$_savedAccountCount',
+                                style: const TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: 12,
+                                  fontFamily: 'Inter',
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                          const Icon(Icons.unfold_more,
+                              size: 20, color: Color(0xFF94A3B8)),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
 
               const SizedBox(height: 8),
@@ -308,6 +470,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     _buildDivider(),
                     _buildMenuItem(context, Icons.history, 'Login History'),
                     _buildDivider(),
+                    _buildMenuItem(
+                        context, Icons.swap_horiz, 'Switch Account'),
+                    _buildDivider(),
                     _buildMenuItem(context, Icons.logout, 'Logout',
                         isRed: true),
                   ],
@@ -379,6 +544,8 @@ class _ProfilePageState extends State<ProfilePage> {
                   context,
                   MaterialPageRoute(builder: (context) => const SettingsView()),
                 );
+              } else if (title == 'Switch Account') {
+                showAccountSwitcher(context);
               }
             },
       child: Container(

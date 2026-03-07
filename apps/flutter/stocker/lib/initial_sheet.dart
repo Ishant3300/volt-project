@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
+import 'package:stocker/services/multi_account_service.dart';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
@@ -55,6 +56,35 @@ class _InitialScreenState extends State<InitialScreen> {
         if (!mounted) return;
 
         log('✅ Profile loaded, navigating to home');
+
+        // Ensure current session is in multi-account list (migration for existing users)
+        final multiAccount = MultiAccountService();
+        final accounts = await multiAccount.getSavedAccounts();
+        final role = await _storage.getRole();
+        final username = profileProvider.user?.username ??
+            profileProvider.master?.username ??
+            '';
+        if (username.isNotEmpty && role != null) {
+          final key = '${username}_$role';
+          final exists = accounts.any((a) => a.key == key);
+          if (!exists) {
+            await multiAccount.saveAccount(SavedAccount(
+              username: username,
+              role: role,
+              token: token,
+              name: profileProvider.user?.name ??
+                  profileProvider.master?.name ??
+                  username,
+            ));
+            await multiAccount.setActiveKey(key);
+            log('📦 Migrated existing session to multi-account list');
+          } else {
+            // Update token in case it changed
+            await multiAccount.updateToken(key, token);
+            await multiAccount.setActiveKey(key);
+          }
+        }
+
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(

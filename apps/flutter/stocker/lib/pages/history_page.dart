@@ -13,6 +13,7 @@ import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/utils/contants.dart';
 import 'history_filter_sheet.dart';
+import 'trade_detail_sheet.dart';
 
 class PortfolioPage extends StatefulWidget {
   const PortfolioPage({super.key});
@@ -32,6 +33,18 @@ class _PortfolioPageState extends State<PortfolioPage>
   int _masterPage = 1;
   int _masterTotalPages = 1;
   bool _masterLoadingMore = false;
+
+  // Filter state
+  TradeFilterResult? _activeFilters;
+
+  // Search state
+  bool _showSearchBar = false;
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  // Filtered user trades (when filters are active)
+  bool _userFilterLoading = false;
+  List<Trade>? _filteredUserTrades;
 
   @override
   void initState() {
@@ -55,6 +68,7 @@ class _PortfolioPageState extends State<PortfolioPage>
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -74,8 +88,14 @@ class _PortfolioPageState extends State<PortfolioPage>
       final token = await storage.getToken();
       final apiService = ApiService(backendUrl);
       final page = loadMore ? _masterPage + 1 : 1;
+
+      final queryParams = <String>['limit=50', 'page=$page'];
+      if (_activeFilters != null) {
+        _activeFilters!.toQueryParams().forEach((k, v) => queryParams.add('$k=$v'));
+      }
+
       final res = await apiService.get(
-        '/master/trades?limit=50&page=$page',
+        '/master/trades?${queryParams.join('&')}',
         token: token,
       );
       if (res.statusCode == 200) {
@@ -103,102 +123,256 @@ class _PortfolioPageState extends State<PortfolioPage>
     }
   }
 
+  Future<void> _fetchFilteredUserTrades() async {
+    if (_activeFilters == null || !_activeFilters!.hasActiveFilters) {
+      setState(() => _filteredUserTrades = null);
+      return;
+    }
+
+    setState(() => _userFilterLoading = true);
+
+    try {
+      final storage = SecureStorageService();
+      final token = await storage.getToken();
+      final userProfile = Provider.of<UserProfileProvider>(context, listen: false);
+      final userId = userProfile.user?.id;
+      if (userId == null || token == null) return;
+
+      final apiService = ApiService(backendUrl);
+      final queryParams = <String>['limit=200', 'page=1'];
+      _activeFilters!.toQueryParams().forEach((k, v) => queryParams.add('$k=$v'));
+
+      final res = await apiService.get(
+        '/users/$userId/trades?${queryParams.join('&')}',
+        token: token,
+      );
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final data = body['data'] ?? {};
+        final List tradesJson = data['trades'] ?? [];
+        setState(() {
+          _filteredUserTrades = tradesJson.map((e) => Trade.fromJson(e)).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching filtered user trades: $e');
+    } finally {
+      setState(() => _userFilterLoading = false);
+    }
+  }
+
+  void _onFiltersApplied(TradeFilterResult? result) {
+    setState(() => _activeFilters = result);
+    if (_isMaster) {
+      _fetchMasterTrades();
+    } else {
+      _fetchFilteredUserTrades();
+    }
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _activeFilters = null;
+      _filteredUserTrades = null;
+    });
+    if (_isMaster) {
+      _fetchMasterTrades();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final hasFilters = _activeFilters != null && _activeFilters!.hasActiveFilters;
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: Column(
           children: [
-            // Search bar + filter
+            // Tabs + filter + search in one row
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               child: Row(
                 children: [
+                  // Tab selector (takes available space)
                   Expanded(
                     child: Container(
-                      height: 48,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      height: 44,
+                      padding: const EdgeInsets.all(3),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.02),
+                            color: Colors.black.withValues(alpha: 0.02),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Icon(Icons.search, color: Color(0xFF94A3B8), size: 20),
-                          SizedBox(width: 12),
-                          Text(
-                            'Search & Add',
-                            style: TextStyle(
-                              color: Color(0xFF94A3B8),
-                              fontSize: 14,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
+                          _buildTabButton(0, 'Trade'),
+                          _buildTabButton(1, 'Orders'),
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
+                  // Filter button
                   GestureDetector(
-                    onTap: () => showPortfolioFilterSheet(context),
+                    onTap: () => showPortfolioFilterSheet(
+                      context,
+                      currentFilters: _activeFilters,
+                      onApply: _onFiltersApplied,
+                    ),
                     child: Container(
-                      height: 48,
-                      width: 48,
+                      height: 44,
+                      width: 44,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: hasFilters ? const Color(0xFF22547C) : Colors.white,
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.02),
+                            color: Colors.black.withValues(alpha: 0.02),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                      child: const Icon(Icons.tune,
-                          color: Color(0xFF475569), size: 20),
+                      child: Icon(Icons.tune,
+                          color: hasFilters ? Colors.white : const Color(0xFF22547C), size: 20),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Search button
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _showSearchBar = !_showSearchBar;
+                        if (!_showSearchBar) {
+                          _searchQuery = '';
+                          _searchController.clear();
+                        }
+                      });
+                    },
+                    child: Container(
+                      height: 44,
+                      width: 44,
+                      decoration: BoxDecoration(
+                        color: _showSearchBar ? const Color(0xFF22547C) : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.02),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Icon(Icons.search,
+                          color: _showSearchBar ? Colors.white : const Color(0xFF22547C), size: 20),
                     ),
                   ),
                 ],
               ),
             ),
 
-            // Tab selector
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                height: 44,
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    _buildTabButton(0, 'Trade'),
-                    _buildTabButton(1, 'Orders'),
-                  ],
+            // Active filter summary bar
+            if (hasFilters)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Container(
+                  height: 36,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF22547C).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.filter_list, size: 14, color: Color(0xFF22547C)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _buildFilterSummary(),
+                          style: const TextStyle(
+                            color: Color(0xFF22547C),
+                            fontSize: 12,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: _clearFilters,
+                        child: const Icon(Icons.close, color: Color(0xFF22547C), size: 16),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 4),
+
+            // Search bar (toggled by search icon)
+            if (_showSearchBar)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Container(
+                  height: 44,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.search, size: 18, color: Color(0xFF94A3B8)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          autofocus: true,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w400,
+                          ),
+                          decoration: const InputDecoration(
+                            hintText: 'Search by instrument name...',
+                            hintStyle: TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 14,
+                              fontFamily: 'Inter',
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.zero,
+                            isDense: true,
+                          ),
+                          onChanged: (val) => setState(() => _searchQuery = val.trim().toUpperCase()),
+                        ),
+                      ),
+                      if (_searchQuery.isNotEmpty)
+                        GestureDetector(
+                          onTap: () {
+                            _searchController.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                          child: const Icon(Icons.close, size: 18, color: Color(0xFF94A3B8)),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
 
             // Tab content
             Expanded(
@@ -214,6 +388,57 @@ class _PortfolioPageState extends State<PortfolioPage>
         ),
       ),
     );
+  }
+
+  String _timeAgo(String dateStr) {
+    try {
+      final dt = DateTime.parse(dateStr).toLocal();
+      final diff = DateTime.now().difference(dt);
+      if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
+      if (diff.inMinutes < 60) return '${diff.inMinutes}min ago';
+      if (diff.inHours < 24) return '${diff.inHours}hr ago';
+      if (diff.inDays < 7) return '${diff.inDays}d ago';
+      return DateFormat('dd MMM').format(dt);
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// Returns a human-readable duration between the opening and closing trade.
+  /// e.g. "in 2min", "in 1hr 15min", "in 3d"
+  String _tradeDuration(String? openedAt, String closedAt) {
+    if (openedAt == null) return _timeAgo(closedAt);
+    try {
+      final open = DateTime.parse(openedAt);
+      final close = DateTime.parse(closedAt);
+      final diff = close.difference(open).abs();
+      if (diff.inSeconds < 60) return 'in ${diff.inSeconds}s';
+      if (diff.inMinutes < 60) return 'in ${diff.inMinutes}min';
+      if (diff.inHours < 24) {
+        final hrs = diff.inHours;
+        final mins = diff.inMinutes % 60;
+        return mins > 0 ? 'in ${hrs}hr ${mins}min' : 'in ${hrs}hr';
+      }
+      final days = diff.inDays;
+      final hrs = diff.inHours % 24;
+      return hrs > 0 ? 'in ${days}d ${hrs}hr' : 'in ${days}d';
+    } catch (_) {
+      return _timeAgo(closedAt);
+    }
+  }
+
+  String _buildFilterSummary() {
+    final parts = <String>[];
+    if (_activeFilters?.tradingsymbol != null) parts.add(_activeFilters!.tradingsymbol!);
+    if (_activeFilters?.exchange != null) parts.add(_activeFilters!.exchange!);
+    if (_activeFilters?.dateFrom != null || _activeFilters?.dateTo != null) parts.add('Date');
+    return parts.join(' · ');
+  }
+
+  /// Apply local search query filter to a trade list
+  List<Trade> _applySearch(List<Trade> trades) {
+    if (_searchQuery.isEmpty) return trades;
+    return trades.where((t) => t.tradingSymbol.toUpperCase().contains(_searchQuery)).toList();
   }
 
   Widget _buildTabButton(int index, String label) {
@@ -252,9 +477,14 @@ class _PortfolioPageState extends State<PortfolioPage>
       );
     }
 
-    final filtered = _masterTrades
+    final filtered = _applySearch(_masterTrades
         .where((t) => t.status.toLowerCase() == statusFilter)
-        .toList();
+        .toList());
+
+    // Compute per-trade P&L for closing trades
+    final perTradePnl = statusFilter == 'completed'
+        ? _computePerTradePnl(_masterTrades.where((t) => t.status.toLowerCase() == 'completed').toList())
+        : <String, _PerTradePnl>{};
 
     if (filtered.isEmpty) {
       return RefreshIndicator(
@@ -355,7 +585,7 @@ class _PortfolioPageState extends State<PortfolioPage>
               }
               final trade = filtered[index];
               if (statusFilter == 'completed') {
-                return _buildCompletedTradeCard(trade);
+                return _buildCompletedTradeCard(trade, tradePnl: perTradePnl[trade.id]);
               } else {
                 return _buildTradeCard(trade);
               }
@@ -367,6 +597,17 @@ class _PortfolioPageState extends State<PortfolioPage>
   }
 
   Widget _buildPositionsList() {
+    // If filters are active, show filtered results
+    if (_activeFilters != null && _activeFilters!.hasActiveFilters) {
+      if (_userFilterLoading) {
+        return const Center(child: CircularProgressIndicator(color: Color(0xFF22547C), strokeWidth: 2.5));
+      }
+      final completedTrades = (_filteredUserTrades ?? [])
+          .where((t) => t.status.toLowerCase() == 'completed')
+          .toList();
+      return _buildTradeListView(completedTrades, 'completed', onRefresh: _fetchFilteredUserTrades);
+    }
+
     return Consumer<TradeMetricsProvider>(
       builder: (context, provider, child) {
         if (provider.isLoading && provider.trades.isEmpty) {
@@ -382,84 +623,23 @@ class _PortfolioPageState extends State<PortfolioPage>
             .where((t) => t.status.toLowerCase() == 'completed')
             .toList();
 
-        if (completedTrades.isEmpty) {
-          return RefreshIndicator(
-            onRefresh: () => provider.fetchBaseData(),
-            child: ListView(
-              children: [
-                const SizedBox(height: 200),
-                Center(
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.04),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(Icons.receipt_long,
-                            size: 32, color: Color(0xFFCBD5E1)),
-                      ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'No completed trades',
-                        style: TextStyle(
-                          color: Color(0xFF475569),
-                          fontSize: 16,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return RefreshIndicator(
-          onRefresh: () => provider.fetchBaseData(),
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.02),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: ListView.separated(
-              padding: EdgeInsets.zero,
-              itemCount: completedTrades.length,
-              separatorBuilder: (context, index) => const Divider(
-                height: 1,
-                color: Color(0xFFF1F5F9),
-              ),
-              itemBuilder: (context, index) {
-                return _buildCompletedTradeCard(completedTrades[index]);
-              },
-            ),
-          ),
-        );
+        return _buildTradeListView(completedTrades, 'completed', onRefresh: () => provider.fetchBaseData());
       },
     );
   }
 
   Widget _buildOrdersList() {
+    // If filters are active, show filtered results
+    if (_activeFilters != null && _activeFilters!.hasActiveFilters) {
+      if (_userFilterLoading) {
+        return const Center(child: CircularProgressIndicator(color: Color(0xFF22547C), strokeWidth: 2.5));
+      }
+      final pendingTrades = (_filteredUserTrades ?? [])
+          .where((t) => t.status.toLowerCase() == 'pending')
+          .toList();
+      return _buildTradeListView(pendingTrades, 'pending', onRefresh: _fetchFilteredUserTrades);
+    }
+
     return Consumer<TradeMetricsProvider>(
       builder: (context, provider, child) {
         if (provider.isLoading && provider.trades.isEmpty) {
@@ -475,78 +655,179 @@ class _PortfolioPageState extends State<PortfolioPage>
             .where((t) => t.status.toLowerCase() == 'pending')
             .toList();
 
-        if (pendingTrades.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.04),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(Icons.pending_actions,
-                      size: 32, color: Color(0xFFCBD5E1)),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'No pending orders',
-                  style: TextStyle(
-                    color: Color(0xFF475569),
-                    fontSize: 16,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.02),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: ListView.separated(
-            padding: EdgeInsets.zero,
-            itemCount: pendingTrades.length,
-            separatorBuilder: (context, index) => const Divider(
-              height: 1,
-              color: Color(0xFFF1F5F9),
-            ),
-            itemBuilder: (context, index) {
-              return _buildTradeCard(pendingTrades[index]);
-            },
-          ),
-        );
+        return _buildTradeListView(pendingTrades, 'pending');
       },
     );
   }
 
-  Widget _buildCompletedTradeCard(Trade trade) {
+  Widget _buildTradeListView(List<Trade> trades, String type, {Future<void> Function()? onRefresh}) {
+    // Apply local search filter
+    trades = _applySearch(trades);
+
+    // Compute per-trade P&L for closing trades
+    final perTradePnl = type == 'completed'
+        ? _computePerTradePnl(trades)
+        : <String, _PerTradePnl>{};
+
+    if (trades.isEmpty) {
+      final content = Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Icon(
+                type == 'completed' ? Icons.receipt_long : Icons.pending_actions,
+                size: 32,
+                color: const Color(0xFFCBD5E1),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              type == 'completed' ? 'No completed trades' : 'No pending orders',
+              style: const TextStyle(
+                color: Color(0xFF475569),
+                fontSize: 16,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+
+      if (onRefresh != null) {
+        return RefreshIndicator(
+          onRefresh: onRefresh,
+          child: ListView(children: [const SizedBox(height: 200), content]),
+        );
+      }
+      return content;
+    }
+
+    final list = Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: ListView.separated(
+        padding: EdgeInsets.zero,
+        itemCount: trades.length,
+        separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+        itemBuilder: (context, index) {
+          if (type == 'completed') {
+            return _buildCompletedTradeCard(trades[index], tradePnl: perTradePnl[trades[index].id]);
+          } else {
+            return _buildTradeCard(trades[index]);
+          }
+        },
+      ),
+    );
+
+    if (onRefresh != null) {
+      return RefreshIndicator(onRefresh: onRefresh, child: list);
+    }
+    return list;
+  }
+
+  /// Walk completed trades chronologically per instrument.
+  /// For every closing trade (SELL when long, BUY when short) compute
+  /// the P&L that specific trade realised against the running avg entry price.
+  /// Returns a map from trade.id → per-trade P&L info.
+  Map<String, _PerTradePnl> _computePerTradePnl(List<Trade> completedTrades) {
+    final Map<String, _PerTradePnl> result = {};
+
+    // Group by instrument
+    final Map<String, List<Trade>> byInstrument = {};
+    for (final t in completedTrades) {
+      if (t.status.toLowerCase() != 'completed') continue;
+      byInstrument.putIfAbsent(t.instrumentToken, () => []).add(t);
+    }
+
+    for (final trades in byInstrument.values) {
+      // Sort chronologically (oldest first)
+      trades.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+      int netQty = 0;
+      double avgEntryPrice = 0;
+      String? openedAt; // timestamp of the trade that opened the position
+
+      for (final t in trades) {
+        final qty = t.quantity;
+        final price = t.price;
+        final isBuy = t.transactionType.toUpperCase() == 'BUY';
+        final tradeQty = isBuy ? qty : -qty;
+
+        if (netQty == 0) {
+          // Opening a fresh position
+          netQty = tradeQty;
+          avgEntryPrice = price;
+          openedAt = t.createdAt;
+        } else if ((netQty > 0 && isBuy) || (netQty < 0 && !isBuy)) {
+          // Adding to existing position — update avg entry price
+          final totalValue = avgEntryPrice * netQty.abs() + price * qty;
+          netQty += tradeQty;
+          avgEntryPrice = netQty != 0 ? totalValue / netQty.abs() : 0;
+        } else {
+          // Closing (partially or fully)
+          final closingQty = qty.clamp(0, netQty.abs());
+          double pnl;
+          if (netQty > 0) {
+            // Was long, selling to close
+            pnl = (price - avgEntryPrice) * closingQty;
+          } else {
+            // Was short, buying to close
+            pnl = (avgEntryPrice - price) * closingQty;
+          }
+
+          result[t.id] = _PerTradePnl(pnl: pnl, isClosing: true, openedAt: openedAt);
+
+          netQty += tradeQty;
+          // If position flipped, reset avg to this trade's price for the remainder
+          if ((netQty > 0 && !isBuy) || (netQty < 0 && isBuy)) {
+            // This shouldn't normally happen with the clamp, but handle edge case
+            avgEntryPrice = price;
+          }
+          // If fully closed, avg resets on next trade
+          if (netQty == 0) {
+            avgEntryPrice = 0;
+            openedAt = null;
+          }
+        }
+      }
+    }
+
+    return result;
+  }
+
+  Widget _buildCompletedTradeCard(Trade trade, {_PerTradePnl? tradePnl}) {
     final bool isBuy = trade.transactionType.toUpperCase() == 'BUY';
     final Color sideColor =
         isBuy ? const Color(0xFF10B981) : const Color(0xFFEF4444);
     final String sideLabel = isBuy ? 'BUY' : 'SELL';
+
+    final bool isClosing = tradePnl != null && tradePnl.isClosing;
 
     String formattedDate = trade.createdAt;
     try {
@@ -554,15 +835,18 @@ class _PortfolioPageState extends State<PortfolioPage>
       formattedDate = DateFormat("dd MMM hh:mm a").format(dt).toUpperCase();
     } catch (_) {}
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      color: Colors.transparent,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Left side
-          Expanded(
-            child: Column(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => showTradeDetailSheet(context, trade, isClosing: tradePnl != null && tradePnl.isClosing),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        color: Colors.transparent,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Left side
+            Expanded(
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Symbol + badge
@@ -603,6 +887,25 @@ class _PortfolioPageState extends State<PortfolioPage>
                     ),
                   ],
                 ),
+                if (isClosing) ...[
+                  const SizedBox(height: 5),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Closed ${_tradeDuration(tradePnl.openedAt, trade.createdAt)}',
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 10,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 6),
                 // Metadata row with dot separators
                 Row(
@@ -665,21 +968,10 @@ class _PortfolioPageState extends State<PortfolioPage>
 
           const SizedBox(width: 8),
 
-          // Right side — price
+          // Right side — price + closed P&L
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text(
-                'PRICE',
-                style: TextStyle(
-                  color: Color(0xFF94A3B8),
-                  fontSize: 10,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 2),
               Text(
                 trade.price.toStringAsFixed(2),
                 style: const TextStyle(
@@ -689,10 +981,32 @@ class _PortfolioPageState extends State<PortfolioPage>
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              if (isClosing) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: (tradePnl.pnl >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444)).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Deals ${tradePnl.pnl >= 0 ? '+' : ''}${tradePnl.pnl.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      color: tradePnl.pnl >= 0
+                          ? const Color(0xFF10B981)
+                          : const Color(0xFFEF4444),
+                      fontSize: 10,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -793,30 +1107,14 @@ class _PortfolioPageState extends State<PortfolioPage>
                   const SizedBox(width: 8),
 
                   // Right side — price
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      const Text(
-                        'PRICE',
-                        style: TextStyle(
-                          color: Color(0xFF94A3B8),
-                          fontSize: 10,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        trade.price.toStringAsFixed(2),
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 14,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
+                  Text(
+                    trade.price.toStringAsFixed(2),
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -1229,4 +1527,12 @@ class _PortfolioPageState extends State<PortfolioPage>
       }
     }
   }
+}
+
+
+class _PerTradePnl {
+  final double pnl;
+  final bool isClosing;
+  final String? openedAt; // timestamp of the opening trade
+  _PerTradePnl({required this.pnl, required this.isClosing, this.openedAt});
 }

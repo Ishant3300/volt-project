@@ -208,40 +208,127 @@ class _WatchlistPageState extends State<WatchlistPage> {
                           ),
                         ],
                       ),
-                      child: ListView.separated(
-                        padding: EdgeInsets.zero,
-                        itemCount: watchlistProvider.items.length,
-                        separatorBuilder: (context, index) => const Divider(
-                          height: 1,
-                          color: Color(0xFFF1F5F9),
-                        ),
-                        itemBuilder: (context, index) {
-                          final item = watchlistProvider.items[index];
-                          final instrument = item.instrument;
-
-                          return Dismissible(
-                            key: Key(item.id),
-                            direction: DismissDirection.endToStart,
-                            background: Container(
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 20),
-                              color: Colors.red,
-                              child:
-                                  const Icon(Icons.delete, color: Colors.white),
-                            ),
-                            onDismissed: (direction) {
-                              watchlistProvider.removeInstrument(item.id);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                      '${instrument.tradingsymbol} removed from watchlist'),
+                      child: Column(
+                        children: [
+                          // Header row with BID / ASK / HIGH / LOW labels
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                            child: Row(
+                              children: [
+                                const Expanded(child: SizedBox()),
+                                SizedBox(
+                                  width: 180,
+                                  child: Column(
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Expanded(
+                                            child: Text(
+                                              'BID',
+                                              textAlign: TextAlign.end,
+                                              style: TextStyle(
+                                                color: Color(0xFF94A3B8),
+                                                fontSize: 10,
+                                                fontFamily: 'Inter',
+                                                fontWeight: FontWeight.w600,
+                                                letterSpacing: 0.5,
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(width: 21),
+                                          const Expanded(
+                                            child: Text(
+                                              'ASK',
+                                              textAlign: TextAlign.end,
+                                              style: TextStyle(
+                                                color: Color(0xFF94A3B8),
+                                                fontSize: 10,
+                                                fontFamily: 'Inter',
+                                                fontWeight: FontWeight.w600,
+                                                letterSpacing: 0.5,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          const Expanded(
+                                            child: Text(
+                                              'HIGH',
+                                              textAlign: TextAlign.end,
+                                              style: TextStyle(
+                                                color: Color(0xFF94A3B8),
+                                                fontSize: 10,
+                                                fontFamily: 'Inter',
+                                                fontWeight: FontWeight.w600,
+                                                letterSpacing: 0.5,
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(width: 21),
+                                          const Expanded(
+                                            child: Text(
+                                              'LOW',
+                                              textAlign: TextAlign.end,
+                                              style: TextStyle(
+                                                color: Color(0xFF94A3B8),
+                                                fontSize: 10,
+                                                fontFamily: 'Inter',
+                                                fontWeight: FontWeight.w600,
+                                                letterSpacing: 0.5,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              );
-                            },
-                            child:
-                                _buildWatchlistCard(context, item, instrument),
-                          );
-                        },
+                              ],
+                            ),
+                          ),
+                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                          // List
+                          Expanded(
+                            child: ListView.separated(
+                              padding: EdgeInsets.zero,
+                              itemCount: watchlistProvider.items.length,
+                              separatorBuilder: (context, index) => const Divider(
+                                height: 1,
+                                color: Color(0xFFF1F5F9),
+                              ),
+                              itemBuilder: (context, index) {
+                                final item = watchlistProvider.items[index];
+                                final instrument = item.instrument;
+
+                                return Dismissible(
+                                  key: Key(item.id),
+                                  direction: DismissDirection.endToStart,
+                                  background: Container(
+                                    alignment: Alignment.centerRight,
+                                    padding: const EdgeInsets.only(right: 20),
+                                    color: Colors.red,
+                                    child:
+                                        const Icon(Icons.delete, color: Colors.white),
+                                  ),
+                                  onDismissed: (direction) {
+                                    watchlistProvider.removeInstrument(item.id);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                            '${instrument.tradingsymbol} removed from watchlist'),
+                                      ),
+                                    );
+                                  },
+                                  child:
+                                      _buildWatchlistCard(context, item, instrument),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   );
@@ -274,57 +361,41 @@ class _WatchlistPageState extends State<WatchlistPage> {
         padding: const EdgeInsets.all(16),
         color: Colors.transparent,
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Left side
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          instrument.name.isNotEmpty
-                              ? instrument.name.toString().toUpperCase()
-                              : instrument.tradingsymbol,
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 14,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: -0.3,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (instrument.expiry != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          width: 4,
-                          height: 4,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFCBD5E1),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          instrument.expiryDisplay.toString().toUpperCase(),
-                          style: const TextStyle(
-                            color: Color(0xFF94A3B8),
-                            fontSize: 10,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ],
+                  Text(
+                    instrument.name.isNotEmpty
+                        ? instrument.name.toString().toUpperCase()
+                        : instrument.tradingsymbol,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  if (instrument.expiry != null) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      instrument.expiryDisplay.toString().toUpperCase(),
+                      style: const TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 10,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 3),
                   Row(
                     children: [
                       Icon(
@@ -360,7 +431,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
 
             const SizedBox(width: 8),
 
-            // Right side — ASK and BID side by side
+            // Right side — BID/ASK + HIGH/LOW
             Builder(builder: (context) {
               final ltp = item.currentPrice ?? 0.0;
               final spread = ltp * 0.0005;
@@ -374,27 +445,18 @@ class _WatchlistPageState extends State<WatchlistPage> {
                   ? rawBid
                   : (ltp > 0 ? ltp - spread : null);
 
+              final double? high = item.high;
+              final double? low = item.low;
+
               return SizedBox(
                 width: 180,
-                child: Row(
+                child: Column(
                   children: [
-                    // BID
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          const Text(
-                            'BID',
-                            style: TextStyle(
-                              color: Color(0xFF94A3B8),
-                              fontSize: 9,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          effectiveBid != null
+                    // BID / ASK row
+                    Row(
+                      children: [
+                        Expanded(
+                          child: effectiveBid != null
                               ? AnimatedFlipCounter(
                                   value: effectiveBid,
                                   fractionDigits: 2,
@@ -407,6 +469,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                 )
                               : const Text(
                                   '--',
+                                  textAlign: TextAlign.end,
                                   style: TextStyle(
                                     fontFamily: 'Inter',
                                     fontSize: 13,
@@ -414,32 +477,15 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                     color: Color(0xFF10B981),
                                   ),
                                 ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      width: 1,
-                      height: 28,
-                      margin: const EdgeInsets.symmetric(horizontal: 10),
-                      color: const Color(0xFFF1F5F9),
-                    ),
-                    // ASK
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          const Text(
-                            'ASK',
-                            style: TextStyle(
-                              color: Color(0xFF94A3B8),
-                              fontSize: 9,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          effectiveAsk != null
+                        ),
+                        Container(
+                          width: 1,
+                          height: 28,
+                          margin: const EdgeInsets.symmetric(horizontal: 10),
+                          color: const Color(0xFFF1F5F9),
+                        ),
+                        Expanded(
+                          child: effectiveAsk != null
                               ? AnimatedFlipCounter(
                                   value: effectiveAsk,
                                   fractionDigits: 2,
@@ -452,6 +498,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                 )
                               : const Text(
                                   '--',
+                                  textAlign: TextAlign.end,
                                   style: TextStyle(
                                     fontFamily: 'Inter',
                                     fontSize: 13,
@@ -459,8 +506,66 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                     color: Color(0xFFEF4444),
                                   ),
                                 ),
-                        ],
-                      ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    // HIGH / LOW row
+                    Row(
+                      children: [
+                        Expanded(
+                          child: (high != null && high > 0)
+                              ? AnimatedFlipCounter(
+                                  value: high,
+                                  fractionDigits: 2,
+                                  textStyle: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF475569),
+                                  ),
+                                )
+                              : const Text(
+                                  '--',
+                                  textAlign: TextAlign.end,
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF475569),
+                                  ),
+                                ),
+                        ),
+                        Container(
+                          width: 1,
+                          height: 16,
+                          margin: const EdgeInsets.symmetric(horizontal: 10),
+                          color: const Color(0xFFF1F5F9),
+                        ),
+                        Expanded(
+                          child: (low != null && low > 0)
+                              ? AnimatedFlipCounter(
+                                  value: low,
+                                  fractionDigits: 2,
+                                  textStyle: const TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF475569),
+                                  ),
+                                )
+                              : const Text(
+                                  '--',
+                                  textAlign: TextAlign.end,
+                                  style: TextStyle(
+                                    fontFamily: 'Inter',
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF475569),
+                                  ),
+                                ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

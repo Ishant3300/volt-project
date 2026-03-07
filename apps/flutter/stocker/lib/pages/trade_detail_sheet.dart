@@ -1,209 +1,249 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:stocker/models/trade.dart';
 
 class TradeDetailSheet extends StatefulWidget {
-  const TradeDetailSheet({super.key});
+  final Trade trade;
+  final bool isClosing;
+  const TradeDetailSheet({super.key, required this.trade, this.isClosing = false});
 
   @override
   State<TradeDetailSheet> createState() => _TradeDetailSheetState();
 }
 
 class _TradeDetailSheetState extends State<TradeDetailSheet> {
-  int _selectedTab = 0; // 0: Detail, 1: Buy, 2: Sell
+  Trade get trade => widget.trade;
+
+  String get _formattedDate {
+    try {
+      final dt = DateTime.parse(trade.createdAt).toLocal();
+      return DateFormat('dd MMM yyyy | hh:mm:ss a').format(dt).toUpperCase();
+    } catch (_) {
+      return trade.createdAt;
+    }
+  }
+
+  bool get _isBuy => trade.transactionType.toUpperCase() == 'BUY';
+
+  Color get _sideColor =>
+      _isBuy ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+
+  String get _sideLabel => _isBuy ? 'BUY' : 'SELL';
+
+  String get _displayStatus {
+    final raw = trade.status.toLowerCase();
+    if (raw == 'completed') {
+      return widget.isClosing ? 'CLOSED' : 'EXECUTED';
+    }
+    return trade.status.toUpperCase();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.only(
-        top: 24,
-        left: 16,
-        right: 16,
-        bottom: 56,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.75,
       ),
-      decoration: ShapeDecoration(
-        color: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(24),
-            topRight: Radius.circular(24),
-          ),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
         ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          // Drag handle
           Container(
-            width: double.infinity,
+            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFCBD5E1),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // Header card
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
             child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'NSE CONCOR JAN 27',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 16,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        trade.tradingSymbol,
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontSize: 16,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _sideColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '$_sideLabel · ${trade.quantity} QTY',
+                              style: TextStyle(
+                                color: _sideColor,
+                                fontSize: 11,
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              trade.exchange,
+                              style: const TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: 11,
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                Text(
-                  '516.5',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: const Color(0xFFFF3B30),
-                    fontSize: 16,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '₹${trade.price.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 18,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: trade.status.toLowerCase() == 'completed'
+                            ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                            : const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _displayStatus,
+                        style: TextStyle(
+                          color: trade.status.toLowerCase() == 'completed'
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFFB45309),
+                          fontSize: 10,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          SizedBox(height: 16),
 
-          // Tab selector
-          Container(
-            width: double.infinity,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _selectedTab = 0),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
-                      decoration: ShapeDecoration(
-                        color: _selectedTab == 0 ? const Color(0xFF22547C) : Colors.white,
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(
-                            width: 1,
-                            color: const Color(0xFF22547C),
-                          ),
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(8),
-                            bottomLeft: Radius.circular(8),
-                          ),
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          'Detail',
-                          style: TextStyle(
-                            color: _selectedTab == 0 ? Colors.white : const Color(0xFF333333),
-                            fontSize: 16,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500,
-                            height: 1.25,
-                          ),
-                        ),
-                      ),
+          const SizedBox(height: 12),
+
+          // Detail rows
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
                     ),
-                  ),
+                  ],
                 ),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _selectedTab = 1),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
-                      decoration: ShapeDecoration(
-                        color: _selectedTab == 1 ? const Color(0xFF22547C) : Colors.white,
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(
-                            width: 1,
-                            color: const Color(0xFF22547C),
-                          ),
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          'Buy',
-                          style: TextStyle(
-                            color: _selectedTab == 1 ? Colors.white : const Color(0xFF333333),
-                            fontSize: 16,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500,
-                            height: 1.25,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (trade.userName != null)
+                      _buildRow('User', trade.userName!),
+                    _buildRow('Execution', _formattedDate),
+                    _buildRow('Symbol', trade.tradingSymbol),
+                    _buildRow('Exchange', trade.exchange),
+                    _buildRow('Type', '$_sideLabel / ${trade.orderType ?? 'MARKET'}'),
+                    _buildRow('Quantity', trade.quantity.toString()),
+                    _buildRow('Price', '₹${trade.price.toStringAsFixed(2)}'),
+                    if (trade.productType != null)
+                      _buildRow('Product', trade.productType!),
+                    _buildRow('Status', _displayStatus),
+                    if (trade.masterName != null)
+                      _buildRow('Master', trade.masterName!),
+                  ],
                 ),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _selectedTab = 2),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
-                      decoration: ShapeDecoration(
-                        color: _selectedTab == 2 ? const Color(0xFF22547C) : Colors.white,
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(
-                            width: 1,
-                            color: const Color(0xFF22547C),
-                          ),
-                          borderRadius: BorderRadius.only(
-                            topRight: Radius.circular(8),
-                            bottomRight: Radius.circular(8),
-                          ),
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          'Sell',
-                          style: TextStyle(
-                            color: _selectedTab == 2 ? Colors.white : Colors.black,
-                            fontSize: 16,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500,
-                            height: 1.25,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-          SizedBox(height: 16),
-
-          // Tab content
-          if (_selectedTab == 0) _buildDetailTab(),
-          if (_selectedTab == 1) _buildBuyTab(),
-          if (_selectedTab == 2) _buildSellTab(),
-          
-          SizedBox(height: 16),
 
           // Close button
-          Container(
-            width: double.infinity,
-            child: GestureDetector(
-              onTap: () => Navigator.pop(context),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
-                decoration: ShapeDecoration(
-                  color: const Color(0xFFD1D1D6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            child: SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: TextButton(
+                onPressed: () => Navigator.pop(context),
+                style: TextButton.styleFrom(
+                  backgroundColor: const Color(0xFF22547C),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
-                child: Center(
-                  child: Text(
-                    'CLOSE',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 16,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
-                      height: 1.25,
-                    ),
+                child: const Text(
+                  'Close',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -214,186 +254,36 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
     );
   }
 
-  Widget _buildDetailTab() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildDetailRow('Username', 'SGDEMO'),
-        _buildDetailRow('Execution', '24 JAN 2026 | 10:32:45'),
-        _buildDetailRow('Symbol', 'NSE 3600 JAN 27'),
-        _buildDetailRow('Type', 'Buy/Market'),
-        _buildDetailRow('Quantity', '500'),
-        _buildDetailRow('Price', '1203.2'),
-        _buildDetailRow('Deal', '0.0'),
-        _buildDetailRow('Quantity', '200'),
-        _buildDetailRow('Order Method', 'IOS'),
-        _buildDetailRow('SquareOff Qty', '1.0'),
-        _buildDetailRow('BRK', '117.5'),
-        _buildDetailRow('Ref Price', '516'),
-        _buildDetailRow('IP', '115.251.521.52'),
-        _buildDetailRow('Device', '34439F37-85448-58F5541-5524'),
-      ],
-    );
-  }
-
-  Widget _buildBuyTab() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Buy badge and timestamp
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: ShapeDecoration(
-                color: const Color(0xFF22547C),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-              ),
-              child: Text(
-                'BUY: 500 QTY',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w500,
-                  height: 1.67,
-                ),
-              ),
-            ),
-            Row(
-              children: [
-                Icon(Icons.access_time, size: 16, color: const Color(0xFF999999)),
-                SizedBox(width: 4),
-                Text(
-                  '19 JAN 12:45:00 PM',
-                  style: TextStyle(
-                    color: const Color(0xFF999999),
-                    fontSize: 12,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        SizedBox(height: 16),
-        _buildDetailRow('Username', 'SGDEMO'),
-        _buildDetailRow('Execution', '24 JAN 2026 | 10:32:45'),
-        _buildDetailRow('Symbol', 'NSE 3600 JAN 27'),
-        _buildDetailRow('Type', 'Buy/Market'),
-        _buildDetailRow('Quantity', '500'),
-        _buildDetailRow('Price', '1203.2'),
-        _buildDetailRow('Deal', '0.0'),
-        _buildDetailRow('Quantity', '200'),
-        _buildDetailRow('Order Method', 'IOS'),
-        _buildDetailRow('SquareOff Qty', '1.0'),
-        _buildDetailRow('BRK', '117.5'),
-        _buildDetailRow('Ref Price', '516'),
-        _buildDetailRow('IP', '115.251.521.52'),
-        _buildDetailRow('Device', '34439F37-85448-58F5541-5524'),
-      ],
-    );
-  }
-
-  Widget _buildSellTab() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Sell badge and timestamp
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: ShapeDecoration(
-                color: const Color(0xFFFF3B30),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-              ),
-              child: Text(
-                'SELL:200 QTY',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w500,
-                  height: 1.67,
-                ),
-              ),
-            ),
-            Row(
-              children: [
-                Icon(Icons.access_time, size: 16, color: const Color(0xFF999999)),
-                SizedBox(width: 4),
-                Text(
-                  '19 JAN 12:45:00 PM',
-                  style: TextStyle(
-                    color: const Color(0xFF999999),
-                    fontSize: 12,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        SizedBox(height: 16),
-        _buildDetailRow('Username', 'SGDEMO'),
-        _buildDetailRow('Execution', '24 JAN 2026 | 12:32:45'),
-        _buildDetailRow('Symbol', 'NSE 3600 JAN 27'),
-        _buildDetailRow('Type', 'Sell/Market'),
-        _buildDetailRow('Quantity', '200'),
-        _buildDetailRow('Price', '1452.50'),
-        _buildDetailRow('Deal', '0.0'),
-        _buildDetailRow('Quantity', '200'),
-        _buildDetailRow('Order Method', 'IOS'),
-        _buildDetailRow('SquareOff Qty', '1.0'),
-        _buildDetailRow('BRK', '117.5'),
-        _buildDetailRow('Ref Price', '516'),
-        _buildDetailRow('IP', '115.251.521.52'),
-        _buildDetailRow('Device', '34439F37-85448-58F5541-5524'),
-      ],
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
+  Widget _buildRow(String label, String value) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
-      decoration: ShapeDecoration(
-        color: Colors.white,
-        shape: RoundedRectangleBorder(
-          side: BorderSide(
-            width: 1,
-            color: const Color(0xFFE5E5EA),
-          ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: const BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1),
         ),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
             label,
-            style: TextStyle(
-              color: Colors.black,
-              fontSize: 14,
+            style: const TextStyle(
+              color: Color(0xFF94A3B8),
+              fontSize: 13,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w400,
+              fontWeight: FontWeight.w500,
             ),
           ),
+          const SizedBox(width: 16),
           Flexible(
             child: Text(
               value,
               textAlign: TextAlign.right,
-              style: TextStyle(
+              style: const TextStyle(
                 color: Colors.black,
-                fontSize: 14,
+                fontSize: 13,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w400,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -403,11 +293,11 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
   }
 }
 
-void showTradeDetailSheet(BuildContext context) {
+void showTradeDetailSheet(BuildContext context, Trade trade, {bool isClosing = false}) {
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
-    builder: (context) => const TradeDetailSheet(),
+    builder: (context) => TradeDetailSheet(trade: trade, isClosing: isClosing),
   );
 }
