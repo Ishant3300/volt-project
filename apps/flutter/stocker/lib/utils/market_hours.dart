@@ -1,5 +1,3 @@
-import 'dart:developer';
-
 /// Utility class to check if market is open for trading
 class MarketHours {
   // Indian stock market hours (IST)
@@ -11,26 +9,19 @@ class MarketHours {
   /// Check if the market is currently open
   /// Returns true if current time is between 9:15 AM and 3:30 PM on weekdays
   static bool isMarketOpen() {
-    // final now = DateTime.now();
+    final now = DateTime.now();
     
-    // // Check if it's a weekend (Saturday = 6, Sunday = 7)
-    // if (now.weekday == DateTime.saturday || now.weekday == DateTime.sunday) {
-    //   log('🕐 Market closed: Weekend');
-    //   return false;
-    // }
+    // Check if it's a weekend (Saturday = 6, Sunday = 7)
+    if (now.weekday == DateTime.saturday || now.weekday == DateTime.sunday) {
+      return false;
+    }
 
-    // // Convert current time to minutes since midnight for easier comparison
-    // final currentMinutes = now.hour * 60 + now.minute;
-    // final openMinutes = marketOpenHour * 60 + marketOpenMinute;
-    // final closeMinutes = marketCloseHour * 60 + marketCloseMinute;
+    // Convert current time to minutes since midnight for easier comparison
+    final currentMinutes = now.hour * 60 + now.minute;
+    final openMinutes = marketOpenHour * 60 + marketOpenMinute;
+    final closeMinutes = marketCloseHour * 60 + marketCloseMinute;
 
-    // final isOpen = currentMinutes >= openMinutes && currentMinutes <= closeMinutes;
-    
-    // if (!isOpen) {
-    //   log('🕐 Market closed: Outside trading hours (${now.hour}:${now.minute.toString().padLeft(2, '0')})');
-    // }
-    
-    return true;
+    return currentMinutes >= openMinutes && currentMinutes <= closeMinutes;
   }
 
   /// Get a user-friendly message about market status

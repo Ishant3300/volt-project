@@ -18,11 +18,12 @@ class TradeService {
     required int quantity,
     required double price,
     required String orderType, // 'MARKET' or 'LIMIT'
+    String? userId, // Admin/Master can trade on behalf of a user
   }) async {
     try {
       final token = await _storage.getToken();
 
-      final body = {
+      final body = <String, dynamic>{
         'instrument_token': instrumentToken,
         'tradingsymbol': tradingSymbol,
         'exchange': exchange,
@@ -31,6 +32,7 @@ class TradeService {
         'price': price,
         'order_type': orderType.toUpperCase(),
       };
+      if (userId != null) body['user_id'] = userId;
 
       final response = await _apiService.post('/trade', body, token: token);
       final jsonResponse = jsonDecode(response.body);

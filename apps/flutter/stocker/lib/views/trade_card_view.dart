@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +8,10 @@ import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
 import 'package:stocker/services/trade_service.dart';
+import 'package:stocker/services/api_service.dart';
+import 'package:stocker/services/sercure_storage_service.dart';
+import 'package:stocker/utils/contants.dart';
+import 'package:stocker/utils/market_hours.dart';
 import 'option_chain_view.dart';
 import 'market_depth_sheet.dart';
 import 'info_sheet.dart';
@@ -57,6 +62,13 @@ class _TradeCardPageState extends State<TradeCardPage> {
   final TradeService _tradeService = TradeService();
   bool _isLoading = false;
 
+  // User selection for admin/master
+  final TextEditingController _userSearchCtrl = TextEditingController();
+  List<Map<String, dynamic>> _userResults = [];
+  Map<String, dynamic>? _selectedUser;
+  bool _showUserDropdown = false;
+  bool _isSearchingUsers = false;
+
   /// Returns true if the current instrument is an option (CE or PE).
   bool get _isOption {
     final type = widget.item.instrument.instrumentType;
@@ -93,7 +105,43 @@ class _TradeCardPageState extends State<TradeCardPage> {
   void dispose() {
     _qtyController.dispose();
     _priceController.dispose();
+    _userSearchCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _searchUsers(String query) async {
+    if (query.length < 2) {
+      setState(() { _userResults = []; _showUserDropdown = false; });
+      return;
+    }
+    setState(() => _isSearchingUsers = true);
+    try {
+      final token = await SecureStorageService().getToken();
+      final profile = Provider.of<UserProfileProvider>(context, listen: false);
+      final endpoint = profile.isAdmin
+          ? '/admin/users?limit=20&search=$query'
+          : '/master/users?limit=20&search=$query';
+      final res = await ApiService(backendUrl).get(endpoint, token: token);
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final nested = body['data'];
+        final List list = nested is Map ? (nested['users'] ?? []) : (nested ?? []);
+        setState(() {
+          _userResults = list.cast<Map<String, dynamic>>();
+          _showUserDropdown = _userResults.isNotEmpty;
+        });
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _isSearchingUsers = false);
+  }
+
+  void _selectUser(Map<String, dynamic> user) {
+    setState(() {
+      _selectedUser = user;
+      _userSearchCtrl.text = user['username'] ?? user['name'] ?? '';
+      _showUserDropdown = false;
+      _userResults = [];
+    });
   }
 
   void _setQuantity(int qty) {
@@ -125,6 +173,17 @@ class _TradeCardPageState extends State<TradeCardPage> {
 
   Future<void> _handleTrade(String transactionType, double currentPrice) async {
     if (_isLoading) return;
+
+    // Check market hours
+    if (!MarketHours.isMarketOpen()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(MarketHours.getMarketStatusMessage()),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+      return;
+    }
 
     // Block option sell if user doesn't hold this option
     if (transactionType == 'SELL' && _isOption) {
@@ -172,6 +231,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
       quantity: _quantity,
       price: tradePrice,
       orderType: isLimit ? 'LIMIT' : 'MARKET',
+      userId: _selectedUser != null
+          ? (_selectedUser!['id'] ?? _selectedUser!['_id'])?.toString()
+          : null,
     );
 
     setState(() {
@@ -457,10 +519,10 @@ class _TradeCardPageState extends State<TradeCardPage> {
                             ],
                           ),
                           const SizedBox(height: 8),
+                          // Searchable user field
                           Container(
                             height: 48,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 14),
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
                             decoration: ShapeDecoration(
                               color: Colors.white,
                               shape: RoundedRectangleBorder(
@@ -469,23 +531,126 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            child: Row(
                               children: [
-                                Text(
-                                  'Select Item',
-                                  style: TextStyle(
-                                    color: Color(0xFF8E8E93),
-                                    fontSize: 16,
-                                    fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w400,
+                                Expanded(
+                                  child: TextField(
+                                    controller: _userSearchCtrl,
+                                    onChanged: _searchUsers,
+                                    style: const TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 15,
+                                      fontFamily: 'Inter',
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                    decoration: InputDecoration(
+                                      border: InputBorder.none,
+                                      hintText: _selectedUser != null
+                                          ? null
+                                          : 'Search user by name...',
+                                      hintStyle: const TextStyle(
+                                        color: Color(0xFF8E8E93),
+                                        fontSize: 15,
+                                        fontFamily: 'Inter',
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                      isDense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
                                   ),
                                 ),
-                                Icon(Icons.arrow_drop_down,
-                                    color: Color(0xFF8E8E93)),
+                                if (_isSearchingUsers)
+                                  const SizedBox(
+                                    width: 18, height: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFF22547C)),
+                                  )
+                                else if (_selectedUser != null)
+                                  GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedUser = null;
+                                        _userSearchCtrl.clear();
+                                        _userResults = [];
+                                        _showUserDropdown = false;
+                                      });
+                                    },
+                                    child: const Icon(Icons.close,
+                                        size: 18, color: Color(0xFF8E8E93)),
+                                  )
+                                else
+                                  const Icon(Icons.search,
+                                      size: 20, color: Color(0xFF8E8E93)),
                               ],
                             ),
                           ),
+                          // Dropdown results
+                          if (_showUserDropdown)
+                            Container(
+                              margin: const EdgeInsets.only(top: 4),
+                              constraints: const BoxConstraints(maxHeight: 180),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFFD1D1D6)),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.06),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: ListView.builder(
+                                padding: EdgeInsets.zero,
+                                shrinkWrap: true,
+                                itemCount: _userResults.length,
+                                itemBuilder: (_, i) {
+                                  final u = _userResults[i];
+                                  final name = u['name'] ?? '';
+                                  final uname = u['username'] ?? '';
+                                  return GestureDetector(
+                                    onTap: () => _selectUser(u),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 14, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        border: Border(
+                                          bottom: BorderSide(
+                                            color: const Color(0xFFF1F5F9),
+                                            width: i < _userResults.length - 1
+                                                ? 1
+                                                : 0,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.person_outline,
+                                              size: 16,
+                                              color: Color(0xFF94A3B8)),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              '$name (@$uname)',
+                                              style: const TextStyle(
+                                                color: Colors.black,
+                                                fontSize: 14,
+                                                fontFamily: 'Inter',
+                                                fontWeight: FontWeight.w400,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -932,6 +1097,40 @@ class _TradeCardPageState extends State<TradeCardPage> {
                       const SizedBox(width: 8),
                       _buildStatCard('CLOSE',
                           currentItem.close?.toStringAsFixed(2) ?? '0.00'),
+                    ],
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(height: 16),
+
+            // Market closed warning
+            Builder(
+              builder: (context) {
+                if (MarketHours.isMarketOpen()) return const SizedBox.shrink();
+                return Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.access_time, size: 16, color: Color(0xFFEF4444)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          MarketHours.getMarketStatusMessage(),
+                          style: const TextStyle(
+                            color: Color(0xFFEF4444),
+                            fontSize: 12,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 );

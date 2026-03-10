@@ -24,6 +24,13 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
   Timer? _debounceTimer;
   int _totalResults = 0;
 
+  // Pagination: fetch large batch, render incrementally
+  static const int _fetchLimit = 200;
+  static const int _pageSize = 50;
+  List<dynamic> _allItems = []; // flat list of all fetched items
+  int _displayCount = _pageSize;
+  final ScrollController _scrollController = ScrollController();
+
   final List<Map<String, String>> _tabs = [
     {'key': 'ALL', 'label': 'ALL'},
     {'key': 'NSE-FUT', 'label': 'NSE FUT'},
@@ -44,6 +51,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _searchFocusNode.requestFocus();
     });
@@ -53,8 +61,20 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
   void dispose() {
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _scrollController.dispose();
     _debounceTimer?.cancel();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (_displayCount < _allItems.length) {
+        setState(() {
+          _displayCount = (_displayCount + _pageSize).clamp(0, _allItems.length);
+          _groupedResults = _buildGroupsFromItems(_allItems.take(_displayCount).toList());
+        });
+      }
+    }
   }
 
   void _onSearchChanged(String query) {
@@ -68,6 +88,8 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
     if (query.isEmpty) {
       setState(() {
         _groupedResults = [];
+        _allItems = [];
+        _displayCount = _pageSize;
         _totalResults = 0;
         _isSearching = false;
       });
@@ -86,16 +108,24 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
       final result = await kiteService.smartSearchInstruments(
         query,
         category: _activeTab,
-        limit: 50,
+        limit: _fetchLimit,
       );
 
       final groups = result['groups'] as List<dynamic>? ?? [];
       final total = result['total'] as int? ?? 0;
 
+      // Flatten all items from all groups for client-side pagination
+      final allItems = <dynamic>[];
+      for (final g in groups) {
+        final items = (g as Map)['items'] as List<dynamic>? ?? [];
+        allItems.addAll(items);
+      }
+
       setState(() {
-        _groupedResults =
-            groups.map((g) => Map<String, dynamic>.from(g)).toList();
+        _allItems = allItems;
         _totalResults = total;
+        _displayCount = _pageSize.clamp(0, allItems.length);
+        _groupedResults = _buildGroupsFromItems(allItems.take(_displayCount).toList());
         _isSearching = false;
       });
 
@@ -112,6 +142,33 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
         );
       }
     }
+  }
+
+  /// Re-group a flat list of items into label-based groups for display
+  List<Map<String, dynamic>> _buildGroupsFromItems(List<dynamic> items) {
+    final groups = <String, List<dynamic>>{};
+    for (final item in items) {
+      final map = Map<String, dynamic>.from(item as Map);
+      final type = (map['instrument_type'] ?? '').toString();
+      final segment = (map['segment'] ?? '').toString();
+      String label;
+      if (segment == 'INDICES' || type == 'IDX') {
+        label = 'Index';
+      } else if (type == 'FUT') {
+        label = 'Futures';
+      } else if (type == 'CE') {
+        label = 'Call Options (CE)';
+      } else if (type == 'PE') {
+        label = 'Put Options (PE)';
+      } else if (type == 'EQ') {
+        label = 'Equity';
+      } else {
+        label = 'Other';
+      }
+      groups.putIfAbsent(label, () => []);
+      groups[label]!.add(item);
+    }
+    return groups.entries.map((e) => {'label': e.key, 'items': e.value}).toList();
   }
 
   void _saveSelected() {
@@ -366,9 +423,18 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
             ],
           ),
           child: ListView.builder(
+            controller: _scrollController,
             padding: const EdgeInsets.only(bottom: 80),
-            itemCount: _groupedResults.length,
+            itemCount: _groupedResults.length + (_displayCount < _allItems.length ? 1 : 0),
             itemBuilder: (context, groupIndex) {
+              // Load more indicator at the end
+              if (groupIndex == _groupedResults.length) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Color(0xFF22547C), strokeWidth: 2))),
+                );
+              }
+
               final group = _groupedResults[groupIndex];
               final label = group['label'] as String? ?? 'Other';
               final items = group['items'] as List<dynamic>? ?? [];
@@ -437,7 +503,9 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                     const Icon(Icons.search, size: 14, color: Color(0xFF94A3B8)),
                     const SizedBox(width: 6),
                     Text(
-                      '$_totalResults results',
+                      _displayCount < _allItems.length
+                          ? '$_displayCount of $_totalResults results'
+                          : '$_totalResults results',
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,

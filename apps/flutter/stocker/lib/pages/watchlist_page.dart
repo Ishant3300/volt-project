@@ -346,6 +346,11 @@ class _WatchlistPageState extends State<WatchlistPage> {
   Widget _buildWatchlistCard(
       BuildContext context, dynamic item, dynamic instrument) {
     final bool isPositive = item.isPositive;
+    final String instType = instrument.instrumentType ?? '';
+    final double strike = instrument.strike ?? 0.0;
+    final bool isOption = instType == 'CE' || instType == 'PE';
+    final bool isFut = instType == 'FUT';
+    final bool showStrike = isOption && strike > 0;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -368,33 +373,89 @@ class _WatchlistPageState extends State<WatchlistPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    instrument.name.isNotEmpty
-                        ? instrument.name.toString().toUpperCase()
-                        : instrument.tradingsymbol,
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 14,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: -0.3,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (instrument.expiry != null) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      instrument.expiryDisplay.toString().toUpperCase(),
-                      style: const TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: 10,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
+                  // Name + type badge on same row
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          instrument.name.isNotEmpty
+                              ? instrument.name.toString().toUpperCase()
+                              : instrument.tradingsymbol,
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 14,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.3,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
+                      if (isOption || isFut) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: isFut
+                                ? const Color(0xFF22547C).withValues(alpha: 0.1)
+                                : instType == 'CE'
+                                    ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                                    : const Color(0xFFEF4444).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            instType,
+                            style: TextStyle(
+                              color: isFut
+                                  ? const Color(0xFF22547C)
+                                  : instType == 'CE'
+                                      ? const Color(0xFF10B981)
+                                      : const Color(0xFFEF4444),
+                              fontSize: 9,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  // Expiry + Strike row
+                  if (instrument.expiry != null || showStrike)
+                    Row(
+                      children: [
+                        if (instrument.expiry != null)
+                          Flexible(
+                            child: Text(
+                              instrument.expiryDisplay.toString().toUpperCase(),
+                              style: const TextStyle(
+                                color: Color(0xFF94A3B8),
+                                fontSize: 10,
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        if (showStrike) ...[
+                          if (instrument.expiry != null)
+                            const Text(' · ', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10)),
+                          Text(
+                            strike == strike.roundToDouble() ? strike.toInt().toString() : strike.toStringAsFixed(2),
+                            style: const TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: 10,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                  ],
                   const SizedBox(height: 3),
                   Row(
                     children: [

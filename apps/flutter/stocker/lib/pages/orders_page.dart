@@ -50,6 +50,7 @@ class OrdersPage extends StatefulWidget {
 class _OrdersPageState extends State<OrdersPage> {
   bool _isSelectionMode = false;
   final Set<String> _selectedPositionTokens = {};
+  bool _metricsExpanded = false;
 
   // Master-specific state
   bool _masterLoading = false;
@@ -1066,12 +1067,41 @@ class _OrdersPageState extends State<OrdersPage> {
                         _buildMetricRow('M2M P&L', m2m),
                         const Divider(height: 1, color: Color(0xFFF1F5F9)),
                         _buildMetricRow('Credit', credit),
+                        AnimatedSize(
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeInOut,
+                          child: _metricsExpanded
+                              ? Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                                    _buildMetricRow('Equity', equity),
+                                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                                    _buildMetricRow('Margin Used', marginUsed),
+                                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                                    _buildMetricRow('Free Margin', freeMargin),
+                                  ],
+                                )
+                              : const SizedBox.shrink(),
+                        ),
                         const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                        _buildMetricRow('Equity', equity),
-                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                        _buildMetricRow('Margin Used', marginUsed),
-                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                        _buildMetricRow('Free Margin', freeMargin),
+                        GestureDetector(
+                          onTap: () => setState(() => _metricsExpanded = !_metricsExpanded),
+                          behavior: HitTestBehavior.opaque,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: AnimatedRotation(
+                              turns: _metricsExpanded ? 0.5 : 0,
+                              duration: const Duration(milliseconds: 250),
+                              curve: Curves.easeInOut,
+                              child: const Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                size: 20,
+                                color: Color(0xFF94A3B8),
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),

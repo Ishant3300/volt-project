@@ -24,7 +24,10 @@ class OptionData {
   final double lastPrice;
   final double strike;
   final String instrumentType;
+  final String exchange;
+  final String name;
   final DateTime? expiry;
+  final int lotSize;
   final int? volume;
   final int? buyQuantity;
   final int? sellQuantity;
@@ -35,7 +38,10 @@ class OptionData {
     required this.lastPrice,
     required this.strike,
     required this.instrumentType,
+    this.exchange = '',
+    this.name = '',
     this.expiry,
+    this.lotSize = 0,
     this.volume,
     this.buyQuantity,
     this.sellQuantity,
@@ -48,16 +54,20 @@ class OptionData {
       lastPrice: (json['last_price'] ?? 0).toDouble(),
       strike: (json['strike'] ?? 0).toDouble(),
       instrumentType: json['instrument_type'] ?? '',
+      exchange: json['exchange'] ?? '',
+      name: json['name'] ?? '',
       expiry: json['expiry'] != null ? DateTime.parse(json['expiry']) : null,
+      lotSize: json['lot_size'] ?? 0,
       volume: json['volume'] as int?,
       buyQuantity: json['buy_quantity'] as int?,
       sellQuantity: json['sell_quantity'] as int?,
     );
   }
 
-  String get changePercent {
-    if (lastPrice == 0) return '0.00%';
-    // Show volume info if available, otherwise just the price percentage placeholder
-    return '${lastPrice.toStringAsFixed(2)}%';
+  String get volumeDisplay {
+    if (volume == null || volume == 0) return '--';
+    if (volume! >= 100000) return '${(volume! / 100000).toStringAsFixed(1)}L';
+    if (volume! >= 1000) return '${(volume! / 1000).toStringAsFixed(1)}K';
+    return volume.toString();
   }
 }

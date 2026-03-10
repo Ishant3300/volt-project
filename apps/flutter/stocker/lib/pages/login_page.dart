@@ -21,119 +21,78 @@ class _LoginPageState extends State<LoginPage> {
   bool _isLoading = false;
 
   void _login() async {
-    // Validate inputs
     if (_selectedServer == 'Select Server') {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a server'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Please select a server'), backgroundColor: Colors.red),
       );
       return;
     }
-
     if (_usernameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter username'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Please enter username'), backgroundColor: Colors.red),
       );
       return;
     }
-
     if (_passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter password'),
-          backgroundColor: Colors.red,
-        ),
+        const SnackBar(content: Text('Please enter password'), backgroundColor: Colors.red),
       );
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-
       final authData = AuthenticateData(
         username: _usernameController.text.trim(),
         password: _passwordController.text,
       );
 
-      // Try login (role is determined automatically on backend)
-      final response = await authService.login(
-        data: authData,
-      );
+      final response = await authService.login(data: authData);
 
       if (mounted) {
         if (response.success) {
-          // Login successful - fetch user profile
-          final profileProvider =
-              Provider.of<UserProfileProvider>(context, listen: false);
+          final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
           await profileProvider.fetchProfile();
 
           if (!mounted) return;
 
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(response.message),
-              backgroundColor: Colors.green,
-            ),
+            SnackBar(content: Text(response.message), backgroundColor: Colors.green),
           );
 
-          // Reload watchlist after login
-          final watchlistProvider =
-              Provider.of<WatchlistProvider>(context, listen: false);
+          final watchlistProvider = Provider.of<WatchlistProvider>(context, listen: false);
           await watchlistProvider.loadWatchlist();
 
-          // Fetch trade history and metrics base data
-          final tradeMetricsProvider =
-              Provider.of<TradeMetricsProvider>(context, listen: false);
+          final tradeMetricsProvider = Provider.of<TradeMetricsProvider>(context, listen: false);
           await tradeMetricsProvider.fetchBaseData();
 
-          // Navigate to home page
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(
-              builder: (context) => const MyHomePage(title: 'Stocker App'),
-            ),
+            MaterialPageRoute(builder: (context) => const MyHomePage(title: 'Stocker App')),
           );
         } else {
-          // Login failed
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(response.message),
-              backgroundColor: Colors.red,
-            ),
+            SnackBar(content: Text(response.message), backgroundColor: Colors.red),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Login failed: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Login failed: ${e.toString()}'), backgroundColor: Colors.red),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FC),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
@@ -143,276 +102,83 @@ class _LoginPageState extends State<LoginPage> {
                 // Main login form
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-                  decoration: ShapeDecoration(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                  decoration: BoxDecoration(
                     color: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        'STOCKER',
-                        style: TextStyle(
-                          color: const Color(0xFF22547C),
-                          fontSize: 40,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      SizedBox(height: 13),
-                      Text(
+                      const Text('STOCKER', style: TextStyle(color: Color(0xFF22547C), fontSize: 40, fontFamily: 'Inter', fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 13),
+                      const Text(
                         'To sign in to an account in the application,\nenter your username and password',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: const Color(0xFF8E8E93),
-                          fontSize: 16,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
-                        ),
+                        style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w400),
                       ),
-                      SizedBox(height: 24),
+                      const SizedBox(height: 24),
 
                       // Server field
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Server',
-                            style: TextStyle(
-                              color: const Color(0xFF2B2B2B),
-                              fontSize: 16,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Container(
-                            width: double.infinity,
-                            height: 48,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 14),
-                            decoration: ShapeDecoration(
-                              color: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                side: BorderSide(
-                                  width: 1,
-                                  color: const Color(0xFFD1D1D6),
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: _selectedServer == 'Select Server'
-                                    ? null
-                                    : _selectedServer,
-                                hint: Text(
-                                  'Select Server',
-                                  style: TextStyle(
-                                    color: const Color(0xFF8E8E93),
-                                    fontSize: 16,
-                                    fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                                items: ['test'].map((String value) {
-                                  return DropdownMenuItem<String>(
-                                    value: value,
-                                    child: Text(value),
-                                  );
-                                }).toList(),
-                                onChanged: (String? newValue) {
-                                  if (newValue != null) {
-                                    setState(() {
-                                      _selectedServer = newValue;
-                                    });
-                                  }
-                                },
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 24),
-
-                      // Username field
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Username',
-                            style: TextStyle(
-                              color: const Color(0xFF2B2B2B),
-                              fontSize: 16,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Container(
-                            width: double.infinity,
-                            height: 48,
-                            decoration: ShapeDecoration(
-                              color: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                side: BorderSide(
-                                  width: 1,
-                                  color: const Color(0xFFD1D1D6),
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: TextFormField(
-                              controller: _usernameController,
-                              decoration: InputDecoration(
-                                hintText: 'Enter Username',
-                                hintStyle: TextStyle(
-                                  color: const Color(0xFF8E8E93),
-                                  fontSize: 16,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w400,
-                                ),
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 14),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 24),
-
-                      // Password field
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Password',
-                            style: TextStyle(
-                              color: const Color(0xFF2B2B2B),
-                              fontSize: 16,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Container(
-                            width: double.infinity,
-                            height: 48,
-                            decoration: ShapeDecoration(
-                              color: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                side: BorderSide(
-                                  width: 1,
-                                  color: const Color(0xFFD1D1D6),
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: TextFormField(
-                              controller: _passwordController,
-                              obscureText: true,
-                              decoration: InputDecoration(
-                                hintText: 'Enter Password',
-                                hintStyle: TextStyle(
-                                  color: const Color(0xFF8E8E93),
-                                  fontSize: 16,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w400,
-                                ),
-                                border: InputBorder.none,
-                                contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 14),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 24),
-
-                      // Forgot password
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Forgot password?',
-                          style: TextStyle(
-                            color: const Color(0xFF22547C),
-                            fontSize: 16,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600,
+                      _buildFieldLabel('Server'),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        height: 48,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedServer == 'Select Server' ? null : _selectedServer,
+                            hint: const Text('Select Server', style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 15, fontFamily: 'Inter')),
+                            items: ['test'].map((String value) {
+                              return DropdownMenuItem<String>(value: value, child: Text(value));
+                            }).toList(),
+                            onChanged: (String? newValue) {
+                              if (newValue != null) setState(() => _selectedServer = newValue);
+                            },
                           ),
                         ),
                       ),
-                      SizedBox(height: 24),
+                      const SizedBox(height: 20),
+
+                      // Username field
+                      _buildFieldLabel('Username'),
+                      const SizedBox(height: 8),
+                      _buildTextField(_usernameController, 'Enter Username', false),
+                      const SizedBox(height: 20),
+
+                      // Password field
+                      _buildFieldLabel('Password'),
+                      const SizedBox(height: 8),
+                      _buildTextField(_passwordController, 'Enter Password', true),
+                      const SizedBox(height: 16),
+
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: const Text('Forgot password?', style: TextStyle(color: Color(0xFF22547C), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                      ),
+                      const SizedBox(height: 24),
 
                       // Continue button
                       GestureDetector(
                         onTap: _isLoading ? null : _login,
                         child: Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 32, vertical: 18),
-                          decoration: ShapeDecoration(
-                            color: _isLoading
-                                ? Colors.grey
-                                : const Color(0xFF22547C),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          decoration: BoxDecoration(
+                            color: _isLoading ? const Color(0xFF94A3B8) : const Color(0xFF22547C),
+                            borderRadius: BorderRadius.circular(16),
                           ),
                           child: Center(
                             child: _isLoading
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : Text(
-                                    'CONTINUE',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
-                                      fontFamily: 'Inter',
-                                      fontWeight: FontWeight.w600,
-                                      height: 1.25,
-                                    ),
-                                  ),
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: 24),
-
-                      // Sign up button
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 32, vertical: 18),
-                        decoration: ShapeDecoration(
-                          color: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            side: BorderSide(
-                              width: 1,
-                              color: const Color(0xFFC7C7CC),
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            'SIGN UP',
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 16,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w600,
-                              height: 1.25,
-                            ),
+                                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                : const Text('CONTINUE', style: TextStyle(color: Colors.white, fontSize: 15, fontFamily: 'Inter', fontWeight: FontWeight.w700)),
                           ),
                         ),
                       ),
@@ -420,45 +186,48 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
 
-                SizedBox(height: 20),
-
-                // Terms and privacy
+                const SizedBox(height: 20),
+                // Terms
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text:
-                              'By clicking "Continue", I have read and agree\nwith the ',
-                          style: TextStyle(
-                            color: const Color(0xFF8E8E93),
-                            fontSize: 14,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                        TextSpan(
-                          text: 'Term & Privacy Policy',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 14,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ],
-                    ),
+                    TextSpan(children: [
+                      const TextSpan(text: 'By clicking "Continue", I have read and agree\nwith the ', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontFamily: 'Inter')),
+                      TextSpan(text: 'Term & Privacy Policy', style: TextStyle(color: Colors.black.withValues(alpha: 0.7), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w500, decoration: TextDecoration.underline)),
+                    ]),
                     textAlign: TextAlign.center,
                   ),
                 ),
-
-                SizedBox(height: 40),
+                const SizedBox(height: 40),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildFieldLabel(String label) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(label, style: const TextStyle(color: Color(0xFF64748B), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.3)),
+    );
+  }
+
+  Widget _buildTextField(TextEditingController controller, String hint, bool obscure) {
+    return TextField(
+      controller: controller,
+      obscureText: obscure,
+      style: const TextStyle(fontSize: 15, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 15, fontFamily: 'Inter'),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF22547C), width: 1.5)),
       ),
     );
   }

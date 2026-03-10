@@ -17,7 +17,6 @@ import '../utils/date_formatter.dart';
 import 'package:intl/intl.dart';
 import 'create_user_view.dart';
 import 'create_master_view.dart';
-import 'credit_debit_bottom_sheet.dart';
 import 'group_quantity_view.dart';
 import 'margin_squareoff_bottom_sheet.dart';
 import 'brokerage_settings_view.dart';
@@ -27,6 +26,8 @@ import 'script_quantity_settings_view.dart';
 import 'sharing_details_view.dart';
 import 'rejection_log_history_view.dart';
 import 'settlement_report_view.dart';
+import '../pages/transaction_page.dart';
+import 'reports_view.dart';
 
 class UsernameView extends StatefulWidget {
   final Master? master;
@@ -1413,9 +1414,9 @@ class _UsernameViewState extends State<UsernameView> {
   void _handleSettingTap(String label) async {
     switch (label) {
       case 'Credit/Debit':
-        final result = await showModalBottomSheet<bool>(
-          context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
-          builder: (_) => CreditDebitBottomSheet(master: _currentMaster, user: _currentUser),
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => TransactionPage(master: _currentMaster, user: _currentUser)),
         );
         if (result == true && mounted) await _refreshData();
         break;
@@ -1444,6 +1445,17 @@ class _UsernameViewState extends State<UsernameView> {
         break;
       case 'Rejection Log':
         Navigator.push(context, MaterialPageRoute(builder: (_) => const RejectionLogHistoryView()));
+        break;
+      case 'Generate PDF':
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (_) => GeneratePdfBottomSheet(
+            preselectedUserId: _currentUser?.id ?? _currentMaster?.id,
+            preselectedUserName: username,
+          ),
+        );
         break;
       case 'Settlement Report':
         Navigator.push(context, MaterialPageRoute(builder: (_) => const SettlementReportView()));

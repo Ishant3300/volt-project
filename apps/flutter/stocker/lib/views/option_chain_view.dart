@@ -2,15 +2,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:stocker/models/kite_instrument.dart';
 import 'package:stocker/models/option_chain.dart';
+import 'package:stocker/models/watchlist_item.dart';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/kite_service.dart';
 import 'package:stocker/utils/contants.dart';
+import 'trade_card_view.dart';
 
 class OptionChainView extends StatefulWidget {
   final KiteInstrument instrument;
-
   const OptionChainView({super.key, required this.instrument});
-
   @override
   State<OptionChainView> createState() => _OptionChainViewState();
 }
@@ -19,465 +19,377 @@ class _OptionChainViewState extends State<OptionChainView> {
   List<OptionChainItem> _optionChain = [];
   bool _isLoading = true;
   String? _error;
-  String _selectedFilter = 'all';
-  String _searchQuery = '';
-  String? _currentExpiry;
-  final TextEditingController _searchController = TextEditingController();
   Timer? _refreshTimer;
   late final KiteService _kiteService;
+
+  // Expiry management
+  List<DateTime> _availableExpiries = [];
+  DateTime? _selectedExpiry;
 
   @override
   void initState() {
     super.initState();
     _kiteService = KiteService(ApiService(backendUrl));
     _loadOptionChain();
-    _startAutoRefresh();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) => _silentRefresh());
   }
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
-    _searchController.dispose();
     super.dispose();
   }
 
-  void _startAutoRefresh() {
-    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      _refreshOptionChain();
-    });
+  /// Derive the base symbol to send to the backend.
+  /// The backend does `new RegExp('^${tradingSymbol}', 'i')` against the
+  /// `tradingsymbol` field, so we need the root name that all CE/PE contracts
+  /// share as a prefix (e.g. "NIFTY", "BANKNIFTY", "US 30").
+  String _deriveBaseSymbol() {
+    final inst = widget.instrument;
+    final type = inst.instrumentType;
+
+    // If the instrument itself is already an option or future, extract the
+    // base from its tradingsymbol by stripping the date+strike+CE/PE suffix.
+    if (type == 'CE' || type == 'PE' || type == 'FUT') {
+      // The `name` field on KiteInstrument is the underlying name
+      // e.g. for "NIFTY26MAR22500CE" the name is "NIFTY"
+      // e.g. for "US 3026MAR22500CE" the name is "US 30"
+      if (inst.name.isNotEmpty) return inst.name;
+    }
+
+    // For EQ / index instruments, `name` is the full name like "NIFTY 50",
+    // but the option contracts use just "NIFTY" as prefix. The
+    // `tradingsymbol` for the index is "NIFTY 50" — we need "NIFTY".
+    // However, for commodities like "US 30", the options use "US 30" prefix.
+    // So use `name` if it's a known multi-word symbol, else use tradingsymbol.
+    if (inst.name.isNotEmpty) return inst.name;
+    return inst.tradingsymbol;
   }
 
-  /// Silent refresh — no loading spinner, just updates prices in place
-  Future<void> _refreshOptionChain() async {
+  Future<void> _loadOptionChain() async {
+    setState(() { _isLoading = true; _error = null; });
+    try {
+      final symbol = _deriveBaseSymbol();
+      final expiryStr = _selectedExpiry != null
+          ? '${_selectedExpiry!.year}-${_selectedExpiry!.month.toString().padLeft(2, '0')}-${_selectedExpiry!.day.toString().padLeft(2, '0')}'
+          : null;
+      final chain = await _kiteService.getOptionChain(symbol, expiry: expiryStr);
+      _extractExpiries(chain);
+      setState(() { _optionChain = chain; _isLoading = false; });
+    } catch (e) {
+      setState(() { _error = e.toString(); _isLoading = false; });
+    }
+  }
+
+  Future<void> _silentRefresh() async {
     if (_isLoading || _optionChain.isEmpty) return;
     try {
-      final baseSymbol = _extractBaseSymbol(
-        _searchQuery.isEmpty ? widget.instrument.tradingsymbol : _searchQuery,
-      );
-      final chain = await _kiteService.getOptionChain(baseSymbol, expiry: _currentExpiry);
-      if (mounted) {
-        setState(() {
-          _optionChain = chain;
-        });
-      }
-    } catch (_) {
-      // Silent fail — don't disrupt the UI on refresh errors
+      final symbol = _deriveBaseSymbol();
+      final expiryStr = _selectedExpiry != null
+          ? '${_selectedExpiry!.year}-${_selectedExpiry!.month.toString().padLeft(2, '0')}-${_selectedExpiry!.day.toString().padLeft(2, '0')}'
+          : null;
+      final chain = await _kiteService.getOptionChain(symbol, expiry: expiryStr);
+      if (mounted) setState(() => _optionChain = chain);
+    } catch (_) {}
+  }
+
+  void _extractExpiries(List<OptionChainItem> chain) {
+    final expirySet = <DateTime>{};
+    for (final item in chain) {
+      if (item.call?.expiry != null) expirySet.add(_dateOnly(item.call!.expiry!));
+      if (item.put?.expiry != null) expirySet.add(_dateOnly(item.put!.expiry!));
+    }
+    final sorted = expirySet.toList()..sort();
+    if (mounted && _availableExpiries.isEmpty && sorted.isNotEmpty) {
+      setState(() { _availableExpiries = sorted; });
     }
   }
 
-  Future<void> _loadOptionChain({String? expiry}) async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-      _currentExpiry = expiry;
-    });
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
-    try {
-      final baseSymbol = _extractBaseSymbol(
-        _searchQuery.isEmpty ? widget.instrument.tradingsymbol : _searchQuery,
-      );
-      
-      final chain = await _kiteService.getOptionChain(baseSymbol, expiry: expiry);
-
-      setState(() {
-        _optionChain = chain;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
-    }
+  String _fmtExpiry(DateTime d) {
+    const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+    return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
 
-  String _extractBaseSymbol(String tradingSymbol) {
-    // Handle special cases first
-    final upperSymbol = tradingSymbol.toUpperCase();
-    
-    // GIFT NIFTY -> NIFTY
-    if (upperSymbol.contains('GIFT') && upperSymbol.contains('NIFTY')) {
-      return 'NIFTY';
-    }
-    
-    // NIFTY BANK or BANKNIFTY -> BANKNIFTY
-    if (upperSymbol.contains('BANK') && upperSymbol.contains('NIFTY')) {
-      return 'BANKNIFTY';
-    }
-    
-    // NIFTY FIN SERVICE -> FINNIFTY
-    if (upperSymbol.contains('FIN') && upperSymbol.contains('NIFTY')) {
-      return 'FINNIFTY';
-    }
-    
-    // NIFTY MIDCAP SELECT -> MIDCPNIFTY
-    if (upperSymbol.contains('MIDCAP') || upperSymbol.contains('MIDCP')) {
-      return 'MIDCPNIFTY';
-    }
-    
-    // Extract base symbol (e.g., "NIFTY" from "NIFTY24DEC24850CE")
-    // First try to match the pattern with numbers (option contracts)
-    final optionMatch = RegExp(r'^([A-Z]+)\d').firstMatch(upperSymbol);
-    if (optionMatch != null) {
-      return optionMatch.group(1)!;
-    }
-    
-    // Otherwise just extract leading alphabets
-    final match = RegExp(r'^([A-Z]+)').firstMatch(upperSymbol);
-    return match?.group(1) ?? tradingSymbol;
+  void _onExpiryChanged(DateTime? expiry) {
+    setState(() => _selectedExpiry = expiry);
+    _loadOptionChain();
   }
 
-  DateTime _getExpiryDate(String filter) {
-    final now = DateTime.now();
-    switch (filter) {
-      case '7days':
-        return now.add(Duration(days: 7));
-      case '1month':
-        return now.add(Duration(days: 30));
-      case '3months':
-        return now.add(Duration(days: 90));
-      default:
-        return now.add(Duration(days: 365)); // All
-    }
-  }
-
-  void _onFilterChanged(String filter) {
-    setState(() {
-      _selectedFilter = filter;
-    });
-
-    if (filter == 'all') {
-      _loadOptionChain();
-    } else {
-      final expiry = _getExpiryDate(filter);
-      _loadOptionChain(expiry: expiry.toIso8601String().split('T')[0]);
-    }
-  }
-
-  void _onSearch() {
-    if (_searchQuery.isNotEmpty) {
-      _loadOptionChain();
-    }
+  void _openTradeCard(OptionData option) {
+    final inst = KiteInstrument(
+      id: '',
+      instrumentToken: option.instrumentToken,
+      exchangeToken: '',
+      tradingsymbol: option.tradingSymbol,
+      name: option.name,
+      lastPrice: option.lastPrice,
+      expiry: option.expiry,
+      strike: option.strike,
+      tickSize: 0.05,
+      lotSize: option.lotSize,
+      instrumentType: option.instrumentType,
+      segment: 'NFO-OPT',
+      exchange: option.exchange.isNotEmpty ? option.exchange : 'NFO',
+      updatedAt: DateTime.now(),
+    );
+    final item = WatchlistItem(
+      id: 'oc_${option.instrumentToken}',
+      instrument: inst,
+      currentPrice: option.lastPrice,
+    );
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => TradeCardPage(item: item),
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FC),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.all(17),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: Icon(Icons.arrow_back, color: Colors.black),
-                      ),
-                      SizedBox(width: 12),
-                      Text(
-                        'Option Chain',
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 16,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
+        child: Column(children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(children: [
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 40, height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white, borderRadius: BorderRadius.circular(12),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
                   ),
-                  Icon(Icons.close, color: Colors.black),
-                ],
-              ),
-            ),
-
-            // Stock selector with search
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 17),
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: ShapeDecoration(
-                color: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  child: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
                 ),
               ),
-              child: Row(
-                children: [
-                  Icon(Icons.search, size: 24, color: Colors.black),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: _extractBaseSymbol(widget.instrument.tradingsymbol),
-                        border: InputBorder.none,
-                        hintStyle: TextStyle(
-                          color: Colors.black,
-                          fontSize: 16,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                      onChanged: (value) {
-                        setState(() {
-                          _searchQuery = value;
-                        });
-                      },
-                      onSubmitted: (_) => _onSearch(),
-                    ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(
+                    'Option Chain',
+                    style: const TextStyle(color: Colors.black, fontSize: 18, fontFamily: 'Inter', fontWeight: FontWeight.w600),
                   ),
-                  IconButton(
-                    icon: Icon(Icons.send, size: 20, color: const Color(0xFF22547C)),
-                    onPressed: _onSearch,
+                  const SizedBox(height: 2),
+                  Text(
+                    _deriveBaseSymbol(),
+                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500, letterSpacing: -0.3),
                   ),
-                ],
+                ]),
               ),
-            ),
+              // Live indicator
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(color: const Color(0xFF10B981).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle)),
+                  const SizedBox(width: 4),
+                  const Text('LIVE', style: TextStyle(color: Color(0xFF10B981), fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+                ]),
+              ),
+            ]),
+          ),
 
-            SizedBox(height: 12),
-
-            // Time period filters
+          // Expiry selector
+          if (_availableExpiries.isNotEmpty)
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  _buildFilterChip('All', _selectedFilter == 'all', () => _onFilterChanged('all')),
-                  SizedBox(width: 10),
-                  _buildFilterChip('Last 7 Days', _selectedFilter == '7days', () => _onFilterChanged('7days')),
-                  SizedBox(width: 10),
-                  _buildFilterChip('1 Month', _selectedFilter == '1month', () => _onFilterChanged('1month')),
-                  SizedBox(width: 10),
-                  _buildFilterChip('3 Months', _selectedFilter == '3months', () => _onFilterChanged('3months')),
-                ],
+              height: 38,
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _availableExpiries.length + 1,
+                itemBuilder: (_, i) {
+                  if (i == 0) return _buildExpiryChip('All', _selectedExpiry == null, () => _onExpiryChanged(null));
+                  final exp = _availableExpiries[i - 1];
+                  final isSelected = _selectedExpiry != null && _dateOnly(_selectedExpiry!) == _dateOnly(exp);
+                  return _buildExpiryChip(_fmtExpiry(exp), isSelected, () => _onExpiryChanged(exp));
+                },
               ),
             ),
 
-            SizedBox(height: 16),
-
-            // Table header
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Text(
-                        'CALL',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: const Color(0xFF8E8E93),
-                          fontSize: 12,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Text(
-                        'STRIKE',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: const Color(0xFF8E8E93),
-                          fontSize: 12,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Text(
-                        'PUT',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: const Color(0xFF8E8E93),
-                          fontSize: 12,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+          // Column headers
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
             ),
+            child: Row(children: const [
+              Expanded(child: _HeaderLabel('CALL', alignment: TextAlign.center)),
+              Expanded(child: _HeaderLabel('VOL', alignment: TextAlign.center)),
+              SizedBox(width: 70, child: _HeaderLabel('STRIKE', alignment: TextAlign.center)),
+              Expanded(child: _HeaderLabel('VOL', alignment: TextAlign.center)),
+              Expanded(child: _HeaderLabel('PUT', alignment: TextAlign.center)),
+            ]),
+          ),
 
-            // Table data
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                child: _isLoading
-                    ? Center(child: CircularProgressIndicator())
-                    : _error != null
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.error_outline, size: 48, color: Colors.red),
-                                SizedBox(height: 16),
-                                Text('Failed to load option chain', style: TextStyle(color: Colors.red)),
-                                SizedBox(height: 8),
-                                ElevatedButton(
-                                  onPressed: () => _loadOptionChain(),
-                                  child: Text('Retry'),
-                                ),
-                              ],
-                            ),
-                          )
-                        : _optionChain.isEmpty
-                            ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.search_off, size: 48, color: Colors.grey),
-                                    SizedBox(height: 16),
-                                    Text(
-                                      'No option chain data available',
-                                      style: TextStyle(color: Colors.grey),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : ListView.builder(
-                                itemCount: _optionChain.length,
-                                itemBuilder: (context, index) {
-                                  final item = _optionChain[index];
-                                  return Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      border: Border(
-                                        bottom: BorderSide(width: 1, color: const Color(0xFFC7C7CC)),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(vertical: 12),
-                                            child: Column(
-                                              children: [
-                                                Text(
-                                                  item.call?.lastPrice.toStringAsFixed(2) ?? '--',
-                                                  textAlign: TextAlign.center,
-                                                  style: TextStyle(
-                                                    color: Colors.black,
-                                                    fontSize: 14,
-                                                    fontFamily: 'Inter',
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                                if (item.call != null)
-                                                  Text(
-                                                    item.call!.changePercent,
-                                                    textAlign: TextAlign.center,
-                                                    style: TextStyle(
-                                                      color: const Color(0xFF34C759),
-                                                      fontSize: 12,
-                                                      fontFamily: 'Inter',
-                                                      fontWeight: FontWeight.w400,
-                                                    ),
-                                                  ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(vertical: 12),
-                                            decoration: BoxDecoration(
-                                              color: const Color(0xFFF7F8FC),
-                                            ),
-                                            child: Text(
-                                              item.strike.toStringAsFixed(0),
-                                              textAlign: TextAlign.center,
-                                              style: TextStyle(
-                                                color: Colors.black,
-                                                fontSize: 16,
-                                                fontFamily: 'Inter',
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(vertical: 12),
-                                            child: Column(
-                                              children: [
-                                                Text(
-                                                  item.put?.lastPrice.toStringAsFixed(2) ?? '--',
-                                                  textAlign: TextAlign.center,
-                                                  style: TextStyle(
-                                                    color: Colors.black,
-                                                    fontSize: 14,
-                                                    fontFamily: 'Inter',
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                                if (item.put != null)
-                                                  Text(
-                                                    item.put!.changePercent,
-                                                    textAlign: TextAlign.center,
-                                                    style: TextStyle(
-                                                      color: const Color(0xFFFF3B30),
-                                                      fontSize: 12,
-                                                      fontFamily: 'Inter',
-                                                      fontWeight: FontWeight.w400,
-                                                    ),
-                                                  ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-              ),
-            ),
-          ],
-        ),
+          // Chain data
+          Expanded(child: _buildBody()),
+        ]),
       ),
     );
   }
 
-  Widget _buildFilterChip(String label, bool isSelected, VoidCallback onTap) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: ShapeDecoration(
-            color: isSelected ? const Color(0x33ABABAB) : Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(32),
+  Widget _buildBody() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF22547C), strokeWidth: 2.5));
+    }
+    if (_error != null) {
+      return Center(child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.error_outline, size: 40, color: Color(0xFFEF4444)),
+          const SizedBox(height: 12),
+          Text('Failed to load option chain', style: const TextStyle(color: Color(0xFF64748B), fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w500)),
+          const SizedBox(height: 4),
+          Text(_error!, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontFamily: 'Inter'), textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 16),
+          GestureDetector(
+            onTap: _loadOptionChain,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+              decoration: BoxDecoration(color: const Color(0xFF22547C), borderRadius: BorderRadius.circular(10)),
+              child: const Text('Retry', style: TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
             ),
           ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isSelected ? const Color(0xFF22547C) : Colors.black,
-              fontSize: 12,
-              fontFamily: 'Inter',
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-        ),
+        ]),
+      ));
+    }
+    if (_optionChain.isEmpty) {
+      return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.show_chart, size: 40, color: const Color(0xFF94A3B8).withValues(alpha: 0.5)),
+        const SizedBox(height: 12),
+        const Text('No option chain data', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w500)),
+      ]));
+    }
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+      ),
+      child: ListView.builder(
+        padding: EdgeInsets.zero,
+        itemCount: _optionChain.length,
+        itemBuilder: (_, i) => _buildRow(_optionChain[i], i),
       ),
     );
+  }
+
+  Widget _buildRow(OptionChainItem item, int index) {
+    final isEven = index % 2 == 0;
+    return Container(
+      decoration: BoxDecoration(
+        color: isEven ? Colors.white : const Color(0xFFFAFBFC),
+        border: Border(bottom: BorderSide(color: const Color(0xFFF1F5F9), width: 0.5)),
+      ),
+      child: IntrinsicHeight(
+        child: Row(children: [
+          // CALL price — tappable
+          Expanded(child: _buildPriceCell(item.call, const Color(0xFF10B981), () {
+            if (item.call != null) _openTradeCard(item.call!);
+          })),
+          // CALL volume
+          Expanded(child: _buildVolCell(item.call?.volumeDisplay ?? '--')),
+          // Strike
+          SizedBox(
+            width: 70,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                border: Border.symmetric(vertical: BorderSide(color: const Color(0xFFF1F5F9), width: 0.5)),
+              ),
+              child: Text(
+                item.strike.toStringAsFixed(item.strike == item.strike.roundToDouble() ? 0 : 2),
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(0xFF22547C), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w700, letterSpacing: -0.3),
+              ),
+            ),
+          ),
+          // PUT volume
+          Expanded(child: _buildVolCell(item.put?.volumeDisplay ?? '--')),
+          // PUT price — tappable
+          Expanded(child: _buildPriceCell(item.put, const Color(0xFFEF4444), () {
+            if (item.put != null) _openTradeCard(item.put!);
+          })),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildPriceCell(OptionData? data, Color accentColor, VoidCallback onTap) {
+    if (data == null) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Text('--', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, fontFamily: 'Inter')),
+      );
+    }
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Text(
+            data.lastPrice > 0 ? data.lastPrice.toStringAsFixed(2) : '--',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.black, fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: -0.3),
+          ),
+          if (data.lotSize > 0) ...[
+            const SizedBox(height: 2),
+            Text(
+              'Lot ${data.lotSize}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 9, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+            ),
+          ],
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildVolCell(String vol) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Text(vol, textAlign: TextAlign.center,
+        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w500)),
+    );
+  }
+
+  Widget _buildExpiryChip(String label, bool isSelected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF22547C) : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: isSelected ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
+        ),
+        child: Text(label, style: TextStyle(
+          color: isSelected ? Colors.white : const Color(0xFF64748B),
+          fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w600,
+        )),
+      ),
+    );
+  }
+}
+
+class _HeaderLabel extends StatelessWidget {
+  final String text;
+  final TextAlign alignment;
+  const _HeaderLabel(this.text, {this.alignment = TextAlign.center});
+  @override
+  Widget build(BuildContext context) {
+    return Text(text, textAlign: alignment, style: const TextStyle(
+      color: Color(0xFF94A3B8), fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.5,
+    ));
   }
 }
