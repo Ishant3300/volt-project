@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/services/navigation_service.dart';
@@ -8,6 +9,7 @@ class ApiService {
   final String baseUrl;
   final SecureStorageService _storage = SecureStorageService();
   bool _isInitializing = false;
+  static bool _isHandling401 = false;
 
   ApiService(this.baseUrl);
 
@@ -18,41 +20,39 @@ class ApiService {
   }
 
   Future<void> _handleUnauthorized() async {
-    // Don't handle 401 during initialization (login flow)
+    // Don't handle 401 during login flow
     if (_isInitializing) {
-      log('⚠️  401 during initialization - ignoring (login in progress)');
+      log('⚠️  401 during initialization - ignoring');
       return;
     }
 
-    // Get the current role before clearing (to check if we just logged in)
-    final currentRole = await _storage.getRole();
-    final currentToken = await _storage.getToken();
+    // Prevent multiple concurrent 401 handlers from racing
+    if (_isHandling401) return;
+    _isHandling401 = true;
 
-    log('🚨 401 Unauthorized - Current role: $currentRole, Has token: ${currentToken != null}');
+    log('🚨 401 Unauthorized - session expired or logged in elsewhere');
 
-    // If we have both a token and role, this might be a transient 401 during login
-    // Don't clear immediately - give it a moment
-    if (currentToken != null && currentRole != null) {
-      log('⚠️  Have token and role - might be transient 401, waiting 500ms...');
-      await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      // Clear all stored data
+      await _storage.deleteToken();
+      await _storage.deleteRole();
+      await _storage.deleteAddMasterPermission();
 
-      // Check again
-      final tokenAfterWait = await _storage.getToken();
-      if (tokenAfterWait != null && tokenAfterWait == currentToken) {
-        log('⚠️  Token still valid after wait - ignoring 401');
-        return;
+      // Show message and redirect to login
+      final ctx = NavigationService.currentContext;
+      if (ctx != null) {
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          const SnackBar(
+            content: Text('Session expired. You may have logged in on another device.'),
+            backgroundColor: Color(0xFFEF4444),
+            duration: Duration(seconds: 3),
+          ),
+        );
       }
+      await NavigationService.navigateToLogin();
+    } finally {
+      _isHandling401 = false;
     }
-
-    log('🚨 Clearing session and redirecting to login');
-
-    // Clear all stored data
-    await _storage.deleteToken();
-    await _storage.deleteRole();
-    await _storage.deleteAddMasterPermission();
-
-    // Navigate to login silently (no error message shown to user)
-    await NavigationService.navigateToLogin();
   }
 
   Map<String, String> _defaultHeaders({String? token}) {
