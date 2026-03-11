@@ -55,4 +55,17 @@ class SecureStorageService {
   Future<void> deleteAddMasterPermission() async {
     await storage.delete(key: addMasterKey);
   }
+
+  // Quick quantity values for trade card
+  static const quickQtyKey = "quick_qty_values";
+
+  Future<void> saveQuickQuantities(List<int> values) async {
+    await storage.write(key: quickQtyKey, value: values.join(','));
+  }
+
+  Future<List<int>> getQuickQuantities() async {
+    final raw = await storage.read(key: quickQtyKey);
+    if (raw == null || raw.isEmpty) return [100, 200, 500, 1000, 2000, 5000];
+    return raw.split(',').map((s) => int.tryParse(s) ?? 0).where((v) => v > 0).toList();
+  }
 }

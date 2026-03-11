@@ -28,6 +28,7 @@ class _PortfolioPageState extends State<PortfolioPage>
 
   // Master-specific state
   bool _isMaster = false;
+  bool _isAdmin = false;
   bool _masterLoading = false;
   List<Trade> _masterTrades = [];
   int _masterPage = 1;
@@ -60,6 +61,9 @@ class _PortfolioPageState extends State<PortfolioPage>
           Provider.of<UserProfileProvider>(context, listen: false);
       if (userProfile.isMaster) {
         setState(() => _isMaster = true);
+        _fetchMasterTrades();
+      } else if (userProfile.isAdmin) {
+        setState(() => _isAdmin = true);
         _fetchMasterTrades();
       }
     });
@@ -94,8 +98,11 @@ class _PortfolioPageState extends State<PortfolioPage>
         _activeFilters!.toQueryParams().forEach((k, v) => queryParams.add('$k=$v'));
       }
 
+      // Both admin and master use /master/trades — backend handles both roles
+      final endpoint = '/master/trades?${queryParams.join('&')}';
+
       final res = await apiService.get(
-        '/master/trades?${queryParams.join('&')}',
+        endpoint,
         token: token,
       );
       if (res.statusCode == 200) {
@@ -163,7 +170,7 @@ class _PortfolioPageState extends State<PortfolioPage>
 
   void _onFiltersApplied(TradeFilterResult? result) {
     setState(() => _activeFilters = result);
-    if (_isMaster) {
+    if (_isMaster || _isAdmin) {
       _fetchMasterTrades();
     } else {
       _fetchFilteredUserTrades();
@@ -175,7 +182,7 @@ class _PortfolioPageState extends State<PortfolioPage>
       _activeFilters = null;
       _filteredUserTrades = null;
     });
-    if (_isMaster) {
+    if (_isMaster || _isAdmin) {
       _fetchMasterTrades();
     }
   }
@@ -379,8 +386,8 @@ class _PortfolioPageState extends State<PortfolioPage>
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _isMaster ? _buildMasterTradesList('completed') : _buildPositionsList(),
-                  _isMaster ? _buildMasterTradesList('pending') : _buildOrdersList(),
+                  (_isMaster || _isAdmin) ? _buildMasterTradesList('completed') : _buildPositionsList(),
+                  (_isMaster || _isAdmin) ? _buildMasterTradesList('pending') : _buildOrdersList(),
                 ],
               ),
             ),
@@ -962,6 +969,29 @@ class _PortfolioPageState extends State<PortfolioPage>
                     ],
                   ),
                 ],
+                if (_isAdmin && trade.masterName != null) ...[
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      const Icon(Icons.supervisor_account,
+                          size: 11, color: Color(0xFFCBD5E1)),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          'M: ${trade.masterName!}',
+                          style: const TextStyle(
+                            color: Color(0xFFCBD5E1),
+                            fontSize: 10,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w500,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -1002,6 +1032,36 @@ class _PortfolioPageState extends State<PortfolioPage>
                   ),
                 ),
               ],
+              if (_isAdmin) ...[
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: () => _deleteTrade(trade),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.4)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.delete_outline, size: 11, color: Color(0xFFEF4444)),
+                        SizedBox(width: 3),
+                        Text(
+                          'Delete',
+                          style: TextStyle(
+                            color: Color(0xFFEF4444),
+                            fontSize: 10,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ],
@@ -1014,7 +1074,7 @@ class _PortfolioPageState extends State<PortfolioPage>
     String formattedDate = trade.createdAt;
     try {
       final DateTime dt = DateTime.parse(trade.createdAt).toLocal();
-      formattedDate = DateFormat("dd MMM hh:mm:ss a").format(dt).toUpperCase();
+      formattedDate = DateFormat("dd MMM hh:mm a").format(dt).toUpperCase();
     } catch (_) {}
 
     final bool isPending = trade.status.toLowerCase() == 'pending';
@@ -1100,6 +1160,29 @@ class _PortfolioPageState extends State<PortfolioPage>
                             ],
                           ),
                         ],
+                        if (_isAdmin && trade.masterName != null) ...[
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              const Icon(Icons.supervisor_account,
+                                  size: 11, color: Color(0xFFCBD5E1)),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  'M: ${trade.masterName!}',
+                                  style: const TextStyle(
+                                    color: Color(0xFFCBD5E1),
+                                    fontSize: 10,
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -1130,14 +1213,31 @@ class _PortfolioPageState extends State<PortfolioPage>
                   top: BorderSide(color: Color(0xFFF1F5F9)),
                 ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
                 children: [
+                  // Row 1: Date
                   Row(
                     children: [
+                      Icon(Icons.access_time, size: 11, color: const Color(0xFF94A3B8)),
+                      const SizedBox(width: 4),
+                      Text(
+                        formattedDate,
+                        style: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 10,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Row 2: Status badge + action buttons
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                           color: isPending
                               ? const Color(0xFFFEF3C7)
@@ -1157,42 +1257,61 @@ class _PortfolioPageState extends State<PortfolioPage>
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Icon(Icons.access_time,
-                          size: 11, color: const Color(0xFF94A3B8)),
-                      const SizedBox(width: 3),
-                      Text(
-                        formattedDate,
-                        style: const TextStyle(
-                          color: Color(0xFF94A3B8),
-                          fontSize: 10,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
-                        ),
+                      Row(
+                        children: [
+                          if (_isAdmin)
+                            GestureDetector(
+                              onTap: () => _deleteTrade(trade),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.4)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.delete_outline, size: 13, color: Color(0xFFEF4444)),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Delete',
+                                      style: TextStyle(
+                                        color: Color(0xFFEF4444),
+                                        fontSize: 12,
+                                        fontFamily: 'Inter',
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          if (_isAdmin && isPending) const SizedBox(width: 8),
+                          if (isPending)
+                            GestureDetector(
+                              onTap: () => _cancelOrder(trade),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFEF4444).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Text(
+                                  'Cancel',
+                                  style: TextStyle(
+                                    color: Color(0xFFEF4444),
+                                    fontSize: 12,
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ],
                   ),
-                  if (isPending)
-                    GestureDetector(
-                      onTap: () => _cancelOrder(trade),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEF4444).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          'Cancel',
-                          style: TextStyle(
-                            color: Color(0xFFEF4444),
-                            fontSize: 12,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -1433,6 +1552,71 @@ class _PortfolioPageState extends State<PortfolioPage>
         ),
       ),
     );
+  }
+
+  Future<void> _deleteTrade(Trade trade) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Delete Trade',
+          style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          'Are you sure you want to permanently delete this ${trade.transactionType} trade for ${trade.tradingSymbol}?',
+          style: const TextStyle(fontFamily: 'Inter'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('No', style: TextStyle(color: Color(0xFF94A3B8), fontFamily: 'Inter')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Yes, Delete', style: TextStyle(color: Color(0xFFEF4444), fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final storage = SecureStorageService();
+      final token = await storage.getToken();
+      if (token == null) throw Exception('Not authenticated');
+
+      final apiService = ApiService(backendUrl);
+      final response = await apiService.delete('/trade/${trade.id}', token: token);
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        if (body['success'] == true) {
+          if (_isMaster || _isAdmin) {
+            await _fetchMasterTrades();
+          } else {
+            final metricsProvider = Provider.of<TradeMetricsProvider>(context, listen: false);
+            await metricsProvider.fetchBaseData();
+          }
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Trade deleted: ${trade.tradingSymbol}'), backgroundColor: const Color(0xFF10B981)),
+            );
+          }
+        } else {
+          throw Exception(body['message'] ?? 'Failed to delete trade');
+        }
+      } else {
+        throw Exception('Server error: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: const Color(0xFFEF4444)),
+        );
+      }
+    }
   }
 
   Future<void> _cancelOrder(Trade trade) async {

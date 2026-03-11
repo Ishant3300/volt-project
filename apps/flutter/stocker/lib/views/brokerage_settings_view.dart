@@ -9,545 +9,187 @@ import 'create_brokerage_view.dart';
 
 class BrokerageSettingsView extends StatefulWidget {
   const BrokerageSettingsView({super.key});
-
   @override
   State<BrokerageSettingsView> createState() => _BrokerageSettingsViewState();
 }
 
 class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
-  final TextEditingController _amountController = TextEditingController();
-  
+  final _amountCtrl = TextEditingController();
   String? _selectedExchange;
   String _selectedType = 'TURNOVER WISE';
-  final List<String> _exchanges = ['NSE', 'MCX', 'SGX', 'CALLPUT', 'OTHERS', 'MCX-OPT'];
-  final List<String> _types = ['TURNOVER WISE', 'LOT WISE'];
-  
-  List<Map<String, dynamic>> _brokerageItems = [];
-  Map<String, bool> _selectedItems = {};
+  final _exchanges = ['NSE', 'MCX', 'SGX', 'CALLPUT', 'OTHERS', 'MCX-OPT'];
+  final _types = ['TURNOVER WISE', 'LOT WISE'];
+  List<Map<String, dynamic>> _items = [];
+  Map<String, bool> _selected = {};
   bool _isLoading = false;
+  bool _isAdmin = false;
 
   @override
-  void dispose() {
-    _amountController.dispose();
-    super.dispose();
+  void initState() { super.initState(); _checkRole(); }
+  @override
+  void dispose() { _amountCtrl.dispose(); super.dispose(); }
+
+  Future<void> _checkRole() async {
+    final role = await SecureStorageService().getRole();
+    setState(() => _isAdmin = role == 'ADMIN');
   }
 
-  Future<void> _fetchBrokerageSettings() async {
+  Future<void> _fetch() async {
     if (_selectedExchange == null) return;
-
-    log('📊 Fetching brokerage settings for exchange: $_selectedExchange, type: $_selectedType');
-    setState(() {
-      _isLoading = true;
-      _brokerageItems = [];
-      _selectedItems = {};
-    });
-
+    setState(() { _isLoading = true; _items = []; _selected = {}; });
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
-      final adminService = AdminService(apiService);
-      
-      final response = await adminService.getAllBrokerageSettings(limit: 1000);
-      
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+      final res = await AdminService(apiService).getAllBrokerageSettings(limit: 1000);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
         if (data['success'] == true) {
-          final List<dynamic> allSettings = data['data']['brokerage_settings'] ?? [];
-          
-          // Filter by selected exchange AND type
-          List<Map<String, dynamic>> filteredSettings = [];
-          for (var setting in allSettings) {
-            final exchangeName = setting['exchange_name']?.toString().toUpperCase();
-            final type = setting['type']?.toString().toUpperCase();
-            
-            if (exchangeName == _selectedExchange && type == _selectedType) {
-              filteredSettings.add({
-                'id': setting['id'],
-                'script_name': setting['script_name'],
-                'brk_value': setting['brk_value'],
-                'type': setting['type'],
-                'exchange_name': setting['exchange_name'],
-              });
+          final List<dynamic> all = data['data']['brokerage_settings'] ?? [];
+          List<Map<String, dynamic>> filtered = [];
+          for (var s in all) {
+            if (s['exchange_name']?.toString().toUpperCase() == _selectedExchange && s['type']?.toString().toUpperCase() == _selectedType) {
+              filtered.add({'id': s['id'], 'script_name': s['script_name'], 'brk_value': s['brk_value'], 'type': s['type'], 'exchange_name': s['exchange_name']});
             }
           }
-          
-          setState(() {
-            _brokerageItems = filteredSettings;
-            _isLoading = false;
-          });
-          log('   ✅ Total entries found: ${filteredSettings.length}');
+          setState(() => _items = filtered);
         }
       }
-    } catch (e) {
-      log('   ❌ Error fetching: $e');
-      setState(() {
-        _isLoading = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error fetching brokerage settings: $e')),
-        );
-      }
-    }
+    } catch (e) { log('❌ Error: $e'); }
+    finally { if (mounted) setState(() => _isLoading = false); }
   }
 
-  Future<void> _applyBrokerage() async {
-    if (_selectedExchange == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please select an exchange')),
-      );
-      return;
-    }
-
-    final value = double.tryParse(_amountController.text);
-    if (value == null || value <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter a valid value')),
-      );
-      return;
-    }
-
-    final selectedScripts = _selectedItems.entries
-        .where((entry) => entry.value)
-        .map((entry) => entry.key)
-        .toList();
-
-    if (selectedScripts.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please select at least one script')),
-      );
-      return;
-    }
-
-    log('📝 Applying brokerage: $value $_selectedType to ${selectedScripts.length} scripts');
-
+  Future<void> _apply() async {
+    if (_selectedExchange == null) return;
+    final value = double.tryParse(_amountCtrl.text);
+    if (value == null || value <= 0) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid value'))); return; }
+    final scripts = _selected.entries.where((e) => e.value).map((e) => e.key).toList();
+    if (scripts.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select at least one script'))); return; }
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
-      final adminService = AdminService(apiService);
-
-      int successCount = 0;
-      int failCount = 0;
-
-      // Update each selected item individually
-      for (var item in _brokerageItems) {
-        final scriptName = item['script_name'];
-        
-        if (selectedScripts.contains(scriptName)) {
-          final docId = item['id'];
-          
-          log('   Updating document: $docId for script: $scriptName');
-          final response = await adminService.updateBrokerageSettings(
-            id: docId,
-            type: _selectedType,
-            exchangeName: _selectedExchange,
-            scriptName: scriptName,
-            brkValue: value,
-          );
-
-          if (response.statusCode == 200) {
-            successCount++;
-            log('   ✅ Updated $scriptName successfully');
-          } else {
-            failCount++;
-            final data = jsonDecode(response.body);
-            log('   ❌ Failed to update $scriptName: ${data['message']}');
-          }
+      final admin = AdminService(apiService);
+      int ok = 0, fail = 0;
+      for (var item in _items) {
+        if (scripts.contains(item['script_name'])) {
+          final r = await admin.updateBrokerageSettings(id: item['id'], type: _selectedType, exchangeName: _selectedExchange, scriptName: item['script_name'], brkValue: value);
+          r.statusCode == 200 ? ok++ : fail++;
         }
       }
+      if (mounted) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Updated $ok${fail > 0 ? ", $fail failed" : ""}'), backgroundColor: const Color(0xFF10B981))); _amountCtrl.clear(); _selected.clear(); _fetch(); }
+    } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'))); }
+  }
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Updated $successCount items${failCount > 0 ? ", $failCount failed" : ""}')),
-        );
-        _amountController.clear();
-        _selectedItems.clear();
-        _fetchBrokerageSettings();
-      }
-    } catch (e) {
-      log('   ❌ Error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    }
+  void _toggleAll() {
+    final allSelected = _items.every((i) => _selected[i['script_name']] == true);
+    setState(() { for (var i in _items) { _selected[i['script_name']] = !allSelected; } });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FC),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Icon(Icons.arrow_back, color: Colors.black),
-                  ),
-                  SizedBox(width: 12),
-                  Text(
-                    'Brokerage Setting',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 16,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Spacer(),
-                  FutureBuilder<String?>(
-                    future: SecureStorageService().getRole(),
-                    builder: (context, snapshot) {
-                      final isAdmin = snapshot.data == 'ADMIN';
-                      if (!isAdmin) return const SizedBox.shrink();
-                      
-                      return GestureDetector(
-                        onTap: () async {
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const CreateBrokerageView()),
-                          );
-                          // Refresh list after returning from create view
-                          if (_selectedExchange != null) {
-                            _fetchBrokerageSettings();
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: ShapeDecoration(
-                            color: const Color(0xFF22547C),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.add, color: Colors.white, size: 18),
-                              SizedBox(width: 4),
-                              Text(
-                                'CREATE',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: SafeArea(child: Column(children: [
+        // Header
+        Padding(padding: const EdgeInsets.all(16), child: Row(children: [
+          GestureDetector(onTap: () => Navigator.pop(context),
+            child: Container(width: 40, height: 40, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
+              child: const Icon(Icons.arrow_back, color: Colors.black, size: 20))),
+          const SizedBox(width: 12),
+          const Expanded(child: Text('Brokerage Settings', style: TextStyle(color: Colors.black, fontSize: 18, fontFamily: 'Inter', fontWeight: FontWeight.w600))),
+          if (_isAdmin) GestureDetector(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateBrokerageView())).then((_) { if (_selectedExchange != null) _fetch(); }),
+            child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(color: const Color(0xFF22547C), borderRadius: BorderRadius.circular(10)),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.add, color: Colors.white, size: 16), SizedBox(width: 4), Text('Create', style: TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w600))])),
+          ),
+        ])),
 
-            // Two Dropdowns Side by Side
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      height: 48,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: ShapeDecoration(
-                        color: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(width: 1, color: const Color(0xFFC7C7CC)),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _selectedExchange,
-                          hint: Text(
-                            'Select Exchange',
-                            style: TextStyle(
-                              color: const Color(0xFF8E8E93),
-                              fontSize: 16,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                          isExpanded: true,
-                          icon: Icon(Icons.keyboard_arrow_down, color: const Color(0xFF8E8E93)),
-                          items: _exchanges.map((exchange) {
-                            return DropdownMenuItem(
-                              value: exchange,
-                              child: Text(exchange),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedExchange = value;
-                            });
-                            _fetchBrokerageSettings();
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 13),
-                  Expanded(
-                    child: Container(
-                      height: 48,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: ShapeDecoration(
-                        color: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(width: 1, color: const Color(0xFFC7C7CC)),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _selectedType,
-                          isExpanded: true,
-                          icon: Icon(Icons.keyboard_arrow_down, color: const Color(0xFF8E8E93)),
-                          items: _types.map((type) {
-                            return DropdownMenuItem(
-                              value: type,
-                              child: Text(type),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() {
-                                _selectedType = value;
-                              });
-                              _fetchBrokerageSettings();
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+        // Dropdowns
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [
+          Expanded(child: _dropdown(_selectedExchange, ['__hint__', ..._exchanges], (v) { setState(() => _selectedExchange = v == '__hint__' ? null : v); _fetch(); }, displayMap: {'__hint__': 'Exchange'})),
+          const SizedBox(width: 8),
+          Expanded(child: _dropdown(_selectedType, _types, (v) { setState(() => _selectedType = v!); _fetch(); })),
+        ])),
+        const SizedBox(height: 8),
 
-            SizedBox(height: 8),
+        // Value + Apply
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [
+          Expanded(child: Container(height: 42,
+            decoration: BoxDecoration(color: Colors.white, borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), bottomLeft: Radius.circular(12)), border: Border.all(color: const Color(0xFFE2E8F0))),
+            child: TextField(controller: _amountCtrl, keyboardType: TextInputType.number,
+              style: const TextStyle(fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+              decoration: const InputDecoration(hintText: 'Value', hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, fontFamily: 'Inter'), contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12), border: InputBorder.none)),
+          )),
+          GestureDetector(onTap: _apply, child: Container(height: 42, padding: const EdgeInsets.symmetric(horizontal: 24),
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(color: Color(0xFF22547C), borderRadius: BorderRadius.only(topRight: Radius.circular(12), bottomRight: Radius.circular(12))),
+            child: const Text('Apply', style: TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600)))),
+        ])),
+        const SizedBox(height: 10),
 
-            // Amount Input and Apply Button
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      height: 48,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      decoration: ShapeDecoration(
-                        color: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          side: BorderSide(width: 1, color: const Color(0xFFD1D1D6)),
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(8),
-                            bottomLeft: Radius.circular(8),
-                          ),
-                        ),
-                      ),
-                      child: TextField(
-                        controller: _amountController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          hintText: 'Value',
-                          hintStyle: TextStyle(
-                            color: const Color(0xFF8E8E93),
-                            fontSize: 16,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
-                          ),
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 16,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ),
+        // Table header
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(10)),
+          child: Row(children: [
+            GestureDetector(onTap: _items.isNotEmpty ? _toggleAll : null, child: _headerCheck()),
+            const SizedBox(width: 10),
+            const Expanded(child: Text('SCRIPT', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.5))),
+            const Text('BRK VALUE', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+          ]),
+        )),
+        const SizedBox(height: 4),
+
+        // List
+        Expanded(child: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF22547C), strokeWidth: 2.5))
+          : _items.isEmpty
+            ? Center(child: Text(_selectedExchange == null ? 'Select an exchange' : 'No settings found', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter')))
+            : ListView.builder(padding: const EdgeInsets.symmetric(horizontal: 16), itemCount: _items.length, itemBuilder: (_, i) {
+                final item = _items[i];
+                final name = item['script_name'] as String;
+                final sel = _selected[name] ?? false;
+                return GestureDetector(
+                  onTap: () => setState(() => _selected[name] = !sel),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: const Color(0xFFF1F5F9), width: i < _items.length - 1 ? 1 : 0))),
+                    child: Row(children: [
+                      _checkCircle(sel), const SizedBox(width: 10),
+                      Expanded(child: Text(name, style: const TextStyle(color: Color(0xFF334155), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500))),
+                      Text('${item['brk_value']}', style: const TextStyle(color: Color(0xFF22547C), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w700)),
+                    ]),
                   ),
-                  GestureDetector(
-                    onTap: _applyBrokerage,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                      decoration: ShapeDecoration(
-                        color: const Color(0xFF22547C),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.only(
-                            topRight: Radius.circular(8),
-                            bottomRight: Radius.circular(8),
-                          ),
-                        ),
-                      ),
-                      child: Text(
-                        'APPLY',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
-                          height: 1.25,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            SizedBox(height: 16),
-
-            // Header Row
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 24,
-                        height: 24,
-                        decoration: ShapeDecoration(
-                          color: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            side: BorderSide(width: 2, color: const Color(0xFF8E8E93)),
-                            borderRadius: BorderRadius.circular(44),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 7),
-                      Text(
-                        'Script Name',
-                        style: TextStyle(
-                          color: const Color(0xFF8E8E93),
-                          fontSize: 12,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    'Brk Value',
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      color: const Color(0xFF8E8E93),
-                      fontSize: 12,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            SizedBox(height: 12),
-
-            // Brokerage Items List
-            Expanded(
-              child: _isLoading
-                  ? Center(
-                      child: CircularProgressIndicator(color: const Color(0xFF22547C)),
-                    )
-                  : _brokerageItems.isEmpty
-                      ? Center(
-                          child: Text(
-                            _selectedExchange == null
-                                ? 'Select an exchange to view brokerage settings'
-                                : 'No brokerage settings found for $_selectedExchange ($_selectedType)',
-                            style: TextStyle(
-                              color: const Color(0xFF8E8E93),
-                              fontSize: 16,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        )
-                      : ListView.builder(
-                          itemCount: _brokerageItems.length,
-                          itemBuilder: (context, index) {
-                            final item = _brokerageItems[index];
-                            final scriptName = item['script_name'];
-                            final isSelected = _selectedItems[scriptName] ?? false;
-                            
-                            return GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  _selectedItems[scriptName] = !isSelected;
-                                });
-                              },
-                              child: Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.all(16),
-                                decoration: ShapeDecoration(
-                                  color: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    side: BorderSide(width: 1, color: const Color(0xFFC7C7CC)),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Container(
-                                          width: 24,
-                                          height: 24,
-                                          decoration: ShapeDecoration(
-                                            color: isSelected ? const Color(0xFF22547C) : Colors.white,
-                                            shape: RoundedRectangleBorder(
-                                              side: BorderSide(
-                                                width: 2,
-                                                color: isSelected ? const Color(0xFF22547C) : const Color(0xFF8E8E93),
-                                              ),
-                                              borderRadius: BorderRadius.circular(44),
-                                            ),
-                                          ),
-                                          child: isSelected
-                                              ? Icon(Icons.check, size: 12, color: Colors.white)
-                                              : null,
-                                        ),
-                                        SizedBox(width: 7),
-                                        Text(
-                                          scriptName,
-                                          style: TextStyle(
-                                            color: Colors.black,
-                                            fontSize: 16,
-                                            fontFamily: 'Inter',
-                                            fontWeight: FontWeight.w400,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    Text(
-                                      item['brk_value'].toString(),
-                                      style: TextStyle(
-                                        color: Colors.black,
-                                        fontSize: 16,
-                                        fontFamily: 'Inter',
-                                        fontWeight: FontWeight.w400,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-            ),
-          ],
+                );
+              }),
         ),
-      ),
+      ])),
     );
+  }
+
+  Widget _dropdown(String? value, List<String> items, ValueChanged<String?> onChanged, {Map<String, String>? displayMap}) {
+    return Container(height: 42, padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
+      child: DropdownButtonHideUnderline(child: DropdownButton<String>(
+        value: items.contains(value) ? value : items.first,
+        isExpanded: true, icon: const Icon(Icons.keyboard_arrow_down, size: 18, color: Color(0xFF94A3B8)),
+        style: const TextStyle(color: Colors.black, fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+        items: items.map((k) => DropdownMenuItem(value: k, child: Text(displayMap?[k] ?? k, overflow: TextOverflow.ellipsis))).toList(),
+        onChanged: onChanged,
+      )),
+    );
+  }
+
+  Widget _headerCheck() {
+    final all = _items.isNotEmpty && _items.every((i) => _selected[i['script_name']] == true);
+    return Container(width: 20, height: 20,
+      decoration: BoxDecoration(color: all ? const Color(0xFF22547C) : Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: all ? const Color(0xFF22547C) : const Color(0xFFCBD5E1), width: 1.5)),
+      child: all ? const Icon(Icons.check, size: 12, color: Colors.white) : null);
+  }
+
+  Widget _checkCircle(bool sel) {
+    return Container(width: 20, height: 20,
+      decoration: BoxDecoration(color: sel ? const Color(0xFF22547C) : Colors.white, borderRadius: BorderRadius.circular(6), border: Border.all(color: sel ? const Color(0xFF22547C) : const Color(0xFFCBD5E1), width: 1.5)),
+      child: sel ? const Icon(Icons.check, size: 12, color: Colors.white) : null);
   }
 }

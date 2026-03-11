@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
@@ -9,12 +11,20 @@ import 'package:stocker/services/auth_service.dart';
 import 'package:stocker/services/user_service.dart';
 import 'package:stocker/services/kite_service.dart';
 import 'package:stocker/services/navigation_service.dart';
+import 'package:stocker/services/firebase_service.dart';
+import 'package:stocker/firebase_options.dart';
 import 'package:stocker/utils/contants.dart';
 import 'package:stocker/pages/login_page.dart';
 import 'initial_sheet.dart';
 import 'dart:developer';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  await FirebaseService().init();
   log('🚀 Starting Stocker App');
   log('   Backend URL: $backendUrl');
   runApp(const MyApp());

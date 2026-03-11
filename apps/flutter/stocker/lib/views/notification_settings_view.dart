@@ -1,159 +1,159 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
+import '../services/sercure_storage_service.dart';
+import '../utils/contants.dart';
 
-class NotificationSettingsView extends StatelessWidget {
+class NotificationSettingsView extends StatefulWidget {
   const NotificationSettingsView({super.key});
+  @override
+  State<NotificationSettingsView> createState() => _NotificationSettingsViewState();
+}
+
+class _NotificationSettingsViewState extends State<NotificationSettingsView> {
+  bool _isLoading = true;
+  bool _isSaving = false;
+
+  // Settings map — keys match backend field names
+  final Map<String, bool> _settings = {
+    'market_order': false,
+    'pending_order': true,
+    'admin_order_execution': false,
+    'admin_order_deletion': true,
+    'trading_sound': false,
+  };
+
+  // Display labels
+  static const _labels = {
+    'market_order': 'Market Order',
+    'pending_order': 'Pending Order',
+    'admin_order_execution': 'Admin Order Execution',
+    'admin_order_deletion': 'Admin Order Deletion',
+    'trading_sound': 'Trading Sound',
+  };
+
+  @override
+  void initState() { super.initState(); _fetch(); }
+
+  Future<void> _fetch() async {
+    setState(() => _isLoading = true);
+    try {
+      final token = await SecureStorageService().getToken();
+      final res = await ApiService(backendUrl).get('/auth/notification-settings', token: token);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['success'] == true) {
+          final ns = data['data']['notification_settings'] as Map<String, dynamic>;
+          for (var key in _settings.keys) {
+            if (ns.containsKey(key)) _settings[key] = ns[key] == true;
+          }
+        }
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  Future<void> _save() async {
+    setState(() => _isSaving = true);
+    try {
+      final token = await SecureStorageService().getToken();
+      final res = await ApiService(backendUrl).put('/auth/notification-settings', {'notification_settings': _settings}, token: token);
+      final data = jsonDecode(res.body);
+      if (res.statusCode == 200 && data['success'] == true) {
+        _snack('Settings updated');
+      } else {
+        _snack(data['message'] ?? 'Failed', isError: true);
+      }
+    } catch (e) { _snack('Error: $e', isError: true); }
+    if (mounted) setState(() => _isSaving = false);
+  }
+
+  void _reset() {
+    setState(() {
+      _settings['market_order'] = false;
+      _settings['pending_order'] = true;
+      _settings['admin_order_execution'] = false;
+      _settings['admin_order_deletion'] = true;
+      _settings['trading_sound'] = false;
+    });
+  }
+
+  void _snack(String msg, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: isError ? const Color(0xFFEF4444) : const Color(0xFF10B981)));
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FC),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Icon(Icons.arrow_back, size: 24, color: Colors.black),
-                  ),
-                  SizedBox(width: 12),
-                  Text(
-                    'Notification Setting',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 16,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: SafeArea(child: Column(children: [
+        // Header
+        Padding(padding: const EdgeInsets.all(16), child: Row(children: [
+          GestureDetector(onTap: () => Navigator.pop(context),
+            child: Container(width: 40, height: 40,
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
+              child: const Icon(Icons.arrow_back, color: Colors.black, size: 20))),
+          const SizedBox(width: 12),
+          const Text('Notification Settings', style: TextStyle(color: Colors.black, fontSize: 18, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+        ])),
 
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: ShapeDecoration(
-                    color: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      _buildToggleItem('Market Order', false),
-                      SizedBox(height: 16),
-                      _buildToggleItem('Pending Order', true),
-                      SizedBox(height: 16),
-                      _buildToggleItem('Execute Pending Order', false),
-                      SizedBox(height: 16),
-                      _buildToggleItem('Delete Pending Order', true),
-                      SizedBox(height: 16),
-                      _buildToggleItem('Trading Sound', false),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // Bottom buttons
-            Container(
+        Expanded(child: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF22547C), strokeWidth: 2.5))
+          : SingleChildScrollView(padding: const EdgeInsets.symmetric(horizontal: 16), child: Container(
               padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      decoration: ShapeDecoration(
-                        color: const Color(0xFFD1D1D6),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Text(
-                        'RESET',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 16,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 16),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
-                      decoration: ShapeDecoration(
-                        color: const Color(0xFF22547C),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Text(
-                        'UPDATE',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
+              child: Column(children: _settings.keys.map((key) {
+                final isLast = key == _settings.keys.last;
+                return Column(children: [
+                  _toggleRow(_labels[key]!, _settings[key]!, (v) => setState(() => _settings[key] = v)),
+                  if (!isLast) const Divider(height: 24, color: Color(0xFFF1F5F9)),
+                ]);
+              }).toList()),
+            )),
         ),
-      ),
+
+        // Bottom buttons
+        Padding(padding: const EdgeInsets.all(16), child: Row(children: [
+          Expanded(child: GestureDetector(
+            onTap: _reset,
+            child: Container(height: 48, alignment: Alignment.center,
+              decoration: BoxDecoration(color: const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(12)),
+              child: const Text('RESET', style: TextStyle(color: Color(0xFF334155), fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600))),
+          )),
+          const SizedBox(width: 12),
+          Expanded(child: GestureDetector(
+            onTap: _isSaving ? null : _save,
+            child: Container(height: 48, alignment: Alignment.center,
+              decoration: BoxDecoration(color: const Color(0xFF22547C), borderRadius: BorderRadius.circular(12)),
+              child: _isSaving
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Text('UPDATE', style: TextStyle(color: Colors.white, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600))),
+          )),
+        ])),
+      ])),
     );
   }
 
-  Widget _buildToggleItem(String title, bool isEnabled) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            color: const Color(0xFF2B2B2B),
-            fontSize: 16,
-            fontFamily: 'Inter',
-            fontWeight: FontWeight.w500,
+  Widget _toggleRow(String label, bool value, ValueChanged<bool> onChanged) {
+    return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+      Expanded(child: Text(label, style: const TextStyle(color: Color(0xFF334155), fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w500))),
+      GestureDetector(
+        onTap: () => onChanged(!value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 48, height: 28,
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(color: value ? const Color(0xFF22547C) : const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(14)),
+          child: AnimatedAlign(
+            duration: const Duration(milliseconds: 200),
+            alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+            child: Container(width: 22, height: 22, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
           ),
         ),
-        Container(
-          width: 40,
-          height: 25,
-          padding: const EdgeInsets.all(2),
-          decoration: ShapeDecoration(
-            color: isEnabled ? const Color(0xFF22547C) : const Color(0xFF8E8E93),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12.5),
-            ),
-          ),
-          child: Align(
-            alignment: isEnabled ? Alignment.centerRight : Alignment.centerLeft,
-            child: Container(
-              width: 23,
-              height: 23,
-              decoration: ShapeDecoration(
-                color: Colors.white,
-                shape: OvalBorder(),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
+      ),
+    ]);
   }
 }

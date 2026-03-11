@@ -16,6 +16,7 @@ import 'option_chain_view.dart';
 import 'market_depth_sheet.dart';
 import 'info_sheet.dart';
 import 'chart_view.dart';
+import 'package:stocker/services/trade_sound_service.dart';
 
 class TradeCardPage extends StatefulWidget {
   final WatchlistItem item;
@@ -37,7 +38,7 @@ class TradeCardPage extends StatefulWidget {
 class _TradeCardPageState extends State<TradeCardPage> {
   int _quantity = 100;
   int _selectedQuickQty = 100;
-  static const List<int> _quickQuantities = [100, 200, 500, 1000, 2000, 5000];
+  List<int> _quickQuantities = [100, 200, 500, 1000, 2000, 5000];
   String _orderType = 'Market Execution';
   final List<String> _orderTypes = [
     'Market Execution',
@@ -91,6 +92,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
   @override
   void initState() {
     super.initState();
+    _loadQuickQuantities();
     if (widget.initialQuantity != null) {
       _quantity = widget.initialQuantity!;
       _selectedQuickQty = _quickQuantities.contains(_quantity) ? _quantity : -1;
@@ -99,6 +101,18 @@ class _TradeCardPageState extends State<TradeCardPage> {
       _orderType = widget.initialOrderType!;
     }
     _qtyController.text = _quantity.toString();
+  }
+
+  Future<void> _loadQuickQuantities() async {
+    final vals = await SecureStorageService().getQuickQuantities();
+    if (mounted) {
+      setState(() {
+        _quickQuantities = vals;
+        if (!_quickQuantities.contains(_selectedQuickQty)) {
+          _selectedQuickQty = _quickQuantities.isNotEmpty ? _quickQuantities.first : -1;
+        }
+      });
+    }
   }
 
   @override
@@ -174,11 +188,13 @@ class _TradeCardPageState extends State<TradeCardPage> {
   Future<void> _handleTrade(String transactionType, double currentPrice) async {
     if (_isLoading) return;
 
-    // Check market hours
-    if (!MarketHours.isMarketOpen()) {
+    // Check market hours for this instrument's exchange
+    final _ex = widget.item.instrument.exchange;
+    final _sym = widget.item.instrument.tradingsymbol;
+    if (!MarketHours.isMarketOpen(exchange: _ex, tradingsymbol: _sym)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(MarketHours.getMarketStatusMessage()),
+          content: Text(MarketHours.getMarketStatusMessage(exchange: _ex, tradingsymbol: _sym)),
           backgroundColor: const Color(0xFFEF4444),
         ),
       );
@@ -249,6 +265,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
       );
 
       if (result.$1) {
+        // Play trade bell sound if enabled
+        TradeSoundService().playIfEnabled();
         // Refresh positions and wait for data before navigating back
         await Provider.of<TradeMetricsProvider>(context, listen: false)
             .fetchBaseData();
@@ -475,7 +493,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
             // User selection dropdown
             Consumer<UserProfileProvider>(
               builder: (context, userProfile, child) {
-                if (userProfile.isUser) {
+                if (userProfile.isUser || userProfile.isMaster) {
                   return const SizedBox.shrink();
                 }
                 return Column(
@@ -770,19 +788,20 @@ class _TradeCardPageState extends State<TradeCardPage> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Quick quantity buttons
-                  Row(
-                    children: _quickQuantities.map((qty) {
-                      final isSelected = _selectedQuickQty == qty;
-                      return Expanded(
-                        child: GestureDetector(
+                  // Quick quantity buttons (horizontally scrollable)
+                  SizedBox(
+                    height: 38,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _quickQuantities.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 6),
+                      itemBuilder: (_, i) {
+                        final qty = _quickQuantities[i];
+                        final isSelected = _selectedQuickQty == qty;
+                        return GestureDetector(
                           onTap: () => _setQuantity(qty),
                           child: Container(
-                            margin: EdgeInsets.only(
-                              left: qty == _quickQuantities.first ? 0 : 3,
-                              right: qty == _quickQuantities.last ? 0 : 3,
-                            ),
-                            padding: const EdgeInsets.all(10),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                             decoration: ShapeDecoration(
                               color: isSelected
                                   ? const Color(0xFF22547C)
@@ -790,27 +809,22 @@ class _TradeCardPageState extends State<TradeCardPage> {
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(6)),
                             ),
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.center,
-                              child: Text(
-                                '$qty',
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                                style: TextStyle(
-                                  color: isSelected
-                                      ? const Color(0xFFF9F9F9)
-                                      : Colors.black,
-                                  fontSize: 14,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w400,
-                                ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '$qty',
+                              style: TextStyle(
+                                color: isSelected
+                                    ? const Color(0xFFF9F9F9)
+                                    : Colors.black,
+                                fontSize: 14,
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w400,
                               ),
                             ),
                           ),
-                        ),
-                      );
-                    }).toList(),
+                        );
+                      },
+                    ),
                   ),
                   const SizedBox(height: 14),
 
@@ -1108,7 +1122,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
             // Market closed warning
             Builder(
               builder: (context) {
-                if (MarketHours.isMarketOpen()) return const SizedBox.shrink();
+                final ex = widget.item.instrument.exchange;
+                final sym = widget.item.instrument.tradingsymbol;
+                if (MarketHours.isMarketOpen(exchange: ex, tradingsymbol: sym)) return const SizedBox.shrink();
                 return Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1122,7 +1138,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          MarketHours.getMarketStatusMessage(),
+                          MarketHours.getMarketStatusMessage(exchange: ex, tradingsymbol: sym),
                           style: const TextStyle(
                             color: Color(0xFFEF4444),
                             fontSize: 12,

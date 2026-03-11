@@ -4,11 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/services/navigation_service.dart';
+import 'package:stocker/services/firebase_service.dart';
 
 class ApiService {
   final String baseUrl;
   final SecureStorageService _storage = SecureStorageService();
-  bool _isInitializing = false;
+  static bool _isInitializing = false;
   static bool _isHandling401 = false;
 
   ApiService(this.baseUrl);
@@ -20,9 +21,16 @@ class ApiService {
   }
 
   Future<void> _handleUnauthorized() async {
-    // Don't handle 401 during login flow
+    // Don't handle 401 during login/initialization flow
     if (_isInitializing) {
       log('⚠️  401 during initialization - ignoring');
+      return;
+    }
+
+    // If there's no token stored, we're already logged out — skip
+    final existingToken = await _storage.getToken();
+    if (existingToken == null) {
+      log('⚠️  401 but no token stored - already logged out, ignoring');
       return;
     }
 
@@ -33,6 +41,11 @@ class ApiService {
     log('🚨 401 Unauthorized - session expired or logged in elsewhere');
 
     try {
+      // Unregister FCM token before clearing credentials
+      try {
+        await FirebaseService().unregisterToken();
+      } catch (_) {}
+
       // Clear all stored data
       await _storage.deleteToken();
       await _storage.deleteRole();
@@ -167,19 +180,21 @@ class ApiService {
     }
   }
 
-  Future<http.Response> delete(String endpoint, {String? token}) async {
+  Future<http.Response> delete(String endpoint, {String? token, dynamic body}) async {
     final url = "$baseUrl/api$endpoint";
     log('📡 DELETE Request');
     log('   URL: $url');
     log('   Has Token: ${token != null}');
 
     try {
-      final response = await http
-          .delete(
-            Uri.parse(url),
-            headers: _defaultHeaders(token: token),
-          )
-          .timeout(const Duration(seconds: 10));
+      final request = http.Request('DELETE', Uri.parse(url));
+      request.headers.addAll(_defaultHeaders(token: token));
+      if (body != null) {
+        request.body = jsonEncode(body);
+      }
+
+      final streamedResponse = await request.send().timeout(const Duration(seconds: 10));
+      final response = await http.Response.fromStream(streamedResponse);
 
       log('   ✅ Response: ${response.statusCode}');
       log('   Body: ${response.body}');

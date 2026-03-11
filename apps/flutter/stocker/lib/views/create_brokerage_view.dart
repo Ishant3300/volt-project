@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
@@ -9,7 +8,6 @@ import '../models/kite_instrument.dart';
 
 class CreateBrokerageView extends StatefulWidget {
   const CreateBrokerageView({super.key});
-
   @override
   State<CreateBrokerageView> createState() => _CreateBrokerageViewState();
 }
@@ -17,362 +15,154 @@ class CreateBrokerageView extends StatefulWidget {
 class _CreateBrokerageViewState extends State<CreateBrokerageView> {
   String _selectedExchange = 'NSE';
   String _selectedType = 'TURNOVER WISE';
-  final List<String> _exchanges = ['NSE', 'MCX', 'SGX', 'CALLPUT', 'OTHERS', 'MCX-OPT'];
-  final List<String> _types = ['TURNOVER WISE', 'LOT WISE'];
-  
-  final TextEditingController _searchController = TextEditingController();
-  List<KiteInstrument> _searchResults = [];
+  final _exchanges = ['NSE', 'MCX', 'SGX', 'CALLPUT', 'OTHERS', 'MCX-OPT'];
+  final _types = ['TURNOVER WISE', 'LOT WISE'];
+  final _searchCtrl = TextEditingController();
+  List<KiteInstrument> _results = [];
   bool _isSearching = false;
 
   @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
+  void dispose() { _searchCtrl.dispose(); super.dispose(); }
 
-  Future<void> _searchInstruments(String query) async {
-    if (query.isEmpty) {
-      setState(() {
-        _searchResults = [];
-      });
-      return;
-    }
-
-    log('🔍 Searching instruments: $query for exchange: $_selectedExchange');
-    setState(() {
-      _isSearching = true;
-    });
-
+  Future<void> _search(String q) async {
+    if (q.isEmpty) { setState(() => _results = []); return; }
+    setState(() => _isSearching = true);
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
-      final kiteService = KiteService(apiService);
-      
-      final results = await kiteService.searchInstruments(
-        query,
-        exchange: _selectedExchange,
-      );
-
-      log('   Found ${results.length} instruments');
-      setState(() {
-        _searchResults = results
-            .map((json) => KiteInstrument.fromJson(json))
-            .toList();
-        _isSearching = false;
-      });
-    } catch (e) {
-      log('   ❌ Error searching: $e');
-      setState(() {
-        _isSearching = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error searching instruments: $e')),
-        );
-      }
-    }
+      final results = await KiteService(apiService).searchInstruments(q, exchange: _selectedExchange);
+      setState(() { _results = results.map((j) => KiteInstrument.fromJson(j)).toList(); _isSearching = false; });
+    } catch (e) { setState(() => _isSearching = false); }
   }
 
-  void _showAddBrokerageDialog(KiteInstrument instrument) {
-    final TextEditingController valueController = TextEditingController();
+  void _showAddDialog(KiteInstrument inst) {
+    final valueCtrl = TextEditingController();
     String localType = _selectedType;
-    bool isAdding = false;
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text('Add Brokerage Setting'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                instrument.tradingsymbol,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              SizedBox(height: 16),
-              Text('Type'),
-              SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: localType,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-                items: _types.map((type) {
-                  return DropdownMenuItem(
-                    value: type,
-                    child: Text(type),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setDialogState(() {
-                      localType = value;
-                    });
-                  }
-                },
-              ),
-              SizedBox(height: 16),
-              TextField(
-                controller: valueController,
-                keyboardType: TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  labelText: 'Brokerage Value',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: isAdding ? null : () => Navigator.pop(context),
-              child: Text('CANCEL'),
-            ),
-            ElevatedButton(
-              onPressed: isAdding ? null : () async {
-                final value = double.tryParse(valueController.text);
-                if (value == null || value <= 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Please enter a valid value')),
-                  );
-                  return;
-                }
-
-                setDialogState(() {
-                  isAdding = true;
-                });
-
-                log('➕ Creating brokerage setting: ${instrument.tradingsymbol} - $value $localType');
-
-                try {
-                  final apiService = Provider.of<ApiService>(context, listen: false);
-                  final adminService = AdminService(apiService);
-
-                  final response = await adminService.createBrokerageSettings(
-                    type: localType,
-                    exchangeName: _selectedExchange,
-                    scriptName: instrument.tradingsymbol,
-                    brkValue: value,
-                  );
-
-                  log('   Response status: ${response.statusCode}');
-                  log('   Response body: ${response.body}');
-
-                  setDialogState(() {
-                    isAdding = false;
-                  });
-
-                  if (response.statusCode == 201) {
-                    log('   ✅ Brokerage setting created successfully');
-                    if (!mounted) return;
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Brokerage setting created successfully')),
-                    );
-                  } else {
-                    final data = jsonDecode(response.body);
-                    log('   ❌ Failed to create: ${data['message']}');
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(data['message'] ?? 'Failed to create brokerage setting')),
-                      );
-                    }
-                  }
-                } catch (e, stackTrace) {
-                  log('   ❌ Error: $e');
-                  log('   Stack trace: $stackTrace');
-                  setDialogState(() {
-                    isAdding = false;
-                  });
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error: $e')),
-                    );
-                  }
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF22547C),
-              ),
-              child: isAdding
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : Text('ADD', style: TextStyle(color: Colors.white)),
-            ),
-          ],
+    bool adding = false;
+    showDialog(context: context, builder: (ctx) => StatefulBuilder(builder: (ctx, setD) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: const Text('Add Brokerage', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600, fontSize: 16)),
+      content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(inst.tradingsymbol, style: const TextStyle(color: Color(0xFF22547C), fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: -0.3)),
+        const SizedBox(height: 14),
+        _dialogDropdown(localType, _types, (v) => setD(() => localType = v!)),
+        const SizedBox(height: 12),
+        _dialogField(valueCtrl, 'Brokerage value'),
+      ]),
+      actions: [
+        TextButton(onPressed: adding ? null : () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8), fontFamily: 'Inter'))),
+        GestureDetector(
+          onTap: adding ? null : () async {
+            final v = double.tryParse(valueCtrl.text);
+            if (v == null || v <= 0) return;
+            setD(() => adding = true);
+            try {
+              final apiService = Provider.of<ApiService>(ctx, listen: false);
+              final r = await AdminService(apiService).createBrokerageSettings(type: localType, exchangeName: _selectedExchange, scriptName: inst.tradingsymbol, brkValue: v);
+              setD(() => adding = false);
+              if (r.statusCode == 201) { if (ctx.mounted) Navigator.pop(ctx); if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Created'), backgroundColor: Color(0xFF10B981))); }
+              else { final d = jsonDecode(r.body); if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(d['message'] ?? 'Failed'), backgroundColor: const Color(0xFFEF4444))); }
+            } catch (e) { setD(() => adding = false); }
+          },
+          child: Container(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(color: const Color(0xFF22547C), borderRadius: BorderRadius.circular(10)),
+            child: adding
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Text('Add', style: TextStyle(color: Colors.white, fontFamily: 'Inter', fontWeight: FontWeight.w600, fontSize: 13))),
         ),
-      ),
-    );
+      ],
+    )));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FC),
+      backgroundColor: const Color(0xFFF8FAFC),
       resizeToAvoidBottomInset: true,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Icon(Icons.arrow_back, color: Colors.black),
-                    ),
-                    SizedBox(width: 12),
-                    Text(
-                      'Create Brokerage Setting',
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 16,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+      body: SafeArea(child: Column(children: [
+        // Header
+        Padding(padding: const EdgeInsets.all(16), child: Row(children: [
+          GestureDetector(onTap: () => Navigator.pop(context),
+            child: Container(width: 40, height: 40, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
+              child: const Icon(Icons.arrow_back, color: Colors.black, size: 20))),
+          const SizedBox(width: 12),
+          const Text('Create Brokerage', style: TextStyle(color: Colors.black, fontSize: 18, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+        ])),
 
-              // Exchange Selector
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.all(16),
-                decoration: ShapeDecoration(
-                  color: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Select Exchange',
-                      style: TextStyle(
-                        color: const Color(0xFF8E8E93),
-                        fontSize: 12,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: _selectedExchange,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      ),
-                      items: _exchanges.map((exchange) {
-                        return DropdownMenuItem(
-                          value: exchange,
-                          child: Text(exchange),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() {
-                            _selectedExchange = value;
-                            _searchResults = [];
-                            _searchController.clear();
-                          });
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
+        // Exchange chips
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: SizedBox(height: 36,
+          child: ListView.separated(scrollDirection: Axis.horizontal, itemCount: _exchanges.length, separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, i) {
+              final ex = _exchanges[i]; final sel = ex == _selectedExchange;
+              return GestureDetector(
+                onTap: () { setState(() { _selectedExchange = ex; _results = []; _searchCtrl.clear(); }); },
+                child: Container(padding: const EdgeInsets.symmetric(horizontal: 16), alignment: Alignment.center,
+                  decoration: BoxDecoration(color: sel ? const Color(0xFF22547C) : Colors.white, borderRadius: BorderRadius.circular(10), border: sel ? null : Border.all(color: const Color(0xFFE2E8F0))),
+                  child: Text(ex, style: TextStyle(color: sel ? Colors.white : const Color(0xFF64748B), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600))),
+              );
+            }),
+        )),
+        const SizedBox(height: 12),
 
-              SizedBox(height: 16),
+        // Search
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Container(height: 42,
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
+          child: TextField(controller: _searchCtrl, onChanged: _search,
+            style: const TextStyle(fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+            decoration: InputDecoration(
+              hintText: 'Search instruments...', hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, fontFamily: 'Inter'),
+              prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFF94A3B8)),
+              suffixIcon: _isSearching ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF22547C)))) : null,
+              contentPadding: const EdgeInsets.symmetric(vertical: 12), border: InputBorder.none)),
+        )),
+        const SizedBox(height: 8),
 
-              // Search Instruments
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: ShapeDecoration(
-                  color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    side: BorderSide(width: 1, color: const Color(0xFFD1D1D6)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+        // Results
+        Expanded(child: _results.isEmpty
+          ? const Center(child: Text('Search for an instrument to add', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter')))
+          : ListView.builder(padding: const EdgeInsets.symmetric(horizontal: 16), itemCount: _results.length, itemBuilder: (_, i) {
+              final inst = _results[i];
+              return GestureDetector(
+                onTap: () => _showAddDialog(inst),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
+                  child: Row(children: [
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(inst.tradingsymbol, style: const TextStyle(color: Color(0xFF22547C), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: -0.3)),
+                      if (inst.name.isNotEmpty) Text(inst.name, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontFamily: 'Inter')),
+                    ])),
+                    const Icon(Icons.add_circle_outline, size: 20, color: Color(0xFF22547C)),
+                  ]),
                 ),
-                child: Row(
-                  children: [
-                    Icon(Icons.search, size: 24, color: const Color(0xFF8E8E93)),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Search instruments...',
-                          border: InputBorder.none,
-                          hintStyle: TextStyle(
-                            color: const Color(0xFF8E8E93),
-                            fontSize: 16,
-                          ),
-                        ),
-                        onChanged: (value) {
-                          _searchInstruments(value);
-                        },
-                      ),
-                    ),
-                    if (_isSearching)
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: const Color(0xFF22547C),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-
-              SizedBox(height: 8),
-
-              // Search Results
-              if (_searchResults.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  constraints: BoxConstraints(maxHeight: 200),
-                  decoration: ShapeDecoration(
-                    color: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: _searchResults.length,
-                    itemBuilder: (context, index) {
-                      final instrument = _searchResults[index];
-                      return ListTile(
-                        title: Text(instrument.tradingsymbol),
-                        subtitle: Text(instrument.name),
-                        onTap: () {
-                          _showAddBrokerageDialog(instrument);
-                        },
-                      );
-                    },
-                  ),
-                ),
-
-              SizedBox(height: 16),
-            ],
-          ),
+              );
+            }),
         ),
-      ),
+      ])),
     );
+  }
+
+  Widget _dialogDropdown(String value, List<String> items, ValueChanged<String?> onChanged) {
+    return Container(height: 42, padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))),
+      child: DropdownButtonHideUnderline(child: DropdownButton<String>(
+        value: value, isExpanded: true, icon: const Icon(Icons.keyboard_arrow_down, size: 18, color: Color(0xFF94A3B8)),
+        style: const TextStyle(color: Colors.black, fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+        items: items.map((k) => DropdownMenuItem(value: k, child: Text(k))).toList(), onChanged: onChanged,
+      )),
+    );
+  }
+
+  Widget _dialogField(TextEditingController ctrl, String hint) {
+    return TextField(controller: ctrl, keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      style: const TextStyle(fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+      decoration: InputDecoration(hintText: hint, hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, fontFamily: 'Inter'),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), filled: true, fillColor: const Color(0xFFF8FAFC),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF22547C), width: 1.5))));
   }
 }

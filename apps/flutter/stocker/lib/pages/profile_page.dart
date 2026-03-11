@@ -13,6 +13,7 @@ import '../services/multi_account_service.dart';
 import '../providers/user_profile_provider.dart';
 import '../providers/trade_metrics_provider.dart';
 import '../pages/login_page.dart';
+import '../services/firebase_service.dart';
 import '../pages/account_switcher_sheet.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -81,6 +82,9 @@ class _ProfilePageState extends State<ProfilePage> {
       final profileProvider =
           Provider.of<UserProfileProvider>(context, listen: false);
       final role = await _storage.getRole();
+
+      // Unregister FCM token before logout
+      await FirebaseService().unregisterToken();
 
       // Call logout API
       await authService.logout(role: role ?? 'USER');

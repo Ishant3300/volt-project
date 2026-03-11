@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/services/auth_service.dart';
+import 'package:stocker/services/api_service.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
+import 'package:stocker/services/firebase_service.dart';
 import '../home_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -44,11 +46,13 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
+      final apiService = Provider.of<ApiService>(context, listen: false);
       final authData = AuthenticateData(
         username: _usernameController.text.trim(),
         password: _passwordController.text,
       );
 
+      apiService.setInitializing(true);
       final response = await authService.login(data: authData);
 
       if (mounted) {
@@ -68,11 +72,17 @@ class _LoginPageState extends State<LoginPage> {
           final tradeMetricsProvider = Provider.of<TradeMetricsProvider>(context, listen: false);
           await tradeMetricsProvider.fetchBaseData();
 
+          // Register FCM token with backend
+          await FirebaseService().registerToken();
+
+          apiService.setInitializing(false);
+
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const MyHomePage(title: 'Stocker App')),
           );
         } else {
+          apiService.setInitializing(false);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(response.message), backgroundColor: Colors.red),
           );
@@ -80,6 +90,7 @@ class _LoginPageState extends State<LoginPage> {
       }
     } catch (e) {
       if (mounted) {
+        Provider.of<ApiService>(context, listen: false).setInitializing(false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Login failed: ${e.toString()}'), backgroundColor: Colors.red),
         );
