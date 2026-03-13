@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../services/admin_service.dart';
@@ -11,11 +14,27 @@ class AddInstrumentToLotView extends StatefulWidget {
   final String exchange;
   final String lotName;
 
+  // Edit mode parameters (optional)
+  final String? existingId;
+  final String? existingInstrumentId;
+  final String? existingInstrumentSymbol;
+  final double? existingMaxQty;
+  final double? existingBreakQty;
+  final double? existingLotSize;
+
   const AddInstrumentToLotView({
     super.key,
     required this.exchange,
     required this.lotName,
+    this.existingId,
+    this.existingInstrumentId,
+    this.existingInstrumentSymbol,
+    this.existingMaxQty,
+    this.existingBreakQty,
+    this.existingLotSize,
   });
+
+  bool get isEditMode => existingId != null;
 
   @override
   State<AddInstrumentToLotView> createState() => _AddInstrumentToLotViewState();
@@ -26,11 +45,49 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
   final TextEditingController _maxQtyController = TextEditingController();
   final TextEditingController _breakQtyController = TextEditingController();
   final TextEditingController _lotSizeController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  final ScrollController _scrollController = ScrollController();
 
-  List<KiteInstrument> _searchResults = [];
+  List<Map<String, dynamic>> _groupedResults = [];
+  List<dynamic> _allItems = [];
   KiteInstrument? _selectedInstrument;
   bool _isSearching = false;
   bool _isAdding = false;
+  Timer? _debounceTimer;
+  int _totalResults = 0;
+
+  static const int _fetchLimit = 200;
+  static const int _pageSize = 50;
+  int _displayCount = _pageSize;
+
+  static const Map<String, Color> typeColors = {
+    'FUT': Color(0xFF3B82F6),
+    'CE': Color(0xFF10B981),
+    'PE': Color(0xFFEF4444),
+    'EQ': Color(0xFF64748B),
+    'IDX': Color(0xFF8B5CF6),
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+
+    // Pre-populate fields if in edit mode
+    if (widget.isEditMode) {
+      _maxQtyController.text = widget.existingMaxQty?.toStringAsFixed(0) ?? '';
+      _breakQtyController.text =
+          widget.existingBreakQty?.toStringAsFixed(0) ?? '';
+      _lotSizeController.text =
+          widget.existingLotSize?.toStringAsFixed(0) ?? '';
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!widget.isEditMode) {
+        _searchFocusNode.requestFocus();
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -38,48 +95,173 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
     _maxQtyController.dispose();
     _breakQtyController.dispose();
     _lotSizeController.dispose();
+    _searchFocusNode.dispose();
+    _scrollController.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
-  Future<void> _searchInstruments(String query) async {
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      if (_displayCount < _allItems.length) {
+        setState(() {
+          _displayCount =
+              (_displayCount + _pageSize).clamp(0, _allItems.length);
+          _groupedResults =
+              _buildGroupsFromItems(_allItems.take(_displayCount).toList());
+        });
+      }
+    }
+  }
+
+  void _onSearchChanged(String query) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 400), () {
+      _performSearch(query);
+    });
+  }
+
+  Future<void> _performSearch(String query) async {
     if (query.isEmpty) {
       setState(() {
-        _searchResults = [];
+        _groupedResults = [];
+        _allItems = [];
+        _displayCount = _pageSize;
+        _totalResults = 0;
+        _isSearching = false;
       });
       return;
     }
 
-    log('🔍 Searching instruments: $query');
-    setState(() {
-      _isSearching = true;
-    });
+    setState(() => _isSearching = true);
 
     try {
-      final apiService = Provider.of<ApiService>(context, listen: false);
-      final kiteService = KiteService(apiService);
-      
-      final results = await kiteService.searchInstruments(
+      final kiteService = Provider.of<KiteService>(context, listen: false);
+
+      // Map exchange (now segment) to category for smart search
+      String category = 'ALL';
+      if (widget.exchange == 'MCX-FUT' || widget.exchange == 'MCX') {
+        category = 'MCX-FUT';
+      } else if (widget.exchange == 'MCX-OPT') {
+        category = 'MCX-OPT';
+      } else if (widget.exchange == 'NFO-FUT' || widget.exchange == 'NFO') {
+        category = 'NSE-FUT';
+      } else if (widget.exchange == 'NFO-OPT') {
+        category = 'NSE-OPT';
+      } else if (widget.exchange == 'INDICES') {
+        category = 'NSEIX';
+      } else if (widget.exchange == 'NSE') {
+        category =
+            'NSE-FUT'; // Default for NSE EQ if needed, or better define a category
+      }
+
+      final result = await kiteService.smartSearchInstruments(
         query,
-        exchange: widget.exchange,
+        category: category,
+        limit: _fetchLimit,
       );
 
+      if (!mounted || _searchController.text != query) return;
+
+      final groups = result['groups'] as List<dynamic>? ?? [];
+      final total = result['total'] as int? ?? 0;
+
+      final allItems = <dynamic>[];
+      for (final g in groups) {
+        final items = (g as Map)['items'] as List<dynamic>? ?? [];
+        allItems.addAll(items);
+      }
+
       setState(() {
-        _searchResults = results.map((json) => KiteInstrument.fromJson(json)).toList();
+        _allItems = allItems;
+        _totalResults = total;
+        _displayCount = _pageSize.clamp(0, allItems.length);
+        _groupedResults =
+            _buildGroupsFromItems(allItems.take(_displayCount).toList());
         _isSearching = false;
       });
-      log('   Found ${_searchResults.length} instruments');
     } catch (e) {
-      log('   ❌ Error: $e');
-      setState(() {
-        _isSearching = false;
-      });
+      log('❌ Search error: $e');
+      setState(() => _isSearching = false);
     }
   }
 
+  List<Map<String, dynamic>> _buildGroupsFromItems(List<dynamic> items) {
+    final groups = <String, List<dynamic>>{};
+    final groupOrder = [
+      'Index',
+      'NFO Futures',
+      'NFO Options',
+      'MCX Futures',
+      'MCX Options',
+      'Equity',
+      'Other'
+    ];
+
+    for (final item in items) {
+      final map = Map<String, dynamic>.from(item as Map);
+      final type = (map['instrument_type'] ?? '').toString();
+      final segment = (map['segment'] ?? '').toString();
+      final exchange = (map['exchange'] ?? '').toString();
+      String label;
+      if (segment == 'INDICES' || type == 'IDX') {
+        label = 'Index';
+      } else if (segment == 'NFO-FUT' || (exchange == 'NFO' && type == 'FUT')) {
+        label = 'NFO Futures';
+      } else if (segment == 'NFO-OPT' ||
+          (exchange == 'NFO' && (type == 'CE' || type == 'PE'))) {
+        label = 'NFO Options';
+      } else if (segment == 'MCX-FUT' || (exchange == 'MCX' && type == 'FUT')) {
+        label = 'MCX Futures';
+      } else if (segment == 'MCX-OPT' ||
+          (exchange == 'MCX' && (type == 'CE' || type == 'PE'))) {
+        label = 'MCX Options';
+      } else if (type == 'EQ') {
+        label = 'Equity';
+      } else {
+        label = 'Other';
+      }
+      groups.putIfAbsent(label, () => []);
+      groups[label]!.add(item);
+    }
+
+    final result = <Map<String, dynamic>>[];
+    for (final key in groupOrder) {
+      if (groups.containsKey(key) && groups[key]!.isNotEmpty) {
+        result.add({'label': key, 'items': groups[key]});
+      }
+    }
+    return result;
+  }
+
+  Color _getTypeColor(String? instrumentType) {
+    return typeColors[instrumentType] ?? const Color(0xFF64748B);
+  }
+
+  void _selectInstrument(KiteInstrument instrument) {
+    setState(() {
+      _selectedInstrument = instrument;
+      _groupedResults = [];
+      _allItems = [];
+      _searchController.clear();
+      // Pre-fill lot size from instrument
+      _lotSizeController.text = instrument.lotSize.toString();
+    });
+  }
+
   Future<void> _addInstrument() async {
-    if (_selectedInstrument == null) {
+    // For edit mode without selected instrument, use existing data
+    final instrumentId = _selectedInstrument?.instrumentToken.toString() ??
+        widget.existingInstrumentId;
+    final instrumentSymbol =
+        _selectedInstrument?.tradingsymbol ?? widget.existingInstrumentSymbol;
+
+    if (instrumentId == null || instrumentSymbol == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please select an instrument')),
+        const SnackBar(
+            content: Text('Please select an instrument'),
+            backgroundColor: Color(0xFFEF4444)),
       );
       return;
     }
@@ -90,69 +272,77 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
 
     if (maxQty == null || breakQty == null || lotSize == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter valid numbers')),
+        const SnackBar(
+            content: Text('Please enter valid numbers'),
+            backgroundColor: Color(0xFFEF4444)),
       );
       return;
     }
 
-    log('➕ Adding instrument to lot');
-    log('   Exchange: ${widget.exchange}');
-    log('   Lot Name: ${widget.lotName}');
-    log('   Instrument: ${_selectedInstrument!.tradingsymbol}');
-    log('   Max Qty: $maxQty, Break Qty: $breakQty, Lot Size: $lotSize');
-    
-    setState(() {
-      _isAdding = true;
-    });
+    setState(() => _isAdding = true);
 
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
       final adminService = AdminService(apiService);
 
-      // Create a new grouped quantity document
-      final response = await adminService.createGroupedQuantity(
-        exchangeName: widget.exchange,
-        lotName: widget.lotName,
-        instrumentId: _selectedInstrument!.instrumentToken.toString(),
-        instrumentSymbol: _selectedInstrument!.tradingsymbol,
-        maxQty: maxQty,
-        breakQty: breakQty,
-        lotSize: lotSize,
-      );
+      http.Response response;
 
-      log('   Response status: ${response.statusCode}');
-      log('   Response body: ${response.body}');
+      if (widget.isEditMode) {
+        // Update existing instrument
+        response = await adminService.updateGroupedQuantity(
+          id: widget.existingId!,
+          instrumentId: instrumentId,
+          instrumentSymbol: instrumentSymbol,
+          maxQty: maxQty,
+          breakQty: breakQty,
+          lotSize: lotSize,
+        );
+      } else {
+        // Create new instrument
+        response = await adminService.createGroupedQuantity(
+          exchangeName: widget.exchange,
+          lotName: widget.lotName,
+          instrumentId: instrumentId,
+          instrumentSymbol: instrumentSymbol,
+          maxQty: maxQty,
+          breakQty: breakQty,
+          lotSize: lotSize,
+        );
+      }
 
-      setState(() {
-        _isAdding = false;
-      });
+      setState(() => _isAdding = false);
 
-      if (response.statusCode == 201) {
-        log('   ✅ Instrument added successfully');
+      final successCode = widget.isEditMode ? 200 : 201;
+      if (response.statusCode == successCode) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Instrument added successfully')),
+            SnackBar(
+              content: Text(widget.isEditMode
+                  ? 'Instrument updated successfully'
+                  : 'Instrument added successfully'),
+              backgroundColor: const Color(0xFF10B981),
+            ),
           );
           Navigator.pop(context, true);
         }
       } else {
         final data = jsonDecode(response.body);
-        log('   ❌ Failed: ${data['message']}');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(data['message'] ?? 'Failed to add instrument')),
+            SnackBar(
+                content: Text(data['message'] ??
+                    'Failed to ${widget.isEditMode ? 'update' : 'add'} instrument'),
+                backgroundColor: const Color(0xFFEF4444)),
           );
         }
       }
-    } catch (e, stackTrace) {
-      log('   ❌ Error: $e');
-      log('   Stack trace: $stackTrace');
-      setState(() {
-        _isAdding = false;
-      });
+    } catch (e) {
+      setState(() => _isAdding = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(
+              content: Text('Error: $e'),
+              backgroundColor: const Color(0xFFEF4444)),
         );
       }
     }
@@ -160,224 +350,669 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
 
   @override
   Widget build(BuildContext context) {
+    // In edit mode, show form directly without search
+    final showForm = _selectedInstrument != null || widget.isEditMode;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FC),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Icon(Icons.arrow_back, color: Colors.black),
-                    ),
-                    SizedBox(width: 12),
-                    Text(
-                      'Add Instrument',
-                      style: TextStyle(
+        child: Column(
+          children: [
+            _buildHeader(),
+            const SizedBox(height: 12),
+            if (!showForm) ...[
+              _buildSearchBar(),
+              const SizedBox(height: 12),
+              Expanded(child: _buildSearchResults()),
+            ] else ...[
+              Expanded(child: _buildSelectedInstrumentForm()),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2))
+                ],
+              ),
+              child:
+                  const Icon(Icons.arrow_back, color: Colors.black, size: 20),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(widget.isEditMode ? 'Edit Instrument' : 'Add Instrument',
+                    style: const TextStyle(
                         color: Colors.black,
-                        fontSize: 16,
+                        fontSize: 18,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+                        fontWeight: FontWeight.w600)),
+                Text('${widget.exchange} · ${widget.lotName}',
+                    style: const TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 12,
+                        fontFamily: 'Inter')),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 4,
+                offset: const Offset(0, 2))
+          ],
+        ),
+        child: Row(
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(left: 16, right: 8),
+              child: Icon(Icons.search, color: Color(0xFF94A3B8), size: 20),
+            ),
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                style: const TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFF0F172A),
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w400),
+                decoration: InputDecoration(
+                  hintText: 'Search ${widget.exchange} instruments...',
+                  hintStyle: const TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: 14,
+                      fontFamily: 'Inter'),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onChanged: _onSearchChanged,
+              ),
+            ),
+            if (_isSearching)
+              const Padding(
+                padding: EdgeInsets.only(right: 16),
+                child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Color(0xFF22547C))),
+              )
+            else if (_searchController.text.isNotEmpty)
+              GestureDetector(
+                onTap: () {
+                  _searchController.clear();
+                  _performSearch('');
+                },
+                child: const Padding(
+                  padding: EdgeInsets.only(right: 16),
+                  child: Icon(Icons.close, color: Color(0xFF94A3B8), size: 18),
                 ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
 
-              // Search Instruments
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: ShapeDecoration(
+  Widget _buildSearchResults() {
+    if (_searchController.text.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4))
+                ],
+              ),
+              child:
+                  const Icon(Icons.search, size: 32, color: Color(0xFFCBD5E1)),
+            ),
+            const SizedBox(height: 20),
+            Text('Search ${widget.exchange} instruments',
+                style: const TextStyle(
+                    color: Color(0xFF475569),
+                    fontSize: 16,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            const Text('Try: GOLD, SILVER, CRUDEOIL',
+                style: TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 13,
+                    fontFamily: 'Inter')),
+          ],
+        ),
+      );
+    }
+
+    if (_groupedResults.isEmpty && !_isSearching) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4))
+                ],
+              ),
+              child: const Icon(Icons.search_off,
+                  size: 32, color: Color(0xFFCBD5E1)),
+            ),
+            const SizedBox(height: 20),
+            const Text('No results found',
+                style: TextStyle(
+                    color: Color(0xFF475569),
+                    fontSize: 16,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w600)),
+          ],
+        ),
+      );
+    }
+
+    return Stack(
+      children: [
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2))
+            ],
+          ),
+          child: ListView.builder(
+            controller: _scrollController,
+            padding: const EdgeInsets.only(bottom: 80),
+            itemCount: _groupedResults.length +
+                (_displayCount < _allItems.length ? 1 : 0),
+            itemBuilder: (context, groupIndex) {
+              if (groupIndex == _groupedResults.length) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Center(
+                      child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              color: Color(0xFF22547C), strokeWidth: 2))),
+                );
+              }
+
+              final group = _groupedResults[groupIndex];
+              final label = group['label'] as String? ?? 'Other';
+              final items = group['items'] as List<dynamic>? ?? [];
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    color: const Color(0xFFF8FAFC),
+                    child: Text(label.toUpperCase(),
+                        style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF94A3B8),
+                            fontFamily: 'Inter',
+                            letterSpacing: 0.5)),
+                  ),
+                  ...items.asMap().entries.map((entry) {
+                    final isLast = entry.key == items.length - 1;
+                    return Column(
+                      children: [
+                        _buildInstrumentRow(entry.value),
+                        if (!isLast)
+                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                      ],
+                    );
+                  }),
+                ],
+              );
+            },
+          ),
+        ),
+        if (_totalResults > 0)
+          Positioned(
+            bottom: 24,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
                   color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    side: BorderSide(width: 1, color: const Color(0xFFD1D1D6)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.search, size: 24, color: const Color(0xFF8E8E93)),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Search instruments...',
-                          border: InputBorder.none,
-                          hintStyle: TextStyle(color: const Color(0xFF8E8E93)),
-                        ),
-                        onChanged: _searchInstruments,
-                      ),
-                    ),
-                    if (_isSearching)
-                      SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: const Color(0xFF22547C),
-                        ),
-                      ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2))
                   ],
                 ),
+                child: Text('$_totalResults results',
+                    style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF475569),
+                        fontFamily: 'Inter')),
               ),
+            ),
+          ),
+      ],
+    );
+  }
 
-              SizedBox(height: 8),
+  Widget _buildInstrumentRow(dynamic item) {
+    final instrument = KiteInstrument.fromJson(Map<String, dynamic>.from(item));
+    final typeColor = _getTypeColor(instrument.instrumentType);
 
-              // Search Results
-              if (_searchResults.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  constraints: BoxConstraints(maxHeight: 200),
-                  decoration: ShapeDecoration(
-                    color: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: _searchResults.length,
-                    itemBuilder: (context, index) {
-                      final instrument = _searchResults[index];
-                      return ListTile(
-                        title: Text(instrument.tradingsymbol),
-                        subtitle: Text(instrument.name),
-                        onTap: () {
-                          setState(() {
-                            _selectedInstrument = instrument;
-                            _searchResults = [];
-                            _searchController.clear();
-                          });
-                        },
-                      );
-                    },
-                  ),
-                ),
-
-              SizedBox(height: 16),
-
-              // Selected Instrument
-              if (_selectedInstrument != null)
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  padding: const EdgeInsets.all(16),
-                  decoration: ShapeDecoration(
-                    color: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _selectInstrument(instrument),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 38,
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              decoration: BoxDecoration(
+                  color: typeColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8)),
+              child: Text(
+                instrument.instrumentType.isNotEmpty
+                    ? instrument.instrumentType
+                    : (instrument.isIndex ? 'IDX' : instrument.exchange),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: typeColor,
+                    fontFamily: 'Inter',
+                    letterSpacing: 0.3),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Flexible(
+                        child: Text(instrument.tradingsymbol,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                                color: Color(0xFF0F172A),
+                                fontFamily: 'Inter',
+                                letterSpacing: -0.3),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                      if (instrument.expiryDisplay.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                            width: 4,
+                            height: 4,
+                            decoration: const BoxDecoration(
+                                color: Color(0xFFCBD5E1),
+                                shape: BoxShape.circle)),
+                        const SizedBox(width: 8),
+                        Text(instrument.shortExpiryDisplay.toUpperCase(),
+                            style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF94A3B8),
+                                fontFamily: 'Inter',
+                                letterSpacing: 0.5)),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Text(
+                          instrument.segment.isNotEmpty
+                              ? instrument.segment
+                              : instrument.exchange,
+                          style: const TextStyle(
+                              fontSize: 10,
+                              color: Color(0xFF94A3B8),
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w500)),
+                      if (!instrument.isIndex) ...[
+                        const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 6),
+                            child: Text('·',
+                                style: TextStyle(
+                                    fontSize: 10, color: Color(0xFFCBD5E1)))),
+                        Text('LOT ${instrument.lotSize}',
+                            style: const TextStyle(
+                                fontSize: 10,
+                                color: Color(0xFF94A3B8),
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w500)),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.add_circle_outline,
+                size: 22, color: Color(0xFF22547C)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSelectedInstrumentForm() {
+    // Use selected instrument or existing data for edit mode
+    final instrument = _selectedInstrument;
+    final isEditWithoutNewSelection = widget.isEditMode && instrument == null;
+
+    // Determine display values
+    final displaySymbol = instrument?.tradingsymbol ??
+        widget.existingInstrumentSymbol ??
+        'Unknown';
+    final displayType = instrument?.instrumentType ?? '';
+    final displayExpiry = instrument?.expiryDisplay ?? '';
+    final displayLotSize =
+        instrument?.lotSize ?? widget.existingLotSize?.toInt() ?? 0;
+    final typeColor = _getTypeColor(displayType);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: [
+          // Selected instrument card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2))
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                          color: typeColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8)),
+                      child: Text(
+                          displayType.isNotEmpty
+                              ? displayType
+                              : widget.exchange,
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: typeColor,
+                              fontFamily: 'Inter')),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Selected Instrument',
-                                  style: TextStyle(
-                                    color: const Color(0xFF8E8E93),
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  _selectedInstrument!.tradingsymbol,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.close, color: Colors.red),
-                            onPressed: () {
-                              setState(() {
-                                _selectedInstrument = null;
-                              });
-                            },
-                          ),
+                          Text(displaySymbol,
+                              style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF0F172A),
+                                  fontFamily: 'Inter')),
+                          if (displayExpiry.isNotEmpty)
+                            Text(displayExpiry.toUpperCase(),
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF94A3B8),
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w500)),
                         ],
                       ),
-                      SizedBox(height: 16),
-                      TextField(
-                        controller: _maxQtyController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: 'Max Quantity',
-                          border: OutlineInputBorder(),
+                    ),
+                    // Only show close button if not in edit mode without new selection
+                    if (!isEditWithoutNewSelection)
+                      GestureDetector(
+                        onTap: () => setState(() => _selectedInstrument = null),
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                              color: const Color(0xFFEF4444)
+                                  .withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8)),
+                          child: const Icon(Icons.close,
+                              size: 18, color: Color(0xFFEF4444)),
                         ),
                       ),
-                      SizedBox(height: 12),
-                      TextField(
-                        controller: _breakQtyController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: 'Break Quantity',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      SizedBox(height: 12),
-                      TextField(
-                        controller: _lotSizeController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: 'Lot Size',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(8)),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Exchange Lot Size',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF64748B),
+                              fontFamily: 'Inter')),
+                      Text('$displayLotSize',
+                          style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF22547C),
+                              fontFamily: 'Inter')),
                     ],
                   ),
                 ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
 
-              SizedBox(height: 16),
+          // Quantity inputs
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2))
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Quantity Settings',
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF0F172A),
+                        fontFamily: 'Inter')),
+                const SizedBox(height: 16),
+                _buildInputField(
+                    'Max Lots', _maxQtyController, 'Maximum lots allowed'),
+                const SizedBox(height: 12),
+                _buildInputField('Break Lots', _breakQtyController,
+                    'Break quantity for orders'),
+                const SizedBox(height: 12),
+                _buildInputField(
+                    'Lot Size', _lotSizeController, 'Quantity per lot'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
 
-              // Add Button
-              if (_selectedInstrument != null)
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isAdding ? null : _addInstrument,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF22547C),
-                      padding: EdgeInsets.symmetric(vertical: 18),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: _isAdding
-                        ? SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Text(
-                            'ADD INSTRUMENT',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                  ),
-                ),
+          // Add/Update button
+          GestureDetector(
+            onTap: _isAdding ? null : _addInstrument,
+            child: Container(
+              width: double.infinity,
+              height: 52,
+              decoration: BoxDecoration(
+                color: _isAdding
+                    ? const Color(0xFF22547C).withValues(alpha: 0.6)
+                    : const Color(0xFF22547C),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                      color: const Color(0xFF22547C).withValues(alpha: 0.15),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2))
+                ],
+              ),
+              child: Center(
+                child: _isAdding
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : Text(
+                        widget.isEditMode
+                            ? 'UPDATE INSTRUMENT'
+                            : 'ADD INSTRUMENT',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'Inter',
+                            letterSpacing: 0.5)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
 
-              SizedBox(height: 16),
-            ],
+  Widget _buildInputField(
+      String label, TextEditingController controller, String hint) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF64748B),
+                fontFamily: 'Inter',
+                letterSpacing: 0.3)),
+        const SizedBox(height: 6),
+        Container(
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF0F172A),
+                fontFamily: 'Inter'),
+            decoration: InputDecoration(
+              border: InputBorder.none,
+              hintText: hint,
+              hintStyle: const TextStyle(
+                  fontSize: 13,
+                  color: Color(0xFFCBD5E1),
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w400),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

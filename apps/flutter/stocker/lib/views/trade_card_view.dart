@@ -58,10 +58,20 @@ class _TradeCardPageState extends State<TradeCardPage> {
     }
     return _orderTypes;
   }
+
   final TextEditingController _qtyController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
   final TradeService _tradeService = TradeService();
   bool _isLoading = false;
+
+  // Lot limit info for any exchange with lot assignments
+  LotLimitInfo? _lotLimitInfo;
+  bool _isLoadingLotLimit = false;
+
+  // Lot-based entry (for any exchange with lot assignments)
+  int _lotCount = 1; // User enters lot count
+  final List<int> _quickLots = [1, 2, 3, 4, 5]; // Quick lot buttons
+  int _selectedQuickLot = 1;
 
   // User selection for admin/master
   final TextEditingController _userSearchCtrl = TextEditingController();
@@ -69,6 +79,17 @@ class _TradeCardPageState extends State<TradeCardPage> {
   Map<String, dynamic>? _selectedUser;
   bool _showUserDropdown = false;
   bool _isSearchingUsers = false;
+
+  /// Returns true if this instrument has lot info assigned (any exchange)
+  bool get _hasLotInfo => _lotLimitInfo != null && _lotLimitInfo!.lotSize > 0;
+
+  /// Returns the actual quantity to send to backend
+  int get _actualQuantity {
+    if (_hasLotInfo) {
+      return _lotCount * _lotLimitInfo!.lotSize;
+    }
+    return _quantity;
+  }
 
   /// Returns true if the current instrument is an option (CE or PE).
   bool get _isOption {
@@ -101,6 +122,35 @@ class _TradeCardPageState extends State<TradeCardPage> {
       _orderType = widget.initialOrderType!;
     }
     _qtyController.text = _quantity.toString();
+    _fetchLotLimit();
+  }
+
+  Future<void> _fetchLotLimit() async {
+    // For admin/master, wait until they select a user
+    final profile = Provider.of<UserProfileProvider>(context, listen: false);
+    if (!profile.isUser && !profile.isMaster) return;
+
+    setState(() => _isLoadingLotLimit = true);
+
+    final info = await _tradeService.getLotLimit(
+      exchange: widget.item.instrument.segment,
+      instrumentToken: widget.item.instrument.instrumentToken,
+      tradingSymbol: widget.item.instrument.tradingsymbol,
+    );
+
+    if (mounted) {
+      setState(() {
+        _lotLimitInfo = info;
+        _isLoadingLotLimit = false;
+
+        // If lot info found, set default to 1 lot
+        if (info != null && info.lotSize > 0) {
+          _lotCount = 1;
+          _selectedQuickLot = 1;
+          _qtyController.text = '1'; // Show lot count in input
+        }
+      });
+    }
   }
 
   Future<void> _loadQuickQuantities() async {
@@ -109,7 +159,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
       setState(() {
         _quickQuantities = vals;
         if (!_quickQuantities.contains(_selectedQuickQty)) {
-          _selectedQuickQty = _quickQuantities.isNotEmpty ? _quickQuantities.first : -1;
+          _selectedQuickQty =
+              _quickQuantities.isNotEmpty ? _quickQuantities.first : -1;
         }
       });
     }
@@ -125,7 +176,10 @@ class _TradeCardPageState extends State<TradeCardPage> {
 
   Future<void> _searchUsers(String query) async {
     if (query.length < 2) {
-      setState(() { _userResults = []; _showUserDropdown = false; });
+      setState(() {
+        _userResults = [];
+        _showUserDropdown = false;
+      });
       return;
     }
     setState(() => _isSearchingUsers = true);
@@ -139,7 +193,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         final nested = body['data'];
-        final List list = nested is Map ? (nested['users'] ?? []) : (nested ?? []);
+        final List list =
+            nested is Map ? (nested['users'] ?? []) : (nested ?? []);
         setState(() {
           _userResults = list.cast<Map<String, dynamic>>();
           _showUserDropdown = _userResults.isNotEmpty;
@@ -156,49 +211,131 @@ class _TradeCardPageState extends State<TradeCardPage> {
       _showUserDropdown = false;
       _userResults = [];
     });
+    // Re-fetch lot limit for the selected user
+    _fetchLotLimitForUser();
+  }
+
+  Future<void> _fetchLotLimitForUser() async {
+    setState(() => _isLoadingLotLimit = true);
+
+    // Clear cache to force re-fetch for new user
+    _tradeService.clearCache();
+
+    final userId = _selectedUser != null
+        ? (_selectedUser!['id'] ?? _selectedUser!['_id'])?.toString()
+        : null;
+
+    final info = await _tradeService.getLotLimit(
+      exchange: widget.item.instrument.segment,
+      instrumentToken: widget.item.instrument.instrumentToken,
+      tradingSymbol: widget.item.instrument.tradingsymbol,
+      userId: userId,
+    );
+
+    if (mounted) {
+      setState(() {
+        _lotLimitInfo = info;
+        _isLoadingLotLimit = false;
+
+        // If lot info found, set default to 1 lot
+        if (info != null && info.lotSize > 0) {
+          _lotCount = 1;
+          _selectedQuickLot = 1;
+          _qtyController.text = '1'; // Show lot count in input
+        }
+      });
+    }
   }
 
   void _setQuantity(int qty) {
     setState(() {
-      _quantity = qty;
-      _selectedQuickQty = qty;
-      _qtyController.text = qty.toString();
+      if (_hasLotInfo) {
+        // For lot-based entry, qty is lot count
+        _lotCount = qty;
+        _selectedQuickLot = qty;
+        _qtyController.text = qty.toString();
+      } else {
+        _quantity = qty;
+        _selectedQuickQty = qty;
+        _qtyController.text = qty.toString();
+      }
     });
   }
 
   void _incrementQuantity() {
     setState(() {
-      _quantity++;
-      _selectedQuickQty = _quickQuantities.contains(_quantity) ? _quantity : -1;
-      _qtyController.text = _quantity.toString();
+      if (_hasLotInfo) {
+        // For lot-based entry, increment lot count by 1
+        _lotCount++;
+        _selectedQuickLot = _quickLots.contains(_lotCount) ? _lotCount : -1;
+        _qtyController.text = _lotCount.toString();
+      } else {
+        _quantity++;
+        _selectedQuickQty =
+            _quickQuantities.contains(_quantity) ? _quantity : -1;
+        _qtyController.text = _quantity.toString();
+      }
     });
   }
 
   void _decrementQuantity() {
-    if (_quantity > 1) {
-      setState(() {
-        _quantity--;
-        _selectedQuickQty =
-            _quickQuantities.contains(_quantity) ? _quantity : -1;
-        _qtyController.text = _quantity.toString();
-      });
-    }
+    setState(() {
+      if (_hasLotInfo) {
+        // For lot-based entry, decrement lot count by 1 (min 1)
+        if (_lotCount > 1) {
+          _lotCount--;
+          _selectedQuickLot = _quickLots.contains(_lotCount) ? _lotCount : -1;
+          _qtyController.text = _lotCount.toString();
+        }
+      } else {
+        if (_quantity > 1) {
+          _quantity--;
+          _selectedQuickQty =
+              _quickQuantities.contains(_quantity) ? _quantity : -1;
+          _qtyController.text = _quantity.toString();
+        }
+      }
+    });
   }
 
   Future<void> _handleTrade(String transactionType, double currentPrice) async {
     if (_isLoading) return;
 
     // Check market hours for this instrument's exchange
-    final _ex = widget.item.instrument.exchange;
-    final _sym = widget.item.instrument.tradingsymbol;
-    if (!MarketHours.isMarketOpen(exchange: _ex, tradingsymbol: _sym)) {
+    final ex = widget.item.instrument.exchange;
+    final sym = widget.item.instrument.tradingsymbol;
+    if (!MarketHours.isMarketOpen(exchange: ex, tradingsymbol: sym)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(MarketHours.getMarketStatusMessage(exchange: _ex, tradingsymbol: _sym)),
+          content: Text(MarketHours.getMarketStatusMessage(
+              exchange: ex, tradingsymbol: sym)),
           backgroundColor: const Color(0xFFEF4444),
         ),
       );
       return;
+    }
+
+    // Lot validation for exchanges with lot assignments
+    if (_hasLotInfo) {
+      if (_lotCount <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Minimum order is 1 lot'),
+            backgroundColor: Color(0xFFEF4444),
+          ),
+        );
+        return;
+      }
+      if (_lotCount > _lotLimitInfo!.maxLots) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'You are allowed max ${_lotLimitInfo!.maxLots} lots for this instrument'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+        return;
+      }
     }
 
     // Block option sell if user doesn't hold this option
@@ -214,7 +351,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
         );
         return;
       }
-      if (_quantity > netQty) {
+      if (_actualQuantity > netQty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -226,10 +363,6 @@ class _TradeCardPageState extends State<TradeCardPage> {
       }
     }
 
-    setState(() {
-      _isLoading = true;
-    });
-
     final currentItem = Provider.of<WatchlistProvider>(context, listen: false)
             .getByToken(widget.item.instrument.instrumentToken) ??
         widget.item;
@@ -239,12 +372,41 @@ class _TradeCardPageState extends State<TradeCardPage> {
         ? (double.tryParse(_priceController.text) ?? currentPrice)
         : currentPrice;
 
+    // Circuit limit validation
+    final upper = currentItem.upperCircuitLimit;
+    final lower = currentItem.lowerCircuitLimit;
+    if (upper != null && tradePrice > upper) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Price ₹${tradePrice.toStringAsFixed(2)} exceeds upper circuit limit ₹${upper.toStringAsFixed(2)}'),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+      return;
+    }
+    if (lower != null && tradePrice < lower) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Price ₹${tradePrice.toStringAsFixed(2)} is below lower circuit limit ₹${lower.toStringAsFixed(2)}'),
+          backgroundColor: const Color(0xFFEF4444),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
     final result = await _tradeService.placeTrade(
       instrumentToken: currentItem.instrument.instrumentToken,
       tradingSymbol: currentItem.instrument.tradingsymbol,
       exchange: currentItem.instrument.exchange,
       transactionType: transactionType,
-      quantity: _quantity,
+      quantity:
+          _actualQuantity, // Use actual quantity (lots * lot_size for MCX)
       price: tradePrice,
       orderType: isLimit ? 'LIMIT' : 'MARKET',
       userId: _selectedUser != null
@@ -316,9 +478,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              instrument.name.isNotEmpty
-                                  ? instrument.name.toString().toUpperCase()
-                                  : instrument.tradingsymbol,
+                              instrument.userFriendlyName,
                               style: const TextStyle(
                                 color: Colors.black,
                                 fontSize: 18,
@@ -328,18 +488,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            if (instrument.expiry != null) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                instrument.expiryDisplay,
-                                style: const TextStyle(
-                                  color: Color(0xFF8E8E93),
-                                  fontSize: 14,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ],
+                            // Expiry row removed as it is now in the title
                           ],
                         ),
                       ),
@@ -347,9 +496,11 @@ class _TradeCardPageState extends State<TradeCardPage> {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF22547C).withValues(alpha: 0.08),
+                              color: const Color(0xFF22547C)
+                                  .withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Column(
@@ -579,7 +730,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                 ),
                                 if (_isSearchingUsers)
                                   const SizedBox(
-                                    width: 18, height: 18,
+                                    width: 18,
+                                    height: 18,
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2,
                                         color: Color(0xFF22547C)),
@@ -611,7 +763,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: const Color(0xFFD1D1D6)),
+                                border:
+                                    Border.all(color: const Color(0xFFD1D1D6)),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withValues(alpha: 0.06),
@@ -691,10 +844,10 @@ class _TradeCardPageState extends State<TradeCardPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Quantity label
-                  const Text(
-                    'Quantity',
-                    style: TextStyle(
+                  // Quantity/Lots label - changes based on lot assignment
+                  Text(
+                    _hasLotInfo ? 'Lots' : 'Quantity',
+                    style: const TextStyle(
                       color: Colors.black,
                       fontSize: 16,
                       fontFamily: 'Inter',
@@ -704,7 +857,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Quantity input with +/- buttons
+                  // Quantity/Lots input with +/- buttons
                   Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -739,14 +892,22 @@ class _TradeCardPageState extends State<TradeCardPage> {
                               height: 1.25,
                             ),
                             onChanged: (value) {
-                              final newQty = int.tryParse(value);
-                              if (newQty != null) {
+                              final newVal = int.tryParse(value);
+                              if (newVal != null) {
                                 setState(() {
-                                  _quantity = newQty;
-                                  _selectedQuickQty =
-                                      _quickQuantities.contains(_quantity)
-                                          ? _quantity
-                                          : -1;
+                                  if (_hasLotInfo) {
+                                    _lotCount = newVal;
+                                    _selectedQuickLot =
+                                        _quickLots.contains(_lotCount)
+                                            ? _lotCount
+                                            : -1;
+                                  } else {
+                                    _quantity = newVal;
+                                    _selectedQuickQty =
+                                        _quickQuantities.contains(_quantity)
+                                            ? _quantity
+                                            : -1;
+                                  }
                                 });
                               }
                             },
@@ -788,44 +949,239 @@ class _TradeCardPageState extends State<TradeCardPage> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Quick quantity buttons (horizontally scrollable)
-                  SizedBox(
-                    height: 38,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _quickQuantities.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 6),
-                      itemBuilder: (_, i) {
-                        final qty = _quickQuantities[i];
-                        final isSelected = _selectedQuickQty == qty;
-                        return GestureDetector(
-                          onTap: () => _setQuantity(qty),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: ShapeDecoration(
-                              color: isSelected
-                                  ? const Color(0xFF22547C)
-                                  : const Color(0xFFC7C7CC),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(6)),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(
-                              '$qty',
-                              style: TextStyle(
+                  // Quick buttons - Lots for exchanges with lot assignments, Quantities for others
+                  if (_hasLotInfo) ...[
+                    // Quick lot buttons (1, 2, 3, 4, 5)
+                    SizedBox(
+                      height: 38,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _quickLots.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 6),
+                        itemBuilder: (_, i) {
+                          final lot = _quickLots[i];
+                          final isSelected = _selectedQuickLot == lot;
+                          return GestureDetector(
+                            onTap: () => _setQuantity(lot),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 8),
+                              decoration: ShapeDecoration(
                                 color: isSelected
-                                    ? const Color(0xFFF9F9F9)
-                                    : Colors.black,
-                                fontSize: 14,
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w400,
+                                    ? const Color(0xFF22547C)
+                                    : const Color(0xFFC7C7CC),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(6)),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                '$lot Lot${lot > 1 ? 's' : ''}',
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? const Color(0xFFF9F9F9)
+                                      : Colors.black,
+                                  fontSize: 14,
+                                  fontFamily: 'Inter',
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
-                  ),
+                  ] else ...[
+                    // Quick quantity buttons
+                    SizedBox(
+                      height: 38,
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _quickQuantities.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 6),
+                        itemBuilder: (_, i) {
+                          final qty = _quickQuantities[i];
+                          final isSelected = _selectedQuickQty == qty;
+                          return GestureDetector(
+                            onTap: () => _setQuantity(qty),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
+                              decoration: ShapeDecoration(
+                                color: isSelected
+                                    ? const Color(0xFF22547C)
+                                    : const Color(0xFFC7C7CC),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(6)),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                '$qty',
+                                style: TextStyle(
+                                  color: isSelected
+                                      ? const Color(0xFFF9F9F9)
+                                      : Colors.black,
+                                  fontSize: 14,
+                                  fontFamily: 'Inter',
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+
+                  // Lot Info Banner (for any exchange with lot assignments)
+                  if (_isLoadingLotLimit) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF22547C).withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Color(0xFF22547C)),
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Loading lot info...',
+                            style: TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: 12,
+                              fontFamily: 'Inter',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else if (_hasLotInfo) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF22547C).withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                            color: const Color(0xFF22547C)
+                                .withValues(alpha: 0.15)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Group name if available
+                          if (_lotLimitInfo!.groupName != null &&
+                              _lotLimitInfo!.groupName!.isNotEmpty) ...[
+                            Row(
+                              children: [
+                                const Icon(Icons.folder_outlined,
+                                    size: 14, color: Color(0xFF94A3B8)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  _lotLimitInfo!.groupName!,
+                                  style: const TextStyle(
+                                    color: Color(0xFF94A3B8),
+                                    fontSize: 11,
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                          ],
+                          // Lot info row
+                          Row(
+                            children: [
+                              const Icon(Icons.info_outline,
+                                  size: 16, color: Color(0xFF22547C)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      const TextSpan(
+                                        text: '1 Lot = ',
+                                        style: TextStyle(
+                                          color: Color(0xFF64748B),
+                                          fontSize: 12,
+                                          fontFamily: 'Inter',
+                                        ),
+                                      ),
+                                      TextSpan(
+                                        text: '${_lotLimitInfo!.lotSize} qty',
+                                        style: const TextStyle(
+                                          color: Color(0xFF22547C),
+                                          fontSize: 12,
+                                          fontFamily: 'Inter',
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const TextSpan(
+                                        text: '  •  Max: ',
+                                        style: TextStyle(
+                                          color: Color(0xFF64748B),
+                                          fontSize: 12,
+                                          fontFamily: 'Inter',
+                                        ),
+                                      ),
+                                      TextSpan(
+                                        text: '${_lotLimitInfo!.maxLots} Lots',
+                                        style: const TextStyle(
+                                          color: Color(0xFF22547C),
+                                          fontSize: 12,
+                                          fontFamily: 'Inter',
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          // Order preview row
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981)
+                                  .withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.check_circle_outline,
+                                    size: 14, color: Color(0xFF10B981)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Order: $_lotCount Lot${_lotCount > 1 ? 's' : ''} = $_actualQuantity qty',
+                                  style: const TextStyle(
+                                    color: Color(0xFF10B981),
+                                    fontSize: 12,
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   const SizedBox(height: 14),
 
                   // Price fields + action buttons
@@ -1124,21 +1480,25 @@ class _TradeCardPageState extends State<TradeCardPage> {
               builder: (context) {
                 final ex = widget.item.instrument.exchange;
                 final sym = widget.item.instrument.tradingsymbol;
-                if (MarketHours.isMarketOpen(exchange: ex, tradingsymbol: sym)) return const SizedBox.shrink();
+                if (MarketHours.isMarketOpen(exchange: ex, tradingsymbol: sym))
+                  return const SizedBox.shrink();
                 return Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: const Color(0xFFEF4444).withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.access_time, size: 16, color: Color(0xFFEF4444)),
+                      const Icon(Icons.access_time,
+                          size: 16, color: Color(0xFFEF4444)),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          MarketHours.getMarketStatusMessage(exchange: ex, tradingsymbol: sym),
+                          MarketHours.getMarketStatusMessage(
+                              exchange: ex, tradingsymbol: sym),
                           style: const TextStyle(
                             color: Color(0xFFEF4444),
                             fontSize: 12,

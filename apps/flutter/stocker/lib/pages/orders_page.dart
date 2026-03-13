@@ -72,7 +72,8 @@ class _OrdersPageState extends State<OrdersPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final userProfile = Provider.of<UserProfileProvider>(context, listen: false);
+      final userProfile =
+          Provider.of<UserProfileProvider>(context, listen: false);
       if (userProfile.isAdmin) {
         _fetchAdminMasterMetrics();
         _setupMasterLivePrices();
@@ -86,10 +87,15 @@ class _OrdersPageState extends State<OrdersPage> {
 
   @override
   void dispose() {
-    final userProfile = Provider.of<UserProfileProvider>(context, listen: false);
-    if ((userProfile.isMaster || userProfile.isAdmin) && _allTokens.isNotEmpty) {
+    _livePriceService.onTickReceived = null;
+    _livePriceService.onConnectionChanged = null;
+    final userProfile =
+        Provider.of<UserProfileProvider>(context, listen: false);
+    if ((userProfile.isMaster || userProfile.isAdmin) &&
+        _allTokens.isNotEmpty) {
       _livePriceService.unsubscribe(_allTokens.toList());
     }
+    _livePriceService.disconnect();
     super.dispose();
   }
 
@@ -140,7 +146,8 @@ class _OrdersPageState extends State<OrdersPage> {
       final storage = SecureStorageService();
       final token = await storage.getToken();
       final apiService = ApiService(backendUrl);
-      final res = await apiService.get('/master/positions/user-metrics', token: token);
+      final res =
+          await apiService.get('/master/positions/user-metrics', token: token);
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         final List data = body['data'] ?? [];
@@ -181,12 +188,16 @@ class _OrdersPageState extends State<OrdersPage> {
         final String iToken = pos['instrument_token']?.toString() ?? '';
         final int totalBuyQty = (pos['total_buy_qty'] as num?)?.toInt() ?? 0;
         final int totalSellQty = (pos['total_sell_qty'] as num?)?.toInt() ?? 0;
-        final double totalBuyValue = (pos['total_buy_value'] as num?)?.toDouble() ?? 0;
-        final double totalSellValue = (pos['total_sell_value'] as num?)?.toDouble() ?? 0;
+        final double totalBuyValue =
+            (pos['total_buy_value'] as num?)?.toDouble() ?? 0;
+        final double totalSellValue =
+            (pos['total_sell_value'] as num?)?.toDouble() ?? 0;
         final int netQty = totalBuyQty - totalSellQty;
 
-        final double avgBuyPrice = totalBuyQty > 0 ? totalBuyValue / totalBuyQty : 0;
-        final double avgSellPrice = totalSellQty > 0 ? totalSellValue / totalSellQty : 0;
+        final double avgBuyPrice =
+            totalBuyQty > 0 ? totalBuyValue / totalBuyQty : 0;
+        final double avgSellPrice =
+            totalSellQty > 0 ? totalSellValue / totalSellQty : 0;
 
         final double ltp = _ltpMap[iToken] ??
             (pos['avg_buy_price'] as num?)?.toDouble() ??
@@ -269,12 +280,16 @@ class _OrdersPageState extends State<OrdersPage> {
         final String iToken = pos['instrument_token']?.toString() ?? '';
         final int totalBuyQty = (pos['total_buy_qty'] as num?)?.toInt() ?? 0;
         final int totalSellQty = (pos['total_sell_qty'] as num?)?.toInt() ?? 0;
-        final double totalBuyValue = (pos['total_buy_value'] as num?)?.toDouble() ?? 0;
-        final double totalSellValue = (pos['total_sell_value'] as num?)?.toDouble() ?? 0;
+        final double totalBuyValue =
+            (pos['total_buy_value'] as num?)?.toDouble() ?? 0;
+        final double totalSellValue =
+            (pos['total_sell_value'] as num?)?.toDouble() ?? 0;
         final int netQty = totalBuyQty - totalSellQty;
 
-        final double avgBuyPrice = totalBuyQty > 0 ? totalBuyValue / totalBuyQty : 0;
-        final double avgSellPrice = totalSellQty > 0 ? totalSellValue / totalSellQty : 0;
+        final double avgBuyPrice =
+            totalBuyQty > 0 ? totalBuyValue / totalBuyQty : 0;
+        final double avgSellPrice =
+            totalSellQty > 0 ? totalSellValue / totalSellQty : 0;
 
         final double ltp = _ltpMap[iToken] ??
             (pos['avg_buy_price'] as num?)?.toDouble() ??
@@ -305,7 +320,8 @@ class _OrdersPageState extends State<OrdersPage> {
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(
-        child: CircularProgressIndicator(color: Color(0xFF22547C), strokeWidth: 2.5),
+        child: CircularProgressIndicator(
+            color: Color(0xFF22547C), strokeWidth: 2.5),
       ),
     );
     try {
@@ -336,7 +352,8 @@ class _OrdersPageState extends State<OrdersPage> {
       final storage = SecureStorageService();
       final token = await storage.getToken();
       final apiService = ApiService(backendUrl);
-      final res = await apiService.get('/master/positions/aggregated', token: token);
+      final res =
+          await apiService.get('/master/positions/aggregated', token: token);
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         final List data = body['data'] ?? [];
@@ -508,7 +525,9 @@ class _OrdersPageState extends State<OrdersPage> {
                     ),
                     child: Column(
                       children: [
-                        for (int i = 0; i < _adminMasterMetrics.length; i++) ...[
+                        for (int i = 0;
+                            i < _adminMasterMetrics.length;
+                            i++) ...[
                           _buildAdminMasterItem(_adminMasterMetrics[i]),
                           if (i < _adminMasterMetrics.length - 1)
                             const Divider(height: 1, color: Color(0xFFF1F5F9)),
@@ -536,100 +555,100 @@ class _OrdersPageState extends State<OrdersPage> {
       behavior: HitTestBehavior.opaque,
       onTap: () => _openMasterProfile(masterId),
       child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          // Avatar
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFF22547C).withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?',
-                style: const TextStyle(
-                  color: Color(0xFF22547C),
-                  fontSize: 18,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.w700,
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            // Avatar
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFF22547C).withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?',
+                  style: const TextStyle(
+                    color: Color(0xFF22547C),
+                    fontSize: 18,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 14),
+            const SizedBox(width: 14),
 
-          // Name + username + user count
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 14,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: -0.3,
+            // Name + username + user count
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.3,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 3),
-                Row(
-                  children: [
-                    Text(
-                      username,
-                      style: const TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: 12,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Text(
+                        username,
+                        style: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 12,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 6),
-                      child: Text('·',
-                          style: TextStyle(
-                              fontSize: 10, color: Color(0xFFCBD5E1))),
-                    ),
-                    const Icon(Icons.people_outline,
-                        size: 12, color: Color(0xFF94A3B8)),
-                    const SizedBox(width: 3),
-                    Text(
-                      '$userCount user${userCount != 1 ? "s" : ""}',
-                      style: const TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: 12,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 6),
+                        child: Text('·',
+                            style: TextStyle(
+                                fontSize: 10, color: Color(0xFFCBD5E1))),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                      const Icon(Icons.people_outline,
+                          size: 12, color: Color(0xFF94A3B8)),
+                      const SizedBox(width: 3),
+                      Text(
+                        '$userCount user${userCount != 1 ? "s" : ""}',
+                        style: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 12,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
 
-          // Live P&L
-          AnimatedFlipCounter(
-            value: pnl,
-            fractionDigits: 2,
-            prefix: '₹',
-            textStyle: TextStyle(
-              color: isPnlPositive
-                  ? const Color(0xFF22C55E)
-                  : const Color(0xFFEF4444),
-              fontSize: 14,
-              fontFamily: 'Inter',
-              fontWeight: FontWeight.w700,
+            // Live P&L
+            AnimatedFlipCounter(
+              value: pnl,
+              fractionDigits: 2,
+              prefix: '₹',
+              textStyle: TextStyle(
+                color: isPnlPositive
+                    ? const Color(0xFF22C55E)
+                    : const Color(0xFFEF4444),
+                fontSize: 14,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -813,8 +832,7 @@ class _OrdersPageState extends State<OrdersPage> {
                         for (int i = 0; i < _masterPositions.length; i++) ...[
                           _buildMasterPositionItem(_masterPositions[i]),
                           if (i < _masterPositions.length - 1)
-                            const Divider(
-                                height: 1, color: Color(0xFFF1F5F9)),
+                            const Divider(height: 1, color: Color(0xFFF1F5F9)),
                         ],
                       ],
                     ),
@@ -935,8 +953,7 @@ class _OrdersPageState extends State<OrdersPage> {
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.chevron_right,
-                size: 20, color: Color(0xFF94A3B8)),
+            const Icon(Icons.chevron_right, size: 20, color: Color(0xFF94A3B8)),
           ],
         ),
       ),
@@ -950,7 +967,8 @@ class _OrdersPageState extends State<OrdersPage> {
     return Consumer<TradeMetricsProvider>(
       builder: (context, provider, child) {
         // Filter out closed positions (netQty == 0)
-        final openPositions = provider.positions.where((p) => p.netQty != 0).toList();
+        final openPositions =
+            provider.positions.where((p) => p.netQty != 0).toList();
 
         final double posPnl = provider.positionPnl;
         final double m2m = provider.m2mPnl;
@@ -1074,11 +1092,14 @@ class _OrdersPageState extends State<OrdersPage> {
                               ? Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                                    const Divider(
+                                        height: 1, color: Color(0xFFF1F5F9)),
                                     _buildMetricRow('Equity', equity),
-                                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                                    const Divider(
+                                        height: 1, color: Color(0xFFF1F5F9)),
                                     _buildMetricRow('Margin Used', marginUsed),
-                                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                                    const Divider(
+                                        height: 1, color: Color(0xFFF1F5F9)),
                                     _buildMetricRow('Free Margin', freeMargin),
                                   ],
                                 )
@@ -1086,7 +1107,8 @@ class _OrdersPageState extends State<OrdersPage> {
                         ),
                         const Divider(height: 1, color: Color(0xFFF1F5F9)),
                         GestureDetector(
-                          onTap: () => setState(() => _metricsExpanded = !_metricsExpanded),
+                          onTap: () => setState(
+                              () => _metricsExpanded = !_metricsExpanded),
                           behavior: HitTestBehavior.opaque,
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1189,8 +1211,7 @@ class _OrdersPageState extends State<OrdersPage> {
                             GestureDetector(
                               onTap: _selectedPositionTokens.isEmpty
                                   ? null
-                                  : () =>
-                                      _squareOffSelected(openPositions),
+                                  : () => _squareOffSelected(openPositions),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 10, vertical: 5),
@@ -1453,6 +1474,8 @@ class _OrdersPageState extends State<OrdersPage> {
         exchangeToken: '',
         tradingsymbol: position.tradingsymbol,
         name: position.tradingsymbol,
+        rawName: position.tradingsymbol,
+        displayName: position.tradingsymbol,
         lastPrice: position.ltp > 0
             ? position.ltp
             : (isLong ? position.avgBuyPrice : position.avgSellPrice),
@@ -1462,6 +1485,7 @@ class _OrdersPageState extends State<OrdersPage> {
         instrumentType: '',
         segment: '',
         exchange: position.exchange,
+        isActive: true,
         updatedAt: DateTime.now(),
       );
 
@@ -1792,7 +1816,11 @@ class _OrdersPageState extends State<OrdersPage> {
               'transaction_type': oppositeType,
               'quantity': position.netQty.abs(),
               'order_type': 'MARKET',
-              'price': 0, // Market order
+              'price': position.ltp > 0
+                  ? position.ltp
+                  : (position.netQty > 0
+                      ? position.avgBuyPrice
+                      : position.avgSellPrice),
             },
             token: token,
           );

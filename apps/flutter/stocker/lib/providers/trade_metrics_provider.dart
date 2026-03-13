@@ -115,26 +115,76 @@ class TradeMetricsProvider with ChangeNotifier {
         userProfileProvider.master?.balance ??
         0.0;
 
-    // 2. Aggregate trades
+    // 2. Aggregate trades using running-average ATP.
+    //    When the position goes flat (netQty == 0), the cost basis resets so
+    //    a fresh entry starts with a clean ATP instead of blending old trades.
     Map<String, PositionAgg> aggMap = {};
-    for (var t in _trades) {
-      if (t.status != 'completed') continue;
 
+    // Sort trades by creation time so we process them chronologically.
+    final sortedTrades = List<Trade>.from(
+      _trades.where((t) => t.status == 'completed'),
+    )..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+    // Per-instrument running state (resets on flat).
+    final Map<String, _RunningPos> running = {};
+
+    for (var t in sortedTrades) {
       if (!aggMap.containsKey(t.instrumentToken)) {
         aggMap[t.instrumentToken] = PositionAgg(
           instrumentToken: t.instrumentToken,
           exchange: t.exchange,
           tradingsymbol: t.tradingSymbol,
         );
+        running[t.instrumentToken] = _RunningPos();
       }
 
       final agg = aggMap[t.instrumentToken]!;
+      final run = running[t.instrumentToken]!;
+
       if (t.transactionType == 'BUY') {
+        // Update running avg buy price
+        final newQty = run.netQty + t.quantity;
+        if (run.netQty >= 0) {
+          // Adding to long (or opening fresh long from flat)
+          run.avgBuy = run.netQty > 0
+              ? (run.avgBuy * run.netQty + t.price * t.quantity) / newQty
+              : t.price;
+        } else {
+          // Covering a short — reduce short qty, avg sell stays
+          if (newQty >= 0) {
+            // Fully covered + possibly flipped long
+            run.avgBuy = newQty > 0 ? t.price : 0;
+          }
+          // avgSell unchanged while still short
+        }
+        run.netQty = newQty;
         agg.totalBuyQty += t.quantity;
-        agg.totalBuyValue += (t.quantity * t.price);
+        agg.totalBuyValue += t.quantity * t.price;
       } else if (t.transactionType == 'SELL') {
+        final newQty = run.netQty - t.quantity;
+        if (run.netQty <= 0) {
+          // Adding to short (or opening fresh short from flat)
+          final absOld = run.netQty.abs();
+          final absNew = absOld + t.quantity;
+          run.avgSell = absOld > 0
+              ? (run.avgSell * absOld + t.price * t.quantity) / absNew
+              : t.price;
+        } else {
+          // Reducing a long — avg buy stays
+          if (newQty <= 0) {
+            // Fully closed + possibly flipped short
+            run.avgSell = newQty < 0 ? t.price : 0;
+          }
+        }
+        run.netQty = newQty;
         agg.totalSellQty += t.quantity;
-        agg.totalSellValue += (t.quantity * t.price);
+        agg.totalSellValue += t.quantity * t.price;
+      }
+
+      // When position goes flat, reset running state for next fresh entry
+      if (run.netQty == 0) {
+        run.avgBuy = 0;
+        run.avgSell = 0;
       }
     }
 
@@ -143,15 +193,15 @@ class TradeMetricsProvider with ChangeNotifier {
     double totalMargin = 0;
 
     for (var agg in aggMap.values) {
-      int netQty = agg.totalBuyQty - agg.totalSellQty;
+      final run = running[agg.instrumentToken]!;
+      int netQty = run.netQty;
 
-      double avgBuyPrice =
-          agg.totalBuyQty > 0 ? agg.totalBuyValue / agg.totalBuyQty : 0;
-      double avgSellPrice =
-          agg.totalSellQty > 0 ? agg.totalSellValue / agg.totalSellQty : 0;
+      // Use running ATP instead of simple total/qty average
+      double avgBuyPrice = run.avgBuy;
+      double avgSellPrice = run.avgSell;
 
       double ltp = _ltpMap[agg.instrumentToken] ??
-          (agg.totalBuyQty > 0 ? avgBuyPrice : 0);
+          (avgBuyPrice > 0 ? avgBuyPrice : avgSellPrice);
 
       double realised = 0;
       double floating = 0;
@@ -216,4 +266,13 @@ class TradeMetricsProvider with ChangeNotifier {
 
     notifyListeners();
   }
+}
+
+/// Tracks the running net position and ATP for a single instrument.
+/// Resets cost basis when the position goes flat, so a fresh entry
+/// gets a clean ATP instead of blending historical trades.
+class _RunningPos {
+  int netQty = 0;
+  double avgBuy = 0;
+  double avgSell = 0;
 }

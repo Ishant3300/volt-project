@@ -55,11 +55,13 @@ class EditUserView extends StatelessWidget {
                     Container(
                       width: double.infinity,
                       height: 48,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
                       decoration: ShapeDecoration(
                         color: Colors.white,
                         shape: RoundedRectangleBorder(
-                          side: BorderSide(width: 1, color: const Color(0xFFC7C7CC)),
+                          side: BorderSide(
+                              width: 1, color: const Color(0xFFC7C7CC)),
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
@@ -75,7 +77,8 @@ class EditUserView extends StatelessWidget {
                               fontWeight: FontWeight.w400,
                             ),
                           ),
-                          Icon(Icons.keyboard_arrow_down, size: 24, color: Colors.black),
+                          Icon(Icons.keyboard_arrow_down,
+                              size: 24, color: Colors.black),
                         ],
                       ),
                     ),
@@ -100,7 +103,8 @@ class EditUserView extends StatelessWidget {
                       padding: const EdgeInsets.all(16),
                       decoration: ShapeDecoration(
                         color: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -119,11 +123,13 @@ class EditUserView extends StatelessWidget {
                           Container(
                             width: double.infinity,
                             height: 48,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 14),
                             decoration: ShapeDecoration(
                               color: Colors.white,
                               shape: RoundedRectangleBorder(
-                                side: BorderSide(width: 1, color: const Color(0xFFD1D1D6)),
+                                side: BorderSide(
+                                    width: 1, color: const Color(0xFFD1D1D6)),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
@@ -154,11 +160,13 @@ class EditUserView extends StatelessWidget {
                           Container(
                             width: double.infinity,
                             height: 48,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 14),
                             decoration: ShapeDecoration(
                               color: Colors.white,
                               shape: RoundedRectangleBorder(
-                                side: BorderSide(width: 1, color: const Color(0xFFD1D1D6)),
+                                side: BorderSide(
+                                    width: 1, color: const Color(0xFFD1D1D6)),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
@@ -189,11 +197,13 @@ class EditUserView extends StatelessWidget {
                           Container(
                             width: double.infinity,
                             height: 48,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 14),
                             decoration: ShapeDecoration(
                               color: Colors.white,
                               shape: RoundedRectangleBorder(
-                                side: BorderSide(width: 1, color: const Color(0xFFD1D1D6)),
+                                side: BorderSide(
+                                    width: 1, color: const Color(0xFFD1D1D6)),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
@@ -224,11 +234,13 @@ class EditUserView extends StatelessWidget {
                           Container(
                             width: double.infinity,
                             height: 48,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 14),
                             decoration: ShapeDecoration(
                               color: Colors.white,
                               shape: RoundedRectangleBorder(
-                                side: BorderSide(width: 1, color: const Color(0xFFD1D1D6)),
+                                side: BorderSide(
+                                    width: 1, color: const Color(0xFFD1D1D6)),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
@@ -266,10 +278,15 @@ class EditUserView extends StatelessWidget {
                       padding: const EdgeInsets.all(16),
                       decoration: ShapeDecoration(
                         color: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
                       ),
                       child: Column(
-                        children: List.generate(5, (index) => _buildExchangeRow()).expand((widget) => [widget, SizedBox(height: 16)]).toList()..removeLast(),
+                        children: List.generate(
+                                5, (index) => _buildExchangeRow())
+                            .expand((widget) => [widget, SizedBox(height: 16)])
+                            .toList()
+                          ..removeLast(),
                       ),
                     ),
 
@@ -299,31 +316,32 @@ class EditUserView extends StatelessWidget {
                       padding: const EdgeInsets.all(16),
                       decoration: ShapeDecoration(
                         color: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
                       ),
                       child: Column(
                         children: [
                           Row(
                             children: [
-                              Expanded(child: _buildExchangeChip('NSE')),
+                              Expanded(child: _buildExchangeChip('NFO-FUT')),
                               SizedBox(width: 8),
-                              Expanded(child: _buildExchangeChip('MCX')),
+                              Expanded(child: _buildExchangeChip('NFO-OPT')),
                             ],
                           ),
                           SizedBox(height: 8),
                           Row(
                             children: [
-                              Expanded(child: _buildExchangeChip('SGX')),
-                              SizedBox(width: 8),
-                              Expanded(child: _buildExchangeChip('CALLPUT')),
-                            ],
-                          ),
-                          SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(child: _buildExchangeChip('OTHERS')),
+                              Expanded(child: _buildExchangeChip('MCX-FUT')),
                               SizedBox(width: 8),
                               Expanded(child: _buildExchangeChip('MCX-OPT')),
+                            ],
+                          ),
+                          SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(child: _buildExchangeChip('GLOBAL')),
+                              SizedBox(width: 8),
+                              Expanded(child: Container()),
                             ],
                           ),
                         ],
@@ -340,7 +358,8 @@ class EditUserView extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(vertical: 18),
                         decoration: ShapeDecoration(
                           color: const Color(0xFF22547C),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
                         ),
                         child: Text(
                           'UPDATE',
@@ -375,7 +394,8 @@ class EditUserView extends StatelessWidget {
             Expanded(
               child: Row(
                 children: [
-                  Icon(Icons.check_box_outline_blank, size: 24, color: Colors.black),
+                  Icon(Icons.check_box_outline_blank,
+                      size: 24, color: Colors.black),
                   SizedBox(width: 8),
                   Text(
                     'NSE',
@@ -392,7 +412,8 @@ class EditUserView extends StatelessWidget {
             Expanded(
               child: Row(
                 children: [
-                  Icon(Icons.check_box_outline_blank, size: 24, color: Colors.black),
+                  Icon(Icons.check_box_outline_blank,
+                      size: 24, color: Colors.black),
                   SizedBox(width: 8),
                   Text(
                     'Turnover',
@@ -409,7 +430,8 @@ class EditUserView extends StatelessWidget {
             Expanded(
               child: Row(
                 children: [
-                  Icon(Icons.check_box_outline_blank, size: 24, color: Colors.black),
+                  Icon(Icons.check_box_outline_blank,
+                      size: 24, color: Colors.black),
                   SizedBox(width: 8),
                   Text(
                     'Lot',

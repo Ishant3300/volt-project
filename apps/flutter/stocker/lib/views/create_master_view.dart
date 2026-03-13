@@ -35,21 +35,21 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   bool _isLoadingServers = false;
 
   Map<String, bool> _exchangeAllow = {
-    'NSE': false,
-    'MCX': false,
-    'SGX': false,
-    'CALLPUT': false,
-    'OTHERS': false,
+    'NFO-FUT': false,
+    'NFO-OPT': false,
+    'MCX-FUT': false,
     'MCX-OPT': false,
+    'SGX': false,
+    'GLOBAL': false,
   };
 
   Map<String, bool> _highLowBetweenTradeLimit = {
-    'NSE': false,
-    'MCX': false,
-    'SGX': false,
-    'CALLPUT': false,
-    'OTHERS': false,
+    'NFO-FUT': false,
+    'NFO-OPT': false,
+    'MCX-FUT': false,
     'MCX-OPT': false,
+    'SGX': false,
+    'GLOBAL': false,
   };
 
   @override
@@ -86,13 +86,15 @@ class _CreateMasterViewState extends State<CreateMasterView> {
       _selectedServerId = master.serverId;
 
       for (var exchange in master.exchangesAllowed) {
-        if (_exchangeAllow.containsKey(exchange)) {
-          _exchangeAllow[exchange] = true;
+        String key = exchange == 'INDICES' ? 'GLOBAL' : exchange;
+        if (_exchangeAllow.containsKey(key)) {
+          _exchangeAllow[key] = true;
         }
       }
       for (var exchange in master.tradeLimit) {
-        if (_highLowBetweenTradeLimit.containsKey(exchange)) {
-          _highLowBetweenTradeLimit[exchange] = true;
+        String key = exchange == 'INDICES' ? 'GLOBAL' : exchange;
+        if (_highLowBetweenTradeLimit.containsKey(key)) {
+          _highLowBetweenTradeLimit[key] = true;
         }
       }
     }
@@ -108,7 +110,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
         final data = jsonDecode(response.body);
         if (data['success'] == true && data['data'] != null) {
           setState(() {
-            _servers = List<Map<String, dynamic>>.from(data['data']['servers'] ?? []);
+            _servers =
+                List<Map<String, dynamic>>.from(data['data']['servers'] ?? []);
           });
           log('✅ Loaded ${_servers.length} servers');
         }
@@ -129,7 +132,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
       _showSnack('Please enter username', isError: true);
       return;
     }
-    if (_passwordController.text.isNotEmpty || _confirmPasswordController.text.isNotEmpty) {
+    if (_passwordController.text.isNotEmpty ||
+        _confirmPasswordController.text.isNotEmpty) {
       if (_passwordController.text != _confirmPasswordController.text) {
         _showSnack('Passwords do not match', isError: true);
         return;
@@ -156,9 +160,13 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           masterId: widget.master!.id,
           name: _nameController.text.trim(),
           username: _usernameController.text.trim(),
-          password: _passwordController.text.isNotEmpty ? _passwordController.text : null,
+          password: _passwordController.text.isNotEmpty
+              ? _passwordController.text
+              : null,
           credits: double.tryParse(_creditController.text.trim()),
-          note: _noteController.text.trim(),
+          note: _noteController.text.trim().isEmpty
+              ? ''
+              : _noteController.text.trim(),
           pnlSharing: double.tryParse(_profitLossController.text.trim()),
           brokerageSharing: double.tryParse(_brkSharingController.text.trim()),
           exchangesAllowed: selectedExchanges,
@@ -181,7 +189,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           return;
         }
 
-        final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+        final profileProvider =
+            Provider.of<UserProfileProvider>(context, listen: false);
         String? serverId;
 
         if (profileProvider.isAdmin) {
@@ -194,7 +203,32 @@ class _CreateMasterViewState extends State<CreateMasterView> {
         } else {
           serverId = profileProvider.master?.serverId;
           if (serverId == null || serverId.isEmpty) {
-            _showSnack('Server ID not found. Please logout and login again.', isError: true);
+            _showSnack('Server ID not found. Please logout and login again.',
+                isError: true);
+            setState(() => _isSubmitting = false);
+            return;
+          }
+
+          // Validate PnL and Brokerage sharing for master creating child master
+          final pnlSharing =
+              double.tryParse(_profitLossController.text.trim()) ?? 0;
+          final brkSharing =
+              double.tryParse(_brkSharingController.text.trim()) ?? 0;
+          final parentPnl = profileProvider.master?.pnlSharing ?? 100;
+          final parentBrk = profileProvider.master?.brokerageSharing ?? 100;
+
+          if (pnlSharing > parentPnl) {
+            _showSnack(
+                'P&L sharing cannot exceed your available share of ${parentPnl.toStringAsFixed(1)}%',
+                isError: true);
+            setState(() => _isSubmitting = false);
+            return;
+          }
+
+          if (brkSharing > parentBrk) {
+            _showSnack(
+                'Brokerage sharing cannot exceed your available share of ${parentBrk.toStringAsFixed(1)}%',
+                isError: true);
             setState(() => _isSubmitting = false);
             return;
           }
@@ -205,9 +239,12 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           username: _usernameController.text.trim(),
           password: _passwordController.text,
           credits: double.tryParse(_creditController.text.trim()) ?? 0,
-          note: _noteController.text.trim(),
+          note: _noteController.text.trim().isEmpty
+              ? ''
+              : _noteController.text.trim(),
           pnlSharing: double.tryParse(_profitLossController.text.trim()) ?? 0,
-          brokerageSharing: double.tryParse(_brkSharingController.text.trim()) ?? 0,
+          brokerageSharing:
+              double.tryParse(_brkSharingController.text.trim()) ?? 0,
           exchangesAllowed: selectedExchanges,
           tradeLimit: selectedTradeLimit,
           addMaster: _addMaster,
@@ -222,7 +259,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             Navigator.pop(context, true);
           }
         } else {
-          _showSnack('Failed to create master: ${response.body}', isError: true);
+          final body = jsonDecode(response.body);
+          final errorMsg = body['message'] ?? 'Failed to create master';
+          _showSnack(errorMsg, isError: true);
         }
       }
     } catch (e) {
@@ -237,7 +276,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor: isError ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+        backgroundColor:
+            isError ? const Color(0xFFEF4444) : const Color(0xFF10B981),
       ),
     );
   }
@@ -270,7 +310,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                           ),
                         ],
                       ),
-                      child: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
+                      child: const Icon(Icons.arrow_back,
+                          color: Colors.black, size: 20),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -300,23 +341,34 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                     _card(
                       child: Column(
                         children: [
-                          _buildTextField(label: 'Name', controller: _nameController),
+                          _buildTextField(
+                              label: 'Name', controller: _nameController),
                           _divider(),
-                          _buildTextField(label: 'Username', controller: _usernameController),
+                          _buildTextField(
+                              label: 'Username',
+                              controller: _usernameController),
                           // Server dropdown for admin
                           Consumer<UserProfileProvider>(
                             builder: (context, profile, _) {
-                              if (!profile.isAdmin) return const SizedBox.shrink();
+                              if (!profile.isAdmin)
+                                return const SizedBox.shrink();
                               return Column(
                                 children: [
                                   _divider(),
                                   _buildDropdownField(
                                     label: 'Server',
-                                    hint: _isLoadingServers ? 'Loading...' : 'Select Server',
+                                    hint: _isLoadingServers
+                                        ? 'Loading...'
+                                        : 'Select Server',
                                     value: _selectedServerId,
-                                    onChanged: (v) => setState(() => _selectedServerId = v),
-                                    items: _servers.map((s) => s['id'] as String).toList(),
-                                    itemLabels: _servers.map((s) => s['name'] as String).toList(),
+                                    onChanged: (v) =>
+                                        setState(() => _selectedServerId = v),
+                                    items: _servers
+                                        .map((s) => s['id'] as String)
+                                        .toList(),
+                                    itemLabels: _servers
+                                        .map((s) => s['name'] as String)
+                                        .toList(),
                                   ),
                                 ],
                               );
@@ -327,19 +379,29 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                             label: 'Password',
                             controller: _passwordController,
                             obscureText: true,
-                            hint: widget.master != null ? 'Leave empty to keep current' : 'Enter password',
+                            hint: widget.master != null
+                                ? 'Leave empty to keep current'
+                                : 'Enter password',
                           ),
                           _divider(),
                           _buildTextField(
                             label: 'Confirm Password',
                             controller: _confirmPasswordController,
                             obscureText: true,
-                            hint: widget.master != null ? 'Leave empty to keep current' : 'Confirm password',
+                            hint: widget.master != null
+                                ? 'Leave empty to keep current'
+                                : 'Confirm password',
                           ),
                           _divider(),
-                          _buildTextField(label: 'Credit', controller: _creditController, keyboardType: TextInputType.number),
+                          _buildTextField(
+                              label: 'Credit',
+                              controller: _creditController,
+                              keyboardType: TextInputType.number),
                           _divider(),
-                          _buildTextField(label: 'Note / Remark', controller: _noteController),
+                          _buildTextField(
+                              label: 'Note / Remark',
+                              controller: _noteController,
+                              hint: 'Optional'),
                         ],
                       ),
                     ),
@@ -383,7 +445,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                       values: _highLowBetweenTradeLimit,
                       onToggleAll: () {
                         setState(() {
-                          final all = _highLowBetweenTradeLimit.values.every((v) => v);
+                          final all =
+                              _highLowBetweenTradeLimit.values.every((v) => v);
                           _highLowBetweenTradeLimit.updateAll((k, v) => !all);
                         });
                       },
@@ -395,11 +458,15 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                     _card(
                       child: Column(
                         children: [
-                          _buildToggleRow('Add Master', _addMaster, (v) => setState(() => _addMaster = v)),
+                          _buildToggleRow('Add Master', _addMaster,
+                              (v) => setState(() => _addMaster = v)),
                           if (widget.master == null) ...[
                             _divider(),
-                            _buildToggleRow('Change password on first login', _changePasswordOnFirstLogin,
-                                (v) => setState(() => _changePasswordOnFirstLogin = v)),
+                            _buildToggleRow(
+                                'Change password on first login',
+                                _changePasswordOnFirstLogin,
+                                (v) => setState(
+                                    () => _changePasswordOnFirstLogin = v)),
                           ],
                         ],
                       ),
@@ -414,17 +481,23 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                         width: double.infinity,
                         height: 52,
                         decoration: BoxDecoration(
-                          color: _isSubmitting ? const Color(0xFF94A3B8) : const Color(0xFF22547C),
+                          color: _isSubmitting
+                              ? const Color(0xFF94A3B8)
+                              : const Color(0xFF22547C),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Center(
                           child: _isSubmitting
                               ? const SizedBox(
-                                  width: 20, height: 20,
-                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                      color: Colors.white, strokeWidth: 2),
                                 )
                               : Text(
-                                  widget.master != null ? 'UPDATE MASTER' : 'CREATE MASTER',
+                                  widget.master != null
+                                      ? 'UPDATE MASTER'
+                                      : 'CREATE MASTER',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 15,
@@ -580,7 +653,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                   ),
                 ),
                 isExpanded: true,
-                icon: const Icon(Icons.keyboard_arrow_down, size: 18, color: Color(0xFF94A3B8)),
+                icon: const Icon(Icons.keyboard_arrow_down,
+                    size: 18, color: Color(0xFF94A3B8)),
                 style: const TextStyle(
                   color: Colors.black,
                   fontSize: 14,
@@ -593,8 +667,11 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 items: items.asMap().entries.map((entry) {
                   final idx = entry.key;
                   final item = entry.value;
-                  final lbl = itemLabels != null && idx < itemLabels.length ? itemLabels[idx] : item;
-                  return DropdownMenuItem<String>(value: item, child: Text(lbl));
+                  final lbl = itemLabels != null && idx < itemLabels.length
+                      ? itemLabels[idx]
+                      : item;
+                  return DropdownMenuItem<String>(
+                      value: item, child: Text(lbl));
                 }).toList(),
               ),
             ),
@@ -650,7 +727,10 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                   decoration: InputDecoration(
                     border: InputBorder.none,
                     hintText: 'Enter value',
-                    hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 14, fontFamily: 'Inter'),
+                    hintStyle: const TextStyle(
+                        color: Color(0xFFCBD5E1),
+                        fontSize: 14,
+                        fontFamily: 'Inter'),
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(vertical: 10),
                   ),
@@ -661,13 +741,16 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 children: [
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: const Color(0xFF22547C).withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
-                        isMaster ? 'Our: ${parentVal.toStringAsFixed(1)}' : 'Our: 100',
+                        isMaster
+                            ? 'Our: ${parentVal.toStringAsFixed(1)}'
+                            : 'Our: 100',
                         style: const TextStyle(
                           color: Color(0xFF22547C),
                           fontSize: 12,
@@ -680,15 +763,21 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: (remaining < 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981)).withValues(alpha: 0.06),
+                        color: (remaining < 0
+                                ? const Color(0xFFEF4444)
+                                : const Color(0xFF10B981))
+                            .withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
                         'Remaining: ${remaining.toStringAsFixed(1)}',
                         style: TextStyle(
-                          color: remaining < 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                          color: remaining < 0
+                              ? const Color(0xFFEF4444)
+                              : const Color(0xFF10B981),
                           fontSize: 12,
                           fontFamily: 'Inter',
                           fontWeight: FontWeight.w600,
@@ -721,7 +810,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             GestureDetector(
               onTap: onToggleAll,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: const Color(0xFF22547C).withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
@@ -749,12 +839,17 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               return GestureDetector(
                 onTap: () => setState(() => values[key] = !selected),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: selected ? const Color(0xFF22547C) : const Color(0xFFF8FAFC),
+                    color: selected
+                        ? const Color(0xFF22547C)
+                        : const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: selected ? const Color(0xFF22547C) : const Color(0xFFF1F5F9),
+                      color: selected
+                          ? const Color(0xFF22547C)
+                          : const Color(0xFFF1F5F9),
                     ),
                   ),
                   child: Text(
@@ -798,7 +893,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               height: 26,
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
-                color: value ? const Color(0xFF22547C) : const Color(0xFFCBD5E1),
+                color:
+                    value ? const Color(0xFF22547C) : const Color(0xFFCBD5E1),
                 borderRadius: BorderRadius.circular(13),
               ),
               child: AnimatedAlign(

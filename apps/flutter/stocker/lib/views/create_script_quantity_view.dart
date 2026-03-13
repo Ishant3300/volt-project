@@ -1,434 +1,752 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../services/admin_service.dart';
-import '../services/sercure_storage_service.dart';
+import '../services/kite_service.dart';
 import '../models/kite_instrument.dart';
 
 class CreateScriptQuantityView extends StatefulWidget {
   const CreateScriptQuantityView({super.key});
-
   @override
-  State<CreateScriptQuantityView> createState() => _CreateScriptQuantityViewState();
+  State<CreateScriptQuantityView> createState() =>
+      _CreateScriptQuantityViewState();
 }
 
 class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
-  final TextEditingController _searchController = TextEditingController();
-  final TextEditingController _maxQtyController = TextEditingController();
-  final TextEditingController _brkQtyController = TextEditingController();
-  final SecureStorageService _storage = SecureStorageService();
-  
-  List<KiteInstrument> _searchResults = [];
-  KiteInstrument? _selectedInstrument;
+  String _selectedExchange = 'ALL';
+  final _exchanges = [
+    'ALL',
+    'NFO-FUT',
+    'NFO-OPT',
+    'MCX-FUT',
+    'MCX-OPT',
+    'GLOBAL',
+    'SGX'
+  ];
+
+  final _searchCtrl = TextEditingController();
+  final _searchFocus = FocusNode();
+  final _maxQtyCtrl = TextEditingController();
+  final _brkQtyCtrl = TextEditingController();
+  Timer? _debounce;
+
+  List<dynamic> _allItems = [];
+  List<Map<String, dynamic>> _groupedResults = [];
+  int _displayCount = 50;
+  int _totalResults = 0;
   bool _isSearching = false;
   bool _isSubmitting = false;
+  KiteInstrument? _selected;
+  final _scrollCtrl = ScrollController();
+
+  static const Map<String, Color> _typeColors = {
+    'FUT': Color(0xFF3B82F6),
+    'CE': Color(0xFF10B981),
+    'PE': Color(0xFFEF4444),
+    'EQ': Color(0xFF64748B),
+    'IDX': Color(0xFF8B5CF6),
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollCtrl.addListener(_onScroll);
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _searchFocus.requestFocus());
+  }
 
   @override
   void dispose() {
-    _searchController.dispose();
-    _maxQtyController.dispose();
-    _brkQtyController.dispose();
+    _searchCtrl.dispose();
+    _searchFocus.dispose();
+    _maxQtyCtrl.dispose();
+    _brkQtyCtrl.dispose();
+    _scrollCtrl.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
-  Future<void> _searchInstruments(String query) async {
-    if (query.trim().isEmpty) {
-      setState(() {
-        _searchResults = [];
-      });
-      return;
-    }
-
-    setState(() {
-      _isSearching = true;
-    });
-
-    try {
-      log('🔍 Searching instruments: $query');
-      final apiService = Provider.of<ApiService>(context, listen: false);
-      
-      // Get token from secure storage
-      final token = await _storage.getToken();
-      
-      // Make authenticated request
-      final response = await apiService.get('/kite/instruments/search?q=$query', token: token);
-      
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['success'] == true) {
-          final List<dynamic> instruments = data['data'] ?? [];
-          setState(() {
-            _searchResults = instruments.map((json) => KiteInstrument.fromJson(json)).toList();
-          });
-        }
+  void _onScroll() {
+    if (_scrollCtrl.position.pixels >=
+        _scrollCtrl.position.maxScrollExtent - 200) {
+      if (_displayCount < _allItems.length) {
+        setState(() {
+          _displayCount = (_displayCount + 50).clamp(0, _allItems.length);
+          _groupedResults =
+              _buildGroups(_allItems.take(_displayCount).toList());
+        });
       }
-    } catch (e) {
-      log('❌ Error searching instruments: $e');
-    } finally {
-      setState(() {
-        _isSearching = false;
-      });
     }
   }
 
-  Future<void> _createScriptQuantity() async {
-    if (_selectedInstrument == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an instrument')),
-      );
+  void _onSearchChanged(String q) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () => _search(q));
+  }
+
+  Future<void> _search(String q) async {
+    if (q.isEmpty) {
+      setState(() {
+        _allItems = [];
+        _groupedResults = [];
+        _totalResults = 0;
+        _isSearching = false;
+      });
       return;
     }
-
-    final maxQty = double.tryParse(_maxQtyController.text.trim());
-    final brkQty = double.tryParse(_brkQtyController.text.trim());
-
-    if (maxQty == null || maxQty <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid max quantity')),
-      );
-      return;
-    }
-
-    if (brkQty == null || brkQty <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid breakup quantity')),
-      );
-      return;
-    }
-
-    setState(() {
-      _isSubmitting = true;
-    });
-
+    setState(() => _isSearching = true);
     try {
-      log('💾 Creating script quantity');
+      final kite = Provider.of<KiteService>(context, listen: false);
+      final result = await kite.smartSearchInstruments(q,
+          category: _selectedExchange == 'ALL' ? 'ALL' : _selectedExchange,
+          limit: 200);
+
+      if (!mounted || _searchCtrl.text != q) return;
+
+      final groups = result['groups'] as List<dynamic>? ?? [];
+      final total = result['total'] as int? ?? 0;
+      final all = <dynamic>[];
+      for (final g in groups) {
+        all.addAll((g as Map)['items'] as List<dynamic>? ?? []);
+      }
+      setState(() {
+        _allItems = all;
+        _totalResults = total;
+        _displayCount = 50.clamp(0, all.length);
+        _groupedResults = _buildGroups(all.take(_displayCount).toList());
+        _isSearching = false;
+      });
+    } catch (e) {
+      log('Search error: $e');
+      setState(() => _isSearching = false);
+    }
+  }
+
+  List<Map<String, dynamic>> _buildGroups(List<dynamic> items) {
+    final map = <String, List<dynamic>>{};
+    final groupOrder = [
+      'Index',
+      'Futures',
+      'Call Options (CE)',
+      'Put Options (PE)',
+      'MCX-OPT',
+      'Other'
+    ];
+
+    for (final item in items) {
+      final m = Map<String, dynamic>.from(item as Map);
+      final type = (m['instrument_type'] ?? '').toString();
+      final seg = (m['segment'] ?? '').toString();
+      final exchange = (m['exchange'] ?? '').toString();
+      String label;
+      if (seg == 'INDICES' || type == 'IDX')
+        label = 'Index';
+      else if (type == 'FUT')
+        label = 'Futures';
+      else if (seg == 'MCX-OPT' ||
+          (exchange == 'MCX' && (type == 'CE' || type == 'PE')))
+        label = 'MCX-OPT';
+      else if (type == 'CE')
+        label = 'Call Options (CE)';
+      else if (type == 'PE')
+        label = 'Put Options (PE)';
+      else
+        label = 'Other';
+      map.putIfAbsent(label, () => []).add(item);
+    }
+
+    final result = <Map<String, dynamic>>[];
+    for (final key in groupOrder) {
+      if (map.containsKey(key) && map[key]!.isNotEmpty) {
+        result.add({'label': key, 'items': map[key]});
+      }
+    }
+    return result;
+  }
+
+  void _selectInstrument(KiteInstrument inst) {
+    setState(() {
+      _selected = inst;
+      _searchCtrl.text = inst.tradingsymbol;
+      _groupedResults = [];
+      _allItems = [];
+    });
+    _searchFocus.unfocus();
+  }
+
+  Future<void> _submit() async {
+    if (_selected == null) return;
+    final maxQty = int.tryParse(_maxQtyCtrl.text.trim());
+    final brkQty = int.tryParse(_brkQtyCtrl.text.trim());
+    if (maxQty == null || maxQty <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Enter a valid max quantity'),
+          backgroundColor: Color(0xFFEF4444)));
+      return;
+    }
+    if (brkQty == null || brkQty <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Enter a valid breakup quantity'),
+          backgroundColor: Color(0xFFEF4444)));
+      return;
+    }
+    setState(() => _isSubmitting = true);
+    try {
       final apiService = Provider.of<ApiService>(context, listen: false);
-      final adminService = AdminService(apiService);
-      
-      final response = await adminService.createScriptQuantity(
-        exchangeName: _selectedInstrument!.exchange,
-        scriptName: _selectedInstrument!.tradingsymbol,
-        lotSize: _selectedInstrument!.lotSize?.toInt() ?? 1,
-        maxQty: maxQty.toInt(),
-        brkQty: brkQty.toInt(),
+      final r = await AdminService(apiService).createScriptQuantity(
+        exchangeName: _selected!.exchange,
+        scriptName: _selected!.tradingsymbol,
+        lotSize: _selected!.lotSize.toInt(),
+        maxQty: maxQty,
+        brkQty: brkQty,
       );
-      
-      if (response.statusCode == 201) {
-        final data = jsonDecode(response.body);
-        if (data['success'] == true) {
-          log('✅ Script quantity created successfully');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Script quantity created successfully')),
-            );
-            Navigator.pop(context, true);
-          }
-        } else {
-          throw Exception(data['message'] ?? 'Failed to create');
+      if (r.statusCode == 201) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Created'), backgroundColor: Color(0xFF10B981)));
+          Navigator.pop(context, true);
         }
       } else {
-        final data = jsonDecode(response.body);
-        throw Exception(data['message'] ?? 'Failed to create');
+        final d = jsonDecode(r.body);
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(d['message'] ?? 'Failed'),
+              backgroundColor: const Color(0xFFEF4444)));
       }
     } catch (e) {
-      log('❌ Error creating script quantity: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: const Color(0xFFEF4444)));
     } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FC),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.arrow_back, color: Colors.black),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Create Script Quantity',
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 16,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          child: Column(children: [
+        _buildHeader(),
+        const SizedBox(height: 8),
+        _buildExchangeTabs(),
+        const SizedBox(height: 12),
+        _buildSearchBar(),
+        const SizedBox(height: 12),
+        Expanded(child: _selected != null ? _buildForm() : _buildResults()),
+      ])),
+    );
+  }
 
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Search Instrument
-                    const Text(
-                      'Search Instrument',
-                      style: TextStyle(
-                        color: Color(0xFF2B2B2B),
-                        fontSize: 16,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      decoration: ShapeDecoration(
-                        color: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          side: const BorderSide(width: 1, color: Color(0xFFD1D1D6)),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (value) {
-                          _searchInstruments(value);
-                        },
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          hintText: 'Type to search instruments...',
-                          hintStyle: TextStyle(
-                            color: Color(0xFF8E8E93),
-                            fontSize: 16,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
-                          ),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        ),
-                      ),
-                    ),
-
-                    // Search Results
-                    if (_isSearching)
-                      const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    else if (_searchResults.isNotEmpty)
-                      Container(
-                        margin: const EdgeInsets.only(top: 8),
-                        constraints: const BoxConstraints(maxHeight: 200),
-                        decoration: ShapeDecoration(
-                          color: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            side: const BorderSide(width: 1, color: Color(0xFFD1D1D6)),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: _searchResults.length,
-                          separatorBuilder: (context, index) => const Divider(height: 1),
-                          itemBuilder: (context, index) {
-                            final instrument = _searchResults[index];
-                            return ListTile(
-                              title: Text(
-                                instrument.tradingsymbol,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              subtitle: Text(
-                                '${instrument.exchange} • Lot: ${instrument.lotSize ?? 1}',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                              onTap: () {
-                                setState(() {
-                                  _selectedInstrument = instrument;
-                                  _searchController.text = instrument.tradingsymbol;
-                                  _searchResults = [];
-                                });
-                              },
-                            );
-                          },
-                        ),
-                      ),
-
-                    // Selected Instrument
-                    if (_selectedInstrument != null) ...[
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: ShapeDecoration(
-                          color: const Color(0xFFE5F4FF),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.check_circle, color: Color(0xFF22547C)),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _selectedInstrument!.tradingsymbol,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${_selectedInstrument!.exchange} • Lot Size: ${_selectedInstrument!.lotSize ?? 1}',
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-
-                    const SizedBox(height: 24),
-
-                    // Max Quantity
-                    const Text(
-                      'Max Quantity',
-                      style: TextStyle(
-                        color: Color(0xFF2B2B2B),
-                        fontSize: 16,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      decoration: ShapeDecoration(
-                        color: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          side: const BorderSide(width: 1, color: Color(0xFFD1D1D6)),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: TextField(
-                        controller: _maxQtyController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          hintText: 'Enter max quantity',
-                          hintStyle: TextStyle(
-                            color: Color(0xFF8E8E93),
-                            fontSize: 16,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
-                          ),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Breakup Quantity
-                    const Text(
-                      'Breakup Quantity',
-                      style: TextStyle(
-                        color: Color(0xFF2B2B2B),
-                        fontSize: 16,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      decoration: ShapeDecoration(
-                        color: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          side: const BorderSide(width: 1, color: Color(0xFFD1D1D6)),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: TextField(
-                        controller: _brkQtyController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          hintText: 'Enter breakup quantity',
-                          hintStyle: TextStyle(
-                            color: Color(0xFF8E8E93),
-                            fontSize: 16,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
-                          ),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 32),
-
-                    // Create Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: GestureDetector(
-                        onTap: _isSubmitting ? null : _createScriptQuantity,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          decoration: ShapeDecoration(
-                            color: _isSubmitting ? const Color(0xFF8E8E93) : const Color(0xFF22547C),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: _isSubmitting
-                              ? const Center(
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                )
-                              : const Text(
-                                  'CREATE',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Row(children: [
+        GestureDetector(
+          onTap: () => Navigator.pop(context),
+          child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withOpacity(0.02),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2))
+                  ]),
+              child:
+                  const Icon(Icons.arrow_back, color: Colors.black, size: 20)),
         ),
+        const SizedBox(width: 12),
+        const Text('Create Script Quantity',
+            style: TextStyle(
+                color: Colors.black,
+                fontSize: 18,
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w600)),
+      ]),
+    );
+  }
+
+  Widget _buildExchangeTabs() {
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _exchanges.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final ex = _exchanges[i];
+          final sel = ex == _selectedExchange;
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                _selectedExchange = ex;
+                _selected = null;
+              });
+              if (_searchCtrl.text.isNotEmpty) _search(_searchCtrl.text);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                  color: sel ? const Color(0xFF22547C) : Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border:
+                      sel ? null : Border.all(color: const Color(0xFFE2E8F0))),
+              child: Text(ex,
+                  style: TextStyle(
+                      color: sel ? Colors.white : const Color(0xFF64748B),
+                      fontSize: 13,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w600)),
+            ),
+          );
+        },
       ),
     );
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2))
+            ]),
+        child: Row(children: [
+          const Padding(
+              padding: EdgeInsets.only(left: 16, right: 8),
+              child: Icon(Icons.search, color: Color(0xFF94A3B8), size: 20)),
+          Expanded(
+              child: TextField(
+            controller: _searchCtrl,
+            focusNode: _searchFocus,
+            style: const TextStyle(
+                fontSize: 14,
+                color: Color(0xFF0F172A),
+                fontFamily: 'Inter',
+                fontWeight: FontWeight.w400),
+            decoration: const InputDecoration(
+                hintText: 'Search instruments...',
+                hintStyle: TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 14,
+                    fontFamily: 'Inter'),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 14)),
+            onChanged: (v) {
+              if (_selected != null) setState(() => _selected = null);
+              _onSearchChanged(v);
+            },
+          )),
+          if (_isSearching)
+            const Padding(
+                padding: EdgeInsets.only(right: 14),
+                child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Color(0xFF22547C))))
+          else if (_searchCtrl.text.isNotEmpty)
+            GestureDetector(
+              onTap: () {
+                _searchCtrl.clear();
+                _search('');
+                setState(() => _selected = null);
+              },
+              child: const Padding(
+                  padding: EdgeInsets.only(right: 14),
+                  child: Icon(Icons.close, color: Color(0xFF94A3B8), size: 18)),
+            ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildResults() {
+    if (_searchCtrl.text.isEmpty) {
+      return const Center(
+          child: Text('Search for an instrument to add',
+              style: TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 13,
+                  fontFamily: 'Inter')));
+    }
+    if (_isSearching && _groupedResults.isEmpty) {
+      return const Center(
+          child: CircularProgressIndicator(
+              color: Color(0xFF22547C), strokeWidth: 2.5));
+    }
+    if (_groupedResults.isEmpty) {
+      return const Center(
+          child: Text('No results found',
+              style: TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 13,
+                  fontFamily: 'Inter')));
+    }
+    return Stack(children: [
+      Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2))
+            ]),
+        child: ListView.builder(
+          controller: _scrollCtrl,
+          padding: const EdgeInsets.only(bottom: 60),
+          itemCount: _groupedResults.length +
+              (_displayCount < _allItems.length ? 1 : 0),
+          itemBuilder: (ctx, gi) {
+            if (gi == _groupedResults.length) {
+              return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Center(
+                      child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              color: Color(0xFF22547C), strokeWidth: 2))));
+            }
+            final group = _groupedResults[gi];
+            final label = group['label'] as String;
+            final items = group['items'] as List<dynamic>;
+            return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                      color: const Color(0xFFF8FAFC),
+                      child: Text(label.toUpperCase(),
+                          style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF94A3B8),
+                              fontFamily: 'Inter',
+                              letterSpacing: 0.5))),
+                  ...items.asMap().entries.map((e) => Column(children: [
+                        _buildRow(e.value),
+                        if (e.key < items.length - 1)
+                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                      ])),
+                ]);
+          },
+        ),
+      ),
+      if (_totalResults > 0)
+        Positioned(
+            bottom: 16,
+            left: 0,
+            right: 0,
+            child: Center(
+                child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withOpacity(0.06),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2))
+                  ]),
+              child: Text(
+                  _displayCount < _allItems.length
+                      ? '$_displayCount of $_totalResults results'
+                      : '$_totalResults results',
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF475569),
+                      fontFamily: 'Inter')),
+            ))),
+    ]);
+  }
+
+  Widget _buildForm() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Selected instrument chip
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2))
+              ]),
+          child: Row(children: [
+            Container(
+                width: 38,
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                decoration: BoxDecoration(
+                    color: const Color(0xFF22547C).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8)),
+                child: Text(
+                    _selected!.instrumentType.isNotEmpty
+                        ? _selected!.instrumentType
+                        : _selected!.exchange,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF22547C),
+                        fontFamily: 'Inter'))),
+            const SizedBox(width: 12),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text(_selected!.tradingsymbol,
+                      style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF0F172A),
+                          fontFamily: 'Inter',
+                          letterSpacing: -0.3)),
+                  Text('${_selected!.exchange}  ·  LOT ${_selected!.lotSize}',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF94A3B8),
+                          fontFamily: 'Inter')),
+                ])),
+            GestureDetector(
+                onTap: () => setState(() {
+                      _selected = null;
+                      _groupedResults = [];
+                    }),
+                child: const Icon(Icons.close,
+                    size: 18, color: Color(0xFF94A3B8))),
+          ]),
+        ),
+        const SizedBox(height: 20),
+        _formField(_maxQtyCtrl, 'Max Quantity', 'e.g. 1000'),
+        const SizedBox(height: 14),
+        _formField(_brkQtyCtrl, 'Breakup Quantity', 'e.g. 100'),
+        const SizedBox(height: 28),
+        GestureDetector(
+          onTap: _isSubmitting ? null : _submit,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: BoxDecoration(
+                color: _isSubmitting
+                    ? const Color(0xFF22547C).withOpacity(0.5)
+                    : const Color(0xFF22547C),
+                borderRadius: BorderRadius.circular(16)),
+            child: _isSubmitting
+                ? const Center(
+                    child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2)))
+                : const Text('CREATE',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w600)),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _formField(TextEditingController ctrl, String label, String hint) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label,
+          style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF475569),
+              fontFamily: 'Inter')),
+      const SizedBox(height: 6),
+      TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          style: const TextStyle(
+              fontSize: 14,
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF0F172A)),
+          decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: const TextStyle(
+                  color: Color(0xFFCBD5E1), fontSize: 13, fontFamily: 'Inter'),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+              focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide:
+                      const BorderSide(color: Color(0xFF22547C), width: 1.5)))),
+    ]);
+  }
+
+  Widget _buildRow(dynamic item) {
+    final inst =
+        KiteInstrument.fromJson(Map<String, dynamic>.from(item as Map));
+    final typeColor =
+        _typeColors[inst.instrumentType] ?? const Color(0xFF64748B);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _selectInstrument(inst),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(children: [
+          Container(
+              width: 38,
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              decoration: BoxDecoration(
+                  color: typeColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8)),
+              child: Text(
+                  inst.instrumentType.isNotEmpty
+                      ? inst.instrumentType
+                      : inst.exchange,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: typeColor,
+                      fontFamily: 'Inter',
+                      letterSpacing: 0.3))),
+          const SizedBox(width: 12),
+          Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                _buildHighlight(inst.tradingsymbol, _searchCtrl.text),
+                const SizedBox(height: 3),
+                Row(children: [
+                  Text(inst.segment.isNotEmpty ? inst.segment : inst.exchange,
+                      style: const TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF94A3B8),
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w500)),
+                  const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 5),
+                      child: Text('·',
+                          style: TextStyle(
+                              fontSize: 10, color: Color(0xFFCBD5E1)))),
+                  Text('LOT ${inst.lotSize}',
+                      style: const TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF94A3B8),
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w500)),
+                ]),
+              ])),
+          const Icon(Icons.chevron_right, size: 18, color: Color(0xFFCBD5E1)),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildHighlight(String text, String query) {
+    if (query.isEmpty)
+      return Text(text,
+          style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              color: Color(0xFF0F172A),
+              fontFamily: 'Inter',
+              letterSpacing: -0.3),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis);
+    final tokens = query.toUpperCase().split(RegExp(r'\s+'));
+    final upper = text.toUpperCase();
+    final starts = <int>[], ends = <int>[];
+    for (final t in tokens) {
+      if (t.isEmpty) continue;
+      int s = 0;
+      while (true) {
+        final i = upper.indexOf(t, s);
+        if (i == -1) break;
+        starts.add(i);
+        ends.add(i + t.length);
+        s = i + 1;
+      }
+    }
+    if (starts.isEmpty)
+      return Text(text,
+          style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              color: Color(0xFF0F172A),
+              fontFamily: 'Inter',
+              letterSpacing: -0.3),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis);
+    final ranges = <List<int>>[];
+    final sorted = List.generate(starts.length, (i) => i)
+      ..sort((a, b) => starts[a].compareTo(starts[b]));
+    for (final i in sorted) {
+      if (ranges.isEmpty || starts[i] > ranges.last[1])
+        ranges.add([starts[i], ends[i]]);
+      else if (ends[i] > ranges.last[1]) ranges.last[1] = ends[i];
+    }
+    final spans = <TextSpan>[];
+    int last = 0;
+    for (final r in ranges) {
+      if (r[0] > last) spans.add(TextSpan(text: text.substring(last, r[0])));
+      spans.add(TextSpan(
+          text: text.substring(r[0], r[1]),
+          style: const TextStyle(
+              backgroundColor: Color(0xFFFEF08A),
+              fontWeight: FontWeight.w700)));
+      last = r[1];
+    }
+    if (last < text.length) spans.add(TextSpan(text: text.substring(last)));
+    return RichText(
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        text: TextSpan(
+            style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                color: Color(0xFF0F172A),
+                fontFamily: 'Inter',
+                letterSpacing: -0.3),
+            children: spans));
   }
 }

@@ -298,10 +298,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
-                                        color:
-                                            roleColor.withValues(alpha: 0.1),
-                                        borderRadius:
-                                            BorderRadius.circular(6),
+                                        color: roleColor.withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Text(
                                         role,
@@ -474,8 +472,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     _buildDivider(),
                     _buildMenuItem(context, Icons.history, 'Login History'),
                     _buildDivider(),
-                    _buildMenuItem(
-                        context, Icons.swap_horiz, 'Switch Account'),
+                    _buildMenuItem(context, Icons.swap_horiz, 'Switch Account'),
                     _buildDivider(),
                     _buildMenuItem(context, Icons.logout, 'Logout',
                         isRed: true),

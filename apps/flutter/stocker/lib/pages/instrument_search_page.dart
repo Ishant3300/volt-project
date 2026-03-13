@@ -33,11 +33,11 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
 
   final List<Map<String, String>> _tabs = [
     {'key': 'ALL', 'label': 'ALL'},
-    {'key': 'NSE-FUT', 'label': 'NSE FUT'},
+    {'key': 'NFO-FUT', 'label': 'NFO FUT'},
+    {'key': 'NFO-OPT', 'label': 'NFO OPT'},
     {'key': 'MCX-FUT', 'label': 'MCX FUT'},
-    {'key': 'NSE-OPT', 'label': 'CALLPUT'},
     {'key': 'MCX-OPT', 'label': 'MCX OPT'},
-    {'key': 'OTHERS', 'label': 'OTHERS'},
+    {'key': 'GLOBAL', 'label': 'GLOBAL'},
   ];
 
   static const Map<String, Color> typeColors = {
@@ -67,11 +67,14 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
       if (_displayCount < _allItems.length) {
         setState(() {
-          _displayCount = (_displayCount + _pageSize).clamp(0, _allItems.length);
-          _groupedResults = _buildGroupsFromItems(_allItems.take(_displayCount).toList());
+          _displayCount =
+              (_displayCount + _pageSize).clamp(0, _allItems.length);
+          _groupedResults =
+              _buildGroupsFromItems(_allItems.take(_displayCount).toList());
         });
       }
     }
@@ -111,6 +114,8 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
         limit: _fetchLimit,
       );
 
+      if (!mounted || _searchController.text != query) return;
+
       final groups = result['groups'] as List<dynamic>? ?? [];
       final total = result['total'] as int? ?? 0;
 
@@ -125,7 +130,8 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
         _allItems = allItems;
         _totalResults = total;
         _displayCount = _pageSize.clamp(0, allItems.length);
-        _groupedResults = _buildGroupsFromItems(allItems.take(_displayCount).toList());
+        _groupedResults =
+            _buildGroupsFromItems(allItems.take(_displayCount).toList());
         _isSearching = false;
       });
 
@@ -145,30 +151,50 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
   }
 
   /// Re-group a flat list of items into label-based groups for display
+  /// Groups are ordered: Index, Futures, Call Options, Put Options, Other
   List<Map<String, dynamic>> _buildGroupsFromItems(List<dynamic> items) {
     final groups = <String, List<dynamic>>{};
+    final groupOrder = [
+      'Index',
+      'Futures',
+      'Call Options (CE)',
+      'Put Options (PE)',
+      'MCX-OPT',
+      'Other'
+    ];
+
     for (final item in items) {
       final map = Map<String, dynamic>.from(item as Map);
       final type = (map['instrument_type'] ?? '').toString();
       final segment = (map['segment'] ?? '').toString();
+      final exchange = (map['exchange'] ?? '').toString();
       String label;
       if (segment == 'INDICES' || type == 'IDX') {
         label = 'Index';
       } else if (type == 'FUT') {
         label = 'Futures';
+      } else if (segment == 'MCX-OPT' ||
+          (exchange == 'MCX' && (type == 'CE' || type == 'PE'))) {
+        label = 'MCX-OPT';
       } else if (type == 'CE') {
         label = 'Call Options (CE)';
       } else if (type == 'PE') {
         label = 'Put Options (PE)';
-      } else if (type == 'EQ') {
-        label = 'Equity';
       } else {
         label = 'Other';
       }
       groups.putIfAbsent(label, () => []);
       groups[label]!.add(item);
     }
-    return groups.entries.map((e) => {'label': e.key, 'items': e.value}).toList();
+
+    // Return groups in defined order
+    final result = <Map<String, dynamic>>[];
+    for (final key in groupOrder) {
+      if (groups.containsKey(key) && groups[key]!.isNotEmpty) {
+        result.add({'label': key, 'items': groups[key]});
+      }
+    }
+    return result;
   }
 
   void _saveSelected() {
@@ -241,8 +267,8 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                     onTap: () => Navigator.pop(context),
                     child: const Padding(
                       padding: EdgeInsets.only(left: 16, right: 8),
-                      child:
-                          Icon(Icons.arrow_back, color: Color(0xFF475569), size: 20),
+                      child: Icon(Icons.arrow_back,
+                          color: Color(0xFF475569), size: 20),
                     ),
                   ),
                   Expanded(
@@ -278,8 +304,8 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                       },
                       child: const Padding(
                         padding: EdgeInsets.only(right: 16),
-                        child:
-                            Icon(Icons.close, color: Color(0xFF94A3B8), size: 18),
+                        child: Icon(Icons.close,
+                            color: Color(0xFF94A3B8), size: 18),
                       ),
                     ),
                 ],
@@ -425,13 +451,19 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
           child: ListView.builder(
             controller: _scrollController,
             padding: const EdgeInsets.only(bottom: 80),
-            itemCount: _groupedResults.length + (_displayCount < _allItems.length ? 1 : 0),
+            itemCount: _groupedResults.length +
+                (_displayCount < _allItems.length ? 1 : 0),
             itemBuilder: (context, groupIndex) {
               // Load more indicator at the end
               if (groupIndex == _groupedResults.length) {
                 return const Padding(
                   padding: EdgeInsets.symmetric(vertical: 16),
-                  child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Color(0xFF22547C), strokeWidth: 2))),
+                  child: Center(
+                      child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              color: Color(0xFF22547C), strokeWidth: 2))),
                 );
               }
 
@@ -445,8 +477,8 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                   // Group header
                   Container(
                     width: double.infinity,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
                     color: const Color(0xFFF8FAFC),
                     child: Text(
                       label.toUpperCase(),
@@ -500,7 +532,8 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.search, size: 14, color: Color(0xFF94A3B8)),
+                    const Icon(Icons.search,
+                        size: 14, color: Color(0xFF94A3B8)),
                     const SizedBox(width: 6),
                     Text(
                       _displayCount < _allItems.length
@@ -556,7 +589,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
               child: Text(
                 instrument.instrumentType.isNotEmpty
                     ? instrument.instrumentType
-                    : instrument.exchange,
+                    : (instrument.isIndex ? 'IDX' : instrument.exchange),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 10,
@@ -577,61 +610,41 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                     children: [
                       Flexible(
                         child: _buildHighlightedText(
-                          instrument.tradingsymbol,
+                          instrument.userFriendlyName,
                           _searchController.text,
                         ),
                       ),
-                      if (instrument.expiryDisplay.isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          width: 4,
-                          height: 4,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFCBD5E1),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          instrument.expiryDisplay.toUpperCase(),
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF94A3B8),
-                            fontFamily: 'Inter',
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
-                  const SizedBox(height: 4),
                   Row(
                     children: [
                       Text(
-                        instrument.exchange,
+                        instrument.tradingsymbol,
                         style: const TextStyle(
                           fontSize: 10,
+                          fontWeight: FontWeight.w500,
                           color: Color(0xFF94A3B8),
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0.3,
                         ),
                       ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 6),
-                        child: Text('·',
-                            style: TextStyle(
-                                fontSize: 10, color: Color(0xFFCBD5E1))),
-                      ),
-                      Text(
-                        'LOT ${instrument.lotSize}',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Color(0xFF94A3B8),
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
+                      if (instrument.lotSize > 0) ...[
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 6),
+                          child: Text('·',
+                              style: TextStyle(
+                                  fontSize: 10, color: Color(0xFFCBD5E1))),
                         ),
-                      ),
+                        Text(
+                          'LOT ${instrument.lotSize}',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Color(0xFF94A3B8),
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                       if (instrument.strike > 0) ...[
                         const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 6),

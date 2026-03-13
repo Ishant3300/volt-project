@@ -11,11 +11,6 @@ class KiteService {
 
   KiteService(this.api);
 
-  // Client-side search result cache (key -> {result, timestamp})
-  final Map<String, _CacheEntry> _searchCache = {};
-  static const _searchCacheTtl = Duration(seconds: 30);
-  static const _maxCacheEntries = 50;
-
   Future<String?> _getToken() async {
     return await storage.getToken();
   }
@@ -27,12 +22,12 @@ class KiteService {
   }) async {
     try {
       final token = await _getToken();
-      
+
       if (token == null) {
         log('❌ No authentication token found');
         throw Exception('Please login again');
       }
-      
+
       log('📊 Fetching option chain for $tradingSymbol');
 
       String endpoint = '/kite/option-chain/$tradingSymbol';
@@ -54,7 +49,7 @@ class KiteService {
       if (decoded['success'] == true && decoded['data'] != null) {
         final chain = decoded['data']['chain'] as List;
         log('   ✅ Found ${chain.length} strike prices');
-        
+
         return chain.map((item) => OptionChainItem.fromJson(item)).toList();
       }
 
@@ -70,12 +65,12 @@ class KiteService {
   Future<MarketDepth?> getMarketDepth(String instrumentToken) async {
     try {
       final token = await _getToken();
-      
+
       if (token == null) {
         log('❌ No authentication token found');
         throw Exception('Please login again');
       }
-      
+
       log('📊 Fetching market depth for token $instrumentToken');
 
       final response = await api.get(
@@ -144,15 +139,6 @@ class KiteService {
     String category = 'ALL',
     int limit = 50,
   }) async {
-    final cacheKey = '${query.toLowerCase()}_${category}_$limit';
-
-    // Check client-side cache first
-    final cached = _searchCache[cacheKey];
-    if (cached != null &&
-        DateTime.now().difference(cached.timestamp) < _searchCacheTtl) {
-      return cached.result;
-    }
-
     try {
       final token = await _getToken();
 
@@ -162,15 +148,7 @@ class KiteService {
       final decoded = jsonDecode(response.body);
 
       if (decoded['success'] == true && decoded['data'] != null) {
-        final data = Map<String, dynamic>.from(decoded['data']);
-
-        // Store in client cache
-        if (_searchCache.length >= _maxCacheEntries) {
-          _searchCache.remove(_searchCache.keys.first);
-        }
-        _searchCache[cacheKey] = _CacheEntry(data, DateTime.now());
-
-        return data;
+        return Map<String, dynamic>.from(decoded['data']);
       }
 
       return {'groups': [], 'total': 0, 'query': query};
@@ -184,7 +162,8 @@ class KiteService {
   Future<List<Map<String, dynamic>>> getSearchCategories() async {
     try {
       final token = await _getToken();
-      final response = await api.get('/kite/instruments/categories', token: token);
+      final response =
+          await api.get('/kite/instruments/categories', token: token);
       final decoded = jsonDecode(response.body);
 
       if (decoded['success'] == true && decoded['data'] != null) {
@@ -197,10 +176,4 @@ class KiteService {
       return [];
     }
   }
-}
-
-class _CacheEntry {
-  final Map<String, dynamic> result;
-  final DateTime timestamp;
-  _CacheEntry(this.result, this.timestamp);
 }

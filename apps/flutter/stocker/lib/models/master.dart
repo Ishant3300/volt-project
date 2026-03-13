@@ -98,6 +98,34 @@ class MasterPermissions {
   }
 }
 
+class AccountLimit {
+  final bool enabled;
+  final int maxMasters;
+  final int maxUsers;
+
+  AccountLimit({
+    required this.enabled,
+    required this.maxMasters,
+    required this.maxUsers,
+  });
+
+  factory AccountLimit.fromJson(Map<String, dynamic> json) {
+    return AccountLimit(
+      enabled: json['enabled'] as bool? ?? false,
+      maxMasters: (json['max_masters'] as num?)?.toInt() ?? 0,
+      maxUsers: (json['max_users'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'enabled': enabled,
+      'max_masters': maxMasters,
+      'max_users': maxUsers,
+    };
+  }
+}
+
 class Master {
   final String id;
   final String name;
@@ -124,6 +152,7 @@ class Master {
   final String? ipAddress;
   final List<String>? exchanges;
   final MasterPermissions? permissions;
+  final AccountLimit? accountLimit;
   final String createdAt;
   final String updatedAt;
 
@@ -153,6 +182,7 @@ class Master {
     this.ipAddress,
     this.exchanges,
     this.permissions,
+    this.accountLimit,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -247,6 +277,10 @@ class Master {
           ? MasterPermissions.fromJson(
               json['permissions'] as Map<String, dynamic>)
           : null,
+      accountLimit: json['account_limit'] != null
+          ? AccountLimit.fromJson(
+              json['account_limit'] as Map<String, dynamic>)
+          : null,
       createdAt: json['created_at']?.toString() ?? '',
       updatedAt: json['updated_at']?.toString() ?? '',
     );
@@ -280,6 +314,7 @@ class Master {
       if (ipAddress != null) 'ip_address': ipAddress,
       if (exchanges != null) 'exchanges': exchanges,
       if (permissions != null) 'permissions': permissions!.toJson(),
+      if (accountLimit != null) 'account_limit': accountLimit!.toJson(),
       'created_at': createdAt,
       'updated_at': updatedAt,
     };

@@ -4,6 +4,8 @@ class KiteInstrument {
   final String exchangeToken;
   final String tradingsymbol;
   final String name;
+  final String rawName; // Original name from CSV
+  final String displayName; // User-friendly mapped/generated name
   final double lastPrice;
   final DateTime? expiry;
   final double strike;
@@ -12,6 +14,7 @@ class KiteInstrument {
   final String instrumentType;
   final String segment;
   final String exchange;
+  final bool isActive;
   final DateTime updatedAt;
 
   KiteInstrument({
@@ -20,6 +23,8 @@ class KiteInstrument {
     required this.exchangeToken,
     required this.tradingsymbol,
     required this.name,
+    required this.rawName,
+    required this.displayName,
     required this.lastPrice,
     this.expiry,
     required this.strike,
@@ -28,26 +33,33 @@ class KiteInstrument {
     required this.instrumentType,
     required this.segment,
     required this.exchange,
+    required this.isActive,
     required this.updatedAt,
   });
 
   factory KiteInstrument.fromJson(Map<String, dynamic> json) {
+    final name = json['name'] ?? '';
     return KiteInstrument(
       id: json['_id'] ?? json['id'] ?? '',
       instrumentToken: json['instrument_token'] ?? '',
       exchangeToken: json['exchange_token'] ?? '',
       tradingsymbol: json['tradingsymbol'] ?? '',
-      name: json['name'] ?? '',
+      name: name,
+      rawName: json['raw_name'] ?? name,
+      displayName: json['display_name'] ?? name,
       lastPrice: (json['last_price'] ?? 0).toDouble(),
-      expiry: json['expiry'] != null ? DateTime.parse(json['expiry']) : null,
+      expiry: json['expiry'] != null
+          ? DateTime.tryParse(json['expiry'].toString())
+          : null,
       strike: (json['strike'] ?? 0).toDouble(),
       tickSize: (json['tick_size'] ?? 0).toDouble(),
       lotSize: json['lot_size'] ?? 0,
       instrumentType: json['instrument_type'] ?? '',
       segment: json['segment'] ?? '',
       exchange: json['exchange'] ?? '',
+      isActive: json['is_active'] ?? true,
       updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'])
+          ? DateTime.tryParse(json['updated_at'].toString()) ?? DateTime.now()
           : DateTime.now(),
     );
   }
@@ -59,6 +71,8 @@ class KiteInstrument {
       'exchange_token': exchangeToken,
       'tradingsymbol': tradingsymbol,
       'name': name,
+      'raw_name': rawName,
+      'display_name': displayName,
       'last_price': lastPrice,
       'expiry': expiry?.toIso8601String(),
       'strike': strike,
@@ -67,22 +81,22 @@ class KiteInstrument {
       'instrument_type': instrumentType,
       'segment': segment,
       'exchange': exchange,
+      'is_active': isActive,
       'updated_at': updatedAt.toIso8601String(),
     };
   }
 
-  String get displayName {
-    if (instrumentType == 'FUT') {
-      return '$tradingsymbol FUT';
-    } else if (instrumentType == 'CE' || instrumentType == 'PE') {
-      return '$tradingsymbol ${strike.toInt()} $instrumentType';
-    }
-    return tradingsymbol;
-  }
+  /// Formatted display for search results
+  String get formattedDisplayName => userFriendlyName;
 
   String get expiryDisplay {
     if (expiry == null) return '';
     return '${expiry!.day} ${_getMonthName(expiry!.month)} ${expiry!.year}';
+  }
+
+  String get shortExpiryDisplay {
+    if (expiry == null) return '';
+    return '${expiry!.day} ${_getMonthName(expiry!.month)}';
   }
 
   String _getMonthName(int month) {
@@ -102,4 +116,51 @@ class KiteInstrument {
     ];
     return months[month - 1];
   }
+
+  String _getFullMonthName(int month) {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December'
+    ];
+    return months[month - 1];
+  }
+
+  /// User-friendly name: NIFTY 30 March
+  String get userFriendlyName {
+    final base = name.isNotEmpty ? name : tradingsymbol;
+    if (expiry == null) return base;
+
+    final day = expiry!.day;
+    final month = _getFullMonthName(expiry!.month);
+
+    if (instrumentType == 'FUT') {
+      return '$base $day $month';
+    } else if (instrumentType == 'CE' || instrumentType == 'PE') {
+      return '$base ${strike.toInt()} $instrumentType $day $month';
+    }
+
+    return '$base $day $month';
+  }
+
+  /// Check if this is a global index
+  bool get isIndex => segment == 'INDICES';
+
+  /// Check if this is a derivative (FUT, CE, PE)
+  bool get isDerivative => ['FUT', 'CE', 'PE'].contains(instrumentType);
+
+  /// Check if this is an option (CE or PE)
+  bool get isOption => instrumentType == 'CE' || instrumentType == 'PE';
+
+  /// Check if this is a future
+  bool get isFuture => instrumentType == 'FUT';
 }

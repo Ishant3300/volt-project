@@ -38,6 +38,8 @@ class WatchlistProvider with ChangeNotifier {
       final askPrice = (tick['ask_price'] as num?)?.toDouble();
       final open = (tick['open'] as num?)?.toDouble();
       final close = (tick['close'] as num?)?.toDouble();
+      final upperCircuit = (tick['upper_circuit_limit'] as num?)?.toDouble();
+      final lowerCircuit = (tick['lower_circuit_limit'] as num?)?.toDouble();
 
       // Debug log to check if bid/ask are received
       if (bidPrice != null || askPrice != null) {
@@ -67,6 +69,8 @@ class WatchlistProvider with ChangeNotifier {
         close: close,
         bidPrice: bidPrice,
         askPrice: askPrice,
+        upperCircuitLimit: upperCircuit,
+        lowerCircuitLimit: lowerCircuit,
       );
     };
 
@@ -322,14 +326,14 @@ class WatchlistProvider with ChangeNotifier {
     double? close,
     double? bidPrice,
     double? askPrice,
+    double? upperCircuitLimit,
+    double? lowerCircuitLimit,
   }) {
     final index = _items.indexWhere(
       (item) => item.instrument.instrumentToken == instrumentToken,
     );
 
     if (index != -1) {
-      // log('🔄 Updating price for token $instrumentToken at index $index');
-
       _items[index] = _items[index].copyWith(
         currentPrice: price,
         change: change,
@@ -340,6 +344,8 @@ class WatchlistProvider with ChangeNotifier {
         close: close,
         bidPrice: bidPrice,
         askPrice: askPrice,
+        upperCircuitLimit: upperCircuitLimit,
+        lowerCircuitLimit: lowerCircuitLimit,
         lastUpdated: DateTime.now(),
       );
 

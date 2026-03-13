@@ -68,15 +68,20 @@ class _TransactionPageState extends State<TransactionPage> {
       final token = await storage.getToken();
       final apiService = ApiService(backendUrl);
       final res = await apiService.get(
-        '/master/transactions?target_id=$_targetId&target_model=$_targetModel&page=$_page&limit=30',
+        '/master/transactions?target_id=$_targetId&target_model=$_targetModel&page=$_page&limit=30&type=CREDIT,DEBIT',
         token: token,
       );
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         final List txns = body['data']['transactions'] ?? [];
         final int total = body['data']['total'] ?? 0;
+        // Filter to only show CREDIT/DEBIT transactions
+        final filteredTxns = txns.where((txn) {
+          final type = (txn['type'] ?? '').toString().toUpperCase();
+          return type == 'CREDIT' || type == 'DEBIT';
+        }).toList();
         setState(() {
-          _transactions.addAll(txns.cast<Map<String, dynamic>>());
+          _transactions.addAll(filteredTxns.cast<Map<String, dynamic>>());
           _hasMore = _transactions.length < total;
           _page++;
         });

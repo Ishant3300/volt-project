@@ -7,7 +7,6 @@ import 'package:animated_flip_counter/animated_flip_counter.dart';
 import '../models/master.dart';
 import '../models/user.dart';
 import '../models/trade.dart';
-import '../models/position.dart';
 import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../services/live_price_service.dart';
@@ -56,11 +55,12 @@ class _UsernameViewState extends State<UsernameView> {
   bool _isLoadingTrades = false;
   String? _tradesError;
 
-  Position? _position;
-  bool _isLoadingPosition = false;
-  String? _positionError;
+  // User list state (for Master view)
+  List<User> _userList = [];
+  bool _isLoadingUsers = false;
+  String? _usersError;
 
-  // Live position state (for User view)
+  // Live position state (for User and Master view)
   final LivePriceService _livePriceService = LivePriceService();
   final SecureStorageService _storage = SecureStorageService();
   final Map<String, double> _ltpMap = {};
@@ -86,12 +86,17 @@ class _UsernameViewState extends State<UsernameView> {
       _fetchLivePositions();
       _setupLivePrices();
     } else {
-      _fetchPosition();
+      // Master view: use live positions too (aggregate all users)
+      _fetchLivePositions();
+      _setupLivePrices();
+      _fetchUserList();
     }
   }
 
   @override
   void dispose() {
+    _livePriceService.onTickReceived = null;
+    _livePriceService.onConnectionChanged = null;
     if (_allTokens.isNotEmpty) {
       _livePriceService.unsubscribe(_allTokens.toList());
     }
@@ -110,34 +115,13 @@ class _UsernameViewState extends State<UsernameView> {
     return _currentUser!.exchangesAllowed.map((e) => e.exchangeName).toList();
   }
 
-  Future<void> _fetchPosition() async {
-    if (_currentMaster == null) return;
-    setState(() { _isLoadingPosition = true; _positionError = null; });
-    try {
-      final apiService = Provider.of<ApiService>(context, listen: false);
-      final adminService = AdminService(apiService);
-      final response = await adminService.getMasterPosition(_currentMaster!.id);
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['success'] == true) {
-          setState(() { _position = Position.fromJson(data['data']); _isLoadingPosition = false; });
-        } else {
-          setState(() { _positionError = data['message'] ?? 'Failed'; _isLoadingPosition = false; });
-        }
-      } else {
-        setState(() { _positionError = 'Failed to load position'; _isLoadingPosition = false; });
-      }
-    } catch (e) {
-      setState(() { _positionError = 'Error: $e'; _isLoadingPosition = false; });
-    }
-  }
-
   void _setupLivePrices() {
     _livePriceService.onTickReceived = (tick) {
+      if (!mounted) return;
       final token = tick['instrument_token']?.toString();
       if (token == null) return;
       final price = (tick['last_price'] as num?)?.toDouble();
-      if (price == null || !mounted) return;
+      if (price == null) return;
       setState(() {
         _ltpMap[token] = price;
         _recalcLiveMetrics();
@@ -170,24 +154,45 @@ class _UsernameViewState extends State<UsernameView> {
     try {
       final token = await _storage.getToken();
       final apiService = ApiService(backendUrl);
-      final response = await apiService.get('/master/positions/user-metrics', token: token);
+      // Admin needs to pass master_id or user_id so backend knows what to fetch
+      final role = await _storage.getRole();
+      String url = '/master/positions/user-metrics';
+      if (role == 'ADMIN') {
+        if (_currentMaster != null) {
+          url += '?master_id=${_currentMaster!.id}';
+        } else if (_currentUser != null) {
+          url += '?user_id=${_currentUser!.id}';
+        }
+      }
+      final response = await apiService.get(url, token: token);
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
         final List data = body['data'] ?? [];
-        final targetId = _currentUser?.id ?? '';
         final Set<String> tokens = {};
 
-        for (final user in data) {
-          final uid = user['user_id']?.toString() ?? '';
-          if (uid == targetId) {
-            _liveUserMetrics = Map<String, dynamic>.from(user);
-            final List positions = user['positions'] ?? [];
-            _livePositions = positions.cast<Map<String, dynamic>>();
-            for (final pos in positions) {
-              final t = pos['instrument_token']?.toString();
-              if (t != null) tokens.add(t);
+        if (_currentUser != null) {
+          // User view: find this specific user's data
+          final targetId = _currentUser?.id ?? '';
+          for (final user in data) {
+            final uid = user['user_id']?.toString() ?? '';
+            if (uid == targetId) {
+              _liveUserMetrics = Map<String, dynamic>.from(user);
+              final List positions = user['positions'] ?? [];
+              _livePositions = positions.cast<Map<String, dynamic>>();
+              for (final pos in positions) {
+                final t = pos['instrument_token']?.toString();
+                if (t != null) tokens.add(t);
+              }
+              break;
             }
-            break;
+          }
+        } else {
+          // Master view: aggregate all users' positions into master-level metrics
+          _liveUserMetrics = _aggregateMasterMetrics(data);
+          _livePositions = (_liveUserMetrics!['positions'] as List).cast<Map<String, dynamic>>();
+          for (final pos in _livePositions) {
+            final t = pos['instrument_token']?.toString();
+            if (t != null) tokens.add(t);
           }
         }
 
@@ -204,8 +209,119 @@ class _UsernameViewState extends State<UsernameView> {
     }
   }
 
+  /// Aggregate all users' positions into a single master-level summary.
+  Map<String, dynamic> _aggregateMasterMetrics(List data) {
+    final Map<String, Map<String, dynamic>> instrMap = {};
+    double totalRealised = 0;
+    double totalBalance = 0;
+    double totalMarginUsed = 0;
+
+    for (final user in data) {
+      totalRealised += (user['realised_pnl'] as num?)?.toDouble() ?? 0;
+      totalBalance += (user['balance'] as num?)?.toDouble() ?? 0;
+      totalMarginUsed += (user['margin_used'] as num?)?.toDouble() ?? 0;
+
+      final List positions = user['positions'] ?? [];
+      for (final pos in positions) {
+        final iToken = pos['instrument_token']?.toString() ?? '';
+        if (iToken.isEmpty) continue;
+        if (!instrMap.containsKey(iToken)) {
+          instrMap[iToken] = {
+            'instrument_token': iToken,
+            'tradingsymbol': pos['tradingsymbol'],
+            'exchange': pos['exchange'],
+            'total_buy_qty': 0,
+            'total_sell_qty': 0,
+            'total_buy_value': 0.0,
+            'total_sell_value': 0.0,
+          };
+        }
+        final agg = instrMap[iToken]!;
+        agg['total_buy_qty'] += (pos['total_buy_qty'] as num?)?.toInt() ?? 0;
+        agg['total_sell_qty'] += (pos['total_sell_qty'] as num?)?.toInt() ?? 0;
+        agg['total_buy_value'] += (pos['total_buy_value'] as num?)?.toDouble() ?? 0;
+        agg['total_sell_value'] += (pos['total_sell_value'] as num?)?.toDouble() ?? 0;
+      }
+    }
+
+    // Compute net_qty and avg prices for each aggregated instrument
+    final List<Map<String, dynamic>> positions = [];
+    double totalFloating = 0;
+
+    for (final agg in instrMap.values) {
+      final int buyQty = agg['total_buy_qty'] as int;
+      final int sellQty = agg['total_sell_qty'] as int;
+      final double buyVal = agg['total_buy_value'] as double;
+      final double sellVal = agg['total_sell_value'] as double;
+      final int netQty = buyQty - sellQty;
+      final double avgBuy = buyQty > 0 ? buyVal / buyQty : 0;
+      final double avgSell = sellQty > 0 ? sellVal / sellQty : 0;
+
+      agg['net_qty'] = netQty;
+      agg['avg_buy_price'] = avgBuy;
+      agg['avg_sell_price'] = avgSell;
+
+      if (netQty != 0) {
+        final double ltp = _ltpMap[agg['instrument_token']] ?? (netQty > 0 ? avgBuy : avgSell);
+        double floating = 0;
+        if (netQty > 0) floating = (ltp - avgBuy) * netQty;
+        else floating = (avgSell - ltp) * netQty.abs();
+        totalFloating += floating;
+        positions.add(Map<String, dynamic>.from(agg));
+      }
+    }
+
+    final double m2m = totalRealised + totalFloating;
+    final double equity = totalBalance + m2m;
+
+    return {
+      'balance': totalBalance,
+      'realised_pnl': _round2(totalRealised),
+      'position_pnl': _round2(totalFloating),
+      'm2m_pnl': _round2(m2m),
+      'margin_used': _round2(totalMarginUsed),
+      'equity': _round2(equity),
+      'free_margin': _round2(equity - totalMarginUsed),
+      'positions': positions,
+    };
+  }
+
   void _recalcLiveMetrics() {
     if (_liveUserMetrics == null) return;
+
+    if (_currentMaster != null) {
+      // Master view: re-aggregate from _livePositions using fresh LTP
+      double totalFloating = 0;
+      final List<Map<String, dynamic>> updatedPositions = [];
+
+      for (final pos in _livePositions) {
+        final String iToken = pos['instrument_token']?.toString() ?? '';
+        final int netQty = (pos['net_qty'] as num?)?.toInt() ?? 0;
+        final double avgBuy = (pos['avg_buy_price'] as num?)?.toDouble() ?? 0;
+        final double avgSell = (pos['avg_sell_price'] as num?)?.toDouble() ?? 0;
+        final double ltp = _ltpMap[iToken] ?? (netQty > 0 ? avgBuy : avgSell);
+
+        double floating = 0;
+        if (netQty > 0) floating = (ltp - avgBuy) * netQty;
+        else if (netQty < 0) floating = (avgSell - ltp) * netQty.abs();
+        totalFloating += floating;
+        updatedPositions.add({...pos});
+      }
+
+      final double totalRealised = (_liveUserMetrics!['realised_pnl'] as num?)?.toDouble() ?? 0;
+      final double totalBalance = (_liveUserMetrics!['balance'] as num?)?.toDouble() ?? 0;
+      final double marginUsed = (_liveUserMetrics!['margin_used'] as num?)?.toDouble() ?? 0;
+      final double m2m = totalRealised + totalFloating;
+      final double equity = totalBalance + m2m;
+
+      _liveUserMetrics!['position_pnl'] = _round2(totalFloating);
+      _liveUserMetrics!['m2m_pnl'] = _round2(m2m);
+      _liveUserMetrics!['equity'] = _round2(equity);
+      _liveUserMetrics!['free_margin'] = _round2(equity - marginUsed);
+      return;
+    }
+
+    // User view
     final user = _liveUserMetrics!;
     final List positions = user['positions'] ?? [];
     if (positions.isEmpty) return;
@@ -280,6 +396,37 @@ class _UsernameViewState extends State<UsernameView> {
       }
     } catch (e) {
       setState(() { _tradesError = 'Error: $e'; _isLoadingTrades = false; });
+    }
+  }
+
+  Future<void> _fetchUserList() async {
+    if (_currentMaster == null) return;
+    setState(() { _isLoadingUsers = true; _usersError = null; });
+    try {
+      final token = await _storage.getToken();
+      final apiService = ApiService(backendUrl);
+      // Admin uses /admin/users?master_id=X, Master uses /master/users (auto-filtered)
+      final role = await _storage.getRole();
+      final String url;
+      if (role == 'ADMIN') {
+        url = '/admin/users?master_id=${_currentMaster!.id}&limit=100';
+      } else {
+        url = '/master/users?limit=100';
+      }
+      final response = await apiService.get(url, token: token);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          final List<dynamic> usersJson = data['data']['users'] ?? [];
+          setState(() { _userList = usersJson.map((j) => User.fromJson(j)).toList(); _isLoadingUsers = false; });
+        } else {
+          setState(() { _usersError = data['message'] ?? 'Failed'; _isLoadingUsers = false; });
+        }
+      } else {
+        setState(() { _usersError = 'Failed to load users'; _isLoadingUsers = false; });
+      }
+    } catch (e) {
+      setState(() { _usersError = 'Error: $e'; _isLoadingUsers = false; });
     }
   }
 
@@ -445,6 +592,7 @@ class _UsernameViewState extends State<UsernameView> {
                   _buildTab('Overview', 0),
                   _buildTab('Trades', 1),
                   _buildTab('Position', 2),
+                  if (_currentMaster != null) _buildTab('Users', 3),
                 ],
               ),
             ),
@@ -457,7 +605,9 @@ class _UsernameViewState extends State<UsernameView> {
                   ? _buildOverviewTab()
                   : _selectedTabIndex == 1
                       ? _buildTradelistTab()
-                      : _buildPositionTab(),
+                      : _selectedTabIndex == 2
+                          ? _buildPositionTab()
+                          : _buildUserListTab(),
             ),
           ],
         ),
@@ -545,7 +695,9 @@ class _UsernameViewState extends State<UsernameView> {
                 _settingRow(Icons.schedule_outlined, 'Intraday SquareOff'),
                 _settingRow(Icons.trending_up_outlined, 'Trade Margin'),
                 _settingRow(Icons.share_outlined, 'Sharing Details'),
-                _settingRow(Icons.list_alt_outlined, 'Script Quantity Setting', isLast: true),
+                _settingRow(Icons.list_alt_outlined, 'Script Quantity Setting', isLast: _currentMaster == null),
+                if (_currentMaster != null)
+                  _settingRow(Icons.admin_panel_settings_outlined, 'Account Limit', isLast: true),
               ],
             ),
           ),
@@ -963,9 +1115,7 @@ class _UsernameViewState extends State<UsernameView> {
 
   // ── Position Tab ──
   Widget _buildPositionTab() {
-    // Master view: keep static approach
-    if (_currentMaster != null) return _buildStaticPositionTab();
-    // User view: live positions
+    // Both master and user now use the live position tab
     return _buildLivePositionTab();
   }
 
@@ -994,12 +1144,11 @@ class _UsernameViewState extends State<UsernameView> {
         ),
       );
     }
-
     final metrics = _liveUserMetrics!;
     final double positionPnl = (metrics['position_pnl'] as num?)?.toDouble() ?? 0;
     final double realisedPnl = (metrics['realised_pnl'] as num?)?.toDouble() ?? 0;
     final double m2mPnl = (metrics['m2m_pnl'] as num?)?.toDouble() ?? 0;
-    final double credit = (metrics['credit'] as num?)?.toDouble() ?? 0;
+    final double credit = _currentMaster?.credits ?? (metrics['credit'] as num?)?.toDouble() ?? 0;
     final double marginUsed = (metrics['margin_used'] as num?)?.toDouble() ?? 0;
     final double equity = (metrics['equity'] as num?)?.toDouble() ?? 0;
 
@@ -1023,7 +1172,7 @@ class _UsernameViewState extends State<UsernameView> {
           const SizedBox(height: 12),
           // Position count label
           Text(
-            '${_livePositions.length} open position${_livePositions.length != 1 ? "s" : ""}',
+            '${_livePositions.length} open position${_livePositions.length != 1 ? "s" : ""}${_currentMaster != null ? " (aggregated)" : ""}',
             style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w500, letterSpacing: 0.5),
           ),
           const SizedBox(height: 12),
@@ -1184,104 +1333,6 @@ class _UsernameViewState extends State<UsernameView> {
             value: value,
             fractionDigits: 2,
             textStyle: TextStyle(color: valueColor, fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w600),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStaticPositionTab() {
-    return RefreshIndicator(
-      onRefresh: _fetchPosition,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Column(
-          children: [
-            if (_isLoadingPosition)
-              const Padding(padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator(color: Color(0xFF22547C))))
-            else if (_positionError != null)
-              Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  children: [
-                    const Icon(Icons.error_outline, size: 40, color: Color(0xFFEF4444)),
-                    const SizedBox(height: 12),
-                    Text(_positionError!, style: const TextStyle(color: Color(0xFFEF4444), fontSize: 13, fontFamily: 'Inter')),
-                    const SizedBox(height: 12),
-                    GestureDetector(
-                      onTap: _fetchPosition,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(color: const Color(0xFF22547C), borderRadius: BorderRadius.circular(10)),
-                        child: const Text('Retry', style: TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            else ...[
-              _card(
-                child: Column(
-                  children: [
-                    _positionGridRow('Realised P&L', _position?.realisedPnl ?? 0, 'M2M P&L', _position?.m2mPnl ?? 0, colored: true),
-                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                    _positionGridRow('Credit', _position?.credit ?? 0, 'Equity', _position?.equity ?? 0),
-                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                    _positionGridRow('Margin Used', _position?.marginUsed ?? 0, 'Free Margin', _position?.freeMargin ?? 0),
-                  ],
-                ),
-              ),
-              if (_position != null) ...[
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.access_time, size: 14, color: Color(0xFF94A3B8)),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Updated: ${DateFormatter.formatDateTime(_position!.lastUpdated)}',
-                      style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontFamily: 'Inter'),
-                    ),
-                  ],
-                ),
-              ],
-            ],
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _positionGridRow(String l1, double v1, String l2, double v2, {bool colored = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        children: [
-          Expanded(child: _positionCell(l1, v1, colored: colored)),
-          Container(width: 1, height: 32, color: const Color(0xFFF1F5F9)),
-          Expanded(child: _positionCell(l2, v2, colored: colored)),
-        ],
-      ),
-    );
-  }
-
-  Widget _positionCell(String label, double value, {bool colored = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label.toUpperCase(), style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.3)),
-          Text(
-            value.toStringAsFixed(2),
-            style: TextStyle(
-              color: colored ? (value >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444)) : Colors.black,
-              fontSize: 12,
-              fontFamily: 'Inter',
-              fontWeight: FontWeight.w600,
-            ),
           ),
         ],
       ),
@@ -1460,7 +1511,468 @@ class _UsernameViewState extends State<UsernameView> {
       case 'Settlement Report':
         Navigator.push(context, MaterialPageRoute(builder: (_) => const SettlementReportView()));
         break;
+      case 'Account Limit':
+        if (_currentMaster != null) _showAccountLimitSheet();
+        break;
     }
+  }
+
+  // ── User List Tab ──
+  Widget _buildUserListTab() {
+    if (_isLoadingUsers) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF22547C), strokeWidth: 2.5));
+    }
+    if (_usersError != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 40, color: Color(0xFFEF4444)),
+            const SizedBox(height: 12),
+            Text(_usersError!, style: const TextStyle(color: Color(0xFFEF4444), fontSize: 13, fontFamily: 'Inter')),
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: _fetchUserList,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(color: const Color(0xFF22547C), borderRadius: BorderRadius.circular(10)),
+                child: const Text('Retry', style: TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    if (_userList.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _fetchUserList,
+        child: ListView(
+          children: [
+            const SizedBox(height: 200),
+            Center(
+              child: Column(
+                children: [
+                  Container(
+                    width: 72, height: 72,
+                    decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))]),
+                    child: const Icon(Icons.people_outline, size: 32, color: Color(0xFFCBD5E1)),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text('No users found', style: TextStyle(color: Color(0xFF475569), fontSize: 16, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _fetchUserList,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _userList.length,
+        itemBuilder: (context, index) {
+          final user = _userList[index];
+          return GestureDetector(
+            onTap: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => UsernameView(user: user)),
+              );
+              if (result == true && mounted) {
+                _fetchUserList();
+                _refreshData();
+              }
+            },
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40, height: 40,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF22547C).withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: Text(
+                        user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+                        style: const TextStyle(color: Color(0xFF22547C), fontSize: 16, fontFamily: 'Inter', fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(user.name, style: const TextStyle(color: Colors.black, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 2),
+                        Text(user.username, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w500)),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('₹${user.balance.toStringAsFixed(2)}', style: const TextStyle(color: Colors.black, fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 2),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: user.activeStatus ? const Color(0xFF10B981).withValues(alpha: 0.1) : const Color(0xFFEF4444).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          user.activeStatus ? 'Active' : 'Inactive',
+                          style: TextStyle(
+                            color: user.activeStatus ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                            fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.chevron_right, size: 18, color: Color(0xFF94A3B8)),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ── Account Limit Bottom Sheet ──
+  void _showAccountLimitSheet() async {
+    if (_currentMaster == null) return;
+
+    // Fetch current account limit data
+    final apiService = Provider.of<ApiService>(context, listen: false);
+    final adminService = AdminService(apiService);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _AccountLimitSheet(
+        masterId: _currentMaster!.id,
+        adminService: adminService,
+      ),
+    );
+  }
+}
+
+class _AccountLimitSheet extends StatefulWidget {
+  final String masterId;
+  final AdminService adminService;
+
+  const _AccountLimitSheet({required this.masterId, required this.adminService});
+
+  @override
+  State<_AccountLimitSheet> createState() => _AccountLimitSheetState();
+}
+
+class _AccountLimitSheetState extends State<_AccountLimitSheet> {
+  bool _enabled = false;
+  final TextEditingController _maxMastersController = TextEditingController(text: '0');
+  final TextEditingController _maxUsersController = TextEditingController(text: '0');
+  int _mastersCreated = 0;
+  int _usersCreated = 0;
+  Map<String, dynamic>? _parentLimit;
+  bool _isLoading = true;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  @override
+  void dispose() {
+    _maxMastersController.dispose();
+    _maxUsersController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      final response = await widget.adminService.getAccountLimit(widget.masterId);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          final d = data['data'];
+          setState(() {
+            _enabled = d['enabled'] ?? false;
+            _maxMastersController.text = (d['max_masters'] ?? 0).toString();
+            _maxUsersController.text = (d['max_users'] ?? 0).toString();
+            _mastersCreated = d['masters_created'] ?? 0;
+            _usersCreated = d['users_created'] ?? 0;
+            _parentLimit = d['parent_limit'];
+            _isLoading = false;
+          });
+        }
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  Future<void> _save() async {
+    setState(() => _isSaving = true);
+    try {
+      final response = await widget.adminService.updateAccountLimit(
+        masterId: widget.masterId,
+        enabled: _enabled,
+        maxMasters: int.tryParse(_maxMastersController.text) ?? 0,
+        maxUsers: int.tryParse(_maxUsersController.text) ?? 0,
+      );
+      if (response.statusCode == 200 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Account limit updated'), backgroundColor: Color(0xFF10B981)),
+        );
+        Navigator.pop(context);
+      } else {
+        final body = jsonDecode(response.body);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(body['message'] ?? 'Failed'), backgroundColor: const Color(0xFFEF4444)),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: const Color(0xFFEF4444)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: _isLoading
+          ? const SizedBox(height: 200, child: Center(child: CircularProgressIndicator(color: Color(0xFF22547C))))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Handle
+                  Center(
+                    child: Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(2))),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Account Limit', style: TextStyle(color: Colors.black, fontSize: 18, fontFamily: 'Inter', fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  const Text('Set limits on how many accounts this master can create', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter')),
+                  const SizedBox(height: 20),
+
+                  // Enable toggle
+                  _sheetCard(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Limit Enabled', style: TextStyle(color: Colors.black, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                        GestureDetector(
+                          onTap: () => setState(() => _enabled = !_enabled),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: 44, height: 26,
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: _enabled ? const Color(0xFF22547C) : const Color(0xFFCBD5E1),
+                              borderRadius: BorderRadius.circular(13),
+                            ),
+                            child: AnimatedAlign(
+                              duration: const Duration(milliseconds: 200),
+                              alignment: _enabled ? Alignment.centerRight : Alignment.centerLeft,
+                              child: Container(width: 22, height: 22, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  if (_enabled) ...[
+                    const SizedBox(height: 16),
+                    // Max Masters
+                    _sheetCard(
+                      child: Column(
+                        children: [
+                          _limitInputRow('Max Masters', _maxMastersController),
+                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                          _limitInputRow('Max Clients', _maxUsersController),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+                    // Stats
+                    _sheetCard(
+                      child: Column(
+                        children: [
+                          _statRow('Masters', _mastersCreated, int.tryParse(_maxMastersController.text) ?? 0),
+                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                          _statRow('Clients', _usersCreated, int.tryParse(_maxUsersController.text) ?? 0),
+                        ],
+                      ),
+                    ),
+
+                    if (_parentLimit != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF22547C).withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_outline, size: 16, color: Color(0xFF22547C)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Parent limit: ${_parentLimit!['max_masters']} masters, ${_parentLimit!['max_users']} clients',
+                                style: const TextStyle(color: Color(0xFF22547C), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+
+                  const SizedBox(height: 24),
+                  // Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: const Color(0xFFF1F5F9)),
+                            ),
+                            child: const Center(child: Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600))),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: _isSaving ? null : _save,
+                          child: Container(
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: _isSaving ? const Color(0xFF94A3B8) : const Color(0xFF22547C),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Center(
+                              child: _isSaving
+                                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                  : const Text('Save', style: TextStyle(color: Colors.white, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _sheetCard({required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _limitInputRow(String label, TextEditingController controller) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500)),
+          SizedBox(
+            width: 80,
+            child: TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.right,
+              style: const TextStyle(color: Colors.black, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600),
+              decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.zero),
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _statRow(String label, int created, int max) {
+    final remaining = max - created;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: const TextStyle(color: Colors.black, fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500))),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(color: const Color(0xFF22547C).withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
+            child: Text('$created created', style: const TextStyle(color: Color(0xFF22547C), fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: (remaining > 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444)).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '$remaining left',
+              style: TextStyle(
+                color: remaining > 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

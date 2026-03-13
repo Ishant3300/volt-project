@@ -124,6 +124,8 @@ class _OptionChainViewState extends State<OptionChainView> {
       exchangeToken: '',
       tradingsymbol: option.tradingSymbol,
       name: option.name,
+      rawName: option.name,
+      displayName: '${option.name} ${option.strike.toInt()} ${option.instrumentType}',
       lastPrice: option.lastPrice,
       expiry: option.expiry,
       strike: option.strike,
@@ -132,6 +134,7 @@ class _OptionChainViewState extends State<OptionChainView> {
       instrumentType: option.instrumentType,
       segment: 'NFO-OPT',
       exchange: option.exchange.isNotEmpty ? option.exchange : 'NFO',
+      isActive: true,
       updatedAt: DateTime.now(),
     );
     final item = WatchlistItem(

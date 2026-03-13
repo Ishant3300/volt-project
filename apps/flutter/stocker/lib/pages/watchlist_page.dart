@@ -295,7 +295,8 @@ class _WatchlistPageState extends State<WatchlistPage> {
                             child: ListView.separated(
                               padding: EdgeInsets.zero,
                               itemCount: watchlistProvider.items.length,
-                              separatorBuilder: (context, index) => const Divider(
+                              separatorBuilder: (context, index) =>
+                                  const Divider(
                                 height: 1,
                                 color: Color(0xFFF1F5F9),
                               ),
@@ -310,8 +311,8 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                     alignment: Alignment.centerRight,
                                     padding: const EdgeInsets.only(right: 20),
                                     color: Colors.red,
-                                    child:
-                                        const Icon(Icons.delete, color: Colors.white),
+                                    child: const Icon(Icons.delete,
+                                        color: Colors.white),
                                   ),
                                   onDismissed: (direction) {
                                     watchlistProvider.removeInstrument(item.id);
@@ -322,8 +323,8 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                       ),
                                     );
                                   },
-                                  child:
-                                      _buildWatchlistCard(context, item, instrument),
+                                  child: _buildWatchlistCard(
+                                      context, item, instrument),
                                 );
                               },
                             ),
@@ -395,13 +396,16 @@ class _WatchlistPageState extends State<WatchlistPage> {
                       if (isOption || isFut) ...[
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 2),
                           decoration: BoxDecoration(
                             color: isFut
                                 ? const Color(0xFF22547C).withValues(alpha: 0.1)
                                 : instType == 'CE'
-                                    ? const Color(0xFF10B981).withValues(alpha: 0.1)
-                                    : const Color(0xFFEF4444).withValues(alpha: 0.1),
+                                    ? const Color(0xFF10B981)
+                                        .withValues(alpha: 0.1)
+                                    : const Color(0xFFEF4444)
+                                        .withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -443,9 +447,13 @@ class _WatchlistPageState extends State<WatchlistPage> {
                           ),
                         if (showStrike) ...[
                           if (instrument.expiry != null)
-                            const Text(' · ', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 10)),
+                            const Text(' · ',
+                                style: TextStyle(
+                                    color: Color(0xFF94A3B8), fontSize: 10)),
                           Text(
-                            strike == strike.roundToDouble() ? strike.toInt().toString() : strike.toStringAsFixed(2),
+                            strike == strike.roundToDouble()
+                                ? strike.toInt().toString()
+                                : strike.toStringAsFixed(2),
                             style: const TextStyle(
                               color: Color(0xFF64748B),
                               fontSize: 10,
@@ -456,7 +464,6 @@ class _WatchlistPageState extends State<WatchlistPage> {
                         ],
                       ],
                     ),
-                  const SizedBox(height: 3),
                   Row(
                     children: [
                       Icon(

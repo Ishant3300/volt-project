@@ -801,4 +801,27 @@ class AdminService {
       'margin_square_off_percentage': percentage,
     }, token: token);
   }
+
+  // ============================================
+  // Account Limit
+  // ============================================
+
+  Future<http.Response> getAccountLimit(String masterId) async {
+    final token = await _storage.getToken();
+    return await _apiService.get('/masters/$masterId/account-limit', token: token);
+  }
+
+  Future<http.Response> updateAccountLimit({
+    required String masterId,
+    required bool enabled,
+    required int maxMasters,
+    required int maxUsers,
+  }) async {
+    final token = await _storage.getToken();
+    return await _apiService.put('/masters/$masterId/account-limit', {
+      'enabled': enabled,
+      'max_masters': maxMasters,
+      'max_users': maxUsers,
+    }, token: token);
+  }
 }

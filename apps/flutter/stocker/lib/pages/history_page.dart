@@ -1524,6 +1524,8 @@ class _PortfolioPageState extends State<PortfolioPage>
         exchangeToken: '',
         tradingsymbol: trade.tradingSymbol,
         name: trade.tradingSymbol,
+        rawName: trade.tradingSymbol,
+        displayName: trade.tradingSymbol,
         lastPrice: trade.price,
         strike: 0,
         tickSize: 0.05,
@@ -1531,6 +1533,7 @@ class _PortfolioPageState extends State<PortfolioPage>
         instrumentType: '',
         segment: '',
         exchange: trade.exchange,
+        isActive: true,
         updatedAt: DateTime.now(),
       );
 
