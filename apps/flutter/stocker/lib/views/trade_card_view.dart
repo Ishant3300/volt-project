@@ -80,14 +80,24 @@ class _TradeCardPageState extends State<TradeCardPage> {
   bool _showUserDropdown = false;
   bool _isSearchingUsers = false;
 
-  /// Returns true if this instrument has lot info assigned (any exchange)
-  bool get _hasLotInfo => _lotLimitInfo != null && _lotLimitInfo!.lotSize > 0;
+  /// Returns true if this instrument has **lot-based** limits (e.g. MCX-FUT).
+  /// Lot mode: user enters number of lots; actual qty = lots × lot_size.
+  bool get _hasLotInfo =>
+      _lotLimitInfo != null &&
+      _lotLimitInfo!.lotSize > 0 &&
+      !_lotLimitInfo!.isTurnoverMode;
 
-  /// Returns the actual quantity to send to backend
+  /// Returns true if this instrument has **turnover-based** limits (e.g. NFO-FUT, SGX, GLOBAL).
+  /// Turnover mode: user enters raw quantity directly; max_qty is enforced.
+  bool get _hasTurnoverLimit =>
+      _lotLimitInfo != null && _lotLimitInfo!.isTurnoverMode;
+
+  /// Returns the actual quantity to send to backend.
   int get _actualQuantity {
     if (_hasLotInfo) {
       return _lotCount * _lotLimitInfo!.lotSize;
     }
+    // For both turnover mode and plain quantity mode, use _quantity directly.
     return _quantity;
   }
 
@@ -143,11 +153,18 @@ class _TradeCardPageState extends State<TradeCardPage> {
         _lotLimitInfo = info;
         _isLoadingLotLimit = false;
 
-        // If lot info found, set default to 1 lot
         if (info != null && info.lotSize > 0) {
-          _lotCount = 1;
-          _selectedQuickLot = 1;
-          _qtyController.text = '1'; // Show lot count in input
+          if (info.isTurnoverMode) {
+            // Turnover mode: default to 1 quantity
+            _quantity = 1;
+            _selectedQuickQty = _quickQuantities.contains(1) ? 1 : -1;
+            _qtyController.text = '1';
+          } else {
+            // Lot mode: default to 1 lot
+            _lotCount = 1;
+            _selectedQuickLot = 1;
+            _qtyController.text = '1';
+          }
         }
       });
     }
@@ -237,11 +254,16 @@ class _TradeCardPageState extends State<TradeCardPage> {
         _lotLimitInfo = info;
         _isLoadingLotLimit = false;
 
-        // If lot info found, set default to 1 lot
         if (info != null && info.lotSize > 0) {
-          _lotCount = 1;
-          _selectedQuickLot = 1;
-          _qtyController.text = '1'; // Show lot count in input
+          if (info.isTurnoverMode) {
+            _quantity = 1;
+            _selectedQuickQty = _quickQuantities.contains(1) ? 1 : -1;
+            _qtyController.text = '1';
+          } else {
+            _lotCount = 1;
+            _selectedQuickLot = 1;
+            _qtyController.text = '1';
+          }
         }
       });
     }
@@ -331,6 +353,29 @@ class _TradeCardPageState extends State<TradeCardPage> {
           SnackBar(
             content: Text(
                 'You are allowed max ${_lotLimitInfo!.maxLots} lots for this instrument'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+        return;
+      }
+    }
+
+    // Turnover mode: validate raw quantity against max_qty
+    if (_hasTurnoverLimit) {
+      if (_quantity <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Quantity must be at least 1'),
+            backgroundColor: Color(0xFFEF4444),
+          ),
+        );
+        return;
+      }
+      if (_quantity > _lotLimitInfo!.maxQty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Maximum allowed quantity is ${_lotLimitInfo!.maxQty} for this instrument'),
             backgroundColor: const Color(0xFFEF4444),
           ),
         );
@@ -432,6 +477,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
         // Refresh positions and wait for data before navigating back
         await Provider.of<TradeMetricsProvider>(context, listen: false)
             .fetchBaseData();
+        // Refresh balance
+        await Provider.of<UserProfileProvider>(context, listen: false)
+            .refreshProfile();
         if (mounted) {
           Navigator.pop(context);
         }
@@ -855,6 +903,18 @@ class _TradeCardPageState extends State<TradeCardPage> {
                       height: 1.25,
                     ),
                   ),
+                  if (_hasTurnoverLimit) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      'Max: ${_lotLimitInfo!.maxQty} qty',
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 12,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
 
                   // Quantity/Lots input with +/- buttons
@@ -1032,7 +1092,106 @@ class _TradeCardPageState extends State<TradeCardPage> {
                     ),
                   ],
 
-                  // Lot Info Banner (for any exchange with lot assignments)
+                  // ── Turnover-mode info banner ─────────────────────────────
+                  if (_hasTurnoverLimit) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF22547C).withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                            color: const Color(0xFF22547C)
+                                .withValues(alpha: 0.15)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.info_outline,
+                                  size: 16, color: Color(0xFF22547C)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text.rich(
+                                  TextSpan(
+                                    children: [
+                                      const TextSpan(
+                                        text: 'Max qty: ',
+                                        style: TextStyle(
+                                          color: Color(0xFF64748B),
+                                          fontSize: 12,
+                                          fontFamily: 'Inter',
+                                        ),
+                                      ),
+                                      TextSpan(
+                                        text: '${_lotLimitInfo!.maxQty}',
+                                        style: const TextStyle(
+                                          color: Color(0xFF22547C),
+                                          fontSize: 12,
+                                          fontFamily: 'Inter',
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      if (_lotLimitInfo!.breakQty > 0) ...[
+                                        const TextSpan(
+                                          text: '  •  Break qty: ',
+                                          style: TextStyle(
+                                            color: Color(0xFF64748B),
+                                            fontSize: 12,
+                                            fontFamily: 'Inter',
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: '${_lotLimitInfo!.breakQty}',
+                                          style: const TextStyle(
+                                            color: Color(0xFF22547C),
+                                            fontSize: 12,
+                                            fontFamily: 'Inter',
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF10B981)
+                                  .withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.check_circle_outline,
+                                    size: 14, color: Color(0xFF10B981)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Order: $_quantity qty',
+                                  style: const TextStyle(
+                                    color: Color(0xFF10B981),
+                                    fontSize: 12,
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // ── Lot Info Banner (for lot-based exchanges) ─────────────
                   if (_isLoadingLotLimit) ...[
                     const SizedBox(height: 12),
                     Container(

@@ -4,17 +4,26 @@ import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/utils/contants.dart';
 
-/// Holds lot limit info for an instrument
+/// Holds lot/quantity limit info for an instrument.
+/// - [isTurnoverMode]: true = instrument traded in raw quantity (NFO-FUT, SGX, GLOBAL etc.)
+///   false = instrument traded in lots (MCX-FUT etc.)
+/// - [maxLots] / [lotSize]: only meaningful when [isTurnoverMode] == false
+/// - [maxQty]: max allowed raw quantity per order
+/// - [breakQty]: max single-order qty before it must be split (turnover mode only)
 class LotLimitInfo {
   final int maxLots;
   final int lotSize;
   final int maxQty;
+  final int breakQty;
+  final bool isTurnoverMode;
   final String? groupName;
 
   LotLimitInfo({
     required this.maxLots,
     required this.lotSize,
     required this.maxQty,
+    this.breakQty = 0,
+    this.isTurnoverMode = false,
     this.groupName,
   });
 }
@@ -42,6 +51,7 @@ class TradeService {
       }
 
       final res = await _apiService.get(endpoint, token: token);
+      log('Body preview: ${res.body.length > 300 ? res.body.substring(0, 300) : res.body}');
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         final data = body['data'];
@@ -49,12 +59,31 @@ class TradeService {
           final limit = data['limit'];
           final maxQty = _toInt(limit['max_qty']) ?? 0;
           final lotSize = _toInt(limit['lot_size']) ?? 1;
+          final breakQty = _toInt(limit['break_qty']) ?? 0;
 
-          return LotLimitInfo(
-            maxLots: maxQty,
-            lotSize: lotSize,
-            maxQty: maxQty * lotSize,
-          );
+          // Determine trading mode from the exchange-level flags
+          final isTurnover = data['turnover'] == true;
+          final isLot = data['lot'] == true;
+
+          if (isTurnover) {
+            // Turnover mode: user trades in raw quantity (NFO-FUT, SGX, GLOBAL, etc.)
+            return LotLimitInfo(
+              maxLots: 0, // not used in turnover mode
+              lotSize: lotSize,
+              maxQty: maxQty,
+              breakQty: breakQty,
+              isTurnoverMode: true,
+            );
+          } else if (isLot) {
+            // Lot mode: user selects number of lots (MCX-FUT etc.)
+            return LotLimitInfo(
+              maxLots: maxQty, // max_qty from API = max lots allowed
+              lotSize: lotSize,
+              maxQty: maxQty * lotSize,
+              breakQty: breakQty,
+              isTurnoverMode: false,
+            );
+          }
         }
       }
       return null;

@@ -95,7 +95,9 @@ class _PortfolioPageState extends State<PortfolioPage>
 
       final queryParams = <String>['limit=50', 'page=$page'];
       if (_activeFilters != null) {
-        _activeFilters!.toQueryParams().forEach((k, v) => queryParams.add('$k=$v'));
+        _activeFilters!
+            .toQueryParams()
+            .forEach((k, v) => queryParams.add('$k=$v'));
       }
 
       // Both admin and master use /master/trades — backend handles both roles
@@ -141,13 +143,16 @@ class _PortfolioPageState extends State<PortfolioPage>
     try {
       final storage = SecureStorageService();
       final token = await storage.getToken();
-      final userProfile = Provider.of<UserProfileProvider>(context, listen: false);
+      final userProfile =
+          Provider.of<UserProfileProvider>(context, listen: false);
       final userId = userProfile.user?.id;
       if (userId == null || token == null) return;
 
       final apiService = ApiService(backendUrl);
       final queryParams = <String>['limit=200', 'page=1'];
-      _activeFilters!.toQueryParams().forEach((k, v) => queryParams.add('$k=$v'));
+      _activeFilters!
+          .toQueryParams()
+          .forEach((k, v) => queryParams.add('$k=$v'));
 
       final res = await apiService.get(
         '/users/$userId/trades?${queryParams.join('&')}',
@@ -158,7 +163,8 @@ class _PortfolioPageState extends State<PortfolioPage>
         final data = body['data'] ?? {};
         final List tradesJson = data['trades'] ?? [];
         setState(() {
-          _filteredUserTrades = tradesJson.map((e) => Trade.fromJson(e)).toList();
+          _filteredUserTrades =
+              tradesJson.map((e) => Trade.fromJson(e)).toList();
         });
       }
     } catch (e) {
@@ -189,7 +195,8 @@ class _PortfolioPageState extends State<PortfolioPage>
 
   @override
   Widget build(BuildContext context) {
-    final hasFilters = _activeFilters != null && _activeFilters!.hasActiveFilters;
+    final hasFilters =
+        _activeFilters != null && _activeFilters!.hasActiveFilters;
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
@@ -236,7 +243,8 @@ class _PortfolioPageState extends State<PortfolioPage>
                       height: 44,
                       width: 44,
                       decoration: BoxDecoration(
-                        color: hasFilters ? const Color(0xFF22547C) : Colors.white,
+                        color:
+                            hasFilters ? const Color(0xFF22547C) : Colors.white,
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
@@ -247,7 +255,10 @@ class _PortfolioPageState extends State<PortfolioPage>
                         ],
                       ),
                       child: Icon(Icons.tune,
-                          color: hasFilters ? Colors.white : const Color(0xFF22547C), size: 20),
+                          color: hasFilters
+                              ? Colors.white
+                              : const Color(0xFF22547C),
+                          size: 20),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -266,7 +277,9 @@ class _PortfolioPageState extends State<PortfolioPage>
                       height: 44,
                       width: 44,
                       decoration: BoxDecoration(
-                        color: _showSearchBar ? const Color(0xFF22547C) : Colors.white,
+                        color: _showSearchBar
+                            ? const Color(0xFF22547C)
+                            : Colors.white,
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
@@ -277,7 +290,10 @@ class _PortfolioPageState extends State<PortfolioPage>
                         ],
                       ),
                       child: Icon(Icons.search,
-                          color: _showSearchBar ? Colors.white : const Color(0xFF22547C), size: 20),
+                          color: _showSearchBar
+                              ? Colors.white
+                              : const Color(0xFF22547C),
+                          size: 20),
                     ),
                   ),
                 ],
@@ -297,7 +313,8 @@ class _PortfolioPageState extends State<PortfolioPage>
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.filter_list, size: 14, color: Color(0xFF22547C)),
+                      const Icon(Icons.filter_list,
+                          size: 14, color: Color(0xFF22547C)),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -314,7 +331,8 @@ class _PortfolioPageState extends State<PortfolioPage>
                       ),
                       GestureDetector(
                         onTap: _clearFilters,
-                        child: const Icon(Icons.close, color: Color(0xFF22547C), size: 16),
+                        child: const Icon(Icons.close,
+                            color: Color(0xFF22547C), size: 16),
                       ),
                     ],
                   ),
@@ -343,7 +361,8 @@ class _PortfolioPageState extends State<PortfolioPage>
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.search, size: 18, color: Color(0xFF94A3B8)),
+                      const Icon(Icons.search,
+                          size: 18, color: Color(0xFF94A3B8)),
                       const SizedBox(width: 8),
                       Expanded(
                         child: TextField(
@@ -365,7 +384,8 @@ class _PortfolioPageState extends State<PortfolioPage>
                             contentPadding: EdgeInsets.zero,
                             isDense: true,
                           ),
-                          onChanged: (val) => setState(() => _searchQuery = val.trim().toUpperCase()),
+                          onChanged: (val) => setState(
+                              () => _searchQuery = val.trim().toUpperCase()),
                         ),
                       ),
                       if (_searchQuery.isNotEmpty)
@@ -374,7 +394,8 @@ class _PortfolioPageState extends State<PortfolioPage>
                             _searchController.clear();
                             setState(() => _searchQuery = '');
                           },
-                          child: const Icon(Icons.close, size: 18, color: Color(0xFF94A3B8)),
+                          child: const Icon(Icons.close,
+                              size: 18, color: Color(0xFF94A3B8)),
                         ),
                     ],
                   ),
@@ -386,8 +407,12 @@ class _PortfolioPageState extends State<PortfolioPage>
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  (_isMaster || _isAdmin) ? _buildMasterTradesList('completed') : _buildPositionsList(),
-                  (_isMaster || _isAdmin) ? _buildMasterTradesList('pending') : _buildOrdersList(),
+                  (_isMaster || _isAdmin)
+                      ? _buildMasterTradesList('completed')
+                      : _buildPositionsList(),
+                  (_isMaster || _isAdmin)
+                      ? _buildMasterTradesList('pending')
+                      : _buildOrdersList(),
                 ],
               ),
             ),
@@ -436,16 +461,20 @@ class _PortfolioPageState extends State<PortfolioPage>
 
   String _buildFilterSummary() {
     final parts = <String>[];
-    if (_activeFilters?.tradingsymbol != null) parts.add(_activeFilters!.tradingsymbol!);
+    if (_activeFilters?.tradingsymbol != null)
+      parts.add(_activeFilters!.tradingsymbol!);
     if (_activeFilters?.exchange != null) parts.add(_activeFilters!.exchange!);
-    if (_activeFilters?.dateFrom != null || _activeFilters?.dateTo != null) parts.add('Date');
+    if (_activeFilters?.dateFrom != null || _activeFilters?.dateTo != null)
+      parts.add('Date');
     return parts.join(' · ');
   }
 
   /// Apply local search query filter to a trade list
   List<Trade> _applySearch(List<Trade> trades) {
     if (_searchQuery.isEmpty) return trades;
-    return trades.where((t) => t.tradingSymbol.toUpperCase().contains(_searchQuery)).toList();
+    return trades
+        .where((t) => t.tradingSymbol.toUpperCase().contains(_searchQuery))
+        .toList();
   }
 
   Widget _buildTabButton(int index, String label) {
@@ -490,7 +519,9 @@ class _PortfolioPageState extends State<PortfolioPage>
 
     // Compute per-trade P&L for closing trades
     final perTradePnl = statusFilter == 'completed'
-        ? _computePerTradePnl(_masterTrades.where((t) => t.status.toLowerCase() == 'completed').toList())
+        ? _computePerTradePnl(_masterTrades
+            .where((t) => t.status.toLowerCase() == 'completed')
+            .toList())
         : <String, _PerTradePnl>{};
 
     if (filtered.isEmpty) {
@@ -592,7 +623,8 @@ class _PortfolioPageState extends State<PortfolioPage>
               }
               final trade = filtered[index];
               if (statusFilter == 'completed') {
-                return _buildCompletedTradeCard(trade, tradePnl: perTradePnl[trade.id]);
+                return _buildCompletedTradeCard(trade,
+                    tradePnl: perTradePnl[trade.id]);
               } else {
                 return _buildTradeCard(trade);
               }
@@ -607,12 +639,15 @@ class _PortfolioPageState extends State<PortfolioPage>
     // If filters are active, show filtered results
     if (_activeFilters != null && _activeFilters!.hasActiveFilters) {
       if (_userFilterLoading) {
-        return const Center(child: CircularProgressIndicator(color: Color(0xFF22547C), strokeWidth: 2.5));
+        return const Center(
+            child: CircularProgressIndicator(
+                color: Color(0xFF22547C), strokeWidth: 2.5));
       }
       final completedTrades = (_filteredUserTrades ?? [])
           .where((t) => t.status.toLowerCase() == 'completed')
           .toList();
-      return _buildTradeListView(completedTrades, 'completed', onRefresh: _fetchFilteredUserTrades);
+      return _buildTradeListView(completedTrades, 'completed',
+          onRefresh: _fetchFilteredUserTrades);
     }
 
     return Consumer<TradeMetricsProvider>(
@@ -630,7 +665,8 @@ class _PortfolioPageState extends State<PortfolioPage>
             .where((t) => t.status.toLowerCase() == 'completed')
             .toList();
 
-        return _buildTradeListView(completedTrades, 'completed', onRefresh: () => provider.fetchBaseData());
+        return _buildTradeListView(completedTrades, 'completed',
+            onRefresh: () => provider.fetchBaseData());
       },
     );
   }
@@ -639,12 +675,15 @@ class _PortfolioPageState extends State<PortfolioPage>
     // If filters are active, show filtered results
     if (_activeFilters != null && _activeFilters!.hasActiveFilters) {
       if (_userFilterLoading) {
-        return const Center(child: CircularProgressIndicator(color: Color(0xFF22547C), strokeWidth: 2.5));
+        return const Center(
+            child: CircularProgressIndicator(
+                color: Color(0xFF22547C), strokeWidth: 2.5));
       }
       final pendingTrades = (_filteredUserTrades ?? [])
           .where((t) => t.status.toLowerCase() == 'pending')
           .toList();
-      return _buildTradeListView(pendingTrades, 'pending', onRefresh: _fetchFilteredUserTrades);
+      return _buildTradeListView(pendingTrades, 'pending',
+          onRefresh: _fetchFilteredUserTrades);
     }
 
     return Consumer<TradeMetricsProvider>(
@@ -667,7 +706,8 @@ class _PortfolioPageState extends State<PortfolioPage>
     );
   }
 
-  Widget _buildTradeListView(List<Trade> trades, String type, {Future<void> Function()? onRefresh}) {
+  Widget _buildTradeListView(List<Trade> trades, String type,
+      {Future<void> Function()? onRefresh}) {
     // Apply local search filter
     trades = _applySearch(trades);
 
@@ -696,7 +736,9 @@ class _PortfolioPageState extends State<PortfolioPage>
                 ],
               ),
               child: Icon(
-                type == 'completed' ? Icons.receipt_long : Icons.pending_actions,
+                type == 'completed'
+                    ? Icons.receipt_long
+                    : Icons.pending_actions,
                 size: 32,
                 color: const Color(0xFFCBD5E1),
               ),
@@ -741,10 +783,12 @@ class _PortfolioPageState extends State<PortfolioPage>
       child: ListView.separated(
         padding: EdgeInsets.zero,
         itemCount: trades.length,
-        separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+        separatorBuilder: (_, __) =>
+            const Divider(height: 1, color: Color(0xFFF1F5F9)),
         itemBuilder: (context, index) {
           if (type == 'completed') {
-            return _buildCompletedTradeCard(trades[index], tradePnl: perTradePnl[trades[index].id]);
+            return _buildCompletedTradeCard(trades[index],
+                tradePnl: perTradePnl[trades[index].id]);
           } else {
             return _buildTradeCard(trades[index]);
           }
@@ -808,7 +852,8 @@ class _PortfolioPageState extends State<PortfolioPage>
             pnl = (avgEntryPrice - price) * closingQty;
           }
 
-          result[t.id] = _PerTradePnl(pnl: pnl, isClosing: true, openedAt: openedAt);
+          result[t.id] =
+              _PerTradePnl(pnl: pnl, isClosing: true, openedAt: openedAt);
 
           netQty += tradeQty;
           // If position flipped, reset avg to this trade's price for the remainder
@@ -844,7 +889,8 @@ class _PortfolioPageState extends State<PortfolioPage>
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => showTradeDetailSheet(context, trade, isClosing: tradePnl != null && tradePnl.isClosing),
+      onTap: () => showTradeDetailSheet(context, trade,
+          isClosing: tradePnl != null && tradePnl.isClosing),
       child: Container(
         padding: const EdgeInsets.all(16),
         color: Colors.transparent,
@@ -854,219 +900,227 @@ class _PortfolioPageState extends State<PortfolioPage>
             // Left side
             Expanded(
               child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Symbol + badge
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        trade.tradingSymbol,
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 14,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: -0.3,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Symbol + badge
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          trade.tradingSymbol,
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 14,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.3,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    const SizedBox(width: 8),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: sideColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          sideLabel,
+                          style: TextStyle(
+                            color: sideColor,
+                            fontSize: 10,
+                            fontFamily: 'Inter',
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (isClosing) ...[
+                    const SizedBox(height: 5),
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
-                        color: sideColor.withOpacity(0.1),
+                        color: const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        sideLabel,
-                        style: TextStyle(
-                          color: sideColor,
+                        'Closed ${_tradeDuration(tradePnl.openedAt, trade.createdAt)}',
+                        style: const TextStyle(
+                          color: Color(0xFF64748B),
                           fontSize: 10,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.3,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                   ],
-                ),
-                if (isClosing) ...[
-                  const SizedBox(height: 5),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'Closed ${_tradeDuration(tradePnl.openedAt, trade.createdAt)}',
-                      style: const TextStyle(
-                        color: Color(0xFF64748B),
-                        fontSize: 10,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 6),
-                // Metadata row with dot separators
-                Row(
-                  children: [
-                    Text(
-                      'Qty ${trade.quantity.toStringAsFixed(0)}',
-                      style: const TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: 10,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 6),
-                      child: Text('·',
-                          style: TextStyle(
-                              fontSize: 10, color: Color(0xFFCBD5E1))),
-                    ),
-                    Icon(Icons.access_time,
-                        size: 11, color: const Color(0xFF94A3B8)),
-                    const SizedBox(width: 3),
-                    Text(
-                      formattedDate,
-                      style: const TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: 10,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-                if (trade.userName != null) ...[
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 6),
+                  // Metadata row with dot separators
                   Row(
                     children: [
-                      const Icon(Icons.person_outline,
-                          size: 11, color: Color(0xFF94A3B8)),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          trade.userName!,
-                          style: const TextStyle(
-                            color: Color(0xFF94A3B8),
-                            fontSize: 10,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      Text(
+                        'Qty ${trade.quantity.toStringAsFixed(0)}',
+                        style: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 10,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 6),
+                        child: Text('·',
+                            style: TextStyle(
+                                fontSize: 10, color: Color(0xFFCBD5E1))),
+                      ),
+                      Icon(Icons.access_time,
+                          size: 11, color: const Color(0xFF94A3B8)),
+                      const SizedBox(width: 3),
+                      Text(
+                        formattedDate,
+                        style: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 10,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
-                ],
-                if (_isAdmin && trade.masterName != null) ...[
-                  const SizedBox(height: 3),
-                  Row(
-                    children: [
-                      const Icon(Icons.supervisor_account,
-                          size: 11, color: Color(0xFFCBD5E1)),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          'M: ${trade.masterName!}',
-                          style: const TextStyle(
-                            color: Color(0xFFCBD5E1),
-                            fontSize: 10,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-
-          const SizedBox(width: 8),
-
-          // Right side — price + closed P&L
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                trade.price.toStringAsFixed(2),
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: 14,
-                  fontFamily: 'Inter',
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              if (isClosing) ...[
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: (tradePnl.pnl >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444)).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'Deals ${tradePnl.pnl >= 0 ? '+' : ''}${tradePnl.pnl.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      color: tradePnl.pnl >= 0
-                          ? const Color(0xFF10B981)
-                          : const Color(0xFFEF4444),
-                      fontSize: 10,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-              if (_isAdmin) ...[
-                const SizedBox(height: 6),
-                GestureDetector(
-                  onTap: () => _deleteTrade(trade),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.4)),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
+                  if (trade.userName != null) ...[
+                    const SizedBox(height: 4),
+                    Row(
                       children: [
-                        Icon(Icons.delete_outline, size: 11, color: Color(0xFFEF4444)),
-                        SizedBox(width: 3),
-                        Text(
-                          'Delete',
-                          style: TextStyle(
-                            color: Color(0xFFEF4444),
-                            fontSize: 10,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600,
+                        const Icon(Icons.person_outline,
+                            size: 11, color: Color(0xFF94A3B8)),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            trade.userName!,
+                            style: const TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 10,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
                     ),
+                  ],
+                  if (_isAdmin && trade.masterName != null) ...[
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        const Icon(Icons.supervisor_account,
+                            size: 11, color: Color(0xFFCBD5E1)),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            'M: ${trade.masterName!}',
+                            style: const TextStyle(
+                              color: Color(0xFFCBD5E1),
+                              fontSize: 10,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+
+            const SizedBox(width: 8),
+
+            // Right side — price + closed P&L
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  trade.price.toStringAsFixed(2),
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 14,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
+                if (isClosing) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: (tradePnl.pnl >= 0
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFFEF4444))
+                          .withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Deals ${tradePnl.pnl >= 0 ? '+' : ''}${tradePnl.pnl.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        color: tradePnl.pnl >= 0
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFEF4444),
+                        fontSize: 10,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+                if (_isAdmin) ...[
+                  const SizedBox(height: 6),
+                  GestureDetector(
+                    onTap: () => _deleteTrade(trade),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                            color: const Color(0xFFEF4444).withOpacity(0.4)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.delete_outline,
+                              size: 11, color: Color(0xFFEF4444)),
+                          SizedBox(width: 3),
+                          Text(
+                            'Delete',
+                            style: TextStyle(
+                              color: Color(0xFFEF4444),
+                              fontSize: 10,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ],
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 
@@ -1218,7 +1272,8 @@ class _PortfolioPageState extends State<PortfolioPage>
                   // Row 1: Date
                   Row(
                     children: [
-                      Icon(Icons.access_time, size: 11, color: const Color(0xFF94A3B8)),
+                      Icon(Icons.access_time,
+                          size: 11, color: const Color(0xFF94A3B8)),
                       const SizedBox(width: 4),
                       Text(
                         formattedDate,
@@ -1237,7 +1292,8 @@ class _PortfolioPageState extends State<PortfolioPage>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                           color: isPending
                               ? const Color(0xFFFEF3C7)
@@ -1263,16 +1319,20 @@ class _PortfolioPageState extends State<PortfolioPage>
                             GestureDetector(
                               onTap: () => _deleteTrade(trade),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 5),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.4)),
+                                  border: Border.all(
+                                      color: const Color(0xFFEF4444)
+                                          .withOpacity(0.4)),
                                 ),
                                 child: const Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.delete_outline, size: 13, color: Color(0xFFEF4444)),
+                                    Icon(Icons.delete_outline,
+                                        size: 13, color: Color(0xFFEF4444)),
                                     SizedBox(width: 4),
                                     Text(
                                       'Delete',
@@ -1292,9 +1352,11 @@ class _PortfolioPageState extends State<PortfolioPage>
                             GestureDetector(
                               onTap: () => _cancelOrder(trade),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 5),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFEF4444).withOpacity(0.1),
+                                  color:
+                                      const Color(0xFFEF4444).withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: const Text(
@@ -1573,11 +1635,17 @@ class _PortfolioPageState extends State<PortfolioPage>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('No', style: TextStyle(color: Color(0xFF94A3B8), fontFamily: 'Inter')),
+            child: const Text('No',
+                style:
+                    TextStyle(color: Color(0xFF94A3B8), fontFamily: 'Inter')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Yes, Delete', style: TextStyle(color: Color(0xFFEF4444), fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+            child: const Text('Yes, Delete',
+                style: TextStyle(
+                    color: Color(0xFFEF4444),
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w600)),
           ),
         ],
       ),
@@ -1591,7 +1659,8 @@ class _PortfolioPageState extends State<PortfolioPage>
       if (token == null) throw Exception('Not authenticated');
 
       final apiService = ApiService(backendUrl);
-      final response = await apiService.delete('/trade/${trade.id}', token: token);
+      final response =
+          await apiService.delete('/trade/${trade.id}', token: token);
 
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
@@ -1599,12 +1668,17 @@ class _PortfolioPageState extends State<PortfolioPage>
           if (_isMaster || _isAdmin) {
             await _fetchMasterTrades();
           } else {
-            final metricsProvider = Provider.of<TradeMetricsProvider>(context, listen: false);
+            final metricsProvider =
+                Provider.of<TradeMetricsProvider>(context, listen: false);
             await metricsProvider.fetchBaseData();
           }
+          await Provider.of<UserProfileProvider>(context, listen: false)
+              .refreshProfile();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Trade deleted: ${trade.tradingSymbol}'), backgroundColor: const Color(0xFF10B981)),
+              SnackBar(
+                  content: Text('Trade deleted: ${trade.tradingSymbol}'),
+                  backgroundColor: const Color(0xFF10B981)),
             );
           }
         } else {
@@ -1616,7 +1690,9 @@ class _PortfolioPageState extends State<PortfolioPage>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: ${e.toString()}'), backgroundColor: const Color(0xFFEF4444)),
+          SnackBar(
+              content: Text('Error: ${e.toString()}'),
+              backgroundColor: const Color(0xFFEF4444)),
         );
       }
     }
@@ -1688,6 +1764,8 @@ class _PortfolioPageState extends State<PortfolioPage>
         final body = jsonDecode(response.body);
         if (body['success'] == true) {
           await metricsProvider.fetchBaseData();
+          await Provider.of<UserProfileProvider>(context, listen: false)
+              .refreshProfile();
 
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -1715,7 +1793,6 @@ class _PortfolioPageState extends State<PortfolioPage>
     }
   }
 }
-
 
 class _PerTradePnl {
   final double pnl;
