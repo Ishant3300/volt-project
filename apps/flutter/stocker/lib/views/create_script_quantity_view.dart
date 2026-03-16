@@ -654,10 +654,10 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                _buildHighlight(inst.tradingsymbol, _searchCtrl.text),
+                _buildHighlight(inst.userFriendlyName, _searchCtrl.text),
                 const SizedBox(height: 3),
                 Row(children: [
-                  Text(inst.segment.isNotEmpty ? inst.segment : inst.exchange,
+                  Text(inst.tradingsymbol,
                       style: const TextStyle(
                           fontSize: 10,
                           color: Color(0xFF94A3B8),

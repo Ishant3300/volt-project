@@ -22,7 +22,8 @@ class ReportsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isUser = Provider.of<UserProfileProvider>(context, listen: false).isUser;
+    final isUser =
+        Provider.of<UserProfileProvider>(context, listen: false).isUser;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FC),
@@ -248,7 +249,8 @@ class GeneratePdfBottomSheet extends StatefulWidget {
   final String? preselectedUserId;
   final String? preselectedUserName;
 
-  const GeneratePdfBottomSheet({super.key, this.preselectedUserId, this.preselectedUserName});
+  const GeneratePdfBottomSheet(
+      {super.key, this.preselectedUserId, this.preselectedUserName});
 
   @override
   State<GeneratePdfBottomSheet> createState() => _GeneratePdfBottomSheetState();
@@ -274,7 +276,11 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
     final profile = Provider.of<UserProfileProvider>(context, listen: false);
     _isUser = profile.isUser;
     if (widget.preselectedUserId != null) {
-      _selectedUser = {'id': widget.preselectedUserId, 'name': widget.preselectedUserName ?? '', 'username': widget.preselectedUserName ?? ''};
+      _selectedUser = {
+        'id': widget.preselectedUserId,
+        'name': widget.preselectedUserName ?? '',
+        'username': widget.preselectedUserName ?? ''
+      };
     } else if (!_isUser) {
       _fetchUsers();
     }
@@ -308,12 +314,15 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
       final token = await storage.getToken();
       final api = ApiService(backendUrl);
       final profile = Provider.of<UserProfileProvider>(context, listen: false);
-      final endpoint = profile.isAdmin ? '/admin/users?limit=500' : '/master/users?limit=500';
+      final endpoint = profile.isAdmin
+          ? '/admin/users?limit=500'
+          : '/master/users?limit=500';
       final res = await api.get(endpoint, token: token);
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         final nested = body['data'];
-        final List list = nested is Map ? (nested['users'] ?? []) : (nested ?? []);
+        final List list =
+            nested is Map ? (nested['users'] ?? []) : (nested ?? []);
         setState(() {
           _users = list.cast<Map<String, dynamic>>();
           _filteredUsers = List.from(_users);
@@ -338,8 +347,10 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
     );
     if (picked != null) {
       setState(() {
-        if (isFrom) _fromDate = picked;
-        else _toDate = picked;
+        if (isFrom)
+          _fromDate = picked;
+        else
+          _toDate = picked;
       });
     }
   }
@@ -348,10 +359,12 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
     String from, to;
 
     if (_selectedMode == 0) {
-      // Default: last 7 days
+      // Default: last 7 days (excluding today)
       final now = DateTime.now();
-      from = now.subtract(const Duration(days: 7)).toIso8601String().split('T')[0];
-      to = now.toIso8601String().split('T')[0];
+      final yesterday = now.subtract(const Duration(days: 1));
+      from =
+          now.subtract(const Duration(days: 7)).toIso8601String().split('T')[0];
+      to = yesterday.toIso8601String().split('T')[0];
     } else {
       // Advanced: user-picked dates
       if (_fromDate == null || _toDate == null) {
@@ -392,7 +405,8 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
         } else {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(body['message'] ?? 'Failed to fetch report')),
+              SnackBar(
+                  content: Text(body['message'] ?? 'Failed to fetch report')),
             );
           }
         }
@@ -412,13 +426,16 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
   Widget build(BuildContext context) {
     final dateFmt = DateFormat('dd MMM yyyy');
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
-        padding: const EdgeInsets.only(top: 24, left: 16, right: 16, bottom: 32),
+        padding:
+            const EdgeInsets.only(top: 24, left: 16, right: 16, bottom: 32),
         decoration: const ShapeDecoration(
           color: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.only(topLeft: Radius.circular(24), topRight: Radius.circular(24)),
+            borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(24), topRight: Radius.circular(24)),
           ),
         ),
         child: SingleChildScrollView(
@@ -426,185 +443,253 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Generate PDF', style: TextStyle(color: Colors.black, fontSize: 16, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+              const Text('Generate PDF',
+                  style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 16,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w600)),
               const SizedBox(height: 16),
 
-          // Mode selector (moved above dates so Default can hide them)
-          const Text('Report Type', style: TextStyle(color: Color(0xFF64748B), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.5)),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              _modeChip('Default', 0),
-              const SizedBox(width: 10),
-              _modeChip('Advanced', 1),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Default mode: show fixed "Last 7 days" label
-          if (_selectedMode == 0)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(8),
+              // Mode selector (moved above dates so Default can hide them)
+              const Text('Report Type',
+                  style: TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 12,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _modeChip('Default', 0),
+                  const SizedBox(width: 10),
+                  _modeChip('Advanced', 1),
+                ],
               ),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 2),
-                  child: Icon(Icons.info_outline, size: 14, color: Color(0xFF64748B)),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Last 7 days · ${DateFormat('dd/MM').format(DateTime.now().subtract(const Duration(days: 7)))} – ${DateFormat('dd/MM/yy').format(DateTime.now())}',
-                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w500),
-                  ),
-                ),
-              ]),
-            ),
+              const SizedBox(height: 12),
 
-          // Advanced mode: date pickers
-          if (_selectedMode == 1) ...[
-            GestureDetector(
-              onTap: () => _pickDate(true),
-              child: _dateField('From Date', _fromDate != null ? dateFmt.format(_fromDate!) : null),
-            ),
-            const SizedBox(height: 12),
-            GestureDetector(
-              onTap: () => _pickDate(false),
-              child: _dateField('To Date', _toDate != null ? dateFmt.format(_toDate!) : null),
-            ),
-          ],
-          const SizedBox(height: 16),
-
-          // User selector (admin/master only)
-          if (!_isUser && widget.preselectedUserId == null) ...[
-            const Text('Select User', style: TextStyle(color: Color(0xFF64748B), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.5)),
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: () => setState(() => _showUserDropdown = !_showUserDropdown),
-              child: Container(
-                height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                decoration: ShapeDecoration(
-                  color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    side: const BorderSide(width: 1, color: Color(0xFFD1D1D6)),
+              // Default mode: show fixed "Last 7 days" label
+              if (_selectedMode == 0)
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _selectedUser != null
-                            ? '${_selectedUser!['name'] ?? _selectedUser!['username']} (@${_selectedUser!['username']})'
-                            : 'All Users',
-                        style: TextStyle(
-                          color: _selectedUser != null ? const Color(0xFF0F172A) : const Color(0xFF8E8E93),
-                          fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w400,
-                          overflow: TextOverflow.ellipsis,
+                  child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(top: 2),
+                          child: Icon(Icons.info_outline,
+                              size: 14, color: Color(0xFF64748B)),
                         ),
-                      ),
-                    ),
-                    Icon(_showUserDropdown ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, size: 20, color: const Color(0xFF8E8E93)),
-                  ],
-                ),
-              ),
-            ),
-            if (_showUserDropdown) ...[
-              const SizedBox(height: 4),
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFD1D1D6)),
-                ),
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: TextField(
-                        controller: _userSearchController,
-                        style: const TextStyle(fontSize: 13, fontFamily: 'Inter'),
-                        decoration: const InputDecoration(
-                          hintText: 'Search by name...',
-                          hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: 13),
-                          prefixIcon: Icon(Icons.search, size: 18, color: Color(0xFF94A3B8)),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          border: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFFF1F5F9))),
-                          isDense: true,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Last 7 days · ${DateFormat('dd/MM').format(DateTime.now().subtract(const Duration(days: 7)))} – ${DateFormat('dd/MM/yy').format(DateTime.now().subtract(const Duration(days: 1)))}',
+                            style: const TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: 12,
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w500),
+                          ),
                         ),
-                      ),
-                    ),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 160),
-                      child: ListView(
-                        shrinkWrap: true,
-                        padding: EdgeInsets.zero,
-                        children: [
-                          // "All Users" option
-                          _userOption(null),
-                          ..._filteredUsers.map((u) => _userOption(u)),
-                        ],
-                      ),
-                    ),
-                  ],
+                      ]),
                 ),
-              ),
-            ],
-            const SizedBox(height: 16),
-          ],
 
-          // Action buttons
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => Navigator.pop(context),
+              // Advanced mode: date pickers
+              if (_selectedMode == 1) ...[
+                GestureDetector(
+                  onTap: () => _pickDate(true),
+                  child: _dateField('From Date',
+                      _fromDate != null ? dateFmt.format(_fromDate!) : null),
+                ),
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: () => _pickDate(false),
+                  child: _dateField('To Date',
+                      _toDate != null ? dateFmt.format(_toDate!) : null),
+                ),
+              ],
+              const SizedBox(height: 16),
+
+              // User selector (admin/master only)
+              if (!_isUser && widget.preselectedUserId == null) ...[
+                const Text('Select User',
+                    style: TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 12,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5)),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () =>
+                      setState(() => _showUserDropdown = !_showUserDropdown),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    height: 48,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
                     decoration: ShapeDecoration(
-                      color: const Color(0xFFD1D1D6),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      color: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        side: const BorderSide(
+                            width: 1, color: Color(0xFFD1D1D6)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
-                    child: const Text('CLEAR', textAlign: TextAlign.center, style: TextStyle(color: Colors.black, fontSize: 15, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _selectedUser != null
+                                ? '${_selectedUser!['name'] ?? _selectedUser!['username']} (@${_selectedUser!['username']})'
+                                : 'All Users',
+                            style: TextStyle(
+                              color: _selectedUser != null
+                                  ? const Color(0xFF0F172A)
+                                  : const Color(0xFF8E8E93),
+                              fontSize: 14,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w400,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                            _showUserDropdown
+                                ? Icons.keyboard_arrow_up
+                                : Icons.keyboard_arrow_down,
+                            size: 20,
+                            color: const Color(0xFF8E8E93)),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: GestureDetector(
-                  onTap: _isLoading ? null : _generatePdf,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                    decoration: ShapeDecoration(
-                      color: const Color(0xFF22547C),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                if (_showUserDropdown) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFD1D1D6)),
                     ),
-                    child: _isLoading
-                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Text('VIEW', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 15, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: TextField(
+                            controller: _userSearchController,
+                            style: const TextStyle(
+                                fontSize: 13, fontFamily: 'Inter'),
+                            decoration: const InputDecoration(
+                              hintText: 'Search by name...',
+                              hintStyle: TextStyle(
+                                  color: Color(0xFFCBD5E1), fontSize: 13),
+                              prefixIcon: Icon(Icons.search,
+                                  size: 18, color: Color(0xFF94A3B8)),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              border: OutlineInputBorder(
+                                  borderSide:
+                                      BorderSide(color: Color(0xFFF1F5F9))),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 160),
+                          child: ListView(
+                            shrinkWrap: true,
+                            padding: EdgeInsets.zero,
+                            children: [
+                              // "All Users" option
+                              _userOption(null),
+                              ..._filteredUsers.map((u) => _userOption(u)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                ],
+                const SizedBox(height: 16),
+              ],
+
+              // Action buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 32, vertical: 16),
+                        decoration: ShapeDecoration(
+                          color: const Color(0xFFD1D1D6),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: const Text('CLEAR',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: Colors.black,
+                                fontSize: 15,
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _isLoading ? null : _generatePdf,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 32, vertical: 16),
+                        decoration: ShapeDecoration(
+                          color: const Color(0xFF22547C),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                    color: Colors.white, strokeWidth: 2))
+                            : const Text('VIEW',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontFamily: 'Inter',
+                                    fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
-    ),
-    ),
     );
   }
 
   Widget _userOption(Map<String, dynamic>? user) {
     final selectedId = _selectedUser?['id'] ?? _selectedUser?['_id'];
     final userId = user?['id'] ?? user?['_id'];
-    final isSelected = user == null ? _selectedUser == null : selectedId == userId;
-    final label = user == null ? 'All Users' : '${user['name'] ?? user['username']} (@${user['username']})';
+    final isSelected =
+        user == null ? _selectedUser == null : selectedId == userId;
+    final label = user == null
+        ? 'All Users'
+        : '${user['name'] ?? user['username']} (@${user['username']})';
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -617,12 +702,18 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected ? const Color(0xFFF1F5F9) : Colors.white,
-          border: const Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 0.5)),
+          border: const Border(
+              bottom: BorderSide(color: Color(0xFFF1F5F9), width: 0.5)),
         ),
-        child: Text(label, style: TextStyle(
-          color: isSelected ? const Color(0xFF22547C) : const Color(0xFF1E293B),
-          fontSize: 13, fontFamily: 'Inter', fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-        )),
+        child: Text(label,
+            style: TextStyle(
+              color: isSelected
+                  ? const Color(0xFF22547C)
+                  : const Color(0xFF1E293B),
+              fontSize: 13,
+              fontFamily: 'Inter',
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            )),
       ),
     );
   }
@@ -644,8 +735,12 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
           Text(
             value ?? hint,
             style: TextStyle(
-              color: value != null ? const Color(0xFF0F172A) : const Color(0xFF8E8E93),
-              fontSize: 15, fontFamily: 'Inter', fontWeight: FontWeight.w400,
+              color: value != null
+                  ? const Color(0xFF0F172A)
+                  : const Color(0xFF8E8E93),
+              fontSize: 15,
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w400,
             ),
           ),
           const Icon(Icons.calendar_today, size: 18, color: Colors.black),
@@ -663,13 +758,17 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
         decoration: BoxDecoration(
           color: selected ? const Color(0xFF22547C) : Colors.white,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: selected ? const Color(0xFF22547C) : const Color(0xFFD1D1D6)),
+          border: Border.all(
+              color:
+                  selected ? const Color(0xFF22547C) : const Color(0xFFD1D1D6)),
         ),
         child: Text(
           label,
           style: TextStyle(
             color: selected ? Colors.white : const Color(0xFF64748B),
-            fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600,
+            fontSize: 13,
+            fontFamily: 'Inter',
+            fontWeight: FontWeight.w600,
           ),
         ),
       ),

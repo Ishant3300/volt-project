@@ -702,42 +702,17 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
                   Row(
                     children: [
                       Flexible(
-                        child: Text(instrument.tradingsymbol,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                                color: Color(0xFF0F172A),
-                                fontFamily: 'Inter',
-                                letterSpacing: -0.3),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
+                        child: _buildHighlight(
+                          instrument.userFriendlyName,
+                          _searchController.text,
+                        ),
                       ),
-                      if (instrument.expiryDisplay.isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                            width: 4,
-                            height: 4,
-                            decoration: const BoxDecoration(
-                                color: Color(0xFFCBD5E1),
-                                shape: BoxShape.circle)),
-                        const SizedBox(width: 8),
-                        Text(instrument.shortExpiryDisplay.toUpperCase(),
-                            style: const TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF94A3B8),
-                                fontFamily: 'Inter',
-                                letterSpacing: 0.5)),
-                      ],
                     ],
                   ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Text(
-                          instrument.segment.isNotEmpty
-                              ? instrument.segment
-                              : instrument.exchange,
+                      Text(instrument.tradingsymbol,
                           style: const TextStyle(
                               fontSize: 10,
                               color: Color(0xFF94A3B8),
@@ -767,6 +742,76 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
         ),
       ),
     );
+  }
+
+  Widget _buildHighlight(String text, String query) {
+    if (query.isEmpty) {
+      return Text(text,
+          style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              color: Color(0xFF0F172A),
+              fontFamily: 'Inter',
+              letterSpacing: -0.3),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis);
+    }
+    final tokens = query.toUpperCase().split(RegExp(r'\s+'));
+    final upper = text.toUpperCase();
+    final starts = <int>[], ends = <int>[];
+    for (final t in tokens) {
+      if (t.isEmpty) continue;
+      int s = 0;
+      while (true) {
+        final i = upper.indexOf(t, s);
+        if (i == -1) break;
+        starts.add(i);
+        ends.add(i + t.length);
+        s = i + 1;
+      }
+    }
+    if (starts.isEmpty) {
+      return Text(text,
+          style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              color: Color(0xFF0F172A),
+              fontFamily: 'Inter',
+              letterSpacing: -0.3),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis);
+    }
+    final ranges = <List<int>>[];
+    final sorted = List.generate(starts.length, (i) => i)
+      ..sort((a, b) => starts[a].compareTo(starts[b]));
+    for (final i in sorted) {
+      if (ranges.isEmpty || starts[i] > ranges.last[1])
+        ranges.add([starts[i], ends[i]]);
+      else if (ends[i] > ranges.last[1]) ranges.last[1] = ends[i];
+    }
+    final spans = <TextSpan>[];
+    int last = 0;
+    for (final r in ranges) {
+      if (r[0] > last) spans.add(TextSpan(text: text.substring(last, r[0])));
+      spans.add(TextSpan(
+          text: text.substring(r[0], r[1]),
+          style: const TextStyle(
+              backgroundColor: Color(0xFFFEF08A),
+              fontWeight: FontWeight.w700)));
+      last = r[1];
+    }
+    if (last < text.length) spans.add(TextSpan(text: text.substring(last)));
+    return RichText(
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        text: TextSpan(
+            style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                color: Color(0xFF0F172A),
+                fontFamily: 'Inter',
+                letterSpacing: -0.3),
+            children: spans));
   }
 
   Widget _buildSelectedInstrumentForm() {
