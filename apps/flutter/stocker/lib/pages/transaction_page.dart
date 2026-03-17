@@ -225,7 +225,7 @@ class _TransactionPageState extends State<TransactionPage> {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: selected ? const Color(0xFF22547C) : Colors.transparent,
+            color: selected ? const Color(0xFF3F45C7) : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
@@ -244,7 +244,7 @@ class _TransactionPageState extends State<TransactionPage> {
   // ── History Tab ──
   Widget _buildHistoryTab() {
     if (_isLoadingHistory && _transactions.isEmpty) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF22547C), strokeWidth: 2.5));
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5));
     }
     if (_transactions.isEmpty) {
       return RefreshIndicator(
@@ -298,7 +298,7 @@ class _TransactionPageState extends State<TransactionPage> {
               if (index >= _transactions.length) {
                 return const Padding(
                   padding: EdgeInsets.all(16),
-                  child: Center(child: CircularProgressIndicator(color: Color(0xFF22547C), strokeWidth: 2)),
+                  child: Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2)),
                 );
               }
               return _buildTransactionItem(_transactions[index]);
@@ -445,7 +445,7 @@ class _TransactionPageState extends State<TransactionPage> {
               fillColor: Colors.white,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF22547C), width: 1.5)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF3F45C7), width: 1.5)),
             ),
           ),
           const SizedBox(height: 16),
@@ -465,7 +465,7 @@ class _TransactionPageState extends State<TransactionPage> {
               fillColor: Colors.white,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF22547C), width: 1.5)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF3F45C7), width: 1.5)),
             ),
           ),
           const SizedBox(height: 24),

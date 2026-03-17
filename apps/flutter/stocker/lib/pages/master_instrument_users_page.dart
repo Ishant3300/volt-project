@@ -382,7 +382,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF22547C).withValues(alpha: 0.08),
+                        color: const Color(0xFF3F45C7).withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Column(
@@ -404,7 +404,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                             fractionDigits: 2,
                             prefix: '₹',
                             textStyle: const TextStyle(
-                              color: Color(0xFF22547C),
+                              color: Color(0xFF3F45C7),
                               fontSize: 14,
                               fontFamily: 'Inter',
                               fontWeight: FontWeight.w700,
@@ -553,14 +553,14 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF22547C).withValues(alpha: 0.08),
+                    color: const Color(0xFF3F45C7).withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Center(
                     child: Text(
                       (user['name'] ?? 'U')[0].toUpperCase(),
                       style: const TextStyle(
-                        color: Color(0xFF22547C),
+                        color: Color(0xFF3F45C7),
                         fontSize: 16,
                         fontFamily: 'Inter',
                         fontWeight: FontWeight.w700,

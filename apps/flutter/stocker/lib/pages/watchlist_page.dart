@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:animated_flip_counter/animated_flip_counter.dart';
 import 'package:stocker/pages/instrument_search_page.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import '../views/trade_card_view.dart';
@@ -400,7 +399,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                               horizontal: 5, vertical: 2),
                           decoration: BoxDecoration(
                             color: isFut
-                                ? const Color(0xFF22547C).withValues(alpha: 0.1)
+                                ? const Color(0xFF3F45C7).withValues(alpha: 0.1)
                                 : instType == 'CE'
                                     ? const Color(0xFF10B981)
                                         .withValues(alpha: 0.1)
@@ -412,7 +411,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                             instType,
                             style: TextStyle(
                               color: isFut
-                                  ? const Color(0xFF22547C)
+                                  ? const Color(0xFF3F45C7)
                                   : instType == 'CE'
                                       ? const Color(0xFF10B981)
                                       : const Color(0xFFEF4444),
@@ -525,10 +524,10 @@ class _WatchlistPageState extends State<WatchlistPage> {
                       children: [
                         Expanded(
                           child: effectiveBid != null
-                              ? AnimatedFlipCounter(
-                                  value: effectiveBid,
-                                  fractionDigits: 2,
-                                  textStyle: const TextStyle(
+                              ? Text(
+                                  effectiveBid.toStringAsFixed(2),
+                                  textAlign: TextAlign.end,
+                                  style: const TextStyle(
                                     fontFamily: 'Inter',
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
@@ -554,10 +553,10 @@ class _WatchlistPageState extends State<WatchlistPage> {
                         ),
                         Expanded(
                           child: effectiveAsk != null
-                              ? AnimatedFlipCounter(
-                                  value: effectiveAsk,
-                                  fractionDigits: 2,
-                                  textStyle: const TextStyle(
+                              ? Text(
+                                  effectiveAsk.toStringAsFixed(2),
+                                  textAlign: TextAlign.end,
+                                  style: const TextStyle(
                                     fontFamily: 'Inter',
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
@@ -583,10 +582,10 @@ class _WatchlistPageState extends State<WatchlistPage> {
                       children: [
                         Expanded(
                           child: (high != null && high > 0)
-                              ? AnimatedFlipCounter(
-                                  value: high,
-                                  fractionDigits: 2,
-                                  textStyle: const TextStyle(
+                              ? Text(
+                                  high.toStringAsFixed(2),
+                                  textAlign: TextAlign.end,
+                                  style: const TextStyle(
                                     fontFamily: 'Inter',
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
@@ -612,10 +611,10 @@ class _WatchlistPageState extends State<WatchlistPage> {
                         ),
                         Expanded(
                           child: (low != null && low > 0)
-                              ? AnimatedFlipCounter(
-                                  value: low,
-                                  fractionDigits: 2,
-                                  textStyle: const TextStyle(
+                              ? Text(
+                                  low.toStringAsFixed(2),
+                                  textAlign: TextAlign.end,
+                                  style: const TextStyle(
                                     fontFamily: 'Inter',
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,

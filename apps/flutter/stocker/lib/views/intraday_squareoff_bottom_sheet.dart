@@ -207,7 +207,7 @@ class _IntradaySquareoffBottomSheetState extends State<IntradaySquareoffBottomSh
       ),
       child: _isLoading
           ? Center(
-              child: CircularProgressIndicator(color: const Color(0xFF22547C)),
+              child: CircularProgressIndicator(color: const Color(0xFF3F45C7)),
             )
           : Column(
               mainAxisSize: MainAxisSize.min,
@@ -289,7 +289,7 @@ class _IntradaySquareoffBottomSheetState extends State<IntradaySquareoffBottomSh
                                     height: 25,
                                     padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
                                     decoration: ShapeDecoration(
-                                      color: isEnabled ? const Color(0xFF22547C) : const Color(0xFF8E8E93),
+                                      color: isEnabled ? const Color(0xFF3F45C7) : const Color(0xFF8E8E93),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(12.50),
                                       ),
@@ -350,7 +350,7 @@ class _IntradaySquareoffBottomSheetState extends State<IntradaySquareoffBottomSh
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
                           decoration: ShapeDecoration(
-                            color: const Color(0xFF22547C),
+                            color: const Color(0xFF3F45C7),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                           child: Text(

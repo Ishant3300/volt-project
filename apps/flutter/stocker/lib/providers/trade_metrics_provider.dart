@@ -11,6 +11,8 @@ class PositionAgg {
   final String instrumentToken;
   final String exchange;
   final String tradingsymbol;
+  int lotSize = 1; // from KiteInstrument, propagated via Trade
+  String segment = ''; // e.g. MCX-FUT, NFO-OPT
   int totalBuyQty = 0;
   int totalSellQty = 0;
   double totalBuyValue = 0;
@@ -29,6 +31,31 @@ class PositionAgg {
     required this.exchange,
     required this.tradingsymbol,
   });
+
+  /// True when this position should be measured in lots.
+  bool get isLotBased {
+    final seg = segment.toUpperCase();
+    if (seg.isNotEmpty) {
+      return seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-FUT';
+    }
+    final ex = exchange.toUpperCase();
+    if (ex == 'MCX') return true;
+    if (ex == 'NFO') {
+      final sym = tradingsymbol.toUpperCase();
+      return sym.endsWith('FUT');
+    }
+    return false;
+  }
+
+  /// Net position in lots (for display). Falls back to raw qty if lotSize <= 0.
+  int get lots =>
+      (lotSize > 0) ? (netQty.abs() / lotSize).round() : netQty.abs();
+
+  /// Display volume — returns lots count if isLotBased, else raw quantity.
+  int get displayVolume => isLotBased ? lots : netQty.abs();
+
+  /// Unit label for display.
+  String get volumeUnit => isLotBased ? 'LOT' : 'QTY';
 }
 
 class TradeMetricsProvider with ChangeNotifier {
@@ -130,11 +157,15 @@ class TradeMetricsProvider with ChangeNotifier {
 
     for (var t in sortedTrades) {
       if (!aggMap.containsKey(t.instrumentToken)) {
-        aggMap[t.instrumentToken] = PositionAgg(
+        final newAgg = PositionAgg(
           instrumentToken: t.instrumentToken,
           exchange: t.exchange,
           tradingsymbol: t.tradingSymbol,
         );
+        // Propagate lot info from trade (backend enriches each trade)
+        newAgg.lotSize = t.lotSize;
+        newAgg.segment = t.segment;
+        aggMap[t.instrumentToken] = newAgg;
         running[t.instrumentToken] = _RunningPos();
       }
 
@@ -188,7 +219,6 @@ class TradeMetricsProvider with ChangeNotifier {
       }
     }
 
-    double totalRealised = 0;
     double totalFloating = 0;
     double totalMargin = 0;
 
@@ -203,24 +233,14 @@ class TradeMetricsProvider with ChangeNotifier {
       double ltp = _ltpMap[agg.instrumentToken] ??
           (avgBuyPrice > 0 ? avgBuyPrice : avgSellPrice);
 
-      double realised = 0;
       double floating = 0;
 
       if (netQty > 0) {
-        // Net Long
-        realised = agg.totalSellValue - (agg.totalSellQty * avgBuyPrice);
         floating = (ltp - avgBuyPrice) * netQty;
       } else if (netQty < 0) {
-        // Net Short
-        realised = (agg.totalBuyQty * avgSellPrice) - agg.totalBuyValue;
         floating = (avgSellPrice - ltp) * netQty.abs();
-      } else {
-        // Flat
-        realised = agg.totalSellValue - agg.totalBuyValue;
-        floating = 0;
       }
 
-      totalRealised += realised;
       totalFloating += floating;
 
       // Calculate margin
@@ -250,16 +270,21 @@ class TradeMetricsProvider with ChangeNotifier {
       agg.avgBuyPrice = avgBuyPrice;
       agg.avgSellPrice = avgSellPrice;
       agg.ltp = ltp;
-      agg.realised = realised;
+      agg.realised =
+          0; // realised P&L now summed from trade.pnl (see _realisedPnl below)
       agg.floating = floating;
       agg.positionMargin = positionMargin;
     }
 
     _positions = aggMap.values.toList();
 
-    _realisedPnl = totalRealised;
+    // #4/#6 FIX: Realised P&L = sum of per-trade pnl stored by backend at execution time.
+    // This is more accurate than recalculating from avg-price aggregations.
+    _realisedPnl = sortedTrades
+        .where((t) => t.pnl != 0)
+        .fold(0.0, (sum, t) => sum + t.pnl);
     _positionPnl = totalFloating;
-    _m2mPnl = totalRealised + totalFloating;
+    _m2mPnl = _realisedPnl + totalFloating;
     _equity = _balance + _m2mPnl;
     _marginUsed = totalMargin;
     _freeMargin = _equity - _marginUsed;

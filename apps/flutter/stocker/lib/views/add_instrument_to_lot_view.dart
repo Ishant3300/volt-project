@@ -471,7 +471,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Color(0xFF22547C))),
+                        strokeWidth: 2, color: Color(0xFF3F45C7))),
               )
             else if (_searchController.text.isNotEmpty)
               GestureDetector(
@@ -592,7 +592,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                              color: Color(0xFF22547C), strokeWidth: 2))),
+                              color: Color(0xFF3F45C7), strokeWidth: 2))),
                 );
               }
 
@@ -737,7 +737,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
               ),
             ),
             const Icon(Icons.add_circle_outline,
-                size: 22, color: Color(0xFF22547C)),
+                size: 22, color: Color(0xFF3F45C7)),
           ],
         ),
       ),
@@ -924,7 +924,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
                           style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF22547C),
+                              color: Color(0xFF3F45C7),
                               fontFamily: 'Inter')),
                     ],
                   ),
@@ -978,12 +978,12 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
               height: 52,
               decoration: BoxDecoration(
                 color: _isAdding
-                    ? const Color(0xFF22547C).withValues(alpha: 0.6)
-                    : const Color(0xFF22547C),
+                    ? const Color(0xFF3F45C7).withValues(alpha: 0.6)
+                    : const Color(0xFF3F45C7),
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                      color: const Color(0xFF22547C).withValues(alpha: 0.15),
+                      color: const Color(0xFF3F45C7).withValues(alpha: 0.15),
                       blurRadius: 8,
                       offset: const Offset(0, 2))
                 ],

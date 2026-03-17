@@ -15,6 +15,14 @@ import 'package:stocker/utils/contants.dart';
 import 'history_filter_sheet.dart';
 import 'trade_detail_sheet.dart';
 
+/// Format a Trade's volume as "X LOTS" or "X QTY" using the model's isLotBased getter.
+String _tradeVolumeLabel(Trade trade, {bool showSide = false}) {
+  final unit = trade.volumeUnit;
+  final vol = trade.displayVolume;
+  if (showSide) return '${trade.transactionType} · $vol $unit';
+  return '$vol $unit';
+}
+
 class PortfolioPage extends StatefulWidget {
   const PortfolioPage({super.key});
 
@@ -244,7 +252,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                       width: 44,
                       decoration: BoxDecoration(
                         color:
-                            hasFilters ? const Color(0xFF22547C) : Colors.white,
+                            hasFilters ? const Color(0xFF3F45C7) : Colors.white,
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
@@ -257,7 +265,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                       child: Icon(Icons.tune,
                           color: hasFilters
                               ? Colors.white
-                              : const Color(0xFF22547C),
+                              : const Color(0xFF3F45C7),
                           size: 20),
                     ),
                   ),
@@ -278,7 +286,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                       width: 44,
                       decoration: BoxDecoration(
                         color: _showSearchBar
-                            ? const Color(0xFF22547C)
+                            ? const Color(0xFF3F45C7)
                             : Colors.white,
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
@@ -292,7 +300,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                       child: Icon(Icons.search,
                           color: _showSearchBar
                               ? Colors.white
-                              : const Color(0xFF22547C),
+                              : const Color(0xFF3F45C7),
                           size: 20),
                     ),
                   ),
@@ -308,19 +316,19 @@ class _PortfolioPageState extends State<PortfolioPage>
                   height: 36,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF22547C).withValues(alpha: 0.08),
+                    color: const Color(0xFF3F45C7).withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     children: [
                       const Icon(Icons.filter_list,
-                          size: 14, color: Color(0xFF22547C)),
+                          size: 14, color: Color(0xFF3F45C7)),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _buildFilterSummary(),
                           style: const TextStyle(
-                            color: Color(0xFF22547C),
+                            color: Color(0xFF3F45C7),
                             fontSize: 12,
                             fontFamily: 'Inter',
                             fontWeight: FontWeight.w500,
@@ -332,7 +340,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                       GestureDetector(
                         onTap: _clearFilters,
                         child: const Icon(Icons.close,
-                            color: Color(0xFF22547C), size: 16),
+                            color: Color(0xFF3F45C7), size: 16),
                       ),
                     ],
                   ),
@@ -484,7 +492,7 @@ class _PortfolioPageState extends State<PortfolioPage>
         onTap: () => _tabController.animateTo(index),
         child: Container(
           decoration: BoxDecoration(
-            color: isActive ? const Color(0xFF22547C) : Colors.transparent,
+            color: isActive ? const Color(0xFF3F45C7) : Colors.transparent,
             borderRadius: BorderRadius.circular(13),
           ),
           child: Center(
@@ -507,7 +515,7 @@ class _PortfolioPageState extends State<PortfolioPage>
     if (_masterLoading && _masterTrades.isEmpty) {
       return const Center(
         child: CircularProgressIndicator(
-          color: Color(0xFF22547C),
+          color: Color(0xFF3F45C7),
           strokeWidth: 2.5,
         ),
       );
@@ -641,7 +649,7 @@ class _PortfolioPageState extends State<PortfolioPage>
       if (_userFilterLoading) {
         return const Center(
             child: CircularProgressIndicator(
-                color: Color(0xFF22547C), strokeWidth: 2.5));
+                color: Color(0xFF3F45C7), strokeWidth: 2.5));
       }
       final completedTrades = (_filteredUserTrades ?? [])
           .where((t) => t.status.toLowerCase() == 'completed')
@@ -655,7 +663,7 @@ class _PortfolioPageState extends State<PortfolioPage>
         if (provider.isLoading && provider.trades.isEmpty) {
           return const Center(
             child: CircularProgressIndicator(
-              color: Color(0xFF22547C),
+              color: Color(0xFF3F45C7),
               strokeWidth: 2.5,
             ),
           );
@@ -677,7 +685,7 @@ class _PortfolioPageState extends State<PortfolioPage>
       if (_userFilterLoading) {
         return const Center(
             child: CircularProgressIndicator(
-                color: Color(0xFF22547C), strokeWidth: 2.5));
+                color: Color(0xFF3F45C7), strokeWidth: 2.5));
       }
       final pendingTrades = (_filteredUserTrades ?? [])
           .where((t) => t.status.toLowerCase() == 'pending')
@@ -691,7 +699,7 @@ class _PortfolioPageState extends State<PortfolioPage>
         if (provider.isLoading && provider.trades.isEmpty) {
           return const Center(
             child: CircularProgressIndicator(
-              color: Color(0xFF22547C),
+              color: Color(0xFF3F45C7),
               strokeWidth: 2.5,
             ),
           );
@@ -806,10 +814,11 @@ class _PortfolioPageState extends State<PortfolioPage>
   /// For every closing trade (SELL when long, BUY when short) compute
   /// the P&L that specific trade realised against the running avg entry price.
   /// Returns a map from trade.id → per-trade P&L info.
+  /// Map trade.pnl from backend instead of recalculating (FIFO is handled by server)
   Map<String, _PerTradePnl> _computePerTradePnl(List<Trade> completedTrades) {
     final Map<String, _PerTradePnl> result = {};
 
-    // Group by instrument
+    // We still need to track openedAt for duration display using simple FIFO logic locally
     final Map<String, List<Trade>> byInstrument = {};
     for (final t in completedTrades) {
       if (t.status.toLowerCase() != 'completed') continue;
@@ -817,59 +826,29 @@ class _PortfolioPageState extends State<PortfolioPage>
     }
 
     for (final trades in byInstrument.values) {
-      // Sort chronologically (oldest first)
       trades.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-
       int netQty = 0;
-      double avgEntryPrice = 0;
-      String? openedAt; // timestamp of the trade that opened the position
+      String? openedAt;
 
       for (final t in trades) {
-        final qty = t.quantity;
-        final price = t.price;
         final isBuy = t.transactionType.toUpperCase() == 'BUY';
-        final tradeQty = isBuy ? qty : -qty;
-
         if (netQty == 0) {
-          // Opening a fresh position
-          netQty = tradeQty;
-          avgEntryPrice = price;
           openedAt = t.createdAt;
+          netQty = isBuy ? t.quantity : -t.quantity;
         } else if ((netQty > 0 && isBuy) || (netQty < 0 && !isBuy)) {
-          // Adding to existing position — update avg entry price
-          final totalValue = avgEntryPrice * netQty.abs() + price * qty;
-          netQty += tradeQty;
-          avgEntryPrice = netQty != 0 ? totalValue / netQty.abs() : 0;
+          netQty += isBuy ? t.quantity : -t.quantity;
         } else {
-          // Closing (partially or fully)
-          final closingQty = qty.clamp(0, netQty.abs());
-          double pnl;
-          if (netQty > 0) {
-            // Was long, selling to close
-            pnl = (price - avgEntryPrice) * closingQty;
-          } else {
-            // Was short, buying to close
-            pnl = (avgEntryPrice - price) * closingQty;
-          }
-
+          // Closing trade
           result[t.id] =
-              _PerTradePnl(pnl: pnl, isClosing: true, openedAt: openedAt);
-
-          netQty += tradeQty;
-          // If position flipped, reset avg to this trade's price for the remainder
-          if ((netQty > 0 && !isBuy) || (netQty < 0 && isBuy)) {
-            // This shouldn't normally happen with the clamp, but handle edge case
-            avgEntryPrice = price;
-          }
-          // If fully closed, avg resets on next trade
-          if (netQty == 0) {
-            avgEntryPrice = 0;
+              _PerTradePnl(pnl: t.pnl, isClosing: true, openedAt: openedAt);
+          netQty += isBuy ? t.quantity : -t.quantity;
+          if (netQty == 0)
             openedAt = null;
-          }
+          else if ((netQty > 0 && !isBuy) || (netQty < 0 && isBuy))
+            openedAt = t.createdAt;
         }
       }
     }
-
     return result;
   }
 
@@ -965,7 +944,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                   Row(
                     children: [
                       Text(
-                        'Qty ${trade.quantity.toStringAsFixed(0)}',
+                        _tradeVolumeLabel(trade),
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: 10,
@@ -1179,7 +1158,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                '${trade.transactionType} · ${trade.quantity.toStringAsFixed(0)} QTY',
+                                _tradeVolumeLabel(trade, showSide: true),
                                 style: TextStyle(
                                   color: sideColor,
                                   fontSize: 10,
@@ -1450,7 +1429,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '${position.netQty.abs()} QTY @ ${avgPrice.toStringAsFixed(2)}',
+                          '${position.displayVolume} ${position.volumeUnit} @ ${avgPrice.toStringAsFixed(2)}',
                           style: const TextStyle(
                             color: Color(0xFF94A3B8),
                             fontSize: 10,

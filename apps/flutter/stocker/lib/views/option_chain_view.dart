@@ -240,7 +240,7 @@ class _OptionChainViewState extends State<OptionChainView> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF22547C), strokeWidth: 2.5));
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5));
     }
     if (_error != null) {
       return Center(child: Padding(
@@ -256,7 +256,7 @@ class _OptionChainViewState extends State<OptionChainView> {
             onTap: _loadOptionChain,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-              decoration: BoxDecoration(color: const Color(0xFF22547C), borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(10)),
               child: const Text('Retry', style: TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
             ),
           ),
@@ -311,7 +311,7 @@ class _OptionChainViewState extends State<OptionChainView> {
               child: Text(
                 item.strike.toStringAsFixed(item.strike == item.strike.roundToDouble() ? 0 : 2),
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xFF22547C), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w700, letterSpacing: -0.3),
+                style: const TextStyle(color: Color(0xFF3F45C7), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w700, letterSpacing: -0.3),
               ),
             ),
           ),
@@ -372,7 +372,7 @@ class _OptionChainViewState extends State<OptionChainView> {
         margin: const EdgeInsets.only(right: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF22547C) : Colors.white,
+          color: isSelected ? const Color(0xFF3F45C7) : Colors.white,
           borderRadius: BorderRadius.circular(10),
           boxShadow: isSelected ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
         ),

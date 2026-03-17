@@ -110,7 +110,7 @@ class MyApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'Stocker',
+        title: 'APEX',
         navigatorKey: NavigationService.navigatorKey,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),

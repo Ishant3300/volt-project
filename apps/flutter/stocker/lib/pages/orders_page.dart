@@ -40,6 +40,37 @@ _NumberFormat _getShortForm(double value) {
   }
 }
 
+/// Volume label for a position: "+X LOTS" or "+X QTY".
+String _positionVolumeLabel(String exchange, String tradingsymbol, int quantity,
+    {bool showPrefix = false, String segment = '', int lotSize = 1}) {
+  final ex = exchange.toUpperCase();
+  final sym = tradingsymbol.toUpperCase();
+  final seg = segment.toUpperCase();
+
+  bool isLot = false;
+  if (seg.isNotEmpty) {
+    isLot = seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-FUT';
+  } else if (ex == 'MCX') {
+    isLot = true;
+  } else if (ex == 'NFO') {
+    isLot = sym.endsWith('FUT');
+  }
+
+  final prefix =
+      showPrefix ? (quantity > 0 ? '+' : (quantity < 0 ? '-' : '')) : '';
+  final String unit;
+  int displayQty = quantity.abs();
+
+  if (isLot && lotSize > 0) {
+    unit = 'LOT';
+    displayQty = (displayQty / lotSize).round();
+  } else {
+    unit = 'QTY';
+  }
+
+  return '$prefix$displayQty $unit';
+}
+
 class OrdersPage extends StatefulWidget {
   const OrdersPage({super.key});
 
@@ -178,50 +209,35 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   void _recalcMasterMetrics() {
-    double totalPositionPnl = 0;
+    double totalPnl = 0;
 
     for (final user in _userMetrics) {
+      final double realised = (user['realised_pnl'] as num?)?.toDouble() ?? 0;
+      double floating = 0;
       final List positions = user['positions'] ?? [];
-      if (positions.isEmpty) continue;
 
       for (final pos in positions) {
         final String iToken = pos['instrument_token']?.toString() ?? '';
-        final int totalBuyQty = (pos['total_buy_qty'] as num?)?.toInt() ?? 0;
-        final int totalSellQty = (pos['total_sell_qty'] as num?)?.toInt() ?? 0;
-        final double totalBuyValue =
-            (pos['total_buy_value'] as num?)?.toDouble() ?? 0;
-        final double totalSellValue =
+        final int buyQty = (pos['total_buy_qty'] as num?)?.toInt() ?? 0;
+        final int sellQty = (pos['total_sell_qty'] as num?)?.toInt() ?? 0;
+        final double buyVal = (pos['total_buy_value'] as num?)?.toDouble() ?? 0;
+        final double sellVal =
             (pos['total_sell_value'] as num?)?.toDouble() ?? 0;
-        final int netQty = totalBuyQty - totalSellQty;
+        final int netQty = buyQty - sellQty;
 
-        final double avgBuyPrice =
-            totalBuyQty > 0 ? totalBuyValue / totalBuyQty : 0;
-        final double avgSellPrice =
-            totalSellQty > 0 ? totalSellValue / totalSellQty : 0;
-
+        final double avgBuy = buyQty > 0 ? buyVal / buyQty : 0;
+        final double avgSell = sellQty > 0 ? sellVal / sellQty : 0;
         final double ltp = _ltpMap[iToken] ??
             (pos['avg_buy_price'] as num?)?.toDouble() ??
-            avgBuyPrice;
+            (netQty > 0 ? avgBuy : avgSell);
 
-        double realised = 0;
-        double floating = 0;
-
-        if (netQty > 0) {
-          realised = totalSellValue - (totalSellQty * avgBuyPrice);
-          floating = (ltp - avgBuyPrice) * netQty;
-        } else if (netQty < 0) {
-          realised = (totalBuyQty * avgSellPrice) - totalBuyValue;
-          floating = (avgSellPrice - ltp) * netQty.abs();
-        } else {
-          realised = totalSellValue - totalBuyValue;
-          floating = 0;
-        }
-
-        totalPositionPnl += realised + floating;
+        if (netQty > 0)
+          floating += (ltp - avgBuy) * netQty;
+        else if (netQty < 0) floating += (avgSell - ltp) * netQty.abs();
       }
+      totalPnl += realised + floating;
     }
-
-    _masterPositionPnl = (totalPositionPnl * 100).roundToDouble() / 100;
+    _masterPositionPnl = (totalPnl * 100).roundToDouble() / 100;
   }
 
   // ============================================
@@ -273,45 +289,31 @@ class _OrdersPageState extends State<OrdersPage> {
   void _recalcAdminMasterPnl() {
     for (final master in _adminMasterMetrics) {
       final String masterId = master['master_id'] ?? '';
+      final double realised = (master['realised_pnl'] as num?)?.toDouble() ?? 0;
+      double floating = 0;
       final List positions = master['positions'] ?? [];
-      double totalPnl = 0;
 
       for (final pos in positions) {
         final String iToken = pos['instrument_token']?.toString() ?? '';
-        final int totalBuyQty = (pos['total_buy_qty'] as num?)?.toInt() ?? 0;
-        final int totalSellQty = (pos['total_sell_qty'] as num?)?.toInt() ?? 0;
-        final double totalBuyValue =
-            (pos['total_buy_value'] as num?)?.toDouble() ?? 0;
-        final double totalSellValue =
+        final int buyQty = (pos['total_buy_qty'] as num?)?.toInt() ?? 0;
+        final int sellQty = (pos['total_sell_qty'] as num?)?.toInt() ?? 0;
+        final double buyVal = (pos['total_buy_value'] as num?)?.toDouble() ?? 0;
+        final double sellVal =
             (pos['total_sell_value'] as num?)?.toDouble() ?? 0;
-        final int netQty = totalBuyQty - totalSellQty;
+        final int netQty = buyQty - sellQty;
 
-        final double avgBuyPrice =
-            totalBuyQty > 0 ? totalBuyValue / totalBuyQty : 0;
-        final double avgSellPrice =
-            totalSellQty > 0 ? totalSellValue / totalSellQty : 0;
-
+        final double avgBuy = buyQty > 0 ? buyVal / buyQty : 0;
+        final double avgSell = sellQty > 0 ? sellVal / sellQty : 0;
         final double ltp = _ltpMap[iToken] ??
             (pos['avg_buy_price'] as num?)?.toDouble() ??
-            avgBuyPrice;
+            (netQty > 0 ? avgBuy : avgSell);
 
-        double realised = 0;
-        double floating = 0;
-
-        if (netQty > 0) {
-          realised = totalSellValue - (totalSellQty * avgBuyPrice);
-          floating = (ltp - avgBuyPrice) * netQty;
-        } else if (netQty < 0) {
-          realised = (totalBuyQty * avgSellPrice) - totalBuyValue;
-          floating = (avgSellPrice - ltp) * netQty.abs();
-        } else {
-          realised = totalSellValue - totalBuyValue;
-        }
-
-        totalPnl += realised + floating;
+        if (netQty > 0)
+          floating += (ltp - avgBuy) * netQty;
+        else if (netQty < 0) floating += (avgSell - ltp) * netQty.abs();
       }
-
-      _adminMasterPnl[masterId] = (totalPnl * 100).roundToDouble() / 100;
+      _adminMasterPnl[masterId] =
+          ((realised + floating) * 100).roundToDouble() / 100;
     }
   }
 
@@ -321,7 +323,7 @@ class _OrdersPageState extends State<OrdersPage> {
       barrierDismissible: false,
       builder: (_) => const Center(
         child: CircularProgressIndicator(
-            color: Color(0xFF22547C), strokeWidth: 2.5),
+            color: Color(0xFF3F45C7), strokeWidth: 2.5),
       ),
     );
     try {
@@ -430,24 +432,18 @@ class _OrdersPageState extends State<OrdersPage> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Builder(
-                        builder: (context) {
-                          final fmt = _getShortForm(totalPnl);
-                          return AnimatedFlipCounter(
-                            value: fmt.value,
-                            fractionDigits: 2,
-                            suffix: fmt.suffix,
-                            prefix: '₹',
-                            textStyle: TextStyle(
-                              color: isTotalPositive
-                                  ? const Color(0xFF22C55E)
-                                  : const Color(0xFFEF4444),
-                              fontSize: 30,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w700,
-                            ),
-                          );
-                        },
+                      AnimatedFlipCounter(
+                        value: totalPnl,
+                        fractionDigits: 2,
+                        prefix: '₹',
+                        textStyle: TextStyle(
+                          color: isTotalPositive
+                              ? const Color(0xFF22C55E)
+                              : const Color(0xFFEF4444),
+                          fontSize: 24,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -470,7 +466,7 @@ class _OrdersPageState extends State<OrdersPage> {
                     child: Padding(
                       padding: EdgeInsets.all(32),
                       child: CircularProgressIndicator(
-                          color: Color(0xFF22547C), strokeWidth: 2.5),
+                          color: Color(0xFF3F45C7), strokeWidth: 2.5),
                     ),
                   )
                 else if (_adminMasterMetrics.isEmpty)
@@ -563,14 +559,14 @@ class _OrdersPageState extends State<OrdersPage> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: const Color(0xFF22547C).withValues(alpha: 0.1),
+                color: const Color(0xFF3F45C7).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Center(
                 child: Text(
                   name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?',
                   style: const TextStyle(
-                    color: Color(0xFF22547C),
+                    color: Color(0xFF3F45C7),
                     fontSize: 18,
                     fontFamily: 'Inter',
                     fontWeight: FontWeight.w700,
@@ -709,24 +705,18 @@ class _OrdersPageState extends State<OrdersPage> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Builder(
-                        builder: (context) {
-                          final fmt = _getShortForm(_masterPositionPnl);
-                          return AnimatedFlipCounter(
-                            value: fmt.value,
-                            fractionDigits: 2,
-                            suffix: fmt.suffix,
-                            prefix: '₹',
-                            textStyle: TextStyle(
-                              color: isPnlPositive
-                                  ? const Color(0xFF22C55E)
-                                  : const Color(0xFFEF4444),
-                              fontSize: 30,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w700,
-                            ),
-                          );
-                        },
+                      AnimatedFlipCounter(
+                        value: _masterPositionPnl,
+                        fractionDigits: 2,
+                        prefix: '₹',
+                        textStyle: TextStyle(
+                          color: isPnlPositive
+                              ? const Color(0xFF22C55E)
+                              : const Color(0xFFEF4444),
+                          fontSize: 24,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Row(
@@ -942,7 +932,10 @@ class _OrdersPageState extends State<OrdersPage> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                '${isLong ? "+" : ""}$netQty QTY',
+                _positionVolumeLabel(exchange, symbol, netQty,
+                    showPrefix: isLong,
+                    segment: pos['segment'] ?? '',
+                    lotSize: (pos['lot_size'] as num?)?.toInt() ?? 1),
                 style: TextStyle(
                   color: sideColor,
                   fontSize: 12,
@@ -1024,23 +1017,17 @@ class _OrdersPageState extends State<OrdersPage> {
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              Builder(
-                                builder: (context) {
-                                  final fmt = _getShortForm(posPnl);
-                                  return AnimatedFlipCounter(
-                                    value: fmt.value,
-                                    fractionDigits: 2,
-                                    suffix: fmt.suffix,
-                                    textStyle: TextStyle(
-                                      color: isPosPnlPositive
-                                          ? const Color(0xFF22C55E)
-                                          : const Color(0xFFEF4444),
-                                      fontSize: 30,
-                                      fontFamily: 'Inter',
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  );
-                                },
+                              AnimatedFlipCounter(
+                                value: posPnl,
+                                fractionDigits: 2,
+                                textStyle: TextStyle(
+                                  color: isPosPnlPositive
+                                      ? const Color(0xFF22C55E)
+                                      : const Color(0xFFEF4444),
+                                  fontSize: 24,
+                                  fontFamily: 'Inter',
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ],
                           ),
@@ -1190,7 +1177,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                     horizontal: 10, vertical: 5),
                                 decoration: BoxDecoration(
                                   color:
-                                      const Color(0xFF22547C).withOpacity(0.1),
+                                      const Color(0xFF3F45C7).withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
@@ -1199,7 +1186,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                       ? 'Deselect All'
                                       : 'Select All',
                                   style: const TextStyle(
-                                    color: Color(0xFF22547C),
+                                    color: Color(0xFF3F45C7),
                                     fontSize: 12,
                                     fontFamily: 'Inter',
                                     fontWeight: FontWeight.w600,
@@ -1258,12 +1245,12 @@ class _OrdersPageState extends State<OrdersPage> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.check_box_outlined,
-                                    size: 14, color: Color(0xFF22547C)),
+                                    size: 14, color: Color(0xFF3F45C7)),
                                 SizedBox(width: 4),
                                 Text(
                                   'Square Off',
                                   style: TextStyle(
-                                    color: Color(0xFF22547C),
+                                    color: Color(0xFF3F45C7),
                                     fontSize: 12,
                                     fontFamily: 'Inter',
                                     fontWeight: FontWeight.w600,
@@ -1317,7 +1304,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                   pos,
                                   pos.tradingsymbol,
                                   pos.exchange,
-                                  '${isBuy ? "BUY" : "SELL"}: ${pos.netQty.abs()} QTY',
+                                  '${isBuy ? "BUY" : "SELL"}: ${_positionVolumeLabel(pos.exchange, pos.tradingsymbol, pos.netQty, segment: pos.segment, lotSize: pos.lotSize)}',
                                   isBuy ? pos.avgBuyPrice : pos.avgSellPrice,
                                   pos.ltp,
                                   pos.floating,
@@ -1580,7 +1567,7 @@ class _OrdersPageState extends State<OrdersPage> {
                         name,
                         style: const TextStyle(
                           color: Color(0xFF0F172A),
-                          fontSize: 16,
+                          fontSize: 13,
                           fontFamily: 'Inter',
                           fontWeight: FontWeight.w600,
                         ),
@@ -1599,7 +1586,7 @@ class _OrdersPageState extends State<OrdersPage> {
                         exchange,
                         style: const TextStyle(
                           color: Color(0xFF0F172A),
-                          fontSize: 14,
+                          fontSize: 13,
                           fontFamily: 'Inter',
                           fontWeight: FontWeight.w500,
                         ),
@@ -1669,9 +1656,9 @@ class _OrdersPageState extends State<OrdersPage> {
               prefix: '₹',
               textStyle: TextStyle(
                 color: valueColor,
-                fontSize: 16,
+                fontSize: 14,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],

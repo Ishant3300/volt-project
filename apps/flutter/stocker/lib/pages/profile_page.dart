@@ -146,7 +146,7 @@ class _ProfilePageState extends State<ProfilePage> {
               // Header
               Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -154,7 +154,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       'Profile',
                       style: TextStyle(
                         color: Color(0xFF0F172A),
-                        fontSize: 24,
+                        fontSize: 20,
                         fontFamily: 'Inter',
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.5,
@@ -167,7 +167,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.settings,
-                          size: 24, color: Color(0xFF334155)),
+                          size: 20, color: Color(0xFF334155)),
                     ),
                   ],
                 ),
@@ -175,25 +175,25 @@ class _ProfilePageState extends State<ProfilePage> {
 
               // Security notice
               Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                padding: const EdgeInsets.all(10),
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                padding: const EdgeInsets.all(8),
                 decoration: ShapeDecoration(
                   color: const Color(0xFFFEF2F2),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(10)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Icon(Icons.shield,
-                        color: Color(0xFFEF4444), size: 20),
-                    const SizedBox(width: 12),
+                        color: Color(0xFFEF4444), size: 16),
+                    const SizedBox(width: 8),
                     const Expanded(
                       child: Text(
                         'All profile running in this app is secure. The new security features are active.',
                         style: TextStyle(
                           color: Color(0xFFDC2626),
-                          fontSize: 12,
+                          fontSize: 10,
                           fontFamily: 'Inter',
                           fontWeight: FontWeight.w500,
                           height: 1.2,
@@ -204,7 +204,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
 
               // Account switcher card
               Consumer<UserProfileProvider>(
@@ -223,7 +223,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       roleColor = const Color(0xFF8B5CF6);
                       break;
                     case 'MASTER':
-                      roleColor = const Color(0xFF22547C);
+                      roleColor = const Color(0xFF3F45C7);
                       break;
                     default:
                       roleColor = const Color(0xFF10B981);
@@ -233,11 +233,11 @@ class _ProfilePageState extends State<ProfilePage> {
                     onTap: () => showAccountSwitcher(context),
                     child: Container(
                       margin: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 4),
-                      padding: const EdgeInsets.all(14),
+                          horizontal: 16, vertical: 2),
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                             color: const Color(0xFFE2E8F0), width: 1),
                       ),
@@ -245,8 +245,8 @@ class _ProfilePageState extends State<ProfilePage> {
                         children: [
                           // Avatar
                           Container(
-                            width: 48,
-                            height: 48,
+                            width: 40,
+                            height: 40,
                             decoration: BoxDecoration(
                               color: roleColor.withValues(alpha: 0.1),
                               shape: BoxShape.circle,
@@ -258,14 +258,14 @@ class _ProfilePageState extends State<ProfilePage> {
                                     : '?',
                                 style: TextStyle(
                                   color: roleColor,
-                                  fontSize: 20,
+                                  fontSize: 16,
                                   fontFamily: 'Inter',
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 14),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -274,7 +274,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                   name,
                                   style: const TextStyle(
                                     color: Color(0xFF0F172A),
-                                    fontSize: 16,
+                                    fontSize: 14,
                                     fontFamily: 'Inter',
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -288,24 +288,24 @@ class _ProfilePageState extends State<ProfilePage> {
                                       username,
                                       style: const TextStyle(
                                         color: Color(0xFF94A3B8),
-                                        fontSize: 13,
+                                        fontSize: 11,
                                         fontFamily: 'Inter',
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    const SizedBox(width: 6),
                                     Container(
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 6, vertical: 2),
+                                          horizontal: 5, vertical: 2),
                                       decoration: BoxDecoration(
                                         color: roleColor.withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(6),
+                                        borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
                                         role,
                                         style: TextStyle(
                                           color: roleColor,
-                                          fontSize: 10,
+                                          fontSize: 9,
                                           fontFamily: 'Inter',
                                           fontWeight: FontWeight.w700,
                                           letterSpacing: 0.3,
@@ -320,16 +320,16 @@ class _ProfilePageState extends State<ProfilePage> {
                           if (_savedAccountCount > 1) ...[
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
+                                  horizontal: 6, vertical: 3),
                               decoration: BoxDecoration(
                                 color: const Color(0xFFF1F5F9),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
                                 '$_savedAccountCount',
                                 style: const TextStyle(
                                   color: Color(0xFF64748B),
-                                  fontSize: 12,
+                                  fontSize: 10,
                                   fontFamily: 'Inter',
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -338,7 +338,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             const SizedBox(width: 4),
                           ],
                           const Icon(Icons.unfold_more,
-                              size: 20, color: Color(0xFF94A3B8)),
+                              size: 18, color: Color(0xFF94A3B8)),
                         ],
                       ),
                     ),
@@ -346,21 +346,21 @@ class _ProfilePageState extends State<ProfilePage> {
                 },
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
 
               // Balance and Credit summary
               Consumer<TradeMetricsProvider>(
                 builder: (context, metricsProvider, child) {
                   return Container(
                     margin:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    padding: const EdgeInsets.all(14),
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                    padding: const EdgeInsets.all(10),
                     decoration: ShapeDecoration(
                       color: Colors.white,
                       shape: RoundedRectangleBorder(
                         side: const BorderSide(
                             width: 1, color: Color(0xFFE2E8F0)),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                     child: Row(
@@ -373,18 +373,18 @@ class _ProfilePageState extends State<ProfilePage> {
                                 'BALANCE',
                                 style: TextStyle(
                                   color: Color(0xFF64748B),
-                                  fontSize: 12,
+                                  fontSize: 10,
                                   fontFamily: 'Inter',
                                   fontWeight: FontWeight.w600,
                                   letterSpacing: 0.5,
                                 ),
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 3),
                               Text(
                                 metricsProvider.balance.toStringAsFixed(2),
                                 style: const TextStyle(
                                   color: Color(0xFF0F172A),
-                                  fontSize: 20,
+                                  fontSize: 16,
                                   fontFamily: 'Inter',
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -394,10 +394,10 @@ class _ProfilePageState extends State<ProfilePage> {
                         ),
                         Container(
                           width: 1,
-                          height: 48,
+                          height: 40,
                           color: const Color(0xFFE2E8F0),
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -406,18 +406,18 @@ class _ProfilePageState extends State<ProfilePage> {
                                 'CREDIT',
                                 style: TextStyle(
                                   color: Color(0xFF64748B),
-                                  fontSize: 12,
+                                  fontSize: 10,
                                   fontFamily: 'Inter',
                                   fontWeight: FontWeight.w600,
                                   letterSpacing: 0.5,
                                 ),
                               ),
-                              const SizedBox(height: 4),
+                              const SizedBox(height: 3),
                               Text(
                                 metricsProvider.credit.toStringAsFixed(2),
                                 style: const TextStyle(
                                   color: Color(0xFF0F172A),
-                                  fontSize: 20,
+                                  fontSize: 16,
                                   fontFamily: 'Inter',
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -431,7 +431,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 },
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
 
               // Menu items
               Container(
@@ -480,7 +480,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
 
               // Delete account
               const Center(
@@ -488,14 +488,14 @@ class _ProfilePageState extends State<ProfilePage> {
                   'Delete Account',
                   style: TextStyle(
                     color: Color(0xFF334155),
-                    fontSize: 14,
+                    fontSize: 12,
                     fontFamily: 'Inter',
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
             ],
           ),
         ),
@@ -550,7 +550,7 @@ class _ProfilePageState extends State<ProfilePage> {
               }
             },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         color: Colors.transparent, // allow full width tap
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -558,8 +558,8 @@ class _ProfilePageState extends State<ProfilePage> {
             Row(
               children: [
                 Container(
-                  width: 32,
-                  height: 32,
+                  width: 28,
+                  height: 28,
                   decoration: BoxDecoration(
                     color: isRed
                         ? const Color(0xFFFEF2F2)
@@ -569,21 +569,21 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: Center(
                     child: Icon(
                       icon,
-                      size: 16,
+                      size: 14,
                       color: isRed
                           ? const Color(0xFFEF4444)
                           : const Color(0xFF1E3A8A),
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Text(
                   title,
                   style: TextStyle(
                     color: isRed
                         ? const Color(0xFFEF4444)
                         : const Color(0xFF1E293B),
-                    fontSize: 16,
+                    fontSize: 13,
                     fontFamily: 'Inter',
                     fontWeight: FontWeight.w500,
                   ),
@@ -591,8 +591,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 if (_isLoggingOut && title == 'Logout') ...[
                   const SizedBox(width: 8),
                   const SizedBox(
-                    width: 16,
-                    height: 16,
+                    width: 14,
+                    height: 14,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       valueColor: AlwaysStoppedAnimation<Color>(
@@ -605,7 +605,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const Icon(
               Icons.chevron_right,
-              size: 24,
+              size: 20,
               color: Color(0xFF94A3B8),
             ),
           ],

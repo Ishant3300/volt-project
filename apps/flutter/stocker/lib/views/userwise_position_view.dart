@@ -145,11 +145,11 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF22547C).withValues(alpha: 0.1),
+                  color: const Color(0xFF3F45C7).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text('${filtered.length}',
-                  style: const TextStyle(color: Color(0xFF22547C), fontSize: 13,
+                  style: const TextStyle(color: Color(0xFF3F45C7), fontSize: 13,
                     fontFamily: 'Inter', fontWeight: FontWeight.w700)),
               ),
             ]),
@@ -191,7 +191,7 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
                 child: Container(
                   width: 44, height: 44,
                   decoration: BoxDecoration(
-                    color: _hasActiveFilters ? const Color(0xFF22547C) : Colors.white,
+                    color: _hasActiveFilters ? const Color(0xFF3F45C7) : Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
                   ),
@@ -219,7 +219,7 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
           // List
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF22547C), strokeWidth: 2.5))
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5))
                 : filtered.isEmpty
                     ? Center(child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -231,7 +231,7 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
                         ],
                       ))
                     : RefreshIndicator(
-                        color: const Color(0xFF22547C),
+                        color: const Color(0xFF3F45C7),
                         onRefresh: _fetch,
                         child: ListView.separated(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -252,10 +252,10 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
       decoration: BoxDecoration(
         color: const Color(0xFFEFF6FF),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF22547C).withValues(alpha: 0.2)),
+        border: Border.all(color: const Color(0xFF3F45C7).withValues(alpha: 0.2)),
       ),
       child: Text(label,
-        style: const TextStyle(color: Color(0xFF22547C), fontSize: 11,
+        style: const TextStyle(color: Color(0xFF3F45C7), fontSize: 11,
           fontFamily: 'Inter', fontWeight: FontWeight.w600)),
     );
   }
@@ -292,7 +292,7 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(pos['tradingsymbol'] ?? '',
-                style: const TextStyle(color: Color(0xFF22547C), fontSize: 14,
+                style: const TextStyle(color: Color(0xFF3F45C7), fontSize: 14,
                   fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: -0.3)),
               const SizedBox(height: 2),
               Row(children: [
@@ -346,7 +346,7 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
               _gridCell('POSITION', side,
                 valueColor: side == 'BUY' ? const Color(0xFF10B981) : const Color(0xFFEF4444)),
               _gridCell('OPEN QTY', netQty.abs().toStringAsFixed(0),
-                valueColor: const Color(0xFF22547C), showRightBorder: false),
+                valueColor: const Color(0xFF3F45C7), showRightBorder: false),
             ]),
             Container(height: 1, color: const Color(0xFFF1F5F9)),
             Row(children: [
@@ -368,14 +368,18 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
               ? const Border(right: BorderSide(color: Color(0xFFF1F5F9)))
               : null,
         ),
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(label,
-            style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10,
-              fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.5)),
-          Text(value,
-            style: TextStyle(color: valueColor ?? Colors.black, fontSize: 12,
-              fontFamily: 'Inter', fontWeight: FontWeight.w600)),
-        ]),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10,
+                fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+            const SizedBox(height: 4),
+            Text(value,
+              style: TextStyle(color: valueColor ?? Colors.black, fontSize: 12,
+                fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+          ],
+        ),
       ),
     );
   }

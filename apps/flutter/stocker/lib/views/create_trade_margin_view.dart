@@ -183,7 +183,7 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
                     children: [
                       Text(inst.tradingsymbol,
                           style: const TextStyle(
-                              color: Color(0xFF22547C),
+                              color: Color(0xFF3F45C7),
                               fontSize: 14,
                               fontFamily: 'Inter',
                               fontWeight: FontWeight.w600,
@@ -246,7 +246,7 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 20, vertical: 10),
                       decoration: BoxDecoration(
-                          color: const Color(0xFF22547C),
+                          color: const Color(0xFF3F45C7),
                           borderRadius: BorderRadius.circular(10)),
                       child: adding
                           ? const SizedBox(
@@ -338,7 +338,7 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                  color: sel ? const Color(0xFF22547C) : Colors.white,
+                  color: sel ? const Color(0xFF3F45C7) : Colors.white,
                   borderRadius: BorderRadius.circular(10),
                   border:
                       sel ? null : Border.all(color: const Color(0xFFE2E8F0))),
@@ -400,7 +400,7 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Color(0xFF22547C))))
+                        strokeWidth: 2, color: Color(0xFF3F45C7))))
           else if (_searchCtrl.text.isNotEmpty)
             GestureDetector(
               onTap: () {
@@ -428,7 +428,7 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
     if (_isSearching && _groupedResults.isEmpty) {
       return const Center(
           child: CircularProgressIndicator(
-              color: Color(0xFF22547C), strokeWidth: 2.5));
+              color: Color(0xFF3F45C7), strokeWidth: 2.5));
     }
     if (_groupedResults.isEmpty) {
       return const Center(
@@ -465,7 +465,7 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                              color: Color(0xFF22547C), strokeWidth: 2))));
+                              color: Color(0xFF3F45C7), strokeWidth: 2))));
             }
             final group = _groupedResults[gi];
             final label = group['label'] as String;
@@ -580,7 +580,7 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
                 ]),
               ])),
           const Icon(Icons.add_circle_outline,
-              size: 20, color: Color(0xFF22547C)),
+              size: 20, color: Color(0xFF3F45C7)),
         ]),
       ),
     );
@@ -704,6 +704,6 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
             focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide:
-                    const BorderSide(color: Color(0xFF22547C), width: 1.5))));
+                    const BorderSide(color: Color(0xFF3F45C7), width: 1.5))));
   }
 }

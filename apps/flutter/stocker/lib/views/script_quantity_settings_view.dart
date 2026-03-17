@@ -212,7 +212,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: ShapeDecoration(
-                          color: const Color(0xFF22547C),
+                          color: const Color(0xFF3F45C7),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6),
                           ),
@@ -290,7 +290,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                       height: 32,
                       decoration: ShapeDecoration(
                         color: _selectedIds.length == _filteredItems.length && _filteredItems.isNotEmpty
-                            ? const Color(0xFF22547C)
+                            ? const Color(0xFF3F45C7)
                             : const Color(0xFFE5E5EA),
                         shape: const OvalBorder(),
                       ),
@@ -376,7 +376,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                       child: Container(
                         padding: const EdgeInsets.all(10),
                         decoration: ShapeDecoration(
-                          color: _isUpdating ? const Color(0xFF8E8E93) : const Color(0xFF22547C),
+                          color: _isUpdating ? const Color(0xFF8E8E93) : const Color(0xFF3F45C7),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
                         child: _isUpdating
@@ -413,7 +413,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
             Expanded(
               child: _isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(color: Color(0xFF22547C)),
+                      child: CircularProgressIndicator(color: Color(0xFF3F45C7)),
                     )
                   : _filteredItems.isEmpty
                       ? const Center(
@@ -456,7 +456,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                       width: 32,
                                       height: 32,
                                       decoration: ShapeDecoration(
-                                        color: isSelected ? const Color(0xFF22547C) : const Color(0xFFE5E5EA),
+                                        color: isSelected ? const Color(0xFF3F45C7) : const Color(0xFFE5E5EA),
                                         shape: const OvalBorder(),
                                       ),
                                       child: isSelected

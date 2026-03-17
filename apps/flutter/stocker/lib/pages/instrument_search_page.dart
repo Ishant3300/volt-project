@@ -320,13 +320,13 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               decoration: BoxDecoration(
                 color: _selectedInstruments.isEmpty
-                    ? const Color(0xFF22547C).withOpacity(0.4)
-                    : const Color(0xFF22547C),
+                    ? const Color(0xFF3F45C7).withOpacity(0.4)
+                    : const Color(0xFF3F45C7),
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: _selectedInstruments.isNotEmpty
                     ? [
                         BoxShadow(
-                          color: const Color(0xFF22547C).withOpacity(0.15),
+                          color: const Color(0xFF3F45C7).withOpacity(0.15),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -397,7 +397,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
         margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF22547C) : Colors.transparent,
+          color: isActive ? const Color(0xFF3F45C7) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
@@ -418,7 +418,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
     if (_isSearching) {
       return const Center(
         child: CircularProgressIndicator(
-          color: Color(0xFF22547C),
+          color: Color(0xFF3F45C7),
           strokeWidth: 2.5,
         ),
       );
@@ -463,7 +463,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                              color: Color(0xFF22547C), strokeWidth: 2))),
+                              color: Color(0xFF3F45C7), strokeWidth: 2))),
                 );
               }
 
@@ -675,10 +675,10 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color:
-                    isSelected ? const Color(0xFF22547C) : Colors.transparent,
+                    isSelected ? const Color(0xFF3F45C7) : Colors.transparent,
                 border: Border.all(
                   color: isSelected
-                      ? const Color(0xFF22547C)
+                      ? const Color(0xFF3F45C7)
                       : const Color(0xFFCBD5E1),
                   width: 2,
                 ),

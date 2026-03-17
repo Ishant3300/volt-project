@@ -227,7 +227,7 @@ class _UserwisePositionFilterBottomSheetState
                 child: Container(
                   height: 48, alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF22547C),
+                    color: const Color(0xFF3F45C7),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Text('View',
@@ -298,7 +298,7 @@ class _UserwisePositionFilterBottomSheetState
           suffixIcon: isSearching
               ? const Padding(padding: EdgeInsets.all(12),
                   child: SizedBox(width: 16, height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF22547C))))
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF3F45C7))))
               : (controller.text.isNotEmpty
                   ? GestureDetector(onTap: onClear,
                       child: const Icon(Icons.close, size: 18, color: Color(0xFF94A3B8)))

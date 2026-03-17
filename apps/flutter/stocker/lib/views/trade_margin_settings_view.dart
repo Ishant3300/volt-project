@@ -195,7 +195,7 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                          color: const Color(0xFF22547C),
+                          color: const Color(0xFF3F45C7),
                           borderRadius: BorderRadius.circular(10)),
                       child:
                           const Row(mainAxisSize: MainAxisSize.min, children: [
@@ -267,7 +267,7 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       alignment: Alignment.center,
                       decoration: const BoxDecoration(
-                          color: Color(0xFF22547C),
+                          color: Color(0xFF3F45C7),
                           borderRadius: BorderRadius.only(
                               topRight: Radius.circular(12),
                               bottomRight: Radius.circular(12))),
@@ -317,7 +317,7 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
           child: _isLoading
               ? const Center(
                   child: CircularProgressIndicator(
-                      color: Color(0xFF22547C), strokeWidth: 2.5))
+                      color: Color(0xFF3F45C7), strokeWidth: 2.5))
               : _items.isEmpty
                   ? Center(
                       child: Text(
@@ -357,7 +357,7 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
                                           fontWeight: FontWeight.w500))),
                               Text('${item['trade_margin']}',
                                   style: const TextStyle(
-                                      color: Color(0xFF22547C),
+                                      color: Color(0xFF3F45C7),
                                       fontSize: 13,
                                       fontFamily: 'Inter',
                                       fontWeight: FontWeight.w700)),
@@ -415,10 +415,10 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
         width: 20,
         height: 20,
         decoration: BoxDecoration(
-            color: all ? const Color(0xFF22547C) : Colors.white,
+            color: all ? const Color(0xFF3F45C7) : Colors.white,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-                color: all ? const Color(0xFF22547C) : const Color(0xFFCBD5E1),
+                color: all ? const Color(0xFF3F45C7) : const Color(0xFFCBD5E1),
                 width: 1.5)),
         child: all
             ? const Icon(Icons.check, size: 12, color: Colors.white)
@@ -430,10 +430,10 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
         width: 20,
         height: 20,
         decoration: BoxDecoration(
-            color: sel ? const Color(0xFF22547C) : Colors.white,
+            color: sel ? const Color(0xFF3F45C7) : Colors.white,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-                color: sel ? const Color(0xFF22547C) : const Color(0xFFCBD5E1),
+                color: sel ? const Color(0xFF3F45C7) : const Color(0xFFCBD5E1),
                 width: 1.5)),
         child: sel
             ? const Icon(Icons.check, size: 12, color: Colors.white)

@@ -138,7 +138,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
           // Cards
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF22547C), strokeWidth: 2.5))
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5))
                 : filtered.isEmpty
                     ? const Center(child: Text('No data', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter')))
                     : RefreshIndicator(
@@ -186,7 +186,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Header: username + parent badge
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(username.toUpperCase(), style: const TextStyle(color: Color(0xFF22547C), fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: -0.3)),
+          Text(username.toUpperCase(), style: const TextStyle(color: Color(0xFF3F45C7), fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: -0.3)),
           if (parentUsername.isNotEmpty)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

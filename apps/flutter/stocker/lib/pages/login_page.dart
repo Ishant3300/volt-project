@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/services/auth_service.dart';
@@ -122,7 +123,14 @@ class _LoginPageState extends State<LoginPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('STOCKER', style: TextStyle(color: Color(0xFF22547C), fontSize: 40, fontFamily: 'Inter', fontWeight: FontWeight.w800)),
+                      // Logo
+                      SvgPicture.asset(
+                        'assets/Subtract.svg',
+                        width: 80,
+                        height: 80,
+                      ),
+                      const SizedBox(height: 16),
+                      const Text('APEX', style: TextStyle(color: Color(0xFF0F172A), fontSize: 32, fontFamily: 'Inter', fontWeight: FontWeight.w800, letterSpacing: 3)),
                       const SizedBox(height: 13),
                       const Text(
                         'To sign in to an account in the application,\nenter your username and password',
@@ -172,7 +180,7 @@ class _LoginPageState extends State<LoginPage> {
 
                       Align(
                         alignment: Alignment.centerLeft,
-                        child: const Text('Forgot password?', style: TextStyle(color: Color(0xFF22547C), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                        child: const Text('Forgot password?', style: TextStyle(color: Color(0xFF3F45C7), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
                       ),
                       const SizedBox(height: 24),
 
@@ -183,7 +191,17 @@ class _LoginPageState extends State<LoginPage> {
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           decoration: BoxDecoration(
-                            color: _isLoading ? const Color(0xFF94A3B8) : const Color(0xFF22547C),
+                            gradient: _isLoading
+                                ? null
+                                : const LinearGradient(
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                    colors: [
+                                      Color(0xFFC6529E),
+                                      Color(0xFF3B43C9),
+                                    ],
+                                  ),
+                            color: _isLoading ? const Color(0xFF94A3B8) : null,
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Center(
@@ -238,7 +256,7 @@ class _LoginPageState extends State<LoginPage> {
         fillColor: Colors.white,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF22547C), width: 1.5)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF3F45C7), width: 1.5)),
       ),
     );
   }

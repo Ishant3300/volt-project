@@ -92,7 +92,7 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
           Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: GestureDetector(
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AddInstrumentToLotView(exchange: widget.exchange, lotName: widget.lotName))).then((_) => _fetchLotData()),
             child: Container(height: 42, alignment: Alignment.center,
-              decoration: BoxDecoration(color: const Color(0xFF22547C), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(12)),
               child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Icon(Icons.add, color: Colors.white, size: 18), SizedBox(width: 6),
                 Text('Add Instrument', style: TextStyle(color: Colors.white, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
@@ -103,7 +103,7 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
 
         // List
         Expanded(child: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF22547C), strokeWidth: 2.5))
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5))
           : _instruments.isEmpty
             ? const Center(child: Text('No instruments added yet', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter')))
             : RefreshIndicator(onRefresh: _fetchLotData, child: ListView.builder(
@@ -118,7 +118,7 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
                     child: Row(children: [
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(inst['instrument_symbol'] ?? 'N/A', style: const TextStyle(color: Color(0xFF22547C), fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: -0.3)),
+                        Text(inst['instrument_symbol'] ?? 'N/A', style: const TextStyle(color: Color(0xFF3F45C7), fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: -0.3)),
                         const SizedBox(height: 8),
                         Row(children: [
                           _chip('Max', '${inst['max_qty']}'),

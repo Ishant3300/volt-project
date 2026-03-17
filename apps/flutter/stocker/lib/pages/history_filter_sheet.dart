@@ -67,7 +67,7 @@ class _PortfolioFilterSheetState extends State<PortfolioFilterSheet> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(primary: Color(0xFF22547C)),
+            colorScheme: const ColorScheme.light(primary: Color(0xFF3F45C7)),
           ),
           child: child!,
         );
@@ -128,7 +128,7 @@ class _PortfolioFilterSheetState extends State<PortfolioFilterSheet> {
                   const Text('Filter Trades', style: TextStyle(color: Colors.black, fontSize: 18, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
                   GestureDetector(
                     onTap: _clearFilters,
-                    child: const Text('Clear All', style: TextStyle(color: Color(0xFF22547C), fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w500)),
+                    child: const Text('Clear All', style: TextStyle(color: Color(0xFF3F45C7), fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w500)),
                   ),
                 ],
               ),
@@ -146,7 +146,7 @@ class _PortfolioFilterSheetState extends State<PortfolioFilterSheet> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFC7C7CC))),
                   enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFC7C7CC))),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF22547C))),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF3F45C7))),
                 ),
                 style: const TextStyle(fontSize: 14, fontFamily: 'Inter'),
               ),
@@ -207,7 +207,7 @@ class _PortfolioFilterSheetState extends State<PortfolioFilterSheet> {
                       onTap: _applyFilters,
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        decoration: BoxDecoration(color: const Color(0xFF22547C), borderRadius: BorderRadius.circular(8)),
+                        decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(8)),
                         child: const Text('SEARCH', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 16, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
                       ),
                     ),

@@ -424,7 +424,7 @@ class _ManageReportsViewState extends State<ManageReportsView> {
                         decoration: BoxDecoration(
                           color: _isUpdatingPermissions || !_hasChanges
                               ? const Color(0xFF8E8E93)
-                              : const Color(0xFF22547C),
+                              : const Color(0xFF3F45C7),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: _isUpdatingPermissions
@@ -486,7 +486,7 @@ class _ManageReportsViewState extends State<ManageReportsView> {
               height: 25,
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
-                color: isEnabled ? const Color(0xFF22547C) : const Color(0xFF8E8E93),
+                color: isEnabled ? const Color(0xFF3F45C7) : const Color(0xFF8E8E93),
                 borderRadius: BorderRadius.circular(12.5),
               ),
               child: Align(

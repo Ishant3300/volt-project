@@ -5,7 +5,8 @@ import 'package:stocker/models/trade.dart';
 class TradeDetailSheet extends StatefulWidget {
   final Trade trade;
   final bool isClosing;
-  const TradeDetailSheet({super.key, required this.trade, this.isClosing = false});
+  const TradeDetailSheet(
+      {super.key, required this.trade, this.isClosing = false});
 
   @override
   State<TradeDetailSheet> createState() => _TradeDetailSheetState();
@@ -37,6 +38,12 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
     }
     return trade.status.toUpperCase();
   }
+
+  // Use the Trade model's built-in lot/qty logic
+  String get _volumeUnit => trade.isLotBased ? 'Lots' : 'Quantity';
+  int get _volumeValue => trade.displayVolume;
+  String _getFormattedVolume() =>
+      '$_sideLabel · ${trade.displayVolume} ${trade.volumeUnit}';
 
   @override
   Widget build(BuildContext context) {
@@ -108,7 +115,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
-                              '$_sideLabel · ${trade.quantity} QTY',
+                              _getFormattedVolume(),
                               style: TextStyle(
                                 color: _sideColor,
                                 fontSize: 11,
@@ -209,8 +216,9 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                     _buildRow('Execution', _formattedDate),
                     _buildRow('Symbol', trade.tradingSymbol),
                     _buildRow('Exchange', trade.exchange),
-                    _buildRow('Type', '$_sideLabel / ${trade.orderType ?? 'MARKET'}'),
-                    _buildRow('Quantity', trade.quantity.toString()),
+                    _buildRow(
+                        'Type', '$_sideLabel / ${trade.orderType ?? 'MARKET'}'),
+                    _buildRow(_volumeUnit, _volumeValue.toString()),
                     _buildRow('Price', '₹${trade.price.toStringAsFixed(2)}'),
                     if (trade.productType != null)
                       _buildRow('Product', trade.productType!),
@@ -232,7 +240,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
               child: TextButton(
                 onPressed: () => Navigator.pop(context),
                 style: TextButton.styleFrom(
-                  backgroundColor: const Color(0xFF22547C),
+                  backgroundColor: const Color(0xFF3F45C7),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -293,7 +301,8 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
   }
 }
 
-void showTradeDetailSheet(BuildContext context, Trade trade, {bool isClosing = false}) {
+void showTradeDetailSheet(BuildContext context, Trade trade,
+    {bool isClosing = false}) {
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,

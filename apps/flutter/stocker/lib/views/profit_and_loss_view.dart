@@ -174,11 +174,11 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
                   onTap: () => _sort(i),
                   child: Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
                     Text(labels[i], style: TextStyle(
-                      color: isSorted ? const Color(0xFF22547C) : const Color(0xFF94A3B8),
+                      color: isSorted ? const Color(0xFF3F45C7) : const Color(0xFF94A3B8),
                       fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.5)),
                     const SizedBox(width: 2),
                     Icon(isSorted ? (_sortAsc ? Icons.arrow_upward : Icons.arrow_downward) : Icons.unfold_more,
-                      size: 11, color: isSorted ? const Color(0xFF22547C) : const Color(0xFF94A3B8)),
+                      size: 11, color: isSorted ? const Color(0xFF3F45C7) : const Color(0xFF94A3B8)),
                   ]),
                 ),
               );
@@ -188,7 +188,7 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
           // Table body
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF22547C), strokeWidth: 2.5))
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5))
                 : filtered.isEmpty
                     ? const Center(child: Text('No data', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter')))
                     : RefreshIndicator(

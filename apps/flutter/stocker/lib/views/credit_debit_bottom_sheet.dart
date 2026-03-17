@@ -167,9 +167,9 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
                     decoration: ShapeDecoration(
-                      color: _selectedTab == 0 ? const Color(0xFF22547C) : Colors.white,
+                      color: _selectedTab == 0 ? const Color(0xFF3F45C7) : Colors.white,
                       shape: RoundedRectangleBorder(
-                        side: BorderSide(width: 1, color: const Color(0xFF22547C)),
+                        side: BorderSide(width: 1, color: const Color(0xFF3F45C7)),
                         borderRadius: BorderRadius.only(
                           topLeft: Radius.circular(8),
                           bottomLeft: Radius.circular(8),
@@ -196,9 +196,9 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
                     decoration: ShapeDecoration(
-                      color: _selectedTab == 1 ? const Color(0xFF22547C) : Colors.white,
+                      color: _selectedTab == 1 ? const Color(0xFF3F45C7) : Colors.white,
                       shape: RoundedRectangleBorder(
-                        side: BorderSide(width: 1, color: const Color(0xFF22547C)),
+                        side: BorderSide(width: 1, color: const Color(0xFF3F45C7)),
                         borderRadius: BorderRadius.only(
                           topRight: Radius.circular(8),
                           bottomRight: Radius.circular(8),
@@ -278,7 +278,7 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(width: 1, color: const Color(0xFF22547C)),
+                borderSide: BorderSide(width: 1, color: const Color(0xFF3F45C7)),
               ),
             ),
           ),
@@ -318,7 +318,7 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(width: 1, color: const Color(0xFF22547C)),
+                borderSide: BorderSide(width: 1, color: const Color(0xFF3F45C7)),
               ),
             ),
           ),
@@ -360,7 +360,7 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 18),
                     decoration: ShapeDecoration(
-                      color: _isLoading ? const Color(0xFF8E8E93) : const Color(0xFF22547C),
+                      color: _isLoading ? const Color(0xFF8E8E93) : const Color(0xFF3F45C7),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     child: _isLoading

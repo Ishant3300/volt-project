@@ -340,7 +340,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
       lastDate: now,
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.light(primary: Color(0xFF22547C)),
+          colorScheme: const ColorScheme.light(primary: Color(0xFF3F45C7)),
         ),
         child: child!,
       ),
@@ -356,26 +356,15 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
   }
 
   Future<void> _generatePdf() async {
-    String from, to;
-
-    if (_selectedMode == 0) {
-      // Default: last 7 days (excluding today)
-      final now = DateTime.now();
-      final yesterday = now.subtract(const Duration(days: 1));
-      from =
-          now.subtract(const Duration(days: 7)).toIso8601String().split('T')[0];
-      to = yesterday.toIso8601String().split('T')[0];
-    } else {
-      // Advanced: user-picked dates
-      if (_fromDate == null || _toDate == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select both dates')),
-        );
-        return;
-      }
-      from = _fromDate!.toIso8601String().split('T')[0];
-      to = _toDate!.toIso8601String().split('T')[0];
+    // Both modes now use date pickers
+    if (_fromDate == null || _toDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select both From and To dates')),
+      );
+      return;
     }
+    final from = _fromDate!.toIso8601String().split('T')[0];
+    final to = _toDate!.toIso8601String().split('T')[0];
 
     setState(() => _isLoading = true);
     try {
@@ -451,7 +440,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                       fontWeight: FontWeight.w600)),
               const SizedBox(height: 16),
 
-              // Mode selector (moved above dates so Default can hide them)
+              // Mode selector — layout type only
               const Text('Report Type',
                   style: TextStyle(
                       color: Color(0xFF64748B),
@@ -462,59 +451,25 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  _modeChip('Default', 0),
+                  _modeChip('General', 0),
                   const SizedBox(width: 10),
-                  _modeChip('Advanced', 1),
+                  _modeChip('Live M2M', 1),
                 ],
               ),
               const SizedBox(height: 12),
 
-              // Default mode: show fixed "Last 7 days" label
-              if (_selectedMode == 0)
-                Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Padding(
-                          padding: EdgeInsets.only(top: 2),
-                          child: Icon(Icons.info_outline,
-                              size: 14, color: Color(0xFF64748B)),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Last 7 days · ${DateFormat('dd/MM').format(DateTime.now().subtract(const Duration(days: 7)))} – ${DateFormat('dd/MM/yy').format(DateTime.now().subtract(const Duration(days: 1)))}',
-                            style: const TextStyle(
-                                color: Color(0xFF64748B),
-                                fontSize: 12,
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w500),
-                          ),
-                        ),
-                      ]),
-                ),
-
-              // Advanced mode: date pickers
-              if (_selectedMode == 1) ...[
-                GestureDetector(
-                  onTap: () => _pickDate(true),
-                  child: _dateField('From Date',
-                      _fromDate != null ? dateFmt.format(_fromDate!) : null),
-                ),
-                const SizedBox(height: 12),
-                GestureDetector(
-                  onTap: () => _pickDate(false),
-                  child: _dateField('To Date',
-                      _toDate != null ? dateFmt.format(_toDate!) : null),
-                ),
-              ],
+              // Date pickers — shown for both modes
+              GestureDetector(
+                onTap: () => _pickDate(true),
+                child: _dateField('From Date',
+                    _fromDate != null ? dateFmt.format(_fromDate!) : null),
+              ),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () => _pickDate(false),
+                child: _dateField('To Date',
+                    _toDate != null ? dateFmt.format(_toDate!) : null),
+              ),
               const SizedBox(height: 16),
 
               // User selector (admin/master only)
@@ -653,7 +608,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 32, vertical: 16),
                         decoration: ShapeDecoration(
-                          color: const Color(0xFF22547C),
+                          color: const Color(0xFF3F45C7),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8)),
                         ),
@@ -708,7 +663,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
         child: Text(label,
             style: TextStyle(
               color: isSelected
-                  ? const Color(0xFF22547C)
+                  ? const Color(0xFF3F45C7)
                   : const Color(0xFF1E293B),
               fontSize: 13,
               fontFamily: 'Inter',
@@ -756,11 +711,11 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF22547C) : Colors.white,
+          color: selected ? const Color(0xFF3F45C7) : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
               color:
-                  selected ? const Color(0xFF22547C) : const Color(0xFFD1D1D6)),
+                  selected ? const Color(0xFF3F45C7) : const Color(0xFFD1D1D6)),
         ),
         child: Text(
           label,

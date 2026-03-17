@@ -110,7 +110,7 @@ class _ChangePasswordViewState extends State<ChangePasswordView> {
           Expanded(child: GestureDetector(
             onTap: _isLoading ? null : _update,
             child: Container(height: 48, alignment: Alignment.center,
-              decoration: BoxDecoration(color: const Color(0xFF22547C), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(12)),
               child: _isLoading
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                 : const Text('UPDATE', style: TextStyle(color: Colors.white, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600))),

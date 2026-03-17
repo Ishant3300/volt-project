@@ -39,7 +39,7 @@ class _MyHomePageState extends State<MyHomePage> {
         curve: Curves.easeInOut,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF22547C).withValues(alpha: 0.08) : Colors.transparent,
+          color: isSelected ? const Color(0xFF3F45C7).withValues(alpha: 0.08) : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -48,7 +48,7 @@ class _MyHomePageState extends State<MyHomePage> {
             Icon(
               isSelected ? activeIcon : icon,
               size: 22,
-              color: isSelected ? const Color(0xFF22547C) : const Color(0xFF94A3B8),
+              color: isSelected ? const Color(0xFF3F45C7) : const Color(0xFF94A3B8),
             ),
             const SizedBox(height: 4),
             Text(
@@ -57,7 +57,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 fontFamily: 'Inter',
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? const Color(0xFF22547C) : const Color(0xFF94A3B8),
+                color: isSelected ? const Color(0xFF3F45C7) : const Color(0xFF94A3B8),
                 letterSpacing: 0.2,
               ),
             ),

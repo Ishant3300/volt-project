@@ -78,7 +78,7 @@ class _DeletedTradeViewState extends State<DeletedTradeView> {
       lastDate: DateTime.now(),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(primary: Color(0xFF22547C)),
+          colorScheme: const ColorScheme.light(primary: Color(0xFF3F45C7)),
         ),
         child: child!,
       ),
@@ -184,7 +184,7 @@ class _DeletedTradeViewState extends State<DeletedTradeView> {
                 child: Container(
                   width: 44, height: 44,
                   decoration: BoxDecoration(
-                    color: _filterDate != null ? const Color(0xFF22547C) : Colors.white,
+                    color: _filterDate != null ? const Color(0xFF3F45C7) : Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
                   ),
@@ -205,16 +205,16 @@ class _DeletedTradeViewState extends State<DeletedTradeView> {
                   decoration: BoxDecoration(
                     color: const Color(0xFFEFF6FF),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF22547C).withValues(alpha: 0.2)),
+                    border: Border.all(color: const Color(0xFF3F45C7).withValues(alpha: 0.2)),
                   ),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     Text(DateFormat('dd MMM yyyy').format(_filterDate!),
-                      style: const TextStyle(color: Color(0xFF22547C), fontSize: 11,
+                      style: const TextStyle(color: Color(0xFF3F45C7), fontSize: 11,
                         fontFamily: 'Inter', fontWeight: FontWeight.w600)),
                     const SizedBox(width: 6),
                     GestureDetector(
                       onTap: _clearDate,
-                      child: const Icon(Icons.close, size: 14, color: Color(0xFF22547C)),
+                      child: const Icon(Icons.close, size: 14, color: Color(0xFF3F45C7)),
                     ),
                   ]),
                 ),
@@ -250,7 +250,7 @@ class _DeletedTradeViewState extends State<DeletedTradeView> {
           // List
           Expanded(
             child: _isLoading && _trades.isEmpty
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF22547C), strokeWidth: 2.5))
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5))
                 : _trades.isEmpty
                     ? Center(child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -269,7 +269,7 @@ class _DeletedTradeViewState extends State<DeletedTradeView> {
                           return false;
                         },
                         child: RefreshIndicator(
-                          color: const Color(0xFF22547C),
+                          color: const Color(0xFF3F45C7),
                           onRefresh: _fetch,
                           child: ListView.builder(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -306,7 +306,7 @@ class _DeletedTradeViewState extends State<DeletedTradeView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(symbol,
-              style: const TextStyle(color: Color(0xFF22547C), fontSize: 13,
+              style: const TextStyle(color: Color(0xFF3F45C7), fontSize: 13,
                 fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: -0.3),
               maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 2),

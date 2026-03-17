@@ -1,6 +1,7 @@
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/services/multi_account_service.dart';
 import 'package:stocker/services/api_service.dart';
@@ -88,7 +89,7 @@ class _InitialScreenState extends State<InitialScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => const MyHomePage(title: 'Stocker'),
+            builder: (context) => const MyHomePage(title: 'APEX'),
           ),
         );
       } else {
@@ -140,8 +141,10 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
+  late Animation<double> _logoScale;
+  late Animation<double> _logoFade;
+  late Animation<double> _textFade;
+  late Animation<Offset> _textSlide;
   late Animation<double> _subtitleFade;
 
   @override
@@ -149,25 +152,41 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1800),
     );
 
-    _fadeAnimation = CurvedAnimation(
+    // Logo scales up and fades in
+    _logoScale = Tween<double>(
+      begin: 0.5,
+      end: 1.0,
+    ).animate(CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+      curve: const Interval(0.0, 0.5, curve: Curves.easeOutCubic),
+    ));
+
+    _logoFade = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.0, 0.4, curve: Curves.easeOut),
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.4),
+    // Text fades in and slides up after logo
+    _textFade = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.4, 0.7, curve: Curves.easeOut),
+    );
+
+    _textSlide = Tween<Offset>(
+      begin: const Offset(0, 0.3),
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.0, 0.6, curve: Curves.easeOutCubic),
+      curve: const Interval(0.4, 0.7, curve: Curves.easeOutCubic),
     ));
 
+    // Subtitle fades in last
     _subtitleFade = CurvedAnimation(
       parent: _controller,
-      curve: const Interval(0.5, 1.0, curve: Curves.easeOut),
+      curve: const Interval(0.6, 1.0, curve: Curves.easeOut),
     );
 
     _controller.forward();
@@ -193,19 +212,45 @@ class _SplashScreenState extends State<SplashScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // STOCKER text — slides up + fades in
-                  SlideTransition(
-                    position: _slideAnimation,
+                  // Logo — scales up and fades in
+                  ScaleTransition(
+                    scale: _logoScale,
                     child: FadeTransition(
-                      opacity: _fadeAnimation,
+                      opacity: _logoFade,
+                      child: SvgPicture.asset(
+                        'assets/Subtract.svg',
+                        width: 100,
+                        height: 100,
+                        placeholderBuilder: (context) => Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.image,
+                            size: 50,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // APEX text — slides up + fades in
+                  SlideTransition(
+                    position: _textSlide,
+                    child: FadeTransition(
+                      opacity: _textFade,
                       child: const Text(
-                        'STOCKER',
+                        'APEX',
                         style: TextStyle(
-                          color: Color(0xFF22547C),
-                          fontSize: 32,
+                          color: Color(0xFF0F172A),
+                          fontSize: 36,
                           fontFamily: 'Inter',
                           fontWeight: FontWeight.w800,
-                          letterSpacing: 3,
+                          letterSpacing: 4,
                         ),
                       ),
                     ),
@@ -215,13 +260,13 @@ class _SplashScreenState extends State<SplashScreen>
                   FadeTransition(
                     opacity: _subtitleFade,
                     child: const Text(
-                      'Trade smarter',
+                      'YOUR EDGE IN THE MARKET',
                       style: TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: 14,
+                        color: Color(0xFF64748B),
+                        fontSize: 12,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: 0.5,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 1.5,
                       ),
                     ),
                   ),
@@ -238,11 +283,11 @@ class _SplashScreenState extends State<SplashScreen>
                 opacity: _subtitleFade,
                 child: const Center(
                   child: SizedBox(
-                    width: 20,
-                    height: 20,
+                    width: 24,
+                    height: 24,
                     child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Color(0xFF22547C),
+                      strokeWidth: 2.5,
+                      color: Color(0xFF3F45C7),
                     ),
                   ),
                 ),

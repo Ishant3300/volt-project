@@ -210,27 +210,27 @@ class AdminService {
     }, token: token);
   }
 
-  /// Credit user account (master flow)
+  /// Credit user account (admin flow)
   Future<http.Response> creditUser({
     required String userId,
     required double amount,
     String? note,
   }) async {
     final token = await _storage.getToken();
-    return await _apiService.post('/master/users/$userId/credit', {
+    return await _apiService.post('/admin/users/$userId/credit', {
       'amount': amount,
       if (note != null) 'note': note,
     }, token: token);
   }
 
-  /// Debit user account (master flow)
+  /// Debit user account (admin flow)
   Future<http.Response> debitUser({
     required String userId,
     required double amount,
     String? note,
   }) async {
     final token = await _storage.getToken();
-    return await _apiService.post('/master/users/$userId/debit', {
+    return await _apiService.post('/admin/users/$userId/debit', {
       'amount': amount,
       if (note != null) 'note': note,
     }, token: token);

@@ -5,6 +5,7 @@ class Trade {
   final String instrumentToken;
   final String tradingSymbol;
   final String exchange;
+  final String segment; // e.g. MCX-FUT, NFO-FUT, NFO-OPT (from KiteInstrument)
   final String transactionType; // BUY or SELL
   final int quantity;
   final double price;
@@ -15,6 +16,10 @@ class Trade {
   final String? masterName;
   final String createdAt;
   final String updatedAt;
+  final int lotSize; // enriched by backend from KiteInstrument.lot_size
+  final double pnl; // per-trade P&L computed by backend at execution time
+  final double brokerage; // brokerage deducted for this trade
+  final double netAmount; // pnl - brokerage
 
   Trade({
     required this.id,
@@ -23,6 +28,7 @@ class Trade {
     required this.instrumentToken,
     required this.tradingSymbol,
     required this.exchange,
+    this.segment = '',
     required this.transactionType,
     required this.quantity,
     required this.price,
@@ -33,7 +39,39 @@ class Trade {
     this.masterName,
     required this.createdAt,
     required this.updatedAt,
+    this.lotSize = 1,
+    this.pnl = 0,
+    this.brokerage = 0,
+    this.netAmount = 0,
   });
+
+  /// True when this trade should be displayed in lots instead of raw quantity.
+  /// MCX is always lots. NFO-OPT is lots. NFO-FUT is lots.
+  /// Turnover-mode instruments (NSEIX, GLOBAL, NFO equity FUTs) use quantity.
+  bool get isLotBased {
+    final seg = segment.toUpperCase();
+    if (seg.isNotEmpty) {
+      // Prefer segment (most reliable)
+      return seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-FUT';
+    }
+    // Fallback heuristic if segment isn't populated
+    final ex = exchange.toUpperCase();
+    if (ex == 'MCX') return true;
+    if (ex == 'NFO') {
+      final sym = tradingSymbol.toUpperCase();
+      return sym.endsWith('FUT');
+    }
+    return false;
+  }
+
+  /// Lot count: quantity ÷ lotSize, rounded. Returns raw quantity if lotSize ≤ 0.
+  int get lots => (lotSize > 0) ? (quantity / lotSize).round() : quantity;
+
+  /// Display volume — returns lots count if isLotBased, else raw quantity.
+  int get displayVolume => isLotBased ? lots : quantity;
+
+  /// Unit label for display.
+  String get volumeUnit => isLotBased ? 'LOT' : 'QTY';
 
   factory Trade.fromJson(Map<String, dynamic> json) {
     return Trade(
@@ -45,6 +83,7 @@ class Trade {
           json['trading_symbol']?.toString() ??
           '',
       exchange: json['exchange']?.toString() ?? '',
+      segment: json['segment']?.toString() ?? '',
       transactionType: json['transaction_type']?.toString() ?? '',
       quantity: (json['quantity'] as num?)?.toInt() ??
           (json['executed_quantity'] as num?)?.toInt() ??
@@ -61,6 +100,10 @@ class Trade {
           json['created_at']?.toString() ??
           '',
       updatedAt: json['updated_at']?.toString() ?? '',
+      lotSize: (json['lot_size'] as num?)?.toInt() ?? 1,
+      pnl: (json['pnl'] as num?)?.toDouble() ?? 0.0,
+      brokerage: (json['brokerage'] as num?)?.toDouble() ?? 0.0,
+      netAmount: (json['net_amount'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
@@ -72,6 +115,7 @@ class Trade {
       'instrument_token': instrumentToken,
       'trading_symbol': tradingSymbol,
       'exchange': exchange,
+      'segment': segment,
       'transaction_type': transactionType,
       'quantity': quantity,
       'price': price,
@@ -82,6 +126,7 @@ class Trade {
       if (masterName != null) 'master_name': masterName,
       'created_at': createdAt,
       'updated_at': updatedAt,
+      'lot_size': lotSize,
     };
   }
 }

@@ -115,7 +115,7 @@ class SendMessageView extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 18),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF22547C),
+                        color: const Color(0xFF3F45C7),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(

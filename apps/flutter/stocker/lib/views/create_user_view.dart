@@ -380,7 +380,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF22547C)
+                              color: const Color(0xFF3F45C7)
                                   .withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -390,7 +390,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                   ? 'Deselect All'
                                   : 'Select All',
                               style: const TextStyle(
-                                  color: Color(0xFF22547C),
+                                  color: Color(0xFF3F45C7),
                                   fontSize: 11,
                                   fontFamily: 'Inter',
                                   fontWeight: FontWeight.w600),
@@ -496,7 +496,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF22547C)
+                              color: const Color(0xFF3F45C7)
                                   .withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -505,7 +505,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                   ? 'Deselect All'
                                   : 'Select All',
                               style: const TextStyle(
-                                  color: Color(0xFF22547C),
+                                  color: Color(0xFF3F45C7),
                                   fontSize: 11,
                                   fontFamily: 'Inter',
                                   fontWeight: FontWeight.w600),
@@ -544,12 +544,12 @@ class _CreateUserViewState extends State<CreateUserView> {
                                     horizontal: 14, vertical: 10),
                                 decoration: BoxDecoration(
                                   color: selected
-                                      ? const Color(0xFF22547C)
+                                      ? const Color(0xFF3F45C7)
                                       : const Color(0xFFF8FAFC),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                       color: selected
-                                          ? const Color(0xFF22547C)
+                                          ? const Color(0xFF3F45C7)
                                           : const Color(0xFFF1F5F9)),
                                 ),
                                 child: Text(
@@ -598,9 +598,17 @@ class _CreateUserViewState extends State<CreateUserView> {
                         width: double.infinity,
                         height: 52,
                         decoration: BoxDecoration(
-                          color: _isSubmitting
-                              ? const Color(0xFF94A3B8)
-                              : const Color(0xFF22547C),
+                          gradient: _isSubmitting
+                              ? null
+                              : const LinearGradient(
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                  colors: [
+                                    Color(0xFFC6529E),
+                                    Color(0xFF3B43C9),
+                                  ],
+                                ),
+                          color: _isSubmitting ? const Color(0xFF94A3B8) : null,
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Center(
@@ -740,10 +748,10 @@ class _CreateUserViewState extends State<CreateUserView> {
                   height: 22,
                   decoration: BoxDecoration(
                     color:
-                        enabled ? const Color(0xFF22547C) : Colors.transparent,
+                        enabled ? const Color(0xFF3F45C7) : Colors.transparent,
                     border: Border.all(
                         color: enabled
-                            ? const Color(0xFF22547C)
+                            ? const Color(0xFF3F45C7)
                             : const Color(0xFFCBD5E1),
                         width: 2),
                     borderRadius: BorderRadius.circular(6),
@@ -777,11 +785,11 @@ class _CreateUserViewState extends State<CreateUserView> {
                 height: 22,
                 decoration: BoxDecoration(
                   color: (settings['turnover'] as bool)
-                      ? const Color(0xFF22547C)
+                      ? const Color(0xFF3F45C7)
                       : Colors.transparent,
                   border: Border.all(
                       color: (settings['turnover'] as bool)
-                          ? const Color(0xFF22547C)
+                          ? const Color(0xFF3F45C7)
                           : const Color(0xFFCBD5E1),
                       width: 2),
                   borderRadius: BorderRadius.circular(6),
@@ -804,11 +812,11 @@ class _CreateUserViewState extends State<CreateUserView> {
                 height: 22,
                 decoration: BoxDecoration(
                   color: (settings['lot'] as bool)
-                      ? const Color(0xFF22547C)
+                      ? const Color(0xFF3F45C7)
                       : Colors.transparent,
                   border: Border.all(
                       color: (settings['lot'] as bool)
-                          ? const Color(0xFF22547C)
+                          ? const Color(0xFF3F45C7)
                           : const Color(0xFFCBD5E1),
                       width: 2),
                   borderRadius: BorderRadius.circular(6),
@@ -891,7 +899,7 @@ class _CreateUserViewState extends State<CreateUserView> {
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
                 color:
-                    value ? const Color(0xFF22547C) : const Color(0xFFCBD5E1),
+                    value ? const Color(0xFF3F45C7) : const Color(0xFFCBD5E1),
                 borderRadius: BorderRadius.circular(13),
               ),
               child: AnimatedAlign(

@@ -122,7 +122,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
       initialDate: isFrom ? (_fromDate ?? DateTime.now()) : (_toDate ?? DateTime.now()),
       firstDate: DateTime(2024),
       lastDate: DateTime.now(),
-      builder: (ctx, child) => Theme(data: Theme.of(ctx).copyWith(colorScheme: const ColorScheme.light(primary: Color(0xFF22547C))), child: child!),
+      builder: (ctx, child) => Theme(data: Theme.of(ctx).copyWith(colorScheme: const ColorScheme.light(primary: Color(0xFF3F45C7))), child: child!),
     );
     if (picked != null) setState(() { if (isFrom) _fromDate = picked; else _toDate = picked; });
   }
@@ -228,7 +228,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
                   onTap: _isLoading ? null : _fetch,
                   child: Container(
                     height: 42, alignment: Alignment.center,
-                    decoration: BoxDecoration(color: const Color(0xFF22547C), borderRadius: BorderRadius.circular(12)),
+                    decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(12)),
                     child: _isLoading
                         ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                         : const Text('View', style: TextStyle(color: Colors.white, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
@@ -296,7 +296,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE2E8F0))),
       child: Row(children: [
-        Icon(Icons.calendar_today, size: 14, color: isPlaceholder ? const Color(0xFFCBD5E1) : const Color(0xFF22547C)),
+        Icon(Icons.calendar_today, size: 14, color: isPlaceholder ? const Color(0xFFCBD5E1) : const Color(0xFF3F45C7)),
         const SizedBox(width: 6),
         Expanded(child: Text(text, style: TextStyle(color: isPlaceholder ? const Color(0xFFCBD5E1) : Colors.black, fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
       ]),
@@ -309,7 +309,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
         width: 20, height: 20,
         child: Checkbox(
           value: value, onChanged: onChanged,
-          activeColor: const Color(0xFF22547C),
+          activeColor: const Color(0xFF3F45C7),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           side: const BorderSide(color: Color(0xFFCBD5E1)),
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -324,7 +324,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
 
   Widget _buildResults() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF22547C), strokeWidth: 2.5));
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5));
     }
 
     if (_showCredit) return _buildCreditResults();
@@ -402,7 +402,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Symbol + exchange
         Row(children: [
-          Expanded(child: Text(symbol, style: const TextStyle(color: Color(0xFF22547C), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: -0.3))),
+          Expanded(child: Text(symbol, style: const TextStyle(color: Color(0xFF3F45C7), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: -0.3))),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6)),
@@ -523,7 +523,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
           ),
           const SizedBox(width: 8),
           if (username.isNotEmpty)
-            Text(username.toUpperCase(), style: const TextStyle(color: Color(0xFF22547C), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: -0.3)),
+            Text(username.toUpperCase(), style: const TextStyle(color: Color(0xFF3F45C7), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: -0.3)),
           const Spacer(),
           Text(timeStr, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontFamily: 'Inter')),
         ]),
