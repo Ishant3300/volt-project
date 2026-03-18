@@ -49,8 +49,10 @@ String _positionVolumeLabel(String exchange, String tradingsymbol, int quantity,
 
   bool isLot = false;
   if (seg.isNotEmpty) {
+    // MCX-FUT and MCX-OPT both use lots (lot_size = 100 for MCX)
     isLot = seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-FUT';
   } else if (ex == 'MCX') {
+    // All MCX instruments use lots
     isLot = true;
   } else if (ex == 'NFO') {
     isLot = sym.endsWith('FUT');

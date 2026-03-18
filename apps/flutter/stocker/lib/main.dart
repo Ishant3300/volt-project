@@ -25,7 +25,7 @@ void main() async {
   );
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   await FirebaseService().init();
-  log('🚀 Starting Stocker App');
+  log('🚀 Starting APEX App');
   log('   Backend URL: $backendUrl');
   runApp(const MyApp());
 }

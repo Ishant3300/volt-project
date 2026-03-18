@@ -196,8 +196,14 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
     setState(() => _isSubmitting = true);
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
+      // Use segment for MCX instruments (MCX-FUT, MCX-OPT), otherwise use exchange
+      final exchangeName = _selected!.segment.isNotEmpty &&
+              (_selected!.segment.toUpperCase() == 'MCX-FUT' ||
+                  _selected!.segment.toUpperCase() == 'MCX-OPT')
+          ? _selected!.segment
+          : _selected!.exchange;
       final r = await AdminService(apiService).createScriptQuantity(
-        exchangeName: _selected!.exchange,
+        exchangeName: exchangeName,
         scriptName: _selected!.tradingsymbol,
         lotSize: _selected!.lotSize.toInt(),
         maxQty: maxQty,

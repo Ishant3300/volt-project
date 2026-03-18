@@ -287,6 +287,15 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
 
       http.Response response;
 
+      // Determine exchange name (use segment for MCX instruments)
+      final instrumentExchange = _selectedInstrument?.exchange ?? widget.exchange;
+      final instrumentSegment = _selectedInstrument?.segment ?? '';
+      final exchangeName = instrumentSegment.isNotEmpty &&
+              (instrumentSegment.toUpperCase() == 'MCX-FUT' ||
+                  instrumentSegment.toUpperCase() == 'MCX-OPT')
+          ? instrumentSegment
+          : instrumentExchange;
+
       if (widget.isEditMode) {
         // Update existing instrument
         response = await adminService.updateGroupedQuantity(
@@ -300,7 +309,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
       } else {
         // Create new instrument
         response = await adminService.createGroupedQuantity(
-          exchangeName: widget.exchange,
+          exchangeName: exchangeName,
           lotName: widget.lotName,
           instrumentId: instrumentId,
           instrumentSymbol: instrumentSymbol,

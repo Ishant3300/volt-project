@@ -210,10 +210,16 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                             try {
                               final apiService =
                                   Provider.of<ApiService>(ctx, listen: false);
+                              // Use segment for MCX instruments (MCX-FUT, MCX-OPT), otherwise use exchange
+                              final exchangeName = inst.segment.isNotEmpty &&
+                                      (inst.segment.toUpperCase() == 'MCX-FUT' ||
+                                          inst.segment.toUpperCase() == 'MCX-OPT')
+                                  ? inst.segment
+                                  : inst.exchange;
                               final r = await AdminService(apiService)
                                   .createBrokerageSettings(
                                       type: localType,
-                                      exchangeName: inst.exchange,
+                                      exchangeName: exchangeName,
                                       scriptName: inst.tradingsymbol,
                                       brkValue: v);
                               setD(() => adding = false);

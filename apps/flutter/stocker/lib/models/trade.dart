@@ -46,16 +46,18 @@ class Trade {
   });
 
   /// True when this trade should be displayed in lots instead of raw quantity.
-  /// MCX is always lots. NFO-OPT is lots. NFO-FUT is lots.
+  /// MCX is always lots (MCX-FUT, MCX-OPT). NFO-FUT is lots.
   /// Turnover-mode instruments (NSEIX, GLOBAL, NFO equity FUTs) use quantity.
   bool get isLotBased {
     final seg = segment.toUpperCase();
     if (seg.isNotEmpty) {
       // Prefer segment (most reliable)
+      // MCX-FUT and MCX-OPT both use lots (lot_size = 100 for MCX)
       return seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-FUT';
     }
     // Fallback heuristic if segment isn't populated
     final ex = exchange.toUpperCase();
+    // All MCX instruments (both FUT and OPT) use lots
     if (ex == 'MCX') return true;
     if (ex == 'NFO') {
       final sym = tradingSymbol.toUpperCase();
