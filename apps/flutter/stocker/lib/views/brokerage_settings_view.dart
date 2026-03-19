@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../services/sercure_storage_service.dart';
-import 'create_brokerage_view.dart';
+import 'add_brokerage_to_exchange_view.dart';
 
 class BrokerageSettingsView extends StatefulWidget {
   const BrokerageSettingsView({super.key});
@@ -26,6 +27,7 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
     'SGX'
   ];
   final _types = ['TURNOVER WISE', 'LOT WISE'];
+  static const _lotWiseSegments = {'NFO-OPT', 'MCX-FUT', 'MCX-OPT'};
   List<Map<String, dynamic>> _items = [];
   Map<String, bool> _selected = {};
   bool _isLoading = false;
@@ -180,33 +182,31 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                           fontSize: 18,
                           fontFamily: 'Inter',
                           fontWeight: FontWeight.w600))),
-              if (_isAdmin)
+              if (_isAdmin) ...[
                 GestureDetector(
-                  onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const CreateBrokerageView()))
-                      .then((_) {
-                    if (_selectedExchange != null) _fetch();
-                  }),
+                  onTap: () {
+                    if (_selectedExchange == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select an exchange first')));
+                      return;
+                    }
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => AddBrokerageToExchangeView(
+                        exchange: _selectedExchange!,
+                        type: _selectedType,
+                        isExistingGroup: _items.isNotEmpty,
+                      ),
+                    )).then((_) => _fetch());
+                  },
                   child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                          color: const Color(0xFF3F45C7),
-                          borderRadius: BorderRadius.circular(10)),
-                      child:
-                          const Row(mainAxisSize: MainAxisSize.min, children: [
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(10)),
+                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
                         Icon(Icons.add, color: Colors.white, size: 16),
                         SizedBox(width: 4),
-                        Text('Create',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w600))
+                        Text('Create', style: TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w600))
                       ])),
                 ),
+              ],
             ])),
 
         // Dropdowns
@@ -216,15 +216,27 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
               Expanded(
                   child: _dropdown(
                       _selectedExchange, ['__hint__', ..._exchanges], (v) {
-                setState(() => _selectedExchange = v == '__hint__' ? null : v);
+                setState(() {
+                  _selectedExchange = v == '__hint__' ? null : v;
+                  if (_selectedExchange != null) {
+                    _selectedType = _lotWiseSegments.contains(_selectedExchange)
+                        ? 'LOT WISE'
+                        : 'TURNOVER WISE';
+                  }
+                });
                 _fetch();
               }, displayMap: {'__hint__': 'Exchange'})),
               const SizedBox(width: 8),
               Expanded(
-                  child: _dropdown(_selectedType, _types, (v) {
-                setState(() => _selectedType = v!);
-                _fetch();
-              })),
+                  child: _dropdown(
+                      _selectedType,
+                      _types,
+                      _selectedExchange == null
+                          ? (v) {
+                              setState(() => _selectedType = v!);
+                              _fetch();
+                            }
+                          : null)),
             ])),
         const SizedBox(height: 8),
 
@@ -243,7 +255,12 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                     border: Border.all(color: const Color(0xFFE2E8F0))),
                 child: TextField(
                     controller: _amountCtrl,
-                    keyboardType: TextInputType.number,
+                    keyboardType: _selectedType == 'LOT WISE'
+                        ? TextInputType.number
+                        : const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: _selectedType == 'LOT WISE'
+                        ? [FilteringTextInputFormatter.digitsOnly]
+                        : null,
                     style: const TextStyle(
                         fontSize: 13,
                         fontFamily: 'Inter',
@@ -369,9 +386,11 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
   }
 
   Widget _dropdown(
-      String? value, List<String> items, ValueChanged<String?> onChanged,
+      String? value, List<String> items, ValueChanged<String?>? onChanged,
       {Map<String, String>? displayMap}) {
-    return Container(
+    return Opacity(
+      opacity: onChanged == null ? 0.6 : 1.0,
+      child: Container(
       height: 42,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
@@ -403,6 +422,7 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
             .toList(),
         onChanged: onChanged,
       )),
+    ),
     );
   }
 

@@ -38,6 +38,7 @@ class TradeService {
     required String exchange,
     required String instrumentToken,
     required String tradingSymbol,
+    String? rawName, // raw_name for direct GroupedQuantity lookup
     String? userId, // For admin/master viewing a user
   }) async {
     try {
@@ -45,7 +46,10 @@ class TradeService {
 
       // New targeted endpoint
       String endpoint =
-          '/trade/instrument-limit?segment=$exchange&instrument_id=$instrumentToken';
+          '/trade/instrument-limit?segment=$exchange&instrument_id=$instrumentToken&symbol=$tradingSymbol';
+      if (rawName != null && rawName.isNotEmpty) {
+        endpoint += '&raw_name=${Uri.encodeComponent(rawName)}';
+      }
       if (userId != null) {
         endpoint += '&user_id=$userId';
       }
@@ -115,6 +119,7 @@ class TradeService {
     required int quantity,
     required double price,
     required String orderType, // 'MARKET' or 'LIMIT'
+    String? segment, // e.g. NFO-FUT, MCX-FUT — used for limit validation
     String? userId, // Admin/Master can trade on behalf of a user
   }) async {
     try {
@@ -129,6 +134,7 @@ class TradeService {
         'price': price,
         'order_type': orderType.toUpperCase(),
       };
+      if (segment != null && segment.isNotEmpty) body['segment'] = segment;
       if (userId != null) body['user_id'] = userId;
 
       final response = await _apiService.post('/trade', body, token: token);

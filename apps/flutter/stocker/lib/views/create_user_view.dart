@@ -77,8 +77,12 @@ class _CreateUserViewState extends State<CreateUserView> {
 
         if (widget.user != null) {
           for (var userExchange in widget.user!.exchangesAllowed) {
-            if (_exchangeSettings.containsKey(userExchange.exchangeName)) {
-              _exchangeSettings[userExchange.exchangeName] = {
+            // Backend stores INDICES, but UI uses GLOBAL
+            final displayName = userExchange.exchangeName == 'INDICES'
+                ? 'GLOBAL'
+                : userExchange.exchangeName;
+            if (_exchangeSettings.containsKey(displayName)) {
+              _exchangeSettings[displayName] = {
                 'enabled': true,
                 'turnover': userExchange.turnover,
                 'lot': userExchange.lot,
@@ -92,8 +96,10 @@ class _CreateUserViewState extends State<CreateUserView> {
 
         _tradeLimit = {};
         for (var exchange in _allowedTradeLimit) {
+          // Backend stores INDICES, but UI uses GLOBAL — map for comparison
+          final backendName = exchange == 'GLOBAL' ? 'INDICES' : exchange;
           _tradeLimit[exchange] =
-              widget.user?.tradeLimit.contains(exchange) ?? false;
+              widget.user?.tradeLimit.contains(backendName) ?? false;
         }
       });
 

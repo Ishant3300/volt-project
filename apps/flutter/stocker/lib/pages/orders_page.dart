@@ -43,20 +43,10 @@ _NumberFormat _getShortForm(double value) {
 /// Volume label for a position: "+X LOTS" or "+X QTY".
 String _positionVolumeLabel(String exchange, String tradingsymbol, int quantity,
     {bool showPrefix = false, String segment = '', int lotSize = 1}) {
-  final ex = exchange.toUpperCase();
-  final sym = tradingsymbol.toUpperCase();
   final seg = segment.toUpperCase();
 
-  bool isLot = false;
-  if (seg.isNotEmpty) {
-    // MCX-FUT and MCX-OPT both use lots (lot_size = 100 for MCX)
-    isLot = seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-FUT';
-  } else if (ex == 'MCX') {
-    // All MCX instruments use lots
-    isLot = true;
-  } else if (ex == 'NFO') {
-    isLot = sym.endsWith('FUT');
-  }
+  // Only MCX-FUT, MCX-OPT, NFO-OPT use lots. Everything else uses quantity.
+  final bool isLot = seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-OPT';
 
   final prefix =
       showPrefix ? (quantity > 0 ? '+' : (quantity < 0 ? '-' : '')) : '';
@@ -1299,12 +1289,15 @@ class _OrdersPageState extends State<OrdersPage> {
                             final pos = entry.value;
                             final isBuy = pos.netQty > 0;
                             final isNegative = pos.floating < 0;
+                            final watchlist = Provider.of<WatchlistProvider>(context, listen: false);
+                            final wItem = watchlist.getByToken(pos.instrumentToken);
+                            final displayName = wItem?.instrument.userFriendlyName ?? pos.tradingsymbol;
                             return Column(
                               children: [
                                 _buildOrderItem(
                                   context,
                                   pos,
-                                  pos.tradingsymbol,
+                                  displayName,
                                   pos.exchange,
                                   '${isBuy ? "BUY" : "SELL"}: ${_positionVolumeLabel(pos.exchange, pos.tradingsymbol, pos.netQty, segment: pos.segment, lotSize: pos.lotSize)}',
                                   isBuy ? pos.avgBuyPrice : pos.avgSellPrice,

@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:animated_flip_counter/animated_flip_counter.dart';
 import 'package:stocker/models/watchlist_item.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
@@ -146,6 +145,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
       exchange: widget.item.instrument.segment,
       instrumentToken: widget.item.instrument.instrumentToken,
       tradingSymbol: widget.item.instrument.tradingsymbol,
+      rawName: widget.item.instrument.rawName,
     );
 
     if (mounted) {
@@ -246,6 +246,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
       exchange: widget.item.instrument.segment,
       instrumentToken: widget.item.instrument.instrumentToken,
       tradingSymbol: widget.item.instrument.tradingsymbol,
+      rawName: widget.item.instrument.rawName,
       userId: userId,
     );
 
@@ -449,6 +450,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
       instrumentToken: currentItem.instrument.instrumentToken,
       tradingSymbol: currentItem.instrument.tradingsymbol,
       exchange: currentItem.instrument.exchange,
+      segment: currentItem.instrument.segment,
       transactionType: transactionType,
       quantity:
           _actualQuantity, // Use actual quantity (lots * lot_size for MCX)
@@ -565,11 +567,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                   ),
                                 ),
                                 const SizedBox(height: 1),
-                                AnimatedFlipCounter(
-                                  value: currentItem.currentPrice ?? 0.0,
-                                  fractionDigits: 2,
-                                  prefix: '₹',
-                                  textStyle: const TextStyle(
+                                Text(
+                                  '₹${(currentItem.currentPrice ?? 0.0).toStringAsFixed(2)}',
+                                  style: const TextStyle(
                                     color: Color(0xFF3F45C7),
                                     fontSize: 14,
                                     fontFamily: 'Inter',
@@ -1391,10 +1391,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                         ),
                                       ),
                                       child: Center(
-                                        child: AnimatedFlipCounter(
-                                          value: sellPrice,
-                                          fractionDigits: 2,
-                                          textStyle: const TextStyle(
+                                        child: Text(
+                                          sellPrice.toStringAsFixed(2),
+                                          style: const TextStyle(
                                             color: Colors.black,
                                             fontSize: 16,
                                             fontFamily: 'Inter',
@@ -1431,7 +1430,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                           ),
                                           child: Text(
                                             sellDisabled
-                                                ? 'SELL (No Position)'
+                                                ? 'SELL'
                                                 : 'SELL',
                                             textAlign: TextAlign.center,
                                             style: const TextStyle(
@@ -1468,10 +1467,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                       ),
                                     ),
                                     child: Center(
-                                      child: AnimatedFlipCounter(
-                                        value: buyPrice,
-                                        fractionDigits: 2,
-                                        textStyle: const TextStyle(
+                                      child: Text(
+                                        buyPrice.toStringAsFixed(2),
+                                        style: const TextStyle(
                                           color: Colors.black,
                                           fontSize: 16,
                                           fontFamily: 'Inter',

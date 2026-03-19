@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../services/sercure_storage_service.dart';
-import 'create_trade_margin_view.dart';
+import 'add_trade_margin_to_exchange_view.dart';
 
 class TradeMarginSettingsView extends StatefulWidget {
   const TradeMarginSettingsView({super.key});
@@ -182,33 +182,31 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
                           fontSize: 18,
                           fontFamily: 'Inter',
                           fontWeight: FontWeight.w600))),
-              if (_isAdmin)
+              if (_isAdmin) ...[
                 GestureDetector(
-                  onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const CreateTradeMarginView()))
-                      .then((_) {
-                    if (_selectedExchange != null) _fetch();
-                  }),
+                  onTap: () {
+                    if (_selectedExchange == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select an exchange first')));
+                      return;
+                    }
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => AddTradeMarginToExchangeView(
+                        exchange: _selectedExchange!,
+                        amountType: _selectedAmountType,
+                        isExistingGroup: _items.isNotEmpty,
+                      ),
+                    )).then((_) => _fetch());
+                  },
                   child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                          color: const Color(0xFF3F45C7),
-                          borderRadius: BorderRadius.circular(10)),
-                      child:
-                          const Row(mainAxisSize: MainAxisSize.min, children: [
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(10)),
+                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
                         Icon(Icons.add, color: Colors.white, size: 16),
                         SizedBox(width: 4),
-                        Text('Create',
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w600))
+                        Text('Create', style: TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w600))
                       ])),
                 ),
+              ],
             ])),
 
         // Dropdowns

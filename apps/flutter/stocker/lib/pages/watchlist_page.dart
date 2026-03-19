@@ -512,6 +512,16 @@ class _WatchlistPageState extends State<WatchlistPage> {
                   ? rawBid
                   : (ltp > 0 ? ltp - spread : null);
 
+              // Determine tick color: blue if price went up, red if down
+              final prevBid = item.previousBidPrice;
+              final prevAsk = item.previousAskPrice;
+              final Color bidColor = (prevBid != null && effectiveBid != null && effectiveBid > prevBid)
+                  ? const Color(0xFF3F45C7)
+                  : const Color(0xFFEF4444);
+              final Color askColor = (prevAsk != null && effectiveAsk != null && effectiveAsk > prevAsk)
+                  ? const Color(0xFF3F45C7)
+                  : const Color(0xFFEF4444);
+
               final double? high = item.high;
               final double? low = item.low;
 
@@ -527,21 +537,21 @@ class _WatchlistPageState extends State<WatchlistPage> {
                               ? Text(
                                   effectiveBid.toStringAsFixed(2),
                                   textAlign: TextAlign.end,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontFamily: 'Inter',
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF10B981),
+                                    color: bidColor,
                                   ),
                                 )
-                              : const Text(
+                              : Text(
                                   '--',
                                   textAlign: TextAlign.end,
                                   style: TextStyle(
                                     fontFamily: 'Inter',
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF10B981),
+                                    color: bidColor,
                                   ),
                                 ),
                         ),
@@ -556,21 +566,21 @@ class _WatchlistPageState extends State<WatchlistPage> {
                               ? Text(
                                   effectiveAsk.toStringAsFixed(2),
                                   textAlign: TextAlign.end,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontFamily: 'Inter',
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFFEF4444),
+                                    color: askColor,
                                   ),
                                 )
-                              : const Text(
+                              : Text(
                                   '--',
                                   textAlign: TextAlign.end,
                                   style: TextStyle(
                                     fontFamily: 'Inter',
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFFEF4444),
+                                    color: askColor,
                                   ),
                                 ),
                         ),

@@ -223,7 +223,7 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
                               final r = await AdminService(apiService)
                                   .createTradeMargin(
                                       exchangeName: exchangeName,
-                                      scriptName: inst.tradingsymbol,
+                                      scriptName: inst.rawName,
                                       amountType: localType,
                                       tradeMargin: v);
                               setD(() => adding = false);

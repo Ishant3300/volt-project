@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../services/sercure_storage_service.dart';
 import 'group_quantity_lot_detail_view.dart';
+import 'add_instrument_to_lot_view.dart';
 
 class GroupQuantityView extends StatefulWidget {
   const GroupQuantityView({super.key});
@@ -158,9 +159,10 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                 Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) => GroupQuantityLotDetailView(
+                            builder: (_) => AddInstrumentToLotView(
                                 exchange: _selectedExchange!,
-                                lotName: controller.text)))
+                                lotName: controller.text,
+                                isExistingGroup: false)))
                     .then((_) => _fetchGroupQuantities());
               }
             },

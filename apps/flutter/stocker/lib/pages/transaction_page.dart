@@ -6,6 +6,7 @@ import '../models/master.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
 import '../services/admin_service.dart';
+import '../services/master_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../providers/user_profile_provider.dart';
 import '../utils/contants.dart';
@@ -105,8 +106,11 @@ class _TransactionPageState extends State<TransactionPage> {
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
       final adminService = AdminService(apiService);
+      final masterService = MasterService(apiService);
       final isCredit = _txnType == 0;
       final note = _commentController.text.trim().isEmpty ? null : _commentController.text.trim();
+      final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+      final isMaster = profileProvider.isMaster;
 
       late final dynamic response;
       if (widget.master != null) {
@@ -114,9 +118,14 @@ class _TransactionPageState extends State<TransactionPage> {
             ? await adminService.creditMaster(masterId: widget.master!.id, amount: amount, note: note)
             : await adminService.debitMaster(masterId: widget.master!.id, amount: amount, note: note);
       } else {
+        // Use master endpoint if caller is a master, admin endpoint if caller is admin
         response = isCredit
-            ? await adminService.creditUser(userId: widget.user!.id, amount: amount, note: note)
-            : await adminService.debitUser(userId: widget.user!.id, amount: amount, note: note);
+            ? (isMaster
+                ? await masterService.creditUser(userId: widget.user!.id, amount: amount, note: note)
+                : await adminService.creditUser(userId: widget.user!.id, amount: amount, note: note))
+            : (isMaster
+                ? await masterService.debitUser(userId: widget.user!.id, amount: amount, note: note)
+                : await adminService.debitUser(userId: widget.user!.id, amount: amount, note: note));
       }
 
       if (response.statusCode == 200) {

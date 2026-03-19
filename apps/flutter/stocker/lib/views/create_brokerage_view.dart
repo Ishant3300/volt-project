@@ -220,7 +220,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                                   .createBrokerageSettings(
                                       type: localType,
                                       exchangeName: exchangeName,
-                                      scriptName: inst.tradingsymbol,
+                                      scriptName: inst.rawName,
                                       brkValue: v);
                               setD(() => adding = false);
                               if (r.statusCode == 201) {

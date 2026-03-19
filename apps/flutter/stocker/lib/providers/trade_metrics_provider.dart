@@ -33,18 +33,10 @@ class PositionAgg {
   });
 
   /// True when this position should be measured in lots.
+  /// Only MCX-FUT, MCX-OPT, NFO-OPT use lots. Everything else uses quantity.
   bool get isLotBased {
     final seg = segment.toUpperCase();
-    if (seg.isNotEmpty) {
-      return seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-FUT';
-    }
-    final ex = exchange.toUpperCase();
-    if (ex == 'MCX') return true;
-    if (ex == 'NFO') {
-      final sym = tradingsymbol.toUpperCase();
-      return sym.endsWith('FUT');
-    }
-    return false;
+    return seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-OPT';
   }
 
   /// Net position in lots (for display). Falls back to raw qty if lotSize <= 0.
@@ -163,7 +155,7 @@ class TradeMetricsProvider with ChangeNotifier {
           tradingsymbol: t.tradingSymbol,
         );
         // Propagate lot info from trade (backend enriches each trade)
-        newAgg.lotSize = t.lotSize;
+        newAgg.lotSize = t.lotSize > 1 ? t.lotSize : 1;
         newAgg.segment = t.segment;
         aggMap[t.instrumentToken] = newAgg;
         running[t.instrumentToken] = _RunningPos();
@@ -171,6 +163,10 @@ class TradeMetricsProvider with ChangeNotifier {
 
       final agg = aggMap[t.instrumentToken]!;
       final run = running[t.instrumentToken]!;
+
+      // Always update lotSize/segment in case first trade had defaults
+      if (t.lotSize > 1) agg.lotSize = t.lotSize;
+      if (t.segment.isNotEmpty) agg.segment = t.segment;
 
       if (t.transactionType == 'BUY') {
         // Update running avg buy price

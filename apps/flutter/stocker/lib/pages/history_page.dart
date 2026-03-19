@@ -852,6 +852,13 @@ class _PortfolioPageState extends State<PortfolioPage>
     return result;
   }
 
+  /// Returns the user-friendly instrument name for a trade, falling back to raw tradingSymbol.
+  String _displayName(Trade trade) {
+    final watchlist = Provider.of<WatchlistProvider>(context, listen: false);
+    return watchlist.getByToken(trade.instrumentToken)?.instrument.userFriendlyName
+        ?? trade.tradingSymbol;
+  }
+
   Widget _buildCompletedTradeCard(Trade trade, {_PerTradePnl? tradePnl}) {
     final bool isBuy = trade.transactionType.toUpperCase() == 'BUY';
     final Color sideColor =
@@ -886,7 +893,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                     children: [
                       Flexible(
                         child: Text(
-                          trade.tradingSymbol,
+                          _displayName(trade),
                           style: const TextStyle(
                             color: Colors.black,
                             fontSize: 14,
@@ -1135,7 +1142,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                       children: [
                         // Symbol
                         Text(
-                          trade.tradingSymbol,
+                          _displayName(trade),
                           style: const TextStyle(
                             color: Colors.black,
                             fontSize: 14,

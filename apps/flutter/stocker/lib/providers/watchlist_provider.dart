@@ -334,7 +334,8 @@ class WatchlistProvider with ChangeNotifier {
     );
 
     if (index != -1) {
-      _items[index] = _items[index].copyWith(
+      final oldItem = _items[index];
+      _items[index] = oldItem.copyWith(
         currentPrice: price,
         change: change,
         changePercent: changePercent,
@@ -342,6 +343,8 @@ class WatchlistProvider with ChangeNotifier {
         low: low,
         open: open,
         close: close,
+        previousBidPrice: bidPrice != null ? oldItem.bidPrice : null,
+        previousAskPrice: askPrice != null ? oldItem.askPrice : null,
         bidPrice: bidPrice,
         askPrice: askPrice,
         upperCircuitLimit: upperCircuitLimit,

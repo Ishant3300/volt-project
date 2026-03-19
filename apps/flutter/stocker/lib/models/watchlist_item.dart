@@ -12,6 +12,8 @@ class WatchlistItem {
   double? close;
   double? bidPrice;  // Best bid (buy) price
   double? askPrice;  // Best ask (sell) price
+  double? previousBidPrice;  // Previous bid for tick color
+  double? previousAskPrice;  // Previous ask for tick color
   double? upperCircuitLimit;
   double? lowerCircuitLimit;
   DateTime? lastUpdated;
@@ -28,6 +30,8 @@ class WatchlistItem {
     this.close,
     this.bidPrice,
     this.askPrice,
+    this.previousBidPrice,
+    this.previousAskPrice,
     this.upperCircuitLimit,
     this.lowerCircuitLimit,
     this.lastUpdated,
@@ -45,6 +49,8 @@ class WatchlistItem {
     double? close,
     double? bidPrice,
     double? askPrice,
+    double? previousBidPrice,
+    double? previousAskPrice,
     double? upperCircuitLimit,
     double? lowerCircuitLimit,
     DateTime? lastUpdated,
@@ -61,6 +67,8 @@ class WatchlistItem {
       close: close ?? this.close,
       bidPrice: bidPrice ?? this.bidPrice,
       askPrice: askPrice ?? this.askPrice,
+      previousBidPrice: previousBidPrice ?? this.previousBidPrice,
+      previousAskPrice: previousAskPrice ?? this.previousAskPrice,
       upperCircuitLimit: upperCircuitLimit ?? this.upperCircuitLimit,
       lowerCircuitLimit: lowerCircuitLimit ?? this.lowerCircuitLimit,
       lastUpdated: lastUpdated ?? this.lastUpdated,

@@ -7,7 +7,7 @@ import '../services/admin_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../models/script_quantity.dart';
 import '../utils/date_formatter.dart';
-import 'create_script_quantity_view.dart';
+import 'add_script_qty_to_exchange_view.dart';
 
 class ScriptQuantitySettingsView extends StatefulWidget {
   const ScriptQuantitySettingsView({super.key});
@@ -22,6 +22,8 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
   final TextEditingController _brkQtyController = TextEditingController();
   final SecureStorageService _storage = SecureStorageService();
   
+  String? _selectedExchange;
+  final _exchanges = ['NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'GLOBAL', 'SGX'];
   List<ScriptQuantity> _scriptItems = [];
   List<ScriptQuantity> _filteredItems = [];
   Set<String> _selectedIds = {};
@@ -198,16 +200,17 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                   ),
                   if (_isAdmin)
                     GestureDetector(
-                      onTap: () async {
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const CreateScriptQuantityView(),
-                          ),
-                        );
-                        if (result == true) {
-                          _loadScriptQuantities();
+                      onTap: () {
+                        if (_selectedExchange == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select an exchange first')));
+                          return;
                         }
+                        Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => AddScriptQtyToExchangeView(
+                            exchange: _selectedExchange!,
+                            isExistingGroup: _filteredItems.isNotEmpty,
+                          ),
+                        )).then((_) => _loadScriptQuantities());
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -231,6 +234,35 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                 ],
               ),
             ),
+
+            // Exchange Selector
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Container(
+                height: 42,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedExchange,
+                    hint: const Text('Select Exchange', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter')),
+                    isExpanded: true,
+                    icon: const Icon(Icons.keyboard_arrow_down, size: 18, color: Color(0xFF94A3B8)),
+                    style: const TextStyle(color: Colors.black, fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+                    items: _exchanges.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                    onChanged: (v) {
+                      setState(() => _selectedExchange = v);
+                      _loadScriptQuantities();
+                    },
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
 
             // Search Bar
             Container(
@@ -511,47 +543,9 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                       ),
                                                     ),
                                                     child: Row(
-                                                      mainAxisSize: MainAxisSize.min,
                                                       children: [
                                                         const Text(
-                                                          'Lot size ',
-                                                          style: TextStyle(
-                                                            color: Colors.black,
-                                                            fontSize: 10,
-                                                            fontFamily: 'Inter',
-                                                            fontWeight: FontWeight.w400,
-                                                          ),
-                                                        ),
-                                                        Text(
-                                                          item.lotSize.toStringAsFixed(2),
-                                                          style: const TextStyle(
-                                                            color: Colors.black,
-                                                            fontSize: 12,
-                                                            fontFamily: 'Inter',
-                                                            fontWeight: FontWeight.w500,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Expanded(
-                                                child: Opacity(
-                                                  opacity: 0.80,
-                                                  child: Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                    decoration: ShapeDecoration(
-                                                      color: const Color(0xFFE5E5EA),
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius: BorderRadius.circular(4),
-                                                      ),
-                                                    ),
-                                                    child: Row(
-                                                      children: [
-                                                        const Text(
-                                                          'Brk Qty ',
+                                                          'Lot ',
                                                           style: TextStyle(
                                                             color: Colors.black,
                                                             fontSize: 10,
@@ -561,7 +555,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                         ),
                                                         Flexible(
                                                           child: Text(
-                                                            item.brkQty.toStringAsFixed(2),
+                                                            item.lotSize.toStringAsFixed(0),
                                                             style: const TextStyle(
                                                               color: Colors.black,
                                                               fontSize: 12,
@@ -591,7 +585,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                     child: Row(
                                                       children: [
                                                         const Text(
-                                                          'Qty Max ',
+                                                          'Brk ',
                                                           style: TextStyle(
                                                             color: Colors.black,
                                                             fontSize: 10,
@@ -601,7 +595,47 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                         ),
                                                         Flexible(
                                                           child: Text(
-                                                            item.maxQty.toStringAsFixed(2),
+                                                            item.brkQty.toStringAsFixed(0),
+                                                            style: const TextStyle(
+                                                              color: Colors.black,
+                                                              fontSize: 12,
+                                                              fontFamily: 'Inter',
+                                                              fontWeight: FontWeight.w500,
+                                                            ),
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Expanded(
+                                                child: Opacity(
+                                                  opacity: 0.80,
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                    decoration: ShapeDecoration(
+                                                      color: const Color(0xFFE5E5EA),
+                                                      shape: RoundedRectangleBorder(
+                                                        borderRadius: BorderRadius.circular(4),
+                                                      ),
+                                                    ),
+                                                    child: Row(
+                                                      children: [
+                                                        const Text(
+                                                          'Max ',
+                                                          style: TextStyle(
+                                                            color: Colors.black,
+                                                            fontSize: 10,
+                                                            fontFamily: 'Inter',
+                                                            fontWeight: FontWeight.w400,
+                                                          ),
+                                                        ),
+                                                        Flexible(
+                                                          child: Text(
+                                                            item.maxQty.toStringAsFixed(0),
                                                             style: const TextStyle(
                                                               color: Colors.black,
                                                               fontSize: 12,

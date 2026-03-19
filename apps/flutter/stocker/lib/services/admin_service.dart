@@ -538,6 +538,43 @@ class AdminService {
     return await _apiService.delete('/admin/grouped-quantities/$id', token: token);
   }
 
+  /// Get unique raw_names by segment
+  Future<http.Response> getUniqueRawNamesBySegment(String segment) async {
+    final token = await _storage.getToken();
+    return await _apiService.get('/admin/grouped-quantities/unique-raw-names/$segment', token: token);
+  }
+
+  /// Bulk create a group with all instruments for a segment
+  Future<http.Response> bulkCreateGroup({
+    required String exchangeName,
+    required String lotName,
+    required double defaultMaxQty,
+    required double defaultBreakQty,
+  }) async {
+    final data = {
+      'exchange_name': exchangeName,
+      'lot_name': lotName,
+      'default_max_qty': defaultMaxQty,
+      'default_break_qty': defaultBreakQty,
+    };
+    final token = await _storage.getToken();
+    return await _apiService.post('/admin/grouped-quantities/bulk-create', data, token: token);
+  }
+
+  /// Get all instruments in a specific group
+  Future<http.Response> getGroupInstruments({
+    required String exchangeName,
+    required String lotName,
+    int page = 1,
+    int limit = 500,
+  }) async {
+    final token = await _storage.getToken();
+    return await _apiService.get(
+      '/admin/grouped-quantities/group/$exchangeName/$lotName?page=$page&limit=$limit',
+      token: token,
+    );
+  }
+
   // ============================================
   // Script Quantity Management
   // ============================================
@@ -752,6 +789,91 @@ class AdminService {
   Future<http.Response> deleteBrokerageSettings(String id) async {
     final token = await _storage.getToken();
     return await _apiService.delete('/admin/brokerage-settings/$id', token: token);
+  }
+
+  /// Bulk create brokerage settings for all raw_names in a segment
+  Future<http.Response> bulkCreateBrokerage({
+    required String exchangeName,
+    required String type,
+    required double defaultBrkValue,
+  }) async {
+    final data = {
+      'exchange_name': exchangeName,
+      'type': type,
+      'default_brk_value': defaultBrkValue,
+    };
+    final token = await _storage.getToken();
+    return await _apiService.post('/admin/brokerage-settings/bulk-create', data, token: token);
+  }
+
+  /// Get brokerage settings by exchange with optional type filter
+  Future<http.Response> getBrokerageByExchange({
+    required String exchangeName,
+    String? type,
+    int page = 1,
+    int limit = 500,
+  }) async {
+    final queryParams = <String>['page=$page', 'limit=$limit'];
+    if (type != null) queryParams.add('type=$type');
+    final queryString = '?${queryParams.join('&')}';
+    final token = await _storage.getToken();
+    return await _apiService.get('/admin/brokerage-settings/exchange/$exchangeName$queryString', token: token);
+  }
+
+  /// Bulk create trade margins for all raw_names in a segment
+  Future<http.Response> bulkCreateTradeMargin({
+    required String exchangeName,
+    required String amountType,
+    required double defaultTradeMargin,
+  }) async {
+    final data = {
+      'exchange_name': exchangeName,
+      'amount_type': amountType,
+      'default_trade_margin': defaultTradeMargin,
+    };
+    final token = await _storage.getToken();
+    return await _apiService.post('/admin/trade-margins/bulk-create', data, token: token);
+  }
+
+  /// Get trade margins by exchange with optional amount_type filter
+  Future<http.Response> getTradeMarginByExchange({
+    required String exchangeName,
+    String? amountType,
+    int page = 1,
+    int limit = 500,
+  }) async {
+    final queryParams = <String>['page=$page', 'limit=$limit'];
+    if (amountType != null) queryParams.add('amount_type=$amountType');
+    final queryString = '?${queryParams.join('&')}';
+    final token = await _storage.getToken();
+    return await _apiService.get('/admin/trade-margins/exchange/$exchangeName$queryString', token: token);
+  }
+
+  /// Bulk create script quantities for all raw_names in a segment
+  Future<http.Response> bulkCreateScriptQuantity({
+    required String exchangeName,
+    required double defaultMaxQty,
+    required double defaultBrkQty,
+  }) async {
+    final data = {
+      'exchange_name': exchangeName,
+      'default_max_qty': defaultMaxQty,
+      'default_brk_qty': defaultBrkQty,
+    };
+    final token = await _storage.getToken();
+    return await _apiService.post('/admin/script-quantities/bulk-create', data, token: token);
+  }
+
+  /// Get script quantities by exchange
+  Future<http.Response> getScriptQuantityByExchange({
+    required String exchangeName,
+    int page = 1,
+    int limit = 500,
+  }) async {
+    final queryParams = <String>['page=$page', 'limit=$limit'];
+    final queryString = '?${queryParams.join('&')}';
+    final token = await _storage.getToken();
+    return await _apiService.get('/admin/script-quantities/exchange/$exchangeName$queryString', token: token);
   }
 
   // ============================================

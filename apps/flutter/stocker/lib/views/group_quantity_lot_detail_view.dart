@@ -41,7 +41,7 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
           final List<dynamic> allDocs = data['data']['grouped_quantities'] ?? [];
           List<Map<String, dynamic>> filtered = [];
           for (var doc in allDocs) {
-            if (doc['exchange_name']?.toString().toUpperCase() == widget.exchange && doc['lot_name'] == widget.lotName) {
+            if (doc['exchange_name']?.toString().toUpperCase() == (widget.exchange.toUpperCase() == 'GLOBAL' ? 'INDICES' : widget.exchange) && doc['lot_name'] == widget.lotName) {
               filtered.add({'id': doc['id'], 'instrument_id': doc['instrument_id'], 'instrument_symbol': doc['instrument_symbol'], 'max_qty': doc['max_qty'], 'break_qty': doc['break_qty'], 'lot_size': doc['lot_size']});
             }
           }
@@ -87,15 +87,15 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
           ])),
         ])),
 
-        // Add button (admin)
+        // Edit button (admin) — opens inline editable list
         if (_isAdmin)
           Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AddInstrumentToLotView(exchange: widget.exchange, lotName: widget.lotName))).then((_) => _fetchLotData()),
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AddInstrumentToLotView(exchange: widget.exchange, lotName: widget.lotName, isExistingGroup: true))).then((_) => _fetchLotData()),
             child: Container(height: 42, alignment: Alignment.center,
               decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(12)),
               child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(Icons.add, color: Colors.white, size: 18), SizedBox(width: 6),
-                Text('Add Instrument', style: TextStyle(color: Colors.white, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                Icon(Icons.edit, color: Colors.white, size: 18), SizedBox(width: 6),
+                Text('Edit Instruments', style: TextStyle(color: Colors.white, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
               ]),
             ),
           )),
@@ -111,7 +111,9 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
                 itemCount: _instruments.length,
                 itemBuilder: (_, i) {
                   final inst = _instruments[i];
-                  return Container(
+                  return GestureDetector(
+                    onTap: _isAdmin ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => AddInstrumentToLotView(exchange: widget.exchange, lotName: widget.lotName, isExistingGroup: true))).then((_) => _fetchLotData()) : null,
+                    child: Container(
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20),
@@ -148,6 +150,7 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
                             child: const Icon(Icons.delete_outline, size: 18, color: Color(0xFFEF4444))),
                         ),
                     ]),
+                  ),
                   );
                 },
               )),
