@@ -27,7 +27,7 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
     'SGX'
   ];
   final _amountTypes = ['amount', 'percentage'];
-  static const _percentageSegments = {'MCX-FUT', 'MCX-OPT', 'GLOBAL', 'SGX'};
+  static const _amountSegments = {'MCX-FUT', 'MCX-OPT'};
   List<Map<String, dynamic>> _items = [];
   Map<String, bool> _selected = {};
   bool _isLoading = false;
@@ -42,9 +42,9 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
       if (!_hasInitialized && _selectedExchange == null) {
         setState(() {
           _selectedExchange = _exchanges.first;
-          _selectedAmountType = _percentageSegments.contains(_exchanges.first)
-              ? 'percentage'
-              : 'amount';
+          _selectedAmountType = _amountSegments.contains(_exchanges.first)
+              ? 'amount'
+              : 'percentage';
           _hasInitialized = true;
         });
         _fetch();
@@ -242,9 +242,9 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
                       setState(() {
                         _selectedExchange = ex;
                         _selectedAmountType =
-                            _percentageSegments.contains(ex)
-                                ? 'percentage'
-                                : 'amount';
+                            _amountSegments.contains(ex)
+                                ? 'amount'
+                                : 'percentage';
                       });
                       _fetch();
                     },
