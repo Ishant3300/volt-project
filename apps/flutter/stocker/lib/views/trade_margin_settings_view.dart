@@ -27,15 +27,29 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
     'SGX'
   ];
   final _amountTypes = ['amount', 'percentage'];
+  static const _percentageSegments = {'MCX-FUT', 'MCX-OPT', 'GLOBAL', 'SGX'};
   List<Map<String, dynamic>> _items = [];
   Map<String, bool> _selected = {};
   bool _isLoading = false;
+  bool _hasInitialized = false;
   bool _isAdmin = false;
 
   @override
   void initState() {
     super.initState();
     _checkRole();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_hasInitialized && _selectedExchange == null) {
+        setState(() {
+          _selectedExchange = _exchanges.first;
+          _selectedAmountType = _percentageSegments.contains(_exchanges.first)
+              ? 'percentage'
+              : 'amount';
+          _hasInitialized = true;
+        });
+        _fetch();
+      }
+    });
   }
 
   @override
@@ -47,6 +61,12 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
   Future<void> _checkRole() async {
     final role = await SecureStorageService().getRole();
     setState(() => _isAdmin = role == 'ADMIN');
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_hasInitialized && _selectedExchange != null) _fetch();
   }
 
   Future<void> _fetch() async {
@@ -185,10 +205,6 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
               if (_isAdmin) ...[
                 GestureDetector(
                   onTap: () {
-                    if (_selectedExchange == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select an exchange first')));
-                      return;
-                    }
                     Navigator.push(context, MaterialPageRoute(
                       builder: (_) => AddTradeMarginToExchangeView(
                         exchange: _selectedExchange!,
@@ -209,23 +225,60 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
               ],
             ])),
 
-        // Dropdowns
+        // Exchange chips
         Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(children: [
-              Expanded(
-                  child: _dropdown(
-                      _selectedExchange, ['__hint__', ..._exchanges], (v) {
-                setState(() => _selectedExchange = v == '__hint__' ? null : v);
-                _fetch();
-              }, displayMap: {'__hint__': 'Exchange'})),
-              const SizedBox(width: 8),
-              Expanded(
-                  child: _dropdown(_selectedAmountType, _amountTypes, (v) {
-                setState(() => _selectedAmountType = v!);
-                _fetch();
-              })),
-            ])),
+            child: SizedBox(
+              height: 36,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _exchanges.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (_, i) {
+                  final ex = _exchanges[i];
+                  final sel = ex == _selectedExchange;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedExchange = ex;
+                        _selectedAmountType =
+                            _percentageSegments.contains(ex)
+                                ? 'percentage'
+                                : 'amount';
+                      });
+                      _fetch();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: sel ? const Color(0xFF3F45C7) : Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        border: sel
+                            ? null
+                            : Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Text(ex,
+                          style: TextStyle(
+                              color:
+                                  sel ? Colors.white : const Color(0xFF64748B),
+                              fontSize: 13,
+                              fontFamily: 'Inter',
+                              fontWeight: FontWeight.w600)),
+                    ),
+                  );
+                },
+              ),
+            )),
+        const SizedBox(height: 8),
+
+        // Amount type dropdown (locked based on exchange)
+        Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Opacity(
+              opacity: 0.6,
+              child: _dropdown(_selectedAmountType, _amountTypes, null),
+            )),
         const SizedBox(height: 8),
 
         // Value + Apply
@@ -319,8 +372,8 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
               : _items.isEmpty
                   ? Center(
                       child: Text(
-                          _selectedExchange == null
-                              ? 'Select an exchange'
+                          _isAdmin
+                              ? 'No settings found. Create one!'
                               : 'No settings found',
                           style: const TextStyle(
                               color: Color(0xFF94A3B8),
@@ -369,7 +422,7 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
   }
 
   Widget _dropdown(
-      String? value, List<String> items, ValueChanged<String?> onChanged,
+      String? value, List<String> items, ValueChanged<String?>? onChanged,
       {Map<String, String>? displayMap}) {
     return Container(
       height: 42,

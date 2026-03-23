@@ -325,28 +325,57 @@ class PdfReportService {
         final rate = (t['rate'] as num?)?.toDouble() ?? 0;
         final br = (t['brokerage'] as num?)?.toDouble() ?? 0;
 
+        final isLiveRow = type == 'LIVE' || type == 'EXPIRED' || type == 'CLOSED';
+
         double net = 0;
         if (type == 'BUY') {
-          // Accumulate buy cost
           totalBoughtQty += bQty;
           avgBuyPrice = ((avgBuyPrice * (totalBoughtQty - bQty)) + (rate * bQty)) / totalBoughtQty;
-          net = 0; // Buy trades show 0 net
+          net = 0;
+        } else if (isLiveRow) {
+          // LIVE row: virtual close at market price — compute unrealized P&L
+          // If it has a pre-computed net from backend, use it; otherwise compute
+          if (t['net'] != null) {
+            net = (t['net'] as num).toDouble();
+          } else {
+            net = (rate - avgBuyPrice) * sQty;
+          }
         } else {
-          // Sell: compute P&L against avg buy
+          // Regular Sell
           net = (rate - avgBuyPrice) * sQty;
           totalBoughtQty -= sQty;
           if (totalBoughtQty < 0) totalBoughtQty = 0;
         }
 
-        final typeColor = type == 'BUY' ? PdfColors.blue : PdfColors.red;
+        final PdfColor typeColor;
+        final PdfColor? rowBg;
+        if (isLiveRow) {
+          typeColor = PdfColors.red;
+          rowBg = null;
+        } else if (type == 'BUY') {
+          typeColor = PdfColors.blue;
+          rowBg = null;
+        } else {
+          typeColor = PdfColors.red;
+          rowBg = null;
+        }
 
-        rows.add(pw.TableRow(children: [
+        final String typeLabel;
+        if (isLiveRow) {
+          typeLabel = type; // LIVE, EXPIRED, or CLOSED
+        } else {
+          typeLabel = type == 'BUY' ? 'Buy' : 'Sell';
+        }
+
+        rows.add(pw.TableRow(
+          decoration: rowBg != null ? pw.BoxDecoration(color: rowBg) : null,
+          children: [
           _cell(_dateFmt.format(date), cs),
-          _cell(type == 'BUY' ? 'Buy' : 'Sell', cs.copyWith(color: typeColor)),
+          _cell(typeLabel, cs.copyWith(color: typeColor, fontWeight: isLiveRow ? pw.FontWeight.bold : null)),
           _cell(bQty > 0 ? _fmt.format(bQty) : '', cs),
           _cell(sQty > 0 ? _fmt.format(sQty) : '', cs),
           _cell(_fmt.format(rate), cs),
-          _cell(_fmt.format(br), cs),
+          _cell(isLiveRow ? '-' : _fmt.format(br), cs),
           _cell(_fmt.format(net), cs.copyWith(color: net < 0 ? PdfColors.red : PdfColors.black)),
         ]));
       }

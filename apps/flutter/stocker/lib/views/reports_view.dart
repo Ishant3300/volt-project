@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
+import 'dart:developer';
 import 'package:printing/printing.dart';
 import '../providers/user_profile_provider.dart';
 import '../services/api_service.dart';
+import '../services/kite_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../services/pdf_report_service.dart';
 import '../utils/contants.dart';
@@ -356,7 +358,6 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
   }
 
   Future<void> _generatePdf() async {
-    // Both modes now use date pickers
     if (_fromDate == null || _toDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select both From and To dates')),
@@ -381,7 +382,13 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         if (body['success'] == true) {
-          final reportData = body['data'];
+          Map<String, dynamic> reportData = body['data'];
+
+          // For Live M2M mode, enrich with live positions client-side
+          if (_selectedMode == 1) {
+            reportData = await _enrichWithLivePositions(reportData, api, token);
+          }
+
           final pdf = _selectedMode == 0
               ? PdfReportService.generateDefaultReport(reportData)
               : PdfReportService.generateAdvancedReport(reportData);
@@ -409,6 +416,156 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  /// Walk through each instrument's all_trades to find open positions,
+  /// fetch live prices, and inject LIVE rows + carry_forward entries.
+  Future<Map<String, dynamic>> _enrichWithLivePositions(
+    Map<String, dynamic> reportData,
+    ApiService api,
+    String? token,
+  ) async {
+    final kite = KiteService(api);
+    final instruments = List<Map<String, dynamic>>.from(
+      (reportData['instruments'] as List?)?.map((e) => Map<String, dynamic>.from(e)) ?? [],
+    );
+    final List<Map<String, dynamic>> carryForward = [];
+    double totalLivePnlAdjustment = 0;
+
+    for (int i = 0; i < instruments.length; i++) {
+      final instr = Map<String, dynamic>.from(instruments[i]);
+      final allTrades = List<Map<String, dynamic>>.from(
+        (instr['all_trades'] as List?)?.map((e) => Map<String, dynamic>.from(e)) ?? [],
+      );
+      final exchange = (instr['exchange'] ?? '').toString();
+      final symbol = (instr['tradingsymbol'] ?? '').toString();
+
+      // Compute net open position by walking trades chronologically
+      double netQty = 0;
+      double totalBuyQty = 0;
+      double totalBuyValue = 0;
+      double totalSellQty = 0;
+      double totalSellValue = 0;
+
+      for (final t in allTrades) {
+        final type = (t['type'] ?? '').toString().toUpperCase();
+        final bQty = (t['buy_qty'] as num?)?.toDouble() ?? 0;
+        final sQty = (t['sell_qty'] as num?)?.toDouble() ?? 0;
+        final rate = (t['rate'] as num?)?.toDouble() ?? 0;
+
+        if (type == 'BUY') {
+          netQty += bQty;
+          totalBuyQty += bQty;
+          totalBuyValue += bQty * rate;
+        } else if (type == 'SELL') {
+          netQty -= sQty;
+          totalSellQty += sQty;
+          totalSellValue += sQty * rate;
+        }
+      }
+
+      // If there's an open position, fetch live price and inject LIVE row
+      if (netQty.abs() > 0.001) {
+        double? livePrice;
+
+        try {
+          // Search for instrument to get token
+          final searchResults = await kite.searchInstruments(
+            symbol,
+            exchange: exchange,
+            limit: 5,
+          );
+
+          String? instrumentToken;
+          for (final result in searchResults) {
+            final rSymbol = (result['tradingsymbol'] ?? '').toString();
+            final rExchange = (result['exchange'] ?? '').toString();
+            if (rSymbol == symbol && rExchange == exchange) {
+              instrumentToken = (result['instrument_token'] ?? '').toString();
+              break;
+            }
+          }
+
+          if (instrumentToken != null && instrumentToken.isNotEmpty) {
+            final depth = await kite.getMarketDepth(instrumentToken);
+            if (depth != null) {
+              livePrice = depth.lastPrice;
+            }
+          }
+        } catch (e) {
+          log('⚠️ Could not fetch live price for $symbol: $e');
+        }
+
+        if (livePrice != null) {
+          final now = DateTime.now();
+          final bool isLong = netQty > 0;
+          final double openQty = netQty.abs();
+          final double avgEntryPrice = isLong
+              ? (totalBuyQty > 0 ? totalBuyValue / totalBuyQty : 0)
+              : (totalSellQty > 0 ? totalSellValue / totalSellQty : 0);
+
+          // Unrealized P&L: for long = (livePrice - avgBuy) * qty
+          //                  for short = (avgSell - livePrice) * qty
+          final double unrealizedPnl = isLong
+              ? (livePrice - avgEntryPrice) * openQty
+              : (avgEntryPrice - livePrice) * openQty;
+
+          // Inject LIVE row into all_trades
+          final liveRow = {
+            'date': now.toIso8601String(),
+            'type': 'LIVE',
+            'buy_qty': isLong ? 0 : openQty,
+            'sell_qty': isLong ? openQty : 0,
+            'rate': livePrice,
+            'brokerage': 0,
+            'net': unrealizedPnl,
+          };
+          allTrades.add(liveRow);
+
+          // Update instrument totals to include the LIVE virtual close
+          if (isLong) {
+            instr['total_sell_qty'] = ((instr['total_sell_qty'] as num?)?.toDouble() ?? 0) + openQty;
+          } else {
+            instr['total_buy_qty'] = ((instr['total_buy_qty'] as num?)?.toDouble() ?? 0) + openQty;
+          }
+
+          // Adjust P&L to include unrealized
+          final existingPnl = (instr['pnl'] as num?)?.toDouble() ?? 0;
+          final existingBrokerage = (instr['brokerage'] as num?)?.toDouble() ?? 0;
+          instr['pnl'] = existingPnl + unrealizedPnl;
+          instr['net_pnl'] = (existingPnl + unrealizedPnl) - existingBrokerage;
+          totalLivePnlAdjustment += unrealizedPnl;
+
+          // Add carry forward entry
+          carryForward.add({
+            'exchange': exchange,
+            'tradingsymbol': symbol,
+            'type': isLong ? 'Buy' : 'Sell',
+            'quantity': openQty,
+            'price': avgEntryPrice,
+          });
+        }
+      }
+
+      instr['all_trades'] = allTrades;
+      instruments[i] = instr;
+    }
+
+    // Update summary totals
+    final summary = Map<String, dynamic>.from(reportData['summary'] ?? {});
+    if (totalLivePnlAdjustment != 0) {
+      final oldTotalPnl = (summary['total_pnl'] as num?)?.toDouble() ?? 0;
+      final totalBrokerage = (summary['total_brokerage'] as num?)?.toDouble() ?? 0;
+      summary['total_pnl'] = oldTotalPnl + totalLivePnlAdjustment;
+      summary['net_pnl'] = (oldTotalPnl + totalLivePnlAdjustment) - totalBrokerage;
+    }
+
+    return {
+      ...reportData,
+      'instruments': instruments,
+      'summary': summary,
+      'carry_forward': carryForward,
+    };
   }
 
   @override
