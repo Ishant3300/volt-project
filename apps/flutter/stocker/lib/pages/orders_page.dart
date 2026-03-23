@@ -961,11 +961,9 @@ class _OrdersPageState extends State<OrdersPage> {
         final double credit = provider.credit;
         final double marginUsed = provider.marginUsed;
 
-        // Equity = Credit + M2M P&L
-        final double equity = credit + m2m;
-
-        // Free Margin = Equity - Margin Used
-        final double freeMargin = equity - marginUsed;
+        // Use server-calculated equity & free margin when available
+        final double equity = provider.equity;
+        final double freeMargin = provider.freeMargin;
 
         final isPosPnlPositive = posPnl >= 0;
 

@@ -86,6 +86,21 @@ class TradeMetricsProvider with ChangeNotifier {
 
   TradeMetricsProvider({required this.userProfileProvider});
 
+  /// Accept server-pushed metrics from WebSocket (metricsEngine).
+  /// These are the 6 authoritative values calculated on the backend.
+  void updateFromServer(Map<String, dynamic> data) {
+    _realisedPnl = (data['realised_pnl'] as num?)?.toDouble() ?? _realisedPnl;
+    _positionPnl = (data['position_pnl'] as num?)?.toDouble() ?? _positionPnl;
+    _m2mPnl = (data['m2m_pnl'] as num?)?.toDouble() ?? _m2mPnl;
+    _marginUsed = (data['margin_used'] as num?)?.toDouble() ?? _marginUsed;
+    _equity = (data['equity'] as num?)?.toDouble() ?? _equity;
+    _freeMargin = (data['free_margin'] as num?)?.toDouble() ?? _freeMargin;
+    if (data['credit'] != null) {
+      _credit = (data['credit'] as num).toDouble();
+    }
+    notifyListeners();
+  }
+
   Future<void> fetchBaseData() async {
     _isLoading = true;
     notifyListeners();
@@ -242,20 +257,43 @@ class TradeMetricsProvider with ChangeNotifier {
       // Calculate margin
       double positionMargin = 0;
       if (netQty != 0) {
-        // Find margin rule safely
+        // Find margin rule safely.
+        // TradeMargin records use segment names (e.g. 'MCX-FUT', 'NFO-FUT')
+        // while trade.exchange stores base exchange ('MCX', 'NFO').
+        // Try segment first, then fall back to exchange.
         TradeMargin? rule;
         try {
-          rule = _margins.firstWhere((m) => m.exchangeName == agg.exchange);
+          rule = _margins.firstWhere(
+              (m) => m.exchangeName == agg.segment.toUpperCase());
         } catch (_) {
-          // firstWhere throws StateError if no element is found
           rule = null;
+        }
+        if (rule == null) {
+          try {
+            rule = _margins.firstWhere(
+                (m) => m.exchangeName == agg.exchange.toUpperCase());
+          } catch (_) {
+            rule = null;
+          }
         }
 
         if (rule != null) {
-          if (rule.amountType == 'percentage') {
-            double contractValue = netQty.abs() * ltp;
-            positionMargin = (contractValue * rule.tradeMargin) / 100;
+          final seg = agg.segment.toUpperCase();
+          final bool isLotBased =
+              seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-OPT';
+
+          if (isLotBased && rule.amountType == 'amount') {
+            // Lot-based: trade_margin is flat amount per LOT
+            final lots = agg.lotSize > 1
+                ? netQty.abs() / agg.lotSize
+                : netQty.abs().toDouble();
+            positionMargin = lots * rule.tradeMargin;
+          } else if (rule.amountType == 'percentage') {
+            // Percentage-based: margin = qty * ltp * (margin% / 100)
+            positionMargin =
+                netQty.abs() * ltp * (rule.tradeMargin / 100);
           } else {
+            // Flat amount fallback
             positionMargin = netQty.abs() * rule.tradeMargin;
           }
         }
@@ -274,14 +312,14 @@ class TradeMetricsProvider with ChangeNotifier {
 
     _positions = aggMap.values.toList();
 
-    // #4/#6 FIX: Realised P&L = sum of per-trade pnl stored by backend at execution time.
-    // This is more accurate than recalculating from avg-price aggregations.
-    _realisedPnl = sortedTrades
-        .where((t) => t.pnl != 0)
-        .fold(0.0, (sum, t) => sum + t.pnl);
+    // Realised P&L = sum of (pnl − brokerage) across all completed trades.
+    // Captures booked profit/loss minus brokerage charges.
+    _realisedPnl = sortedTrades.fold(
+        0.0, (sum, t) => sum + (t.pnl - t.brokerage));
     _positionPnl = totalFloating;
-    _m2mPnl = _realisedPnl + totalFloating;
-    _equity = _balance + _m2mPnl;
+    _m2mPnl = _realisedPnl + _positionPnl;
+    // Equity = Credit + M2M P&L
+    _equity = _credit + _m2mPnl;
     _marginUsed = totalMargin;
     _freeMargin = _equity - _marginUsed;
 

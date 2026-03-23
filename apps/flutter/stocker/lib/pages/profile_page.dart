@@ -11,7 +11,6 @@ import '../services/sercure_storage_service.dart';
 import '../services/auth_service.dart';
 import '../services/multi_account_service.dart';
 import '../providers/user_profile_provider.dart';
-import '../providers/trade_metrics_provider.dart';
 import '../pages/login_page.dart';
 import '../services/firebase_service.dart';
 import '../pages/account_switcher_sheet.dart';
@@ -341,91 +340,6 @@ class _ProfilePageState extends State<ProfilePage> {
                               size: 18, color: Color(0xFF94A3B8)),
                         ],
                       ),
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 4),
-
-              // Balance and Credit summary
-              Consumer<TradeMetricsProvider>(
-                builder: (context, metricsProvider, child) {
-                  return Container(
-                    margin:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-                    padding: const EdgeInsets.all(10),
-                    decoration: ShapeDecoration(
-                      color: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        side: const BorderSide(
-                            width: 1, color: Color(0xFFE2E8F0)),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'BALANCE',
-                                style: TextStyle(
-                                  color: Color(0xFF64748B),
-                                  fontSize: 10,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                metricsProvider.balance.toStringAsFixed(2),
-                                style: const TextStyle(
-                                  color: Color(0xFF0F172A),
-                                  fontSize: 16,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          width: 1,
-                          height: 40,
-                          color: const Color(0xFFE2E8F0),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'CREDIT',
-                                style: TextStyle(
-                                  color: Color(0xFF64748B),
-                                  fontSize: 10,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                metricsProvider.credit.toStringAsFixed(2),
-                                style: const TextStyle(
-                                  color: Color(0xFF0F172A),
-                                  fontSize: 16,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
                     ),
                   );
                 },
