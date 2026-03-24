@@ -11,6 +11,7 @@ import '../services/sercure_storage_service.dart';
 import '../services/auth_service.dart';
 import '../services/multi_account_service.dart';
 import '../providers/user_profile_provider.dart';
+import '../providers/trade_metrics_provider.dart';
 import '../pages/login_page.dart';
 import '../services/firebase_service.dart';
 import '../pages/account_switcher_sheet.dart';
@@ -96,6 +97,11 @@ class _ProfilePageState extends State<ProfilePage> {
 
       // Clear profile data
       profileProvider.clearProfile();
+
+      // Clear trade metrics (stale data from previous session)
+      final metricsProvider =
+          Provider.of<TradeMetricsProvider>(context, listen: false);
+      metricsProvider.clear();
 
       if (!mounted) return;
 

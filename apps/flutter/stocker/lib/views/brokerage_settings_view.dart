@@ -59,27 +59,26 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
     });
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
-      final res =
-          await AdminService(apiService).getAllBrokerageSettings(limit: 1000);
+      final effectiveExchange =
+          _selectedExchange == 'GLOBAL' ? 'INDICES' : _selectedExchange!;
+      final res = await AdminService(apiService).getBrokerageByExchange(
+        exchangeName: effectiveExchange,
+        type: _selectedType,
+        limit: 2000,
+      );
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data['success'] == true) {
-          final List<dynamic> all = data['data']['brokerage_settings'] ?? [];
+          final List<dynamic> items = data['data']['items'] ?? [];
           List<Map<String, dynamic>> filtered = [];
-          final effectiveExchange =
-              _selectedExchange == 'GLOBAL' ? 'INDICES' : _selectedExchange;
-          for (var s in all) {
-            if (s['exchange_name']?.toString().toUpperCase() ==
-                    effectiveExchange &&
-                s['type']?.toString().toUpperCase() == _selectedType) {
-              filtered.add({
-                'id': s['id'],
-                'script_name': s['script_name'],
-                'brk_value': s['brk_value'],
-                'type': s['type'],
-                'exchange_name': s['exchange_name']
-              });
-            }
+          for (var s in items) {
+            filtered.add({
+              'id': s['id'],
+              'script_name': s['script_name'],
+              'brk_value': s['brk_value'],
+              'type': s['type'],
+              'exchange_name': s['exchange_name']
+            });
           }
           setState(() => _items = filtered);
         }

@@ -93,11 +93,6 @@ class WatchlistProvider with ChangeNotifier {
       tradeMetricsProvider?.fetchBaseData();
     };
 
-    _livePriceService.onMetricsUpdate = (data) {
-      // Server-pushed metrics: update provider directly (no local recalculation needed)
-      tradeMetricsProvider?.updateFromServer(data);
-    };
-
     _livePriceService.onConnectionChanged = (connected) {
       log('🔌 WebSocket connection changed: $connected');
       if (connected) {

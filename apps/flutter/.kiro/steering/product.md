@@ -1,13 +1,33 @@
-# Product Overview
+# APEX — "Your Edge in the Market"
 
-Antigravity Awesome Skills is a curated, open-source library of 1000+ agentic skills (markdown-based instruction files) designed for AI coding assistants including Claude Code, Gemini CLI, Codex CLI, Kiro, Cursor, GitHub Copilot, OpenCode, and AdaL.
+APEX is a stock and commodity trading platform consisting of a Flutter mobile app (`stocker/`) and a Node.js backend API (`stocker-backend-node/`).
 
-Each skill is a self-contained markdown file (`SKILL.md`) that teaches an AI assistant how to perform a specific task — from React patterns to security audits to DevOps workflows.
+## Supported Exchanges
 
-The project also includes:
-- An installer CLI (`npx antigravity-awesome-skills`) for deploying skills to various AI tool directories
-- A web app (React/Vite) for browsing, searching, and copying skills interactively
-- Curated bundles (role-based skill groupings) and workflows (step-by-step execution sequences)
-- Tooling for validation, catalog generation, and index building
+- **NSE**: NFO-FUT, NFO-OPT
+- **MCX**: MCX-FUT, MCX-OPT
+- **GLOBAL**
 
-The repository is MIT-licensed and community-driven, with contributions from official sources (Anthropic, OpenAI, Google, Microsoft, Supabase, Vercel Labs, Apify) and the open-source community.
+## Market Data Integration
+
+- Zerodha Kite Connect API for live market data, instrument data, and automated login
+- WebSocket-based live price streaming
+- Redis + BullMQ for order book and price queue processing
+- Cron jobs for scheduled tasks (instrument fetching, metrics collection, etc.)
+
+## Role Hierarchy
+
+Admin → Master → User (role-based access control throughout the platform)
+
+## Core Features
+
+- Real-time watchlists with live price updates
+- Trade execution and order management
+- Position tracking and P&L reports
+- Trade history and settlement reports
+- Market depth and option chains
+- Brokerage settings and margin management
+- Credit/debit transactions
+- Multi-account switching (mobile app)
+- Firebase push notifications (FCM) for trade alerts
+- PDF report generation

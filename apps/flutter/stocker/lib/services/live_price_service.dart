@@ -13,7 +13,6 @@ class LivePriceService {
   Function(bool)? onConnectionChanged;
   Function(Map<String, dynamic>)? onTradeExecuted;
   Function(Map<String, dynamic>)? onTradePlaced;
-  Function(Map<String, dynamic>)? onMetricsUpdate;
 
   bool get isConnected => _isConnected;
 
@@ -96,10 +95,6 @@ class LivePriceService {
         case 'trade_placed':
           log('📝 Trade placed event: ${data['tradingsymbol']} ${data['transaction_type']} ${data['quantity']} @ ${data['price']}');
           onTradePlaced?.call(data);
-          break;
-
-        case 'metrics_update':
-          onMetricsUpdate?.call(data);
           break;
 
         default:

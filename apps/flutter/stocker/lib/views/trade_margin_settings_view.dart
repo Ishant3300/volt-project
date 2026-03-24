@@ -78,28 +78,26 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
     });
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
-      final res =
-          await AdminService(apiService).getAllTradeMargins(limit: 1000);
+      final effectiveExchange =
+          _selectedExchange == 'GLOBAL' ? 'INDICES' : _selectedExchange!;
+      final res = await AdminService(apiService).getTradeMarginByExchange(
+        exchangeName: effectiveExchange,
+        amountType: _selectedAmountType,
+        limit: 2000,
+      );
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data['success'] == true) {
-          final List<dynamic> all = data['data']['trade_margins'] ?? [];
+          final List<dynamic> items = data['data']['items'] ?? [];
           List<Map<String, dynamic>> filtered = [];
-          final effectiveExchange =
-              _selectedExchange == 'GLOBAL' ? 'INDICES' : _selectedExchange;
-          for (var m in all) {
-            if (m['exchange_name']?.toString().toUpperCase() ==
-                    effectiveExchange &&
-                m['amount_type']?.toString().toLowerCase() ==
-                    _selectedAmountType) {
-              filtered.add({
-                'id': m['id'],
-                'script_name': m['script_name'],
-                'trade_margin': m['trade_margin'],
-                'amount_type': m['amount_type'],
-                'exchange_name': m['exchange_name']
-              });
-            }
+          for (var m in items) {
+            filtered.add({
+              'id': m['id'],
+              'script_name': m['script_name'],
+              'trade_margin': m['trade_margin'],
+              'amount_type': m['amount_type'],
+              'exchange_name': m['exchange_name']
+            });
           }
           setState(() => _items = filtered);
         }

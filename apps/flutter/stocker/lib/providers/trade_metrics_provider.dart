@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:stocker/models/brokerage_rule.dart';
 import 'package:stocker/models/trade.dart';
 import 'package:stocker/models/trade_margin.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
@@ -11,8 +12,9 @@ class PositionAgg {
   final String instrumentToken;
   final String exchange;
   final String tradingsymbol;
-  int lotSize = 1; // from KiteInstrument, propagated via Trade
-  String segment = ''; // e.g. MCX-FUT, NFO-OPT
+  String rawName = '';
+  int lotSize = 1;
+  String segment = '';
   int totalBuyQty = 0;
   int totalSellQty = 0;
   double totalBuyValue = 0;
@@ -32,21 +34,14 @@ class PositionAgg {
     required this.tradingsymbol,
   });
 
-  /// True when this position should be measured in lots.
-  /// Only MCX-FUT, MCX-OPT, NFO-OPT use lots. Everything else uses quantity.
   bool get isLotBased {
     final seg = segment.toUpperCase();
     return seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-OPT';
   }
 
-  /// Net position in lots (for display). Falls back to raw qty if lotSize <= 0.
   int get lots =>
       (lotSize > 0) ? (netQty.abs() / lotSize).round() : netQty.abs();
-
-  /// Display volume — returns lots count if isLotBased, else raw quantity.
   int get displayVolume => isLotBased ? lots : netQty.abs();
-
-  /// Unit label for display.
   String get volumeUnit => isLotBased ? 'LOT' : 'QTY';
 }
 
@@ -61,11 +56,12 @@ class TradeMetricsProvider with ChangeNotifier {
   List<Trade> _trades = [];
   List<Trade> get trades => _trades;
   List<TradeMargin> _margins = [];
+  List<BrokerageRule> _brokerageRules = [];
   final Map<String, double> _ltpMap = {};
   List<PositionAgg> _positions = [];
   List<PositionAgg> get positions => _positions;
 
-  // Metrics
+  // The 6 metrics — all computed client-side on every tick
   double _realisedPnl = 0;
   double _positionPnl = 0;
   double _m2mPnl = 0;
@@ -86,21 +82,30 @@ class TradeMetricsProvider with ChangeNotifier {
 
   TradeMetricsProvider({required this.userProfileProvider});
 
-  /// Accept server-pushed metrics from WebSocket (metricsEngine).
-  /// These are the 6 authoritative values calculated on the backend.
-  void updateFromServer(Map<String, dynamic> data) {
-    _realisedPnl = (data['realised_pnl'] as num?)?.toDouble() ?? _realisedPnl;
-    _positionPnl = (data['position_pnl'] as num?)?.toDouble() ?? _positionPnl;
-    _m2mPnl = (data['m2m_pnl'] as num?)?.toDouble() ?? _m2mPnl;
-    _marginUsed = (data['margin_used'] as num?)?.toDouble() ?? _marginUsed;
-    _equity = (data['equity'] as num?)?.toDouble() ?? _equity;
-    _freeMargin = (data['free_margin'] as num?)?.toDouble() ?? _freeMargin;
-    if (data['credit'] != null) {
-      _credit = (data['credit'] as num).toDouble();
-    }
+  /// Reset all cached data (call on logout / account switch).
+  void clear() {
+    _trades = [];
+    _margins = [];
+    _brokerageRules = [];
+    _ltpMap.clear();
+    _positions = [];
+    _realisedPnl = 0;
+    _positionPnl = 0;
+    _m2mPnl = 0;
+    _marginUsed = 0;
+    _equity = 0;
+    _freeMargin = 0;
+    _credit = 0;
+    _balance = 0;
+    _isLoading = false;
     notifyListeners();
   }
 
+  /// Fetch base data on login / app open.
+  /// 1. GET /trade/metrics → credit, equity, free_margin (DB snapshot)
+  /// 2. GET /trade/margins → margin rules for local calc
+  /// 3. GET /trade/positions → trades for local position aggregation
+  /// Then compute all 6 metrics locally.
   Future<void> fetchBaseData() async {
     _isLoading = true;
     notifyListeners();
@@ -108,7 +113,22 @@ class TradeMetricsProvider with ChangeNotifier {
     try {
       final token = await _storage.getToken();
 
-      // Fetch margins
+      // 1. Fetch base account values (credit, equity, free_margin from DB)
+      final metricsRes =
+          await _apiService.get('/trade/metrics', token: token);
+      if (metricsRes.statusCode == 200) {
+        final Map<String, dynamic> body = jsonDecode(metricsRes.body);
+        final data = body['data'];
+        if (data != null) {
+          _credit = (data['credit'] as num?)?.toDouble() ?? 0;
+          _balance = (data['balance'] as num?)?.toDouble() ?? 0;
+          // Seed equity/free_margin from DB snapshot (will be overwritten by local calc)
+          _equity = (data['equity'] as num?)?.toDouble() ?? _credit;
+          _freeMargin = (data['free_margin'] as num?)?.toDouble() ?? _credit;
+        }
+      }
+
+      // 2. Fetch margin rules
       final marginRes = await _apiService.get('/trade/margins', token: token);
       if (marginRes.statusCode == 200) {
         final Map<String, dynamic> body = jsonDecode(marginRes.body);
@@ -116,7 +136,7 @@ class TradeMetricsProvider with ChangeNotifier {
         _margins = data.map((e) => TradeMargin.fromJson(e)).toList();
       }
 
-      // Fetch positions/trades
+      // 3. Fetch positions/trades
       final tradeRes = await _apiService.get('/trade/positions', token: token);
       if (tradeRes.statusCode == 200) {
         final Map<String, dynamic> body = jsonDecode(tradeRes.body);
@@ -124,6 +144,15 @@ class TradeMetricsProvider with ChangeNotifier {
         _trades = data.map((e) => Trade.fromJson(e)).toList();
       }
 
+      // 4. Fetch brokerage rules for client-side brokerage calculation
+      final brkRes = await _apiService.get('/trade/brokerage-rules', token: token);
+      if (brkRes.statusCode == 200) {
+        final Map<String, dynamic> body = jsonDecode(brkRes.body);
+        final List data = body['data'] ?? [];
+        _brokerageRules = data.map((e) => BrokerageRule.fromJson(e)).toList();
+      }
+
+      // 5. Compute all 6 metrics locally
       _calculateMetrics();
     } catch (e) {
       debugPrint('Error fetching base trade data: $e');
@@ -133,6 +162,7 @@ class TradeMetricsProvider with ChangeNotifier {
     }
   }
 
+  /// Called on every price tick from WebSocket.
   void updateLtp(String instrumentToken, double ltp) {
     if (_ltpMap[instrumentToken] != ltp) {
       _ltpMap[instrumentToken] = ltp;
@@ -140,26 +170,40 @@ class TradeMetricsProvider with ChangeNotifier {
     }
   }
 
+  /// Push current cached metrics to server for DB persistence.
+  /// Call this periodically or on app background/close.
+  Future<void> pushMetricsToServer() async {
+    try {
+      final token = await _storage.getToken();
+      await _apiService.post('/trade/metrics', {
+        'realised_pnl': _realisedPnl,
+        'position_pnl': _positionPnl,
+        'm2m_pnl': _m2mPnl,
+        'margin_used': _marginUsed,
+        'equity': _equity,
+        'free_margin': _freeMargin,
+      }, token: token);
+    } catch (e) {
+      debugPrint('Error pushing metrics to server: $e');
+    }
+  }
+
+  /// Full client-side computation of all 6 metrics + position display data.
   void _calculateMetrics() {
-    // 1. Get user credit and balance
+    // 1. Get user credit
     _credit = userProfileProvider.user?.credits ??
         userProfileProvider.master?.credits ??
-        0.0;
+        _credit;
     _balance = userProfileProvider.user?.balance ??
         userProfileProvider.master?.balance ??
-        0.0;
+        _balance;
 
     // 2. Aggregate trades using running-average ATP.
-    //    When the position goes flat (netQty == 0), the cost basis resets so
-    //    a fresh entry starts with a clean ATP instead of blending old trades.
     Map<String, PositionAgg> aggMap = {};
-
-    // Sort trades by creation time so we process them chronologically.
     final sortedTrades = List<Trade>.from(
       _trades.where((t) => t.status == 'completed'),
     )..sort((a, b) => a.createdAt.compareTo(b.createdAt));
 
-    // Per-instrument running state (resets on flat).
     final Map<String, _RunningPos> running = {};
 
     for (var t in sortedTrades) {
@@ -169,9 +213,9 @@ class TradeMetricsProvider with ChangeNotifier {
           exchange: t.exchange,
           tradingsymbol: t.tradingSymbol,
         );
-        // Propagate lot info from trade (backend enriches each trade)
         newAgg.lotSize = t.lotSize > 1 ? t.lotSize : 1;
         newAgg.segment = t.segment;
+        newAgg.rawName = t.rawName;
         aggMap[t.instrumentToken] = newAgg;
         running[t.instrumentToken] = _RunningPos();
       }
@@ -179,25 +223,20 @@ class TradeMetricsProvider with ChangeNotifier {
       final agg = aggMap[t.instrumentToken]!;
       final run = running[t.instrumentToken]!;
 
-      // Always update lotSize/segment in case first trade had defaults
       if (t.lotSize > 1) agg.lotSize = t.lotSize;
       if (t.segment.isNotEmpty) agg.segment = t.segment;
+      if (t.rawName.isNotEmpty) agg.rawName = t.rawName;
 
       if (t.transactionType == 'BUY') {
-        // Update running avg buy price
         final newQty = run.netQty + t.quantity;
         if (run.netQty >= 0) {
-          // Adding to long (or opening fresh long from flat)
           run.avgBuy = run.netQty > 0
               ? (run.avgBuy * run.netQty + t.price * t.quantity) / newQty
               : t.price;
         } else {
-          // Covering a short — reduce short qty, avg sell stays
           if (newQty >= 0) {
-            // Fully covered + possibly flipped long
             run.avgBuy = newQty > 0 ? t.price : 0;
           }
-          // avgSell unchanged while still short
         }
         run.netQty = newQty;
         agg.totalBuyQty += t.quantity;
@@ -205,16 +244,13 @@ class TradeMetricsProvider with ChangeNotifier {
       } else if (t.transactionType == 'SELL') {
         final newQty = run.netQty - t.quantity;
         if (run.netQty <= 0) {
-          // Adding to short (or opening fresh short from flat)
           final absOld = run.netQty.abs();
           final absNew = absOld + t.quantity;
           run.avgSell = absOld > 0
               ? (run.avgSell * absOld + t.price * t.quantity) / absNew
               : t.price;
         } else {
-          // Reducing a long — avg buy stays
           if (newQty <= 0) {
-            // Fully closed + possibly flipped short
             run.avgSell = newQty < 0 ? t.price : 0;
           }
         }
@@ -223,7 +259,6 @@ class TradeMetricsProvider with ChangeNotifier {
         agg.totalSellValue += t.quantity * t.price;
       }
 
-      // When position goes flat, reset running state for next fresh entry
       if (run.netQty == 0) {
         run.avgBuy = 0;
         run.avgSell = 0;
@@ -237,7 +272,6 @@ class TradeMetricsProvider with ChangeNotifier {
       final run = running[agg.instrumentToken]!;
       int netQty = run.netQty;
 
-      // Use running ATP instead of simple total/qty average
       double avgBuyPrice = run.avgBuy;
       double avgSellPrice = run.avgSell;
 
@@ -245,29 +279,51 @@ class TradeMetricsProvider with ChangeNotifier {
           (avgBuyPrice > 0 ? avgBuyPrice : avgSellPrice);
 
       double floating = 0;
-
       if (netQty > 0) {
         floating = (ltp - avgBuyPrice) * netQty;
       } else if (netQty < 0) {
         floating = (avgSellPrice - ltp) * netQty.abs();
       }
-
       totalFloating += floating;
 
       // Calculate margin
       double positionMargin = 0;
       if (netQty != 0) {
-        // Find margin rule safely.
-        // TradeMargin records use segment names (e.g. 'MCX-FUT', 'NFO-FUT')
-        // while trade.exchange stores base exchange ('MCX', 'NFO').
-        // Try segment first, then fall back to exchange.
+        // 1. Try per-instrument rule: match raw_name to script_name + segment
         TradeMargin? rule;
-        try {
-          rule = _margins.firstWhere(
-              (m) => m.exchangeName == agg.segment.toUpperCase());
-        } catch (_) {
-          rule = null;
+        if (agg.rawName.isNotEmpty) {
+          try {
+            rule = _margins.firstWhere(
+                (m) =>
+                    m.scriptName.toUpperCase() == agg.rawName.toUpperCase() &&
+                    m.exchangeName == agg.segment.toUpperCase());
+          } catch (_) {
+            rule = null;
+          }
         }
+
+        // 2. Fallback: match raw_name to script_name (any exchange)
+        if (rule == null && agg.rawName.isNotEmpty) {
+          try {
+            rule = _margins.firstWhere(
+                (m) =>
+                    m.scriptName.toUpperCase() == agg.rawName.toUpperCase());
+          } catch (_) {
+            rule = null;
+          }
+        }
+
+        // 3. Fallback: match by segment only
+        if (rule == null) {
+          try {
+            rule = _margins.firstWhere(
+                (m) => m.exchangeName == agg.segment.toUpperCase());
+          } catch (_) {
+            rule = null;
+          }
+        }
+
+        // 4. Fallback: match by base exchange
         if (rule == null) {
           try {
             rule = _margins.firstWhere(
@@ -283,17 +339,17 @@ class TradeMetricsProvider with ChangeNotifier {
               seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-OPT';
 
           if (isLotBased && rule.amountType == 'amount') {
-            // Lot-based: trade_margin is flat amount per LOT
-            final lots = agg.lotSize > 1
-                ? netQty.abs() / agg.lotSize
-                : netQty.abs().toDouble();
-            positionMargin = lots * rule.tradeMargin;
+            // Lot-based: margin = just the flat trade_margin value (NOT multiplied by lots or qty)
+            positionMargin = rule.tradeMargin;
           } else if (rule.amountType == 'percentage') {
-            // Percentage-based: margin = qty * ltp * (margin% / 100)
+            // Percentage-based: margin = qty * ATP * (trade_margin / 100)
+            // Use avgBuyPrice for longs, avgSellPrice for shorts — NOT ltp
+            // so margin only changes on trade execution, not on every tick.
+            final atp = netQty > 0 ? avgBuyPrice : avgSellPrice;
             positionMargin =
-                netQty.abs() * ltp * (rule.tradeMargin / 100);
+                netQty.abs() * atp * (rule.tradeMargin / 100);
           } else {
-            // Flat amount fallback
+            // Flat amount fallback for non-lot-based
             positionMargin = netQty.abs() * rule.tradeMargin;
           }
         }
@@ -304,32 +360,72 @@ class TradeMetricsProvider with ChangeNotifier {
       agg.avgBuyPrice = avgBuyPrice;
       agg.avgSellPrice = avgSellPrice;
       agg.ltp = ltp;
-      agg.realised =
-          0; // realised P&L now summed from trade.pnl (see _realisedPnl below)
+      agg.realised = 0;
       agg.floating = floating;
       agg.positionMargin = positionMargin;
     }
 
     _positions = aggMap.values.toList();
 
-    // Realised P&L = sum of (pnl − brokerage) across all completed trades.
-    // Captures booked profit/loss minus brokerage charges.
-    _realisedPnl = sortedTrades.fold(
-        0.0, (sum, t) => sum + (t.pnl - t.brokerage));
+    // Compute brokerage client-side: TURNOVER WISE uses /10000, LOT WISE is flat per lot
+    double totalBrokerage = 0;
+    for (var t in sortedTrades) {
+      final seg = (aggMap[t.instrumentToken]?.segment ?? '').toUpperCase();
+      final rawName = aggMap[t.instrumentToken]?.rawName ?? '';
+      final exchange = seg.isNotEmpty ? seg : t.exchange.toUpperCase();
+
+      // Look up brokerage rule: try raw_name + segment, then raw_name only, then segment, then base exchange
+      BrokerageRule? brkRule;
+      if (rawName.isNotEmpty) {
+        brkRule = _brokerageRules.cast<BrokerageRule?>().firstWhere(
+            (r) =>
+                r!.scriptName.toUpperCase() == rawName.toUpperCase() &&
+                r.exchangeName == exchange,
+            orElse: () => null);
+      }
+      if (brkRule == null && rawName.isNotEmpty) {
+        brkRule = _brokerageRules.cast<BrokerageRule?>().firstWhere(
+            (r) => r!.scriptName.toUpperCase() == rawName.toUpperCase(),
+            orElse: () => null);
+      }
+      if (brkRule == null) {
+        brkRule = _brokerageRules.cast<BrokerageRule?>().firstWhere(
+            (r) => r!.exchangeName == exchange,
+            orElse: () => null);
+      }
+      if (brkRule == null) {
+        brkRule = _brokerageRules.cast<BrokerageRule?>().firstWhere(
+            (r) => r!.exchangeName == t.exchange.toUpperCase(),
+            orElse: () => null);
+      }
+
+      double tradeBrokerage = 0;
+      if (brkRule != null) {
+        if (brkRule.type == 'TURNOVER WISE') {
+          // brk_value / 10000: e.g. 2 means 0.0002
+          tradeBrokerage = t.price * t.quantity * (brkRule.brkValue / 10000);
+        } else if (brkRule.type == 'LOT WISE') {
+          // Flat value per lot
+          final lotSize = aggMap[t.instrumentToken]?.lotSize ?? 1;
+          final lots = lotSize > 1 ? t.quantity / lotSize : t.quantity.toDouble();
+          tradeBrokerage = lots * brkRule.brkValue;
+        }
+      }
+      totalBrokerage += tradeBrokerage;
+    }
+
+    // All 6 metrics computed client-side
+    _realisedPnl = sortedTrades.fold(0.0, (sum, t) => sum + t.pnl) - totalBrokerage;
     _positionPnl = totalFloating;
     _m2mPnl = _realisedPnl + _positionPnl;
-    // Equity = Credit + M2M P&L
-    _equity = _credit + _m2mPnl;
     _marginUsed = totalMargin;
+    _equity = _credit + _m2mPnl - _marginUsed;
     _freeMargin = _equity - _marginUsed;
 
     notifyListeners();
   }
 }
 
-/// Tracks the running net position and ATP for a single instrument.
-/// Resets cost basis when the position goes flat, so a fresh entry
-/// gets a clean ATP instead of blending historical trades.
 class _RunningPos {
   int netQty = 0;
   double avgBuy = 0;

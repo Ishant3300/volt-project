@@ -20,6 +20,7 @@ class Trade {
   final double pnl; // per-trade P&L computed by backend at execution time
   final double brokerage; // brokerage deducted for this trade
   final double netAmount; // pnl - brokerage
+  final String rawName; // raw instrument name from KiteInstrument (for margin lookup)
 
   Trade({
     required this.id,
@@ -43,6 +44,7 @@ class Trade {
     this.pnl = 0,
     this.brokerage = 0,
     this.netAmount = 0,
+    this.rawName = '',
   });
 
   /// True when this trade should be displayed in lots instead of raw quantity.
@@ -92,6 +94,7 @@ class Trade {
       pnl: (json['pnl'] as num?)?.toDouble() ?? 0.0,
       brokerage: (json['brokerage'] as num?)?.toDouble() ?? 0.0,
       netAmount: (json['net_amount'] as num?)?.toDouble() ?? 0.0,
+      rawName: json['raw_name']?.toString() ?? '',
     );
   }
 

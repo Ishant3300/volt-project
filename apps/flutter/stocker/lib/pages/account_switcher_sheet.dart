@@ -62,6 +62,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
 
       final tradeMetrics =
           Provider.of<TradeMetricsProvider>(context, listen: false);
+      tradeMetrics.clear();
       await tradeMetrics.fetchBaseData();
 
       if (!mounted) return;
