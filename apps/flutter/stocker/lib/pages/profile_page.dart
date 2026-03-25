@@ -15,6 +15,7 @@ import '../providers/trade_metrics_provider.dart';
 import '../pages/login_page.dart';
 import '../services/firebase_service.dart';
 import '../pages/account_switcher_sheet.dart';
+import '../widgets/announcement_banner.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -178,36 +179,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
 
-              // Security notice
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-                padding: const EdgeInsets.all(8),
-                decoration: ShapeDecoration(
-                  color: const Color(0xFFFEF2F2),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.shield,
-                        color: Color(0xFFEF4444), size: 16),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'All profile running in this app is secure. The new security features are active.',
-                        style: TextStyle(
-                          color: Color(0xFFDC2626),
-                          fontSize: 10,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
-                          height: 1.2,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // Announcement marquee
+              const AnnouncementBanner(),
 
               const SizedBox(height: 4),
 

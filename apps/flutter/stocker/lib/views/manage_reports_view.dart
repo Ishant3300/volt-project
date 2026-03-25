@@ -16,30 +16,25 @@ class _ManageReportsViewState extends State<ManageReportsView> {
   List<Master> _masters = [];
   Master? _selectedMaster;
   bool _isLoadingMasters = true;
-  bool _isUpdatingPermissions = false;
+  bool _isUpdating = false;
   bool _hasChanges = false;
-  
-  // Permission states
-  Map<String, bool> _permissions = {
-    'account_summary': false,
-    'pnl_summary': false,
-    'client_summary': false,
-    'settlement_report': false,
-    'generate_pdf': false,
-    'weekly_admin': false,
-    'intraday_history': false,
-    'userwise_open_position': false,
-    'script_quantity': false,
-    'deleted_trade': false,
-    'trade_account': false,
-    'close_only': false,
-    'bet': false,
-    'margin_square': false,
-    'fresh_stoploss': false,
+
+  Map<String, bool> _permissions = {};
+  Map<String, bool> _original = {};
+
+  static const _permLabels = {
+    'account_summary': 'Account Summary',
+    'pnl_summary': 'P&L Summary',
+    'client_summary': 'Client Summary',
+    'settlement_report': 'Settlement Report',
+    'generate_pdf': 'Generate PDF',
+    'weekly_admin': 'Weekly Admin',
+    'intraday_history': 'Intraday History',
+    'userwise_open_position': 'Userwise Position',
+    'script_quantity': 'Script Quantity',
+    'deleted_trade': 'Deleted Trade',
+    'trade_account': 'Trade Account',
   };
-  
-  // Original permissions to track changes
-  Map<String, bool> _originalPermissions = {};
 
   @override
   void initState() {
@@ -48,119 +43,54 @@ class _ManageReportsViewState extends State<ManageReportsView> {
   }
 
   Future<void> _fetchMasters() async {
-    setState(() {
-      _isLoadingMasters = true;
-    });
-
     try {
-      final apiService = Provider.of<ApiService>(context, listen: false);
-      final adminService = AdminService(apiService);
-
-      final response = await adminService.getAllMasters(page: 1, limit: 100);
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+      final api = Provider.of<ApiService>(context, listen: false);
+      final res = await AdminService(api).getAllMasters(page: 1, limit: 100);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
         if (data['success'] == true) {
-          final List<dynamic> mastersJson = data['data']['masters'] ?? [];
+          final List list = data['data']['masters'] ?? [];
           setState(() {
-            _masters = mastersJson
-                .map((json) {
-                  try {
-                    return Master.fromJson(json);
-                  } catch (e) {
-                    print('Error parsing master: $e');
-                    return null;
-                  }
-                })
-                .whereType<Master>()
-                .toList();
+            _masters = list.map((j) { try { return Master.fromJson(j); } catch (_) { return null; } }).whereType<Master>().toList();
             _isLoadingMasters = false;
           });
         }
       }
-    } catch (e) {
-      print('Error fetching masters: $e');
-      setState(() {
-        _isLoadingMasters = false;
-      });
-    }
+    } catch (_) {}
+    if (mounted) setState(() => _isLoadingMasters = false);
   }
 
   void _selectMaster(Master master) {
-    print('🔍 Selected master: ${master.username}');
-    print('🔍 Master has permissions: ${master.permissions != null}');
-    
+    final p = master.permissions;
+    final perms = <String, bool>{
+      'account_summary': p?.accountSummary ?? false,
+      'pnl_summary': p?.pnlSummary ?? false,
+      'client_summary': p?.clientSummary ?? false,
+      'settlement_report': p?.settlementReport ?? false,
+      'generate_pdf': p?.generatePdf ?? false,
+      'weekly_admin': p?.weeklyAdmin ?? false,
+      'intraday_history': p?.intradayHistory ?? false,
+      'userwise_open_position': p?.userwiseOpenPosition ?? false,
+      'script_quantity': p?.scriptQuantity ?? false,
+      'deleted_trade': p?.deletedTrade ?? false,
+      'trade_account': p?.tradeAccount ?? false,
+    };
     setState(() {
       _selectedMaster = master;
+      _permissions = perms;
+      _original = Map.from(perms);
       _hasChanges = false;
-      
-      // Load the master's current permissions
-      if (master.permissions != null) {
-        _permissions = {
-          'account_summary': master.permissions!.accountSummary,
-          'pnl_summary': master.permissions!.pnlSummary,
-          'client_summary': master.permissions!.clientSummary,
-          'settlement_report': master.permissions!.settlementReport,
-          'generate_pdf': master.permissions!.generatePdf,
-          'weekly_admin': master.permissions!.weeklyAdmin,
-          'intraday_history': master.permissions!.intradayHistory,
-          'userwise_open_position': master.permissions!.userwiseOpenPosition,
-          'script_quantity': master.permissions!.scriptQuantity,
-          'deleted_trade': master.permissions!.deletedTrade,
-          'trade_account': master.permissions!.tradeAccount,
-          'close_only': master.permissions!.closeOnly,
-          'bet': master.permissions!.bet,
-          'margin_square': master.permissions!.marginSquare,
-          'fresh_stoploss': master.permissions!.freshStoploss,
-        };
-      } else {
-        // Reset to defaults if no permissions
-        _permissions = {
-          'account_summary': false,
-          'pnl_summary': false,
-          'client_summary': false,
-          'settlement_report': false,
-          'generate_pdf': false,
-          'weekly_admin': false,
-          'intraday_history': false,
-          'userwise_open_position': false,
-          'script_quantity': false,
-          'deleted_trade': false,
-          'trade_account': false,
-          'close_only': false,
-          'bet': false,
-          'margin_square': false,
-          'fresh_stoploss': false,
-        };
-      }
-      
-      // Store original permissions for comparison
-      _originalPermissions = Map.from(_permissions);
     });
   }
 
-  void _togglePermission(String permissionKey) {
-    if (_selectedMaster == null) return;
-    
-    setState(() {
-      _permissions[permissionKey] = !_permissions[permissionKey]!;
-      _hasChanges = true;
-    });
-  }
-
-  Future<void> _updatePermissions() async {
+  Future<void> _update() async {
     if (_selectedMaster == null || !_hasChanges) return;
-
-    setState(() {
-      _isUpdatingPermissions = true;
-    });
-
+    setState(() => _isUpdating = true);
     try {
-      final apiService = Provider.of<ApiService>(context, listen: false);
-      final adminService = AdminService(apiService);
-
-      // Create MasterPermissions object with updated values
-      final updatedPermissions = MasterPermissions(
+      final api = Provider.of<ApiService>(context, listen: false);
+      final admin = AdminService(api);
+      final cp = _selectedMaster!.permissions;
+      final updated = MasterPermissions(
         accountSummary: _permissions['account_summary']!,
         pnlSummary: _permissions['pnl_summary']!,
         clientSummary: _permissions['client_summary']!,
@@ -172,333 +102,267 @@ class _ManageReportsViewState extends State<ManageReportsView> {
         scriptQuantity: _permissions['script_quantity']!,
         deletedTrade: _permissions['deleted_trade']!,
         tradeAccount: _permissions['trade_account']!,
-        closeOnly: _permissions['close_only']!,
-        bet: _permissions['bet']!,
-        marginSquare: _permissions['margin_square']!,
-        freshStoploss: _permissions['fresh_stoploss']!,
+        closeOnly: cp?.closeOnly ?? false,
+        bet: cp?.bet ?? false,
+        marginSquare: cp?.marginSquare ?? false,
+        freshStoploss: cp?.freshStoploss ?? false,
       );
-
-      final response = await adminService.updateMasterPermissions(
-        masterId: _selectedMaster!.id,
-        permissions: updatedPermissions,
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['success'] == true) {
-          setState(() {
-            _hasChanges = false;
-            _originalPermissions = Map.from(_permissions);
-          });
-          
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Permissions updated successfully'),
-                backgroundColor: Color(0xFF34C759),
-              ),
-            );
-          }
-        } else {
-          throw Exception(data['message'] ?? 'Failed to update permissions');
-        }
+      final res = await admin.updateMasterPermissions(masterId: _selectedMaster!.id, permissions: updated);
+      if (res.statusCode == 200) {
+        setState(() { _hasChanges = false; _original = Map.from(_permissions); });
+        _snack('Permissions updated');
       } else {
-        throw Exception('Failed to update permissions');
+        _snack('Failed to update', isError: true);
       }
     } catch (e) {
-      print('❌ Error updating permissions: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to update permissions: $e'),
-            backgroundColor: const Color(0xFFFF3B30),
-          ),
-        );
-      }
+      _snack('Error: $e', isError: true);
     } finally {
-      setState(() {
-        _isUpdatingPermissions = false;
-      });
+      if (mounted) setState(() => _isUpdating = false);
     }
   }
 
-  void _showMasterSelector() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
+  void _snack(String msg, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: isError ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: SafeArea(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              'Select Master',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'Inter',
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 40, height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white, borderRadius: BorderRadius.circular(12),
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
+                      ),
+                      child: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text('Manage Reports', style: TextStyle(color: Colors.black, fontSize: 18, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                ],
               ),
             ),
-            SizedBox(height: 16),
-            if (_isLoadingMasters)
-              CircularProgressIndicator()
-            else if (_masters.isEmpty)
-              Text('No masters available')
-            else
-              Expanded(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: _masters.length,
-                  itemBuilder: (context, index) {
-                    final master = _masters[index];
-                    return ListTile(
-                      title: Text(master.username),
-                      subtitle: Text(master.name),
-                      onTap: () {
-                        _selectMaster(master);
-                        Navigator.pop(context);
-                      },
-                    );
-                  },
+
+            // Master selector
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _card(
+                child: GestureDetector(
+                  onTap: () => _showMasterSheet(),
+                  behavior: HitTestBehavior.opaque,
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36, height: 36,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF3F45C7).withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.person_outline, size: 18, color: Color(0xFF3F45C7)),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _selectedMaster?.name ?? 'Select Master',
+                              style: TextStyle(
+                                color: _selectedMaster != null ? Colors.black : const Color(0xFF94A3B8),
+                                fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (_selectedMaster != null)
+                              Text(_selectedMaster!.username, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w500)),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.keyboard_arrow_down, size: 20, color: Color(0xFF94A3B8)),
+                    ],
+                  ),
                 ),
               ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Permissions list
+            Expanded(
+              child: _selectedMaster == null
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 64, height: 64,
+                            decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle,
+                              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))]),
+                            child: const Icon(Icons.admin_panel_settings_outlined, size: 28, color: Color(0xFFCBD5E1)),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text('Select a master to manage permissions', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14, fontFamily: 'Inter')),
+                        ],
+                      ),
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      children: [
+                        const Text('PERMISSIONS', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+                        const SizedBox(height: 12),
+                        _card(
+                          child: Column(
+                            children: _permLabels.entries.map((e) {
+                              final isLast = e.key == _permLabels.keys.last;
+                              return Column(
+                                children: [
+                                  _toggleRow(e.value, _permissions[e.key] ?? false, (v) {
+                                    setState(() { _permissions[e.key] = v; _hasChanges = true; });
+                                  }),
+                                  if (!isLast) const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                                ],
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        GestureDetector(
+                          onTap: _isUpdating || !_hasChanges ? null : _update,
+                          child: Container(
+                            width: double.infinity, height: 52,
+                            decoration: BoxDecoration(
+                              color: _isUpdating || !_hasChanges ? const Color(0xFF94A3B8) : const Color(0xFF3F45C7),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Center(
+                              child: _isUpdating
+                                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                  : const Text('UPDATE PERMISSIONS', style: TextStyle(color: Colors.white, fontSize: 15, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.3)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                      ],
+                    ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FC),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // Header
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Icon(Icons.arrow_back, size: 24, color: Colors.black),
-                    ),
-                    SizedBox(width: 12),
-                    Text(
-                      'Manage Reports',
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 16,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              SizedBox(height: 16),
-
-              // Select Master
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Select Master',
-                      style: TextStyle(
-                        color: const Color(0xFF2B2B2B),
-                        fontSize: 16,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: _showMasterSelector,
+  void _showMasterSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => Container(
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
+        decoration: const BoxDecoration(
+          color: Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+            const Text('Select Master', style: TextStyle(color: Colors.black, fontSize: 16, fontFamily: 'Inter', fontWeight: FontWeight.w700)),
+            const SizedBox(height: 16),
+            if (_isLoadingMasters)
+              const Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5))
+            else
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: _masters.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                  itemBuilder: (_, i) {
+                    final m = _masters[i];
+                    final sel = _selectedMaster?.id == m.id;
+                    return GestureDetector(
+                      onTap: () { _selectMaster(m); Navigator.pop(context); },
+                      behavior: HitTestBehavior.opaque,
                       child: Container(
-                        height: 48,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(width: 1, color: const Color(0xFFD1D1D6)),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
+                        color: sel ? const Color(0xFF3F45C7).withValues(alpha: 0.05) : Colors.transparent,
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              _selectedMaster?.username ?? 'Select Master',
-                              style: TextStyle(
-                                color: _selectedMaster != null ? Colors.black : const Color(0xFF8E8E93),
-                                fontSize: 16,
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w400,
+                            Container(
+                              width: 36, height: 36,
+                              decoration: BoxDecoration(color: const Color(0xFF3F45C7).withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+                              child: Center(child: Text(m.name.isNotEmpty ? m.name[0].toUpperCase() : '?', style: const TextStyle(color: Color(0xFF3F45C7), fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w700))),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(m.name, style: const TextStyle(color: Colors.black, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                                  Text(m.username, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w500)),
+                                ],
                               ),
                             ),
-                            Icon(Icons.arrow_drop_down, color: Colors.grey),
+                            if (sel) const Icon(Icons.check_circle, size: 20, color: Color(0xFF3F45C7)),
                           ],
                         ),
                       ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ),
-
-              SizedBox(height: 16),
-
-              // Permissions info
-              if (_selectedMaster != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    'Managing permissions for: ${_selectedMaster!.name}',
-                    style: TextStyle(
-                      color: const Color(0xFF666666),
-                      fontSize: 14,
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                ),
-
-              SizedBox(height: 16),
-
-              // Report toggles
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    _buildToggleItem('Account Summary', 'account_summary'),
-                    SizedBox(height: 16),
-                    _buildToggleItem('P&L Summary', 'pnl_summary'),
-                    SizedBox(height: 16),
-                    _buildToggleItem('Client Summary', 'client_summary'),
-                    SizedBox(height: 16),
-                    _buildToggleItem('Settlement Report', 'settlement_report'),
-                    SizedBox(height: 16),
-                    _buildToggleItem('Generate PDF', 'generate_pdf'),
-                    SizedBox(height: 16),
-                    _buildToggleItem('Weekly Admin', 'weekly_admin'),
-                    SizedBox(height: 16),
-                    _buildToggleItem('Intraday History', 'intraday_history'),
-                    SizedBox(height: 16),
-                    _buildToggleItem('Userwise Open Position', 'userwise_open_position'),
-                    SizedBox(height: 16),
-                    _buildToggleItem('Script Quantity', 'script_quantity'),
-                    SizedBox(height: 16),
-                    _buildToggleItem('Deleted Trade', 'deleted_trade'),
-                    SizedBox(height: 16),
-                    _buildToggleItem('Trade Account', 'trade_account'),
-                    SizedBox(height: 16),
-                    _buildToggleItem('Close Only', 'close_only'),
-                    SizedBox(height: 16),
-                    _buildToggleItem('Bet', 'bet'),
-                    SizedBox(height: 16),
-                    _buildToggleItem('Margin Square', 'margin_square'),
-                    SizedBox(height: 16),
-                    _buildToggleItem('Fresh Stoploss', 'fresh_stoploss'),
-                  ],
-                ),
-              ),
-
-              SizedBox(height: 24),
-
-              // Update Button
-              if (_selectedMaster != null)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: GestureDetector(
-                      onTap: _isUpdatingPermissions || !_hasChanges ? null : _updatePermissions,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
-                        decoration: BoxDecoration(
-                          color: _isUpdatingPermissions || !_hasChanges
-                              ? const Color(0xFF8E8E93)
-                              : const Color(0xFF3F45C7),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: _isUpdatingPermissions
-                            ? const Center(
-                                child: SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                ),
-                              )
-                            : Text(
-                                'UPDATE PERMISSIONS',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                      ),
-                    ),
-                  ),
-                ),
-
-              SizedBox(height: 40),
-            ],
-          ),
+            const SizedBox(height: 16),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildToggleItem(String title, String permissionKey) {
-    final isEnabled = _permissions[permissionKey] ?? false;
-    final isDisabled = _selectedMaster == null || _isUpdatingPermissions;
+  Widget _card({required Widget child}) {
+    return Container(
+      width: double.infinity, padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
+      child: child,
+    );
+  }
 
-    return Opacity(
-      opacity: isDisabled ? 0.5 : 1.0,
+  Widget _toggleRow(String label, bool value, ValueChanged<bool> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: const Color(0xFF2B2B2B),
-              fontSize: 16,
-              fontFamily: 'Inter',
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          Expanded(child: Text(label, style: const TextStyle(color: Colors.black, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w500))),
           GestureDetector(
-            onTap: isDisabled ? null : () => _togglePermission(permissionKey),
-            child: Container(
-              width: 40,
-              height: 25,
-              padding: const EdgeInsets.all(2),
+            onTap: () => onChanged(!value),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 44, height: 26, padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
-                color: isEnabled ? const Color(0xFF3F45C7) : const Color(0xFF8E8E93),
-                borderRadius: BorderRadius.circular(12.5),
+                color: value ? const Color(0xFF3F45C7) : const Color(0xFFCBD5E1),
+                borderRadius: BorderRadius.circular(13),
               ),
-              child: Align(
-                alignment: isEnabled ? Alignment.centerRight : Alignment.centerLeft,
-                child: Container(
-                  width: 23,
-                  height: 23,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                ),
+              child: AnimatedAlign(
+                duration: const Duration(milliseconds: 200),
+                alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+                child: Container(width: 22, height: 22, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
               ),
             ),
           ),

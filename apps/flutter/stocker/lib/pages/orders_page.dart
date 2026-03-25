@@ -44,9 +44,14 @@ _NumberFormat _getShortForm(double value) {
 String _positionVolumeLabel(String exchange, String tradingsymbol, int quantity,
     {bool showPrefix = false, String segment = '', int lotSize = 1}) {
   final seg = segment.toUpperCase();
+  final ex = exchange.toUpperCase();
 
   // Only MCX-FUT, MCX-OPT, NFO-OPT use lots. Everything else uses quantity.
-  final bool isLot = seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-OPT';
+  // Fall back to exchange='MCX' if segment is not available from backend.
+  final bool isLot = seg == 'MCX-FUT' ||
+      seg == 'MCX-OPT' ||
+      seg == 'NFO-OPT' ||
+      (seg.isEmpty && ex == 'MCX');
 
   final prefix =
       showPrefix ? (quantity > 0 ? '+' : (quantity < 0 ? '-' : '')) : '';
@@ -351,8 +356,40 @@ class _OrdersPageState extends State<OrdersPage> {
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         final List data = body['data'] ?? [];
+        final positions = data.cast<Map<String, dynamic>>();
+
+        // Enrich with lot_size/segment from kite instrument lookup
+        final tokens = positions
+            .map((p) => p['instrument_token']?.toString() ?? '')
+            .where((t) => t.isNotEmpty)
+            .toSet();
+        if (tokens.isNotEmpty) {
+          try {
+            final infoRes = await apiService.get(
+                '/kite/instruments/info?tokens=${tokens.join(',')}',
+                token: token);
+            if (infoRes.statusCode == 200) {
+              final infoBody = jsonDecode(infoRes.body);
+              final List infoList = infoBody['data'] ?? [];
+              final Map<String, Map<String, dynamic>> infoMap = {};
+              for (final inst in infoList) {
+                final t = inst['instrument_token']?.toString() ?? '';
+                if (t.isNotEmpty) infoMap[t] = Map<String, dynamic>.from(inst);
+              }
+              for (final pos in positions) {
+                final t = pos['instrument_token']?.toString() ?? '';
+                final info = infoMap[t];
+                if (info != null) {
+                  pos['lot_size'] = info['lot_size'] ?? 1;
+                  pos['segment'] = info['segment'] ?? '';
+                }
+              }
+            }
+          } catch (_) {}
+        }
+
         setState(() {
-          _masterPositions = data.cast<Map<String, dynamic>>();
+          _masterPositions = positions;
         });
       }
     } catch (e) {
@@ -396,58 +433,23 @@ class _OrdersPageState extends State<OrdersPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Total P&L card
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.02),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
+                // Total P&L value
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: AnimatedFlipCounter(
+                      value: totalPnl,
+                      fractionDigits: 2,
+                      prefix: '₹',
+                      textStyle: TextStyle(
+                        color: isTotalPositive
+                            ? const Color(0xFF22C55E)
+                            : const Color(0xFFEF4444),
+                        fontSize: 20,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w700,
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      const Text(
-                        'ALL MASTERS P&L',
-                        style: TextStyle(
-                          color: Color(0xFF94A3B8),
-                          fontSize: 12,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      AnimatedFlipCounter(
-                        value: totalPnl,
-                        fractionDigits: 2,
-                        prefix: '₹',
-                        textStyle: TextStyle(
-                          color: isTotalPositive
-                              ? const Color(0xFF22C55E)
-                              : const Color(0xFFEF4444),
-                          fontSize: 24,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${_adminMasterMetrics.length} master${_adminMasterMetrics.length != 1 ? "s" : ""}',
-                        style: const TextStyle(
-                          color: Color(0xFF94A3B8),
-                          fontSize: 12,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -644,14 +646,21 @@ class _OrdersPageState extends State<OrdersPage> {
   // ============================================
   // MASTER VIEW
   // ============================================
-  Widget _buildMasterView() {
-    // Calculate totals
-    int totalNetQty = 0;
-    for (final pos in _masterPositions) {
-      totalNetQty += (pos['net_qty'] as num?)?.toInt() ?? 0;
-    }
+  String _masterSearchQuery = '';
 
+  Widget _buildMasterView() {
     final bool isPnlPositive = _masterPositionPnl >= 0;
+
+    // Filter positions by search query
+    final filteredPositions = _masterSearchQuery.isEmpty
+        ? _masterPositions
+        : _masterPositions.where((pos) {
+            final symbol =
+                (pos['tradingsymbol'] ?? '').toString().toUpperCase();
+            final exchange = (pos['exchange'] ?? '').toString().toUpperCase();
+            final query = _masterSearchQuery.toUpperCase();
+            return symbol.contains(query) || exchange.contains(query);
+          }).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -669,13 +678,33 @@ class _OrdersPageState extends State<OrdersPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Master Position Summary Card
+                // Master Position P&L value
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: AnimatedFlipCounter(
+                      value: _masterPositionPnl,
+                      fractionDigits: 2,
+                      prefix: '₹',
+                      textStyle: TextStyle(
+                        color: isPnlPositive
+                            ? const Color(0xFF22C55E)
+                            : const Color(0xFFEF4444),
+                        fontSize: 20,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Search bar
                 Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24),
+                  height: 40,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.02),
@@ -684,72 +713,40 @@ class _OrdersPageState extends State<OrdersPage> {
                       ),
                     ],
                   ),
-                  child: Column(
+                  child: Row(
                     children: [
-                      const Text(
-                        'MASTER POSITION',
-                        style: TextStyle(
-                          color: Color(0xFF94A3B8),
-                          fontSize: 12,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
-                        ),
+                      const Padding(
+                        padding: EdgeInsets.only(left: 12),
+                        child: Icon(Icons.search,
+                            size: 18, color: Color(0xFF94A3B8)),
                       ),
-                      const SizedBox(height: 8),
-                      AnimatedFlipCounter(
-                        value: _masterPositionPnl,
-                        fractionDigits: 2,
-                        prefix: '₹',
-                        textStyle: TextStyle(
-                          color: isPnlPositive
-                              ? const Color(0xFF22C55E)
-                              : const Color(0xFFEF4444),
-                          fontSize: 24,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            '${_masterPositions.length} instrument${_masterPositions.length != 1 ? "s" : ""}',
-                            style: const TextStyle(
+                      Expanded(
+                        child: TextField(
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF0F172A),
+                            fontFamily: 'Inter',
+                          ),
+                          decoration: const InputDecoration(
+                            hintText: 'Search instrument...',
+                            hintStyle: TextStyle(
                               color: Color(0xFF94A3B8),
-                              fontSize: 12,
+                              fontSize: 13,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.w500,
                             ),
+                            border: InputBorder.none,
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 10),
                           ),
-                          const SizedBox(width: 12),
-                          Container(
-                            width: 4,
-                            height: 4,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFCBD5E1),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Net Qty: ${totalNetQty > 0 ? "+" : ""}$totalNetQty',
-                            style: TextStyle(
-                              color: totalNetQty >= 0
-                                  ? const Color(0xFF10B981)
-                                  : const Color(0xFFEF4444),
-                              fontSize: 12,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                          onChanged: (v) =>
+                              setState(() => _masterSearchQuery = v),
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
                 // Instruments list
                 if (_masterLoading)
@@ -759,7 +756,7 @@ class _OrdersPageState extends State<OrdersPage> {
                       child: CircularProgressIndicator(),
                     ),
                   )
-                else if (_masterPositions.isEmpty)
+                else if (filteredPositions.isEmpty)
                   Center(
                     child: Padding(
                       padding: const EdgeInsets.all(32),
@@ -783,9 +780,11 @@ class _OrdersPageState extends State<OrdersPage> {
                                 size: 28, color: Color(0xFF94A3B8)),
                           ),
                           const SizedBox(height: 12),
-                          const Text(
-                            'No open positions across users',
-                            style: TextStyle(
+                          Text(
+                            _masterSearchQuery.isEmpty
+                                ? 'No open positions across users'
+                                : 'No matching instruments',
+                            style: const TextStyle(
                               color: Color(0xFF94A3B8),
                               fontSize: 14,
                               fontFamily: 'Inter',
@@ -811,10 +810,13 @@ class _OrdersPageState extends State<OrdersPage> {
                     ),
                     child: Column(
                       children: [
-                        for (int i = 0; i < _masterPositions.length; i++) ...[
-                          _buildMasterPositionItem(_masterPositions[i]),
-                          if (i < _masterPositions.length - 1)
-                            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                        for (int i = 0;
+                            i < filteredPositions.length;
+                            i++) ...[
+                          _buildMasterPositionItem(filteredPositions[i]),
+                          if (i < filteredPositions.length - 1)
+                            const Divider(
+                                height: 1, color: Color(0xFFF1F5F9)),
                         ],
                       ],
                     ),
@@ -835,6 +837,9 @@ class _OrdersPageState extends State<OrdersPage> {
     final bool isLong = netQty > 0;
     final Color sideColor =
         isLong ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+
+    // Parse tradingsymbol into user-friendly name
+    final String displayName = _friendlySymbolName(symbol);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -859,32 +864,21 @@ class _OrdersPageState extends State<OrdersPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(
+                    displayName,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.3,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
-                      Flexible(
-                        child: Text(
-                          symbol,
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 14,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: -0.3,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        width: 4,
-                        height: 4,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFCBD5E1),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
                       Text(
                         exchange,
                         style: const TextStyle(
@@ -894,16 +888,17 @@ class _OrdersPageState extends State<OrdersPage> {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 6),
+                        child: Text('·',
+                            style: TextStyle(
+                                fontSize: 10, color: Color(0xFFCBD5E1))),
+                      ),
                       const Icon(Icons.people_outline,
-                          size: 14, color: Color(0xFF94A3B8)),
-                      const SizedBox(width: 4),
+                          size: 12, color: Color(0xFF94A3B8)),
+                      const SizedBox(width: 3),
                       Text(
-                        '$userCount user${userCount != 1 ? "s" : ""}',
+                        '$userCount',
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: 12,
@@ -945,6 +940,67 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
 
+  /// Parse tradingsymbol like "GOLD26APRFUT" or "NIFTY2530622500CE"
+  /// into a user-friendly name like "GOLD 26 APR FUT" or "NIFTY 22500 CE 06 MAR"
+  String _friendlySymbolName(String symbol) {
+    if (symbol.isEmpty) return symbol;
+
+    // Common month codes
+    const months = [
+      'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+      'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'
+    ];
+
+    // Try to find a month code in the symbol
+    for (final month in months) {
+      final monthIdx = symbol.toUpperCase().indexOf(month);
+      if (monthIdx > 0) {
+        final basePart = symbol.substring(0, monthIdx);
+        final afterMonth = symbol.substring(monthIdx + month.length);
+
+        // Extract name (letters) and date digits from basePart
+        // e.g. "GOLD26" → name="GOLD", date="26"
+        // e.g. "NIFTY25306" → name="NIFTY", date="25306" (YY+DD)
+        String name = '';
+        String dateDigits = '';
+        for (int i = 0; i < basePart.length; i++) {
+          if (basePart[i].contains(RegExp(r'[0-9]'))) {
+            dateDigits = basePart.substring(i);
+            break;
+          }
+          name += basePart[i];
+        }
+
+        // afterMonth could be "FUT", "22500CE", strike+type, etc.
+        if (afterMonth == 'FUT') {
+          return '$name $dateDigits $month FUT';
+        }
+
+        // Check for CE/PE at the end (options)
+        String suffix = '';
+        String strike = afterMonth;
+        if (afterMonth.endsWith('CE')) {
+          suffix = 'CE';
+          strike = afterMonth.substring(0, afterMonth.length - 2);
+        } else if (afterMonth.endsWith('PE')) {
+          suffix = 'PE';
+          strike = afterMonth.substring(0, afterMonth.length - 2);
+        }
+
+        if (suffix.isNotEmpty && strike.isNotEmpty) {
+          return '$name $strike $suffix $month';
+        }
+        if (suffix.isNotEmpty) {
+          return '$name $suffix $month';
+        }
+
+        return '$name $dateDigits $month $afterMonth'.trim();
+      }
+    }
+
+    return symbol;
+  }
+
   // ============================================
   // USER VIEW (existing, unchanged)
   // ============================================
@@ -975,69 +1031,22 @@ class _OrdersPageState extends State<OrdersPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Position Info Card
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    decoration: ShapeDecoration(
-                      color: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        side: const BorderSide(
-                            width: 1, color: Color(0xFFE2E8F0)),
-                        borderRadius: BorderRadius.circular(12),
+                  // Position P&L value
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: AnimatedFlipCounter(
+                        value: posPnl,
+                        fractionDigits: 2,
+                        textStyle: TextStyle(
+                          color: isPosPnlPositive
+                              ? const Color(0xFF22C55E)
+                              : const Color(0xFFEF4444),
+                          fontSize: 24,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Align(
-                          alignment: Alignment.center,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text(
-                                'POSITION',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Color(0xFF64748B),
-                                  fontSize: 14,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              AnimatedFlipCounter(
-                                value: posPnl,
-                                fractionDigits: 2,
-                                textStyle: TextStyle(
-                                  color: isPosPnlPositive
-                                      ? const Color(0xFF22C55E)
-                                      : const Color(0xFFEF4444),
-                                  fontSize: 24,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Positioned(
-                          right: -12,
-                          top: -12,
-                          child: GestureDetector(
-                            onTap: () {
-                              _showInfoSheet(context, posPnl, realised, m2m,
-                                  credit, marginUsed, freeMargin, equity);
-                            },
-                            child: const Padding(
-                              padding: EdgeInsets.all(12.0),
-                              child: Icon(Icons.info_outline,
-                                  color: Color(0xFF64748B), size: 20),
-                            ),
-                          ),
-                        ),
-                      ],
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -1290,6 +1299,12 @@ class _OrdersPageState extends State<OrdersPage> {
                             final watchlist = Provider.of<WatchlistProvider>(context, listen: false);
                             final wItem = watchlist.getByToken(pos.instrumentToken);
                             final displayName = wItem?.instrument.userFriendlyName ?? pos.tradingsymbol;
+                            // CMP: show bid price for BUY positions (exit = sell at bid),
+                            // ask price for SELL positions (exit = buy at ask).
+                            // Fall back to LTP if bid/ask not available.
+                            final cmp = isBuy
+                                ? (wItem?.bidPrice ?? pos.ltp)
+                                : (wItem?.askPrice ?? pos.ltp);
                             return Column(
                               children: [
                                 _buildOrderItem(
@@ -1299,7 +1314,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                   pos.exchange,
                                   '${isBuy ? "BUY" : "SELL"}: ${_positionVolumeLabel(pos.exchange, pos.tradingsymbol, pos.netQty, segment: pos.segment, lotSize: pos.lotSize)}',
                                   isBuy ? pos.avgBuyPrice : pos.avgSellPrice,
-                                  pos.ltp,
+                                  cmp,
                                   pos.floating,
                                   isNegative,
                                 ),

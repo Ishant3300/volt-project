@@ -741,6 +741,13 @@ class _CreateUserViewState extends State<CreateUserView> {
 
   Widget _buildExchangeRow(String exchange, Map<String, dynamic> settings) {
     final enabled = settings['enabled'] as bool;
+    final ex = exchange.toUpperCase();
+
+    // NFO-FUT, SGX, GLOBAL → block Lot checkbox (turnover-only exchanges)
+    final bool lotBlocked = ex == 'NFO-FUT' || ex == 'SGX' || ex == 'GLOBAL';
+    // NFO-OPT, MCX-OPT, MCX-FUT → block T/O checkbox (lot-only exchanges)
+    final bool toBlocked = ex == 'NFO-OPT' || ex == 'MCX-OPT' || ex == 'MCX-FUT';
+
     return Row(
       children: [
         Expanded(
@@ -783,24 +790,30 @@ class _CreateUserViewState extends State<CreateUserView> {
         Expanded(
           flex: 1,
           child: GestureDetector(
-            onTap: () => setState(
-                () => settings['turnover'] = !(settings['turnover'] as bool)),
+            onTap: toBlocked
+                ? null
+                : () => setState(() =>
+                    settings['turnover'] = !(settings['turnover'] as bool)),
             child: Center(
               child: Container(
                 width: 22,
                 height: 22,
                 decoration: BoxDecoration(
-                  color: (settings['turnover'] as bool)
-                      ? const Color(0xFF3F45C7)
-                      : Colors.transparent,
-                  border: Border.all(
-                      color: (settings['turnover'] as bool)
+                  color: toBlocked
+                      ? const Color(0xFFE2E8F0)
+                      : (settings['turnover'] as bool)
                           ? const Color(0xFF3F45C7)
-                          : const Color(0xFFCBD5E1),
+                          : Colors.transparent,
+                  border: Border.all(
+                      color: toBlocked
+                          ? const Color(0xFFE2E8F0)
+                          : (settings['turnover'] as bool)
+                              ? const Color(0xFF3F45C7)
+                              : const Color(0xFFCBD5E1),
                       width: 2),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: (settings['turnover'] as bool)
+                child: (settings['turnover'] as bool) && !toBlocked
                     ? const Icon(Icons.check, color: Colors.white, size: 14)
                     : null,
               ),
@@ -810,24 +823,30 @@ class _CreateUserViewState extends State<CreateUserView> {
         Expanded(
           flex: 1,
           child: GestureDetector(
-            onTap: () =>
-                setState(() => settings['lot'] = !(settings['lot'] as bool)),
+            onTap: lotBlocked
+                ? null
+                : () => setState(
+                    () => settings['lot'] = !(settings['lot'] as bool)),
             child: Center(
               child: Container(
                 width: 22,
                 height: 22,
                 decoration: BoxDecoration(
-                  color: (settings['lot'] as bool)
-                      ? const Color(0xFF3F45C7)
-                      : Colors.transparent,
-                  border: Border.all(
-                      color: (settings['lot'] as bool)
+                  color: lotBlocked
+                      ? const Color(0xFFE2E8F0)
+                      : (settings['lot'] as bool)
                           ? const Color(0xFF3F45C7)
-                          : const Color(0xFFCBD5E1),
+                          : Colors.transparent,
+                  border: Border.all(
+                      color: lotBlocked
+                          ? const Color(0xFFE2E8F0)
+                          : (settings['lot'] as bool)
+                              ? const Color(0xFF3F45C7)
+                              : const Color(0xFFCBD5E1),
                       width: 2),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: (settings['lot'] as bool)
+                child: (settings['lot'] as bool) && !lotBlocked
                     ? const Icon(Icons.check, color: Colors.white, size: 14)
                     : null,
               ),

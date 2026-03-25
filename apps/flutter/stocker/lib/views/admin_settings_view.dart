@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:stocker/views/create_trade_margin_view.dart';
-import 'package:stocker/views/group_quantity_view.dart';
 import 'master_management_view.dart';
 import 'send_message_view.dart';
 import 'manage_reports_view.dart';
 import 'trade_margin_settings_view.dart';
 import 'brokerage_settings_view.dart';
+import 'group_quantity_view.dart';
+import 'script_quantity_settings_view.dart';
 
 class AdminSettingsView extends StatelessWidget {
   const AdminSettingsView({super.key});
@@ -13,10 +13,11 @@ class AdminSettingsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FC),
+      backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
               Padding(
@@ -25,14 +26,30 @@ class AdminSettingsView extends StatelessWidget {
                   children: [
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
-                      child: Icon(Icons.arrow_back, size: 24, color: Colors.black),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.02),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.arrow_back,
+                            color: Colors.black, size: 20),
+                      ),
                     ),
-                    SizedBox(width: 12),
-                    Text(
-                      'Admin Setting',
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Admin Settings',
                       style: TextStyle(
                         color: Colors.black,
-                        fontSize: 16,
+                        fontSize: 18,
                         fontFamily: 'Inter',
                         fontWeight: FontWeight.w600,
                       ),
@@ -41,41 +58,45 @@ class AdminSettingsView extends StatelessWidget {
                 ),
               ),
 
-              SizedBox(height: 16),
-
-              // Menu items
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: ShapeDecoration(
-                  color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
+              // Management section
+              _sectionLabel('MANAGEMENT'),
+              const SizedBox(height: 12),
+              _card(
                 child: Column(
                   children: [
-                    _buildMenuItem(context, 'Master Management'),
-                    _buildDivider(),
-                    _buildMenuItem(context, 'Send Message'),
-                    _buildDivider(),
-                    _buildMenuItem(context, 'Manage Trades'),
-                    _buildDivider(),
-                    _buildMenuItem(context, 'Manage Reports'),
-                    _buildDivider(),
-                    _buildMenuItem(context, 'Set Group Quantity'),
-                    _buildDivider(),
-                    _buildMenuItem(context, 'Set Script Quantity'),
-                    _buildDivider(),
-                    _buildMenuItem(context, 'Set Brokerage Setting'),
-                    _buildDivider(),
-                    _buildMenuItem(context, 'Set Trade Margin'),
-                    _buildDivider(),
-                    _buildMenuItem(context, 'Bill Management'),
+                    _settingRow(context, Icons.mail_outline, 'Send Message',
+                        () => _push(context, const SendMessageView())),
+                    _divider(),
+                    _settingRow(context, Icons.description_outlined, 'Manage Reports',
+                        () => _push(context, const ManageReportsView()), isLast: true),
                   ],
                 ),
               ),
 
-              SizedBox(height: 40),
+              const SizedBox(height: 24),
+
+              // Settings section
+              _sectionLabel('SETTINGS'),
+              const SizedBox(height: 12),
+              _card(
+                child: Column(
+                  children: [
+                    _settingRow(context, Icons.grid_view_rounded, 'Group Quantity',
+                        () => _push(context, const GroupQuantityView())),
+                    _divider(),
+                    _settingRow(context, Icons.list_alt_outlined, 'Script Quantity',
+                        () => _push(context, const ScriptQuantitySettingsView())),
+                    _divider(),
+                    _settingRow(context, Icons.tune_outlined, 'Brokerage Settings',
+                        () => _push(context, const BrokerageSettingsView())),
+                    _divider(),
+                    _settingRow(context, Icons.trending_up_outlined, 'Trade Margin',
+                        () => _push(context, const TradeMarginSettingsView()), isLast: true),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 32),
             ],
           ),
         ),
@@ -83,63 +104,83 @@ class AdminSettingsView extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuItem(BuildContext context, String title) {
-    return GestureDetector(
-      onTap: () {
-        if (title == 'Master Management') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const MasterManagementView()),
-          );
-        } else if (title == 'Send Message') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const SendMessageView()),
-          );
-        } else if (title == 'Manage Reports') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const ManageReportsView()),
-          );
-        } else if (title == 'Set Trade Margin') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const CreateTradeMarginView()),
-          );
-        } else if (title == 'Set Group Quantity') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const GroupQuantityView()),
-          );
-        } else if (title == 'Set Brokerage Setting') {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const BrokerageSettingsView()),
-          );
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 16,
-                fontFamily: 'Inter',
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-            Icon(Icons.chevron_right, size: 24, color: Colors.grey),
-          ],
+  void _push(BuildContext context, Widget page) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+  }
+
+  static Widget _sectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Color(0xFF94A3B8),
+          fontSize: 11,
+          fontFamily: 'Inter',
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
         ),
       ),
     );
   }
 
-  Widget _buildDivider() {
-    return Divider(height: 1, color: const Color(0xFFC7C7CC), indent: 16, endIndent: 16);
+  static Widget _card({required Widget child}) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  static Widget _divider() {
+    return const Divider(height: 1, color: Color(0xFFF1F5F9));
+  }
+
+  static Widget _settingRow(
+      BuildContext context, IconData icon, String label, VoidCallback onTap,
+      {bool isLast = false}) {
+    return Column(
+      children: [
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Row(
+              children: [
+                Icon(icon, size: 20, color: const Color(0xFF3F45C7)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 14,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const Icon(Icons.chevron_right,
+                    size: 18, color: Color(0xFF94A3B8)),
+              ],
+            ),
+          ),
+        ),
+        if (!isLast) const Divider(height: 1, color: Color(0xFFF1F5F9)),
+      ],
+    );
   }
 }

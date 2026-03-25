@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:stocker/pages/instrument_search_page.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import '../views/trade_card_view.dart';
+import '../widgets/announcement_banner.dart';
 
 class WatchlistPage extends StatefulWidget {
   const WatchlistPage({super.key});
@@ -33,34 +34,8 @@ class _WatchlistPageState extends State<WatchlistPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Security notice
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFEF2F2),
-                border: Border.all(color: const Color(0xFFFEE2E2)),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.verified_user, color: Colors.red, size: 20),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'All profile running in this app is secure. Your data is encrypted.',
-                      style: TextStyle(
-                        color: Color(0xFFDC2626),
-                        fontSize: 12,
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
-                        height: 1.2,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            // Announcement marquee
+            const AnnouncementBanner(),
 
             // Search bar
             Padding(
@@ -255,7 +230,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                         children: [
                                           const Expanded(
                                             child: Text(
-                                              'HIGH',
+                                              'LOW',
                                               textAlign: TextAlign.end,
                                               style: TextStyle(
                                                 color: Color(0xFF94A3B8),
@@ -269,7 +244,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                           SizedBox(width: 21),
                                           const Expanded(
                                             child: Text(
-                                              'LOW',
+                                              'HIGH',
                                               textAlign: TextAlign.end,
                                               style: TextStyle(
                                                 color: Color(0xFF94A3B8),
@@ -350,7 +325,6 @@ class _WatchlistPageState extends State<WatchlistPage> {
     final double strike = instrument.strike ?? 0.0;
     final bool isOption = instType == 'CE' || instType == 'PE';
     final bool isFut = instType == 'FUT';
-    final bool showStrike = isOption && strike > 0;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -373,95 +347,33 @@ class _WatchlistPageState extends State<WatchlistPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Name + type badge on same row
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          instrument.name.isNotEmpty
-                              ? instrument.name.toString().toUpperCase()
-                              : instrument.tradingsymbol,
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 14,
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: -0.3,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (isOption || isFut) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isFut
-                                ? const Color(0xFF3F45C7).withValues(alpha: 0.1)
-                                : instType == 'CE'
-                                    ? const Color(0xFF10B981)
-                                        .withValues(alpha: 0.1)
-                                    : const Color(0xFFEF4444)
-                                        .withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            instType,
-                            style: TextStyle(
-                              color: isFut
-                                  ? const Color(0xFF3F45C7)
-                                  : instType == 'CE'
-                                      ? const Color(0xFF10B981)
-                                      : const Color(0xFFEF4444),
-                              fontSize: 9,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+                  // Name line: "NIFTY FUT" or "ADANIENT 1680 CE"
+                  Text(
+                    _buildInstrumentTitle(instrument, instType, strike, isOption, isFut),
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: 12,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.3,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 3),
-                  // Expiry + Strike row
-                  if (instrument.expiry != null || showStrike)
-                    Row(
-                      children: [
-                        if (instrument.expiry != null)
-                          Flexible(
-                            child: Text(
-                              instrument.expiryDisplay.toString().toUpperCase(),
-                              style: const TextStyle(
-                                color: Color(0xFF94A3B8),
-                                fontSize: 10,
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.5,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        if (showStrike) ...[
-                          if (instrument.expiry != null)
-                            const Text(' · ',
-                                style: TextStyle(
-                                    color: Color(0xFF94A3B8), fontSize: 10)),
-                          Text(
-                            strike == strike.roundToDouble()
-                                ? strike.toInt().toString()
-                                : strike.toStringAsFixed(2),
-                            style: const TextStyle(
-                              color: Color(0xFF64748B),
-                              fontSize: 10,
-                              fontFamily: 'Inter',
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ],
+                  // Expiry row
+                  if (instrument.expiry != null)
+                    Text(
+                      instrument.expiryDisplay.toString().toUpperCase(),
+                      style: const TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: 10,
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   Row(
                     children: [
@@ -652,5 +564,22 @@ class _WatchlistPageState extends State<WatchlistPage> {
         ),
       ),
     );
+  }
+
+  /// Build title like "GOLD", "NIFTY FUT", "ADANIENT 1680 CE"
+  String _buildInstrumentTitle(
+      dynamic instrument, String instType, double strike, bool isOption, bool isFut) {
+    final name = instrument.name.isNotEmpty
+        ? instrument.name.toString().toUpperCase()
+        : instrument.tradingsymbol.toString();
+
+    if (isOption && strike > 0) {
+      final strikeStr = strike == strike.roundToDouble()
+          ? strike.toInt().toString()
+          : strike.toStringAsFixed(2);
+      return '$name $strikeStr $instType';
+    }
+    if (isFut) return '$name FUT';
+    return name;
   }
 }

@@ -238,6 +238,8 @@ class _UsernameViewState extends State<UsernameView> {
             'instrument_token': iToken,
             'tradingsymbol': pos['tradingsymbol'],
             'exchange': pos['exchange'],
+            'segment': pos['segment'] ?? '',
+            'lot_size': (pos['lot_size'] as num?)?.toInt() ?? 1,
             'total_buy_qty': 0,
             'total_sell_qty': 0,
             'total_buy_value': 0.0,
@@ -600,19 +602,8 @@ class _UsernameViewState extends State<UsernameView> {
             ),
 
             // Credit / Balance
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.02),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2))
-                ],
-              ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
                   Expanded(
@@ -626,18 +617,18 @@ class _UsernameViewState extends State<UsernameView> {
                                 fontFamily: 'Inter',
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 0.5)),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         Text('₹${credits.toStringAsFixed(2)}',
                             style: const TextStyle(
                                 color: Colors.black,
-                                fontSize: 16,
+                                fontSize: 13,
                                 fontFamily: 'Inter',
                                 fontWeight: FontWeight.w700)),
                       ],
                     ),
                   ),
                   Container(
-                      width: 1, height: 36, color: const Color(0xFFF1F5F9)),
+                      width: 1, height: 28, color: const Color(0xFFF1F5F9)),
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.only(left: 16),
@@ -651,11 +642,11 @@ class _UsernameViewState extends State<UsernameView> {
                                   fontFamily: 'Inter',
                                   fontWeight: FontWeight.w600,
                                   letterSpacing: 0.5)),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 2),
                           Text('₹${balance.toStringAsFixed(2)}',
                               style: const TextStyle(
                                   color: Colors.black,
-                                  fontSize: 16,
+                                  fontSize: 13,
                                   fontFamily: 'Inter',
                                   fontWeight: FontWeight.w700)),
                         ],
@@ -666,7 +657,7 @@ class _UsernameViewState extends State<UsernameView> {
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
             // Tabs
             Container(
@@ -1155,7 +1146,7 @@ class _UsernameViewState extends State<UsernameView> {
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    Text('Qty ${trade.quantity.toStringAsFixed(0)}',
+                    Text(_tradeVolumeLabel(trade),
                         style: const TextStyle(
                             color: Color(0xFF94A3B8),
                             fontSize: 10,
@@ -1281,7 +1272,7 @@ class _UsernameViewState extends State<UsernameView> {
                           color: sideColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8)),
                       child: Text(
-                          '${trade.transactionType} · ${trade.quantity.toStringAsFixed(0)} QTY',
+                          '${trade.transactionType} · ${_tradeVolumeLabel(trade)}',
                           style: TextStyle(
                               color: sideColor,
                               fontSize: 10,
@@ -1629,28 +1620,47 @@ class _UsernameViewState extends State<UsernameView> {
     );
   }
 
+  /// Volume label matching orders_page.dart logic:
+  /// Only MCX-FUT, MCX-OPT, NFO-OPT use lots. Everything else uses quantity.
+  /// Uses _trades list to look up lot_size/segment (same source as Trades tab).
   String _positionVolumeLabel(Map<String, dynamic> pos) {
     final netQty = ((pos['net_qty'] as num?)?.toInt() ?? 0).abs();
+    final String iToken = pos['instrument_token']?.toString() ?? '';
     final exchange = (pos['exchange'] as String? ?? '').toUpperCase();
-    final symbol = (pos['tradingsymbol'] as String? ?? '').toUpperCase();
-    final segment = (pos['segment'] as String? ?? '').toUpperCase();
-    final lotSize = (pos['lot_size'] as num?)?.toInt() ?? 1;
 
-    bool isLotBased = false;
-    if (segment.isNotEmpty) {
-      isLotBased =
-          segment == 'MCX-FUT' || segment == 'MCX-OPT' || segment == 'NFO-FUT';
-    } else if (exchange == 'MCX') {
-      isLotBased = true;
-    } else if (exchange == 'NFO') {
-      isLotBased = symbol.endsWith('FUT');
+    // Look up lot_size and segment from the already-fetched trades (same data Trades tab uses)
+    int lotSize = (pos['lot_size'] as num?)?.toInt() ?? 1;
+    String segment = (pos['segment'] as String? ?? '').toUpperCase();
+
+    // If position data doesn't have segment/lot_size, find it from _trades
+    if (segment.isEmpty || lotSize <= 1) {
+      for (final t in _trades) {
+        if (t.instrumentToken == iToken) {
+          if (t.segment.isNotEmpty) segment = t.segment.toUpperCase();
+          if (t.lotSize > 1) lotSize = t.lotSize;
+          break;
+        }
+      }
     }
 
-    if (isLotBased && lotSize > 0) {
+    final bool isLot = segment == 'MCX-FUT' ||
+        segment == 'MCX-OPT' ||
+        segment == 'NFO-OPT' ||
+        (segment.isEmpty && exchange == 'MCX');
+
+    if (isLot && lotSize > 0) {
       final lots = (netQty / lotSize).round();
       return '$lots LOT';
     }
     return '$netQty QTY';
+  }
+
+  /// Trade volume label: uses Trade model's isLotBased/lots/quantity.
+  String _tradeVolumeLabel(Trade trade) {
+    if (trade.isLotBased && trade.lotSize > 0) {
+      return '${trade.lots} LOT';
+    }
+    return '${trade.quantity} QTY';
   }
 
   Widget _liveMetricGridRow(String l1, double v1, String l2, double v2) {
@@ -1679,28 +1689,26 @@ class _UsernameViewState extends State<UsernameView> {
                 right: BorderSide(width: 1, color: Color(0xFFF1F5F9)))
             : null,
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Flexible(
-            child: Text(label.toUpperCase(),
-                style: const TextStyle(
-                    color: Color(0xFF94A3B8),
-                    fontSize: 9,
-                    fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.3),
-                overflow: TextOverflow.ellipsis),
-          ),
-          const SizedBox(width: 4),
+          Text(label.toUpperCase(),
+              style: const TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 9,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3),
+              overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 4),
           AnimatedFlipCounter(
             value: value,
             fractionDigits: 2,
             textStyle: TextStyle(
                 color: valueColor,
-                fontSize: 12,
+                fontSize: 13,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w600),
+                fontWeight: FontWeight.w700),
           ),
         ],
       ),

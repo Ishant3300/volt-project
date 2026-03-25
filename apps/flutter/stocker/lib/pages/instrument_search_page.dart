@@ -18,7 +18,6 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
   final FocusNode _searchFocusNode = FocusNode();
 
   List<Map<String, dynamic>> _groupedResults = [];
-  final Map<String, KiteInstrument> _selectedInstruments = {};
   bool _isSearching = false;
   String _activeTab = 'ALL';
   Timer? _debounceTimer;
@@ -197,27 +196,19 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
     return result;
   }
 
-  void _saveSelected() {
+  void _addToWatchlist(KiteInstrument instrument) {
     final watchlistProvider =
         Provider.of<WatchlistProvider>(context, listen: false);
-    int addedCount = 0;
-
-    for (var instrument in _selectedInstruments.values) {
-      if (!watchlistProvider.contains(instrument.instrumentToken)) {
-        watchlistProvider.addInstrument(instrument);
-        addedCount++;
-      }
-    }
-
-    if (addedCount > 0) {
+    if (!watchlistProvider.contains(instrument.instrumentToken)) {
+      watchlistProvider.addInstrument(instrument);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$addedCount instrument(s) added to watchlist'),
+          content: Text('${instrument.name.isNotEmpty ? instrument.name : instrument.tradingsymbol} added'),
           backgroundColor: const Color(0xFF10B981),
+          duration: const Duration(seconds: 1),
         ),
       );
     }
-    Navigator.pop(context);
   }
 
   Color _getTypeColor(String? instrumentType) {
@@ -245,110 +236,68 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
   Widget _buildSearchHeader() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.02),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Padding(
-                      padding: EdgeInsets.only(left: 16, right: 8),
-                      child: Icon(Icons.arrow_back,
-                          color: Color(0xFF475569), size: 20),
-                    ),
-                  ),
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      focusNode: _searchFocusNode,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        color: Color(0xFF0F172A),
-                        fontFamily: 'Inter',
-                        fontWeight: FontWeight.w400,
-                      ),
-                      decoration: const InputDecoration(
-                        hintText: 'Try: NIFTY FUT, BANKNIFTY CE, 22000 PE',
-                        hintStyle: TextStyle(
-                          color: Color(0xFF94A3B8),
-                          fontSize: 14,
-                          fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
-                        ),
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onChanged: _onSearchChanged,
-                    ),
-                  ),
-                  if (_searchController.text.isNotEmpty)
-                    GestureDetector(
-                      onTap: () {
-                        _searchController.clear();
-                        _performSearch('');
-                      },
-                      child: const Padding(
-                        padding: EdgeInsets.only(right: 16),
-                        child: Icon(Icons.close,
-                            color: Color(0xFF94A3B8), size: 18),
-                      ),
-                    ),
-                ],
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: const Padding(
+                padding: EdgeInsets.only(left: 16, right: 8),
+                child: Icon(Icons.arrow_back,
+                    color: Color(0xFF475569), size: 20),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          GestureDetector(
-            onTap: _selectedInstruments.isEmpty ? null : _saveSelected,
-            child: Container(
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              decoration: BoxDecoration(
-                color: _selectedInstruments.isEmpty
-                    ? const Color(0xFF3F45C7).withOpacity(0.4)
-                    : const Color(0xFF3F45C7),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: _selectedInstruments.isNotEmpty
-                    ? [
-                        BoxShadow(
-                          color: const Color(0xFF3F45C7).withOpacity(0.15),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ]
-                    : null,
-              ),
-              child: Center(
-                child: Text(
-                  _selectedInstruments.isEmpty
-                      ? 'SAVE'
-                      : 'SAVE (${_selectedInstruments.length})',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF0F172A),
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w400,
+                ),
+                decoration: const InputDecoration(
+                  hintText: 'Try: NIFTY FUT, BANKNIFTY CE, 22000 PE',
+                  hintStyle: TextStyle(
+                    color: Color(0xFF94A3B8),
                     fontSize: 14,
                     fontFamily: 'Inter',
+                    fontWeight: FontWeight.w400,
                   ),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(vertical: 14),
                 ),
+                onChanged: _onSearchChanged,
               ),
             ),
-          ),
-        ],
+            if (_searchController.text.isNotEmpty)
+              GestureDetector(
+                onTap: () {
+                  _searchController.clear();
+                  _performSearch('');
+                },
+                child: const Padding(
+                  padding: EdgeInsets.only(right: 16),
+                  child: Icon(Icons.close,
+                      color: Color(0xFF94A3B8), size: 18),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -557,138 +506,128 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
 
   Widget _buildInstrumentRow(dynamic item) {
     final instrument = KiteInstrument.fromJson(Map<String, dynamic>.from(item));
-    final isSelected =
-        _selectedInstruments.containsKey(instrument.instrumentToken);
+    final watchlistProvider =
+        Provider.of<WatchlistProvider>(context, listen: false);
+    final isAdded = watchlistProvider.contains(instrument.instrumentToken);
     final typeColor = _getTypeColor(instrument.instrumentType);
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        setState(() {
-          if (isSelected) {
-            _selectedInstruments.remove(instrument.instrumentToken);
-          } else {
-            _selectedInstruments[instrument.instrumentToken] = instrument;
-          }
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        color: isSelected ? const Color(0xFFF0F9FF) : Colors.transparent,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Type badge
-            Container(
-              width: 38,
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-              decoration: BoxDecoration(
-                color: typeColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                instrument.instrumentType.isNotEmpty
-                    ? instrument.instrumentType
-                    : (instrument.isIndex ? 'IDX' : instrument.exchange),
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: typeColor,
-                  fontFamily: 'Inter',
-                  letterSpacing: 0.3,
-                ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      color: Colors.transparent,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Type badge
+          Container(
+            width: 38,
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: BoxDecoration(
+              color: typeColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              instrument.instrumentType.isNotEmpty
+                  ? instrument.instrumentType
+                  : (instrument.isIndex ? 'IDX' : instrument.exchange),
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: typeColor,
+                fontFamily: 'Inter',
+                letterSpacing: 0.3,
               ),
             ),
-            const SizedBox(width: 12),
-            // Content
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: _buildHighlightedText(
-                          instrument.userFriendlyName,
-                          _searchController.text,
-                        ),
+          ),
+          const SizedBox(width: 12),
+          // Content
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: _buildHighlightedText(
+                        instrument.userFriendlyName,
+                        _searchController.text,
                       ),
-                    ],
-                  ),
-                  Row(
-                    children: [
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Text(
+                      instrument.tradingsymbol,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF94A3B8),
+                        fontFamily: 'Inter',
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    if (instrument.lotSize > 0) ...[
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 6),
+                        child: Text('·',
+                            style: TextStyle(
+                                fontSize: 10, color: Color(0xFFCBD5E1))),
+                      ),
                       Text(
-                        instrument.tradingsymbol,
+                        'LOT ${instrument.lotSize}',
                         style: const TextStyle(
                           fontSize: 10,
-                          fontWeight: FontWeight.w500,
                           color: Color(0xFF94A3B8),
                           fontFamily: 'Inter',
-                          letterSpacing: 0.3,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
-                      if (instrument.lotSize > 0) ...[
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 6),
-                          child: Text('·',
-                              style: TextStyle(
-                                  fontSize: 10, color: Color(0xFFCBD5E1))),
-                        ),
-                        Text(
-                          'LOT ${instrument.lotSize}',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: Color(0xFF94A3B8),
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                      if (instrument.strike > 0) ...[
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 6),
-                          child: Text('·',
-                              style: TextStyle(
-                                  fontSize: 10, color: Color(0xFFCBD5E1))),
-                        ),
-                        Text(
-                          '₹${instrument.strike.toInt()}',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: Color(0xFF94A3B8),
-                            fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
                     ],
-                  ),
-                ],
-              ),
+                    if (instrument.strike > 0) ...[
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 6),
+                        child: Text('·',
+                            style: TextStyle(
+                                fontSize: 10, color: Color(0xFFCBD5E1))),
+                      ),
+                      Text(
+                        '₹${instrument.strike.toInt()}',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF94A3B8),
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
             ),
-            // Selection indicator
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 24,
-              height: 24,
+          ),
+          // Add / Added indicator
+          GestureDetector(
+            onTap: isAdded ? null : () => _addToWatchlist(instrument),
+            child: Container(
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color:
-                    isSelected ? const Color(0xFF3F45C7) : Colors.transparent,
-                border: Border.all(
-                  color: isSelected
-                      ? const Color(0xFF3F45C7)
-                      : const Color(0xFFCBD5E1),
-                  width: 2,
-                ),
+                color: isAdded
+                    ? const Color(0xFF10B981).withOpacity(0.1)
+                    : const Color(0xFF3F45C7).withOpacity(0.1),
               ),
-              child: isSelected
-                  ? const Icon(Icons.check, size: 14, color: Colors.white)
-                  : null,
+              child: Icon(
+                isAdded ? Icons.check : Icons.add,
+                size: 18,
+                color: isAdded
+                    ? const Color(0xFF10B981)
+                    : const Color(0xFF3F45C7),
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
