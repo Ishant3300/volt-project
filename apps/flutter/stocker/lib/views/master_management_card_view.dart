@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +6,7 @@ import '../models/master.dart';
 import '../models/user.dart';
 import '../services/admin_service.dart';
 import '../services/api_service.dart';
+import '../utils/contants.dart';
 import 'username_view.dart';
 
 class MasterManagementCardView extends StatefulWidget {
@@ -144,7 +145,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child:
-                        Icon(Icons.arrow_back, size: 24, color: Colors.black),
+                        Icon(Icons.arrow_back, size: kIconSizeLarge, color: Colors.black),
                   ),
                   SizedBox(width: 12),
                   Expanded(
@@ -152,9 +153,9 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                       _currentMaster.username,
                       style: TextStyle(
                         color: Colors.black,
-                        fontSize: 16,
+                        fontSize: kFontSizeSectionHeader,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
+                        fontWeight: kFontWeightSemiBold,
                       ),
                     ),
                   ),
@@ -184,9 +185,9 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                         'View Details',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 12,
+                          fontSize: kFontSizeSubtitle,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
+                          fontWeight: kFontWeightMedium,
                         ),
                       ),
                     ),
@@ -211,18 +212,18 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                     'Credit: ${_currentMaster.credits.toStringAsFixed(2)}',
                     style: TextStyle(
                       color: Colors.black,
-                      fontSize: 16,
+                      fontSize: kFontSizeSectionHeader,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w400,
+                      fontWeight: kFontWeightRegular,
                     ),
                   ),
                   Text(
-                    'Balance: ${_currentMaster.balance.toStringAsFixed(2)}',
+                    'Balance: ${_currentMaster.equity.toStringAsFixed(2)}',
                     style: TextStyle(
                       color: Colors.black,
-                      fontSize: 16,
+                      fontSize: kFontSizeSectionHeader,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w400,
+                      fontWeight: kFontWeightRegular,
                     ),
                   ),
                 ],
@@ -265,9 +266,9 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                           'Status',
                           style: TextStyle(
                             color: Colors.black,
-                            fontSize: 14,
+                            fontSize: kFontSizeBody,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
+                            fontWeight: kFontWeightRegular,
                           ),
                         ),
                         Row(
@@ -333,9 +334,9 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                               _isActive ? 'Active' : 'Inactive',
                               style: TextStyle(
                                 color: Colors.black,
-                                fontSize: 16,
+                                fontSize: kFontSizeSectionHeader,
                                 fontFamily: 'Inter',
-                                fontWeight: FontWeight.w400,
+                                fontWeight: kFontWeightRegular,
                               ),
                             ),
                           ],
@@ -354,18 +355,18 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                           'Credit',
                           style: TextStyle(
                             color: Colors.black,
-                            fontSize: 14,
+                            fontSize: kFontSizeBody,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
+                            fontWeight: kFontWeightRegular,
                           ),
                         ),
                         Text(
                           _currentMaster.credits.toStringAsFixed(2),
                           style: TextStyle(
                             color: Colors.black,
-                            fontSize: 16,
+                            fontSize: kFontSizeSectionHeader,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
+                            fontWeight: kFontWeightRegular,
                           ),
                         ),
                       ],
@@ -389,7 +390,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                             'No child masters or users',
                             style: TextStyle(
                               color: Colors.grey,
-                              fontSize: 14,
+                              fontSize: kFontSizeBody,
                               fontFamily: 'Inter',
                             ),
                           ),
@@ -428,7 +429,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                   child: Row(
                                     children: [
                                       Icon(Icons.person,
-                                          size: 24, color: Colors.black),
+                                          size: kIconSizeLarge, color: Colors.black),
                                       SizedBox(width: 10),
                                       Expanded(
                                         child: Column(
@@ -446,10 +447,10 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                                         .toUpperCase(),
                                                     style: TextStyle(
                                                       color: Colors.black,
-                                                      fontSize: 14,
+                                                      fontSize: kFontSizeBody,
                                                       fontFamily: 'Inter',
                                                       fontWeight:
-                                                          FontWeight.w400,
+                                                          kFontWeightRegular,
                                                     ),
                                                     overflow:
                                                         TextOverflow.ellipsis,
@@ -478,10 +479,10 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                                         'MASTER',
                                                         style: TextStyle(
                                                           color: Colors.white,
-                                                          fontSize: 10,
+                                                          fontSize: kFontSizeCaption,
                                                           fontFamily: 'Inter',
                                                           fontWeight:
-                                                              FontWeight.w500,
+                                                              kFontWeightMedium,
                                                         ),
                                                       ),
                                                     ),
@@ -512,10 +513,10 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                                             : 'INACTIVE',
                                                         style: TextStyle(
                                                           color: Colors.white,
-                                                          fontSize: 10,
+                                                          fontSize: kFontSizeCaption,
                                                           fontFamily: 'Inter',
                                                           fontWeight:
-                                                              FontWeight.w400,
+                                                              kFontWeightRegular,
                                                         ),
                                                       ),
                                                     ),
@@ -542,14 +543,14 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                                 children: [
                                                   Flexible(
                                                     child: Text(
-                                                      'BAL: ${master.balance.toStringAsFixed(2)}',
+                                                      'BAL: ${master.equity.toStringAsFixed(2)}',
                                                       style: TextStyle(
                                                         color: const Color(
                                                             0xFF007AFF),
-                                                        fontSize: 11,
+                                                        fontSize: kFontSizeNavLabel,
                                                         fontFamily: 'Inter',
                                                         fontWeight:
-                                                            FontWeight.w500,
+                                                            kFontWeightMedium,
                                                       ),
                                                       overflow:
                                                           TextOverflow.ellipsis,
@@ -561,10 +562,10 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                                       'P&L: ${master.pnlSharing.toStringAsFixed(0)}%',
                                                       style: TextStyle(
                                                         color: Colors.black,
-                                                        fontSize: 11,
+                                                        fontSize: kFontSizeNavLabel,
                                                         fontFamily: 'Inter',
                                                         fontWeight:
-                                                            FontWeight.w500,
+                                                            kFontWeightMedium,
                                                       ),
                                                       overflow:
                                                           TextOverflow.ellipsis,
@@ -608,7 +609,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                   child: Row(
                                     children: [
                                       Icon(Icons.person,
-                                          size: 24, color: Colors.black),
+                                          size: kIconSizeLarge, color: Colors.black),
                                       SizedBox(width: 10),
                                       Expanded(
                                         child: Column(
@@ -625,10 +626,10 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                                     user.username.toUpperCase(),
                                                     style: TextStyle(
                                                       color: Colors.black,
-                                                      fontSize: 14,
+                                                      fontSize: kFontSizeBody,
                                                       fontFamily: 'Inter',
                                                       fontWeight:
-                                                          FontWeight.w400,
+                                                          kFontWeightRegular,
                                                     ),
                                                     overflow:
                                                         TextOverflow.ellipsis,
@@ -657,10 +658,10 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                                         'USER',
                                                         style: TextStyle(
                                                           color: Colors.white,
-                                                          fontSize: 10,
+                                                          fontSize: kFontSizeCaption,
                                                           fontFamily: 'Inter',
                                                           fontWeight:
-                                                              FontWeight.w500,
+                                                              kFontWeightMedium,
                                                         ),
                                                       ),
                                                     ),
@@ -691,10 +692,10 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                                             : 'INACTIVE',
                                                         style: TextStyle(
                                                           color: Colors.white,
-                                                          fontSize: 10,
+                                                          fontSize: kFontSizeCaption,
                                                           fontFamily: 'Inter',
                                                           fontWeight:
-                                                              FontWeight.w400,
+                                                              kFontWeightRegular,
                                                         ),
                                                       ),
                                                     ),
@@ -721,14 +722,14 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                                 children: [
                                                   Flexible(
                                                     child: Text(
-                                                      'BAL: ${user.balance.toStringAsFixed(2)}',
+                                                      'BAL: ${user.equity.toStringAsFixed(2)}',
                                                       style: TextStyle(
                                                         color: const Color(
                                                             0xFF007AFF),
-                                                        fontSize: 11,
+                                                        fontSize: kFontSizeNavLabel,
                                                         fontFamily: 'Inter',
                                                         fontWeight:
-                                                            FontWeight.w500,
+                                                            kFontWeightMedium,
                                                       ),
                                                       overflow:
                                                           TextOverflow.ellipsis,
@@ -740,10 +741,10 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                                       'P&L: ${user.pnlSharing.toStringAsFixed(0)}%',
                                                       style: TextStyle(
                                                         color: Colors.black,
-                                                        fontSize: 11,
+                                                        fontSize: kFontSizeNavLabel,
                                                         fontFamily: 'Inter',
                                                         fontWeight:
-                                                            FontWeight.w500,
+                                                            kFontWeightMedium,
                                                       ),
                                                       overflow:
                                                           TextOverflow.ellipsis,
@@ -786,18 +787,18 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
             label,
             style: TextStyle(
               color: Colors.black,
-              fontSize: 14,
+              fontSize: kFontSizeBody,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w400,
+              fontWeight: kFontWeightRegular,
             ),
           ),
           Text(
             value,
             style: TextStyle(
               color: Colors.black,
-              fontSize: 16,
+              fontSize: kFontSizeSectionHeader,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w400,
+              fontWeight: kFontWeightRegular,
             ),
           ),
         ],

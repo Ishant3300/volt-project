@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/announcement_service.dart';
+import '../utils/contants.dart';
 
 class AnnouncementBanner extends StatefulWidget {
   const AnnouncementBanner({super.key});
@@ -40,7 +41,7 @@ class _AnnouncementBannerState extends State<AnnouncementBanner>
     final tp = TextPainter(
       text: TextSpan(
         text: _message ?? '',
-        style: const TextStyle(fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w600),
+        style: const TextStyle(fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold),
       ),
       maxLines: 1,
       textDirection: TextDirection.ltr,
@@ -56,9 +57,9 @@ class _AnnouncementBannerState extends State<AnnouncementBanner>
 
     const textStyle = TextStyle(
       color: Color(0xFFDC2626),
-      fontSize: 12,
+      fontSize: kFontSizeSubtitle,
       fontFamily: 'Inter',
-      fontWeight: FontWeight.w600,
+      fontWeight: kFontWeightSemiBold,
     );
 
     return Container(
@@ -73,7 +74,7 @@ class _AnnouncementBannerState extends State<AnnouncementBanner>
         children: [
           const Padding(
             padding: EdgeInsets.only(left: 12),
-            child: Icon(Icons.campaign, color: Color(0xFFDC2626), size: 16),
+            child: Icon(Icons.campaign, color: Color(0xFFDC2626), size: kIconSizeDefault),
           ),
           const SizedBox(width: 8),
           Expanded(

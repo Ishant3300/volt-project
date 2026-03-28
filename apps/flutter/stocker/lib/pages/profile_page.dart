@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:developer';
 import '../views/account_detail_view.dart';
 import '../views/user_management_view.dart';
@@ -16,6 +17,7 @@ import '../pages/login_page.dart';
 import '../services/firebase_service.dart';
 import '../pages/account_switcher_sheet.dart';
 import '../widgets/announcement_banner.dart';
+import '../utils/contants.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -160,9 +162,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       'Profile',
                       style: TextStyle(
                         color: Color(0xFF0F172A),
-                        fontSize: 20,
+                        fontSize: kFontSizePageTitle,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w700,
+                        fontWeight: kFontWeightBold,
                         letterSpacing: -0.5,
                       ),
                     ),
@@ -173,14 +175,11 @@ class _ProfilePageState extends State<ProfilePage> {
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.settings,
-                          size: 20, color: Color(0xFF334155)),
+                          size: kIconSizeMedium, color: Color(0xFF334155)),
                     ),
                   ],
                 ),
               ),
-
-              // Announcement marquee
-              const AnnouncementBanner(),
 
               const SizedBox(height: 4),
 
@@ -236,9 +235,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                     : '?',
                                 style: TextStyle(
                                   color: roleColor,
-                                  fontSize: 16,
+                                  fontSize: kFontSizeSectionHeader,
                                   fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: kFontWeightBold,
                                 ),
                               ),
                             ),
@@ -252,9 +251,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                   name,
                                   style: const TextStyle(
                                     color: Color(0xFF0F172A),
-                                    fontSize: 14,
+                                    fontSize: kFontSizeBody,
                                     fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w700,
+                                    fontWeight: kFontWeightBold,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -266,9 +265,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                       username,
                                       style: const TextStyle(
                                         color: Color(0xFF94A3B8),
-                                        fontSize: 11,
+                                        fontSize: kFontSizeNavLabel,
                                         fontFamily: 'Inter',
-                                        fontWeight: FontWeight.w500,
+                                        fontWeight: kFontWeightMedium,
                                       ),
                                     ),
                                     const SizedBox(width: 6),
@@ -283,9 +282,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                         role,
                                         style: TextStyle(
                                           color: roleColor,
-                                          fontSize: 9,
+                                          fontSize: kFontSizeBadge,
                                           fontFamily: 'Inter',
-                                          fontWeight: FontWeight.w700,
+                                          fontWeight: kFontWeightBold,
                                           letterSpacing: 0.3,
                                         ),
                                       ),
@@ -307,16 +306,16 @@ class _ProfilePageState extends State<ProfilePage> {
                                 '$_savedAccountCount',
                                 style: const TextStyle(
                                   color: Color(0xFF64748B),
-                                  fontSize: 10,
+                                  fontSize: kFontSizeCaption,
                                   fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: kFontWeightSemiBold,
                                 ),
                               ),
                             ),
                             const SizedBox(width: 4),
                           ],
                           const Icon(Icons.unfold_more,
-                              size: 18, color: Color(0xFF94A3B8)),
+                              size: kIconSizeMedium, color: Color(0xFF94A3B8)),
                         ],
                       ),
                     ),
@@ -324,7 +323,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 },
               ),
 
-              const SizedBox(height: 4),
+              // Announcement marquee
+              const AnnouncementBanner(),
 
               // Menu items
               Container(
@@ -340,35 +340,41 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Column(
                   children: [
                     if (_isAdmin) ...[
-                      _buildMenuItem(
-                          context, Icons.admin_panel_settings, 'Admin Setting'),
+                      _buildMenuItem(context, 'Admin Setting',
+                          svgPath: kIconAdminSettings),
                       _buildDivider(),
                     ] else
                       Builder(builder: (context) {
                         return const SizedBox.shrink();
                       }),
-                    _buildMenuItem(context, Icons.person, 'Account Detail'),
+                    _buildMenuItem(context, 'Account Detail',
+                        svgPath: kIconAccountDetails),
                     _buildDivider(),
                     if (_isAdmin || _isMaster) ...[
-                      _buildMenuItem(
-                          context, Icons.people, 'Master And User Management'),
+                      _buildMenuItem(context, 'Master And User Management',
+                          svgPath: kIconMasterUserMgmt),
                       _buildDivider(),
                     ] else
                       Builder(builder: (context) {
                         return const SizedBox.shrink();
                       }),
-                    _buildMenuItem(context, Icons.insert_chart, 'Reports'),
+                    _buildMenuItem(context, 'Reports',
+                        svgPath: kIconReports),
                     _buildDivider(),
-                    _buildMenuItem(context, Icons.settings, 'Settings'),
+                    _buildMenuItem(context, 'Settings',
+                        svgPath: kIconSettings),
                     _buildDivider(),
-                    _buildMenuItem(context, Icons.person_add, 'Invite Friends'),
+                    _buildMenuItem(context, 'Invite Friends',
+                        svgPath: kIconInviteFriends),
                     _buildDivider(),
-                    _buildMenuItem(context, Icons.history, 'Login History'),
+                    _buildMenuItem(context, 'Login History',
+                        svgPath: kIconLoginHistory),
                     _buildDivider(),
-                    _buildMenuItem(context, Icons.swap_horiz, 'Switch Account'),
+                    _buildMenuItem(context, 'Switch Account',
+                        icon: Icons.swap_horiz),
                     _buildDivider(),
-                    _buildMenuItem(context, Icons.logout, 'Logout',
-                        isRed: true),
+                    _buildMenuItem(context, 'Logout',
+                        svgPath: kIconLogout, isRed: true),
                   ],
                 ),
               ),
@@ -381,9 +387,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   'Delete Account',
                   style: TextStyle(
                     color: Color(0xFF334155),
-                    fontSize: 12,
+                    fontSize: kFontSizeSubtitle,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600,
+                    fontWeight: kFontWeightSemiBold,
                   ),
                 ),
               ),
@@ -396,8 +402,8 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildMenuItem(BuildContext context, IconData icon, String title,
-      {bool isRed = false}) {
+  Widget _buildMenuItem(BuildContext context, String title,
+      {String? svgPath, IconData? icon, bool isRed = false}) {
     return GestureDetector(
       onTap: _isLoggingOut
           ? null
@@ -443,7 +449,7 @@ class _ProfilePageState extends State<ProfilePage> {
               }
             },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
         color: Colors.transparent, // allow full width tap
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -451,8 +457,8 @@ class _ProfilePageState extends State<ProfilePage> {
             Row(
               children: [
                 Container(
-                  width: 28,
-                  height: 28,
+                  width: kMenuIconCircleSize,
+                  height: kMenuIconCircleSize,
                   decoration: BoxDecoration(
                     color: isRed
                         ? const Color(0xFFFEF2F2)
@@ -460,25 +466,37 @@ class _ProfilePageState extends State<ProfilePage> {
                     shape: BoxShape.circle,
                   ),
                   child: Center(
-                    child: Icon(
-                      icon,
-                      size: 14,
-                      color: isRed
-                          ? const Color(0xFFEF4444)
-                          : const Color(0xFF1E3A8A),
-                    ),
+                    child: svgPath != null
+                        ? SvgPicture.asset(
+                            svgPath,
+                            width: kMenuIconSize,
+                            height: kMenuIconSize,
+                            colorFilter: ColorFilter.mode(
+                              isRed
+                                  ? const Color(0xFFEF4444)
+                                  : const Color(0xFF1E3A8A),
+                              BlendMode.srcIn,
+                            ),
+                          )
+                        : Icon(
+                            icon,
+                            size: kMenuIconSize,
+                            color: isRed
+                                ? const Color(0xFFEF4444)
+                                : const Color(0xFF1E3A8A),
+                          ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 16),
                 Text(
                   title,
                   style: TextStyle(
                     color: isRed
                         ? const Color(0xFFEF4444)
                         : const Color(0xFF1E293B),
-                    fontSize: 13,
+                    fontSize: kFontSizeMenuItem,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w500,
+                    fontWeight: kFontWeightMedium,
                   ),
                 ),
                 if (_isLoggingOut && title == 'Logout') ...[
@@ -498,7 +516,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const Icon(
               Icons.chevron_right,
-              size: 20,
+              size: kMenuChevronSize,
               color: Color(0xFF94A3B8),
             ),
           ],

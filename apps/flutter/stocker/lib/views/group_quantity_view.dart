@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +7,7 @@ import '../services/admin_service.dart';
 import '../services/sercure_storage_service.dart';
 import 'group_quantity_lot_detail_view.dart';
 import 'add_instrument_to_lot_view.dart';
+import '../utils/contants.dart';
 
 class GroupQuantityView extends StatefulWidget {
   const GroupQuantityView({super.key});
@@ -103,29 +104,29 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
         title: const Text('Create New Lot',
             style: TextStyle(
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w600,
-                fontSize: 16)),
+                fontWeight: kFontWeightSemiBold,
+                fontSize: kFontSizeSectionHeader)),
         content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('Enter a name for the new lot.',
                   style: TextStyle(
-                      fontSize: 13,
+                      fontSize: kFontSizeBodySmall,
                       color: Color(0xFF94A3B8),
                       fontFamily: 'Inter')),
               const SizedBox(height: 14),
               TextField(
                 controller: controller,
                 style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: kFontSizeBody,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w500),
+                    fontWeight: kFontWeightMedium),
                 decoration: InputDecoration(
                   hintText: 'Lot name',
                   hintStyle: const TextStyle(
                       color: Color(0xFFCBD5E1),
-                      fontSize: 13,
+                      fontSize: kFontSizeBodySmall,
                       fontFamily: 'Inter'),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -151,7 +152,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                   style: TextStyle(
                       color: Color(0xFF94A3B8),
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600))),
+                      fontWeight: kFontWeightSemiBold))),
           GestureDetector(
             onTap: () {
               if (controller.text.isNotEmpty) {
@@ -175,8 +176,8 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                   style: TextStyle(
                       color: Colors.white,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13)),
+                      fontWeight: kFontWeightSemiBold,
+                      fontSize: kFontSizeBodySmall)),
             ),
           ),
         ],
@@ -209,15 +210,15 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                               offset: const Offset(0, 2))
                         ]),
                     child: const Icon(Icons.arrow_back,
-                        color: Colors.black, size: 20)),
+                        color: Colors.black, size: kIconSizeMedium)),
               ),
               const SizedBox(width: 12),
               const Text('Group Quantity',
                   style: TextStyle(
                       color: Colors.black,
-                      fontSize: 18,
+                      fontSize: kFontSizeViewTitle,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600)),
+                      fontWeight: kFontWeightSemiBold)),
             ])),
 
         // Exchange chips
@@ -251,9 +252,9 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                           style: TextStyle(
                               color:
                                   sel ? Colors.white : const Color(0xFF64748B),
-                              fontSize: 13,
+                              fontSize: kFontSizeBodySmall,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.w600)),
+                              fontWeight: kFontWeightSemiBold)),
                     ),
                   );
                 },
@@ -281,9 +282,9 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                         Text('Create New Lot',
                             style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 14,
+                                fontSize: kFontSizeBody,
                                 fontFamily: 'Inter',
-                                fontWeight: FontWeight.w600)),
+                                fontWeight: kFontWeightSemiBold)),
                       ]),
                 ),
               )),
@@ -298,9 +299,9 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                   child: Text('${_lotCounts.length} lots',
                       style: const TextStyle(
                           color: Color(0xFF94A3B8),
-                          fontSize: 11,
+                          fontSize: kFontSizeNavLabel,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500)))),
+                          fontWeight: kFontWeightMedium)))),
         const SizedBox(height: 6),
 
         // Lots list
@@ -317,7 +318,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                               : 'No lots available',
                           style: const TextStyle(
                               color: Color(0xFF94A3B8),
-                              fontSize: 13,
+                              fontSize: kFontSizeBodySmall,
                               fontFamily: 'Inter')))
                   : RefreshIndicator(
                       onRefresh: _fetchGroupQuantities,
@@ -358,15 +359,15 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                                       Text(lotName,
                                           style: const TextStyle(
                                               color: Color(0xFF3F45C7),
-                                              fontSize: 15,
+                                              fontSize: kFontSizeButtonText,
                                               fontFamily: 'Inter',
-                                              fontWeight: FontWeight.w600,
+                                              fontWeight: kFontWeightSemiBold,
                                               letterSpacing: -0.3)),
                                       const SizedBox(height: 4),
                                       Text('$count instruments',
                                           style: const TextStyle(
                                               color: Color(0xFF94A3B8),
-                                              fontSize: 12,
+                                              fontSize: kFontSizeSubtitle,
                                               fontFamily: 'Inter')),
                                     ])),
                                 Container(
@@ -381,13 +382,13 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                                         Text('VIEW',
                                             style: TextStyle(
                                                 color: Color(0xFF3F45C7),
-                                                fontSize: 11,
+                                                fontSize: kFontSizeNavLabel,
                                                 fontFamily: 'Inter',
-                                                fontWeight: FontWeight.w700,
+                                                fontWeight: kFontWeightBold,
                                                 letterSpacing: 0.3)),
                                         SizedBox(width: 2),
                                         Icon(Icons.chevron_right,
-                                            size: 16, color: Color(0xFF3F45C7)),
+                                            size: kIconSizeDefault, color: Color(0xFF3F45C7)),
                                       ]),
                                 ),
                               ]),

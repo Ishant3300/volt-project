@@ -131,7 +131,7 @@ class Master {
   final String name;
   final String username;
   final double credits;
-  final double balance;
+  final double equity;
   final String note;
   final double pnlSharing;
   final double brokerageSharing;
@@ -161,7 +161,7 @@ class Master {
     required this.name,
     required this.username,
     required this.credits,
-    required this.balance,
+    required this.equity,
     required this.note,
     required this.pnlSharing,
     required this.brokerageSharing,
@@ -232,8 +232,8 @@ class Master {
       username: json['username']?.toString() ?? '',
       credits:
           json['credits'] != null ? (json['credits'] as num).toDouble() : 0.0,
-      balance:
-          json['balance'] != null ? (json['balance'] as num).toDouble() : 0.0,
+      equity:
+          json['equity'] != null ? (json['equity'] as num).toDouble() : 0.0,
       note: json['note']?.toString() ?? '',
       pnlSharing: json['pnl_sharing'] != null
           ? (json['pnl_sharing'] as num).toDouble()
@@ -292,7 +292,7 @@ class Master {
       'name': name,
       'username': username,
       'credits': credits,
-      'balance': balance,
+      'equity': equity,
       'note': note,
       'pnl_sharing': pnlSharing,
       'brokerage_sharing': brokerageSharing,

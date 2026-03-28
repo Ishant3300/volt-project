@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,8 +6,8 @@ import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../models/script_quantity.dart';
-import '../utils/date_formatter.dart';
 import 'add_script_qty_to_exchange_view.dart';
+import '../utils/contants.dart';
 
 class ScriptQuantitySettingsView extends StatefulWidget {
   const ScriptQuantitySettingsView({super.key});
@@ -191,9 +191,9 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                         'Script Quantity Setting',
                         style: TextStyle(
                           color: Colors.black,
-                          fontSize: 16,
+                          fontSize: kFontSizeSectionHeader,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
+                          fontWeight: kFontWeightSemiBold,
                         ),
                       ),
                     ],
@@ -224,9 +224,9 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                           'CREATE',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 14,
+                            fontSize: kFontSizeBody,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600,
+                            fontWeight: kFontWeightSemiBold,
                           ),
                         ),
                       ),
@@ -249,10 +249,10 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _selectedExchange,
-                    hint: const Text('Select Exchange', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter')),
+                    hint: const Text('Select Exchange', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: 'Inter')),
                     isExpanded: true,
                     icon: const Icon(Icons.keyboard_arrow_down, size: 18, color: Color(0xFF94A3B8)),
-                    style: const TextStyle(color: Colors.black, fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+                    style: const TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
                     items: _exchanges.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                     onChanged: (v) {
                       setState(() => _selectedExchange = v);
@@ -278,7 +278,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.search, size: 24, color: Color(0xFF8E8E93)),
+                  const Icon(Icons.search, size: kIconSizeLarge, color: Color(0xFF8E8E93)),
                   const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
@@ -289,9 +289,9 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                         hintText: 'Search script',
                         hintStyle: TextStyle(
                           color: Color(0xFF8E8E93),
-                          fontSize: 16,
+                          fontSize: kFontSizeSectionHeader,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
+                          fontWeight: kFontWeightRegular,
                         ),
                       ),
                     ),
@@ -318,16 +318,22 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                       });
                     },
                     child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: ShapeDecoration(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
                         color: _selectedIds.length == _filteredItems.length && _filteredItems.isNotEmpty
                             ? const Color(0xFF3F45C7)
-                            : const Color(0xFFE5E5EA),
-                        shape: const OvalBorder(),
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: _selectedIds.length == _filteredItems.length && _filteredItems.isNotEmpty
+                              ? const Color(0xFF3F45C7)
+                              : const Color(0xFFCBD5E1),
+                          width: 1.5,
+                        ),
                       ),
                       child: _selectedIds.length == _filteredItems.length && _filteredItems.isNotEmpty
-                          ? const Icon(Icons.check, color: Colors.white, size: 20)
+                          ? const Icon(Icons.check, color: Colors.white, size: 12)
                           : null,
                     ),
                   ),
@@ -350,18 +356,18 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                           hintText: 'Max Qty',
                           hintStyle: TextStyle(
                             color: Colors.black,
-                            fontSize: 12,
+                            fontSize: kFontSizeSubtitle,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
+                            fontWeight: kFontWeightRegular,
                           ),
                           isDense: true,
                           contentPadding: EdgeInsets.zero,
                         ),
                         style: const TextStyle(
                           color: Colors.black,
-                          fontSize: 12,
+                          fontSize: kFontSizeSubtitle,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
+                          fontWeight: kFontWeightRegular,
                         ),
                       ),
                     ),
@@ -385,18 +391,18 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                           hintText: 'Breakup',
                           hintStyle: TextStyle(
                             color: Colors.black,
-                            fontSize: 12,
+                            fontSize: kFontSizeSubtitle,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
+                            fontWeight: kFontWeightRegular,
                           ),
                           isDense: true,
                           contentPadding: EdgeInsets.zero,
                         ),
                         style: const TextStyle(
                           color: Colors.black,
-                          fontSize: 12,
+                          fontSize: kFontSizeSubtitle,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
+                          fontWeight: kFontWeightRegular,
                         ),
                       ),
                     ),
@@ -427,9 +433,9 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 12,
+                                  fontSize: kFontSizeSubtitle,
                                   fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: kFontWeightMedium,
                                 ),
                               ),
                       ),
@@ -453,7 +459,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                             'No script quantities found',
                             style: TextStyle(
                               color: Color(0xFF8E8E93),
-                              fontSize: 16,
+                              fontSize: kFontSizeSectionHeader,
                             ),
                           ),
                         )
@@ -485,14 +491,18 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                 child: Row(
                                   children: [
                                     Container(
-                                      width: 32,
-                                      height: 32,
-                                      decoration: ShapeDecoration(
-                                        color: isSelected ? const Color(0xFF3F45C7) : const Color(0xFFE5E5EA),
-                                        shape: const OvalBorder(),
+                                      width: 20,
+                                      height: 20,
+                                      decoration: BoxDecoration(
+                                        color: isSelected ? const Color(0xFF3F45C7) : Colors.white,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: isSelected ? const Color(0xFF3F45C7) : const Color(0xFFCBD5E1),
+                                          width: 1.5,
+                                        ),
                                       ),
                                       child: isSelected
-                                          ? const Icon(Icons.check, color: Colors.white, size: 20)
+                                          ? const Icon(Icons.check, color: Colors.white, size: 12)
                                           : null,
                                     ),
                                     const SizedBox(width: 10),
@@ -506,22 +516,10 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                               Text(
                                                 item.scriptName,
                                                 style: const TextStyle(
-                                                  color: Colors.black,
-                                                  fontSize: 16,
+                                                  color: Color(0xFF334155),
+                                                  fontSize: kFontSizeBodySmall,
                                                   fontFamily: 'Inter',
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                'Last Update: ${DateFormatter.formatDateTime(item.updatedAt)}',
-                                                style: const TextStyle(
-                                                  color: Colors.black,
-                                                  fontSize: 10,
-                                                  fontFamily: 'Inter',
-                                                  fontWeight: FontWeight.w400,
+                                                  fontWeight: kFontWeightMedium,
                                                 ),
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
@@ -548,9 +546,9 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                           'Lot ',
                                                           style: TextStyle(
                                                             color: Colors.black,
-                                                            fontSize: 10,
+                                                            fontSize: kFontSizeCaption,
                                                             fontFamily: 'Inter',
-                                                            fontWeight: FontWeight.w400,
+                                                            fontWeight: kFontWeightRegular,
                                                           ),
                                                         ),
                                                         Flexible(
@@ -558,9 +556,9 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                             item.lotSize.toStringAsFixed(0),
                                                             style: const TextStyle(
                                                               color: Colors.black,
-                                                              fontSize: 12,
+                                                              fontSize: kFontSizeSubtitle,
                                                               fontFamily: 'Inter',
-                                                              fontWeight: FontWeight.w500,
+                                                              fontWeight: kFontWeightMedium,
                                                             ),
                                                             overflow: TextOverflow.ellipsis,
                                                           ),
@@ -588,9 +586,9 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                           'Brk ',
                                                           style: TextStyle(
                                                             color: Colors.black,
-                                                            fontSize: 10,
+                                                            fontSize: kFontSizeCaption,
                                                             fontFamily: 'Inter',
-                                                            fontWeight: FontWeight.w400,
+                                                            fontWeight: kFontWeightRegular,
                                                           ),
                                                         ),
                                                         Flexible(
@@ -598,9 +596,9 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                             item.brkQty.toStringAsFixed(0),
                                                             style: const TextStyle(
                                                               color: Colors.black,
-                                                              fontSize: 12,
+                                                              fontSize: kFontSizeSubtitle,
                                                               fontFamily: 'Inter',
-                                                              fontWeight: FontWeight.w500,
+                                                              fontWeight: kFontWeightMedium,
                                                             ),
                                                             overflow: TextOverflow.ellipsis,
                                                           ),
@@ -628,9 +626,9 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                           'Max ',
                                                           style: TextStyle(
                                                             color: Colors.black,
-                                                            fontSize: 10,
+                                                            fontSize: kFontSizeCaption,
                                                             fontFamily: 'Inter',
-                                                            fontWeight: FontWeight.w400,
+                                                            fontWeight: kFontWeightRegular,
                                                           ),
                                                         ),
                                                         Flexible(
@@ -638,9 +636,9 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                             item.maxQty.toStringAsFixed(0),
                                                             style: const TextStyle(
                                                               color: Colors.black,
-                                                              fontSize: 12,
+                                                              fontSize: kFontSizeSubtitle,
                                                               fontFamily: 'Inter',
-                                                              fontWeight: FontWeight.w500,
+                                                              fontWeight: kFontWeightMedium,
                                                             ),
                                                             overflow: TextOverflow.ellipsis,
                                                           ),

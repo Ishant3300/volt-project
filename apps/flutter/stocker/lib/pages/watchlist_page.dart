@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stocker/pages/instrument_search_page.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
+import '../utils/contants.dart';
 import '../views/trade_card_view.dart';
 import '../widgets/announcement_banner.dart';
 
@@ -34,9 +35,6 @@ class _WatchlistPageState extends State<WatchlistPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Announcement marquee
-            const AnnouncementBanner(),
-
             // Search bar
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -69,15 +67,15 @@ class _WatchlistPageState extends State<WatchlistPage> {
                         child: Row(
                           children: [
                             const Icon(Icons.search,
-                                color: Color(0xFF94A3B8), size: 20),
+                                color: Color(0xFF94A3B8), size: kIconSizeMedium),
                             const SizedBox(width: 12),
                             const Text(
                               'Search & Add',
                               style: TextStyle(
                                 color: Color(0xFF94A3B8),
-                                fontSize: 14,
+                                fontSize: kFontSizeBody,
                                 fontFamily: 'Inter',
-                                fontWeight: FontWeight.w400,
+                                fontWeight: kFontWeightRegular,
                               ),
                             ),
                           ],
@@ -107,7 +105,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                             ],
                           ),
                           child: const Icon(Icons.tune,
-                              color: Color(0xFF475569), size: 20),
+                              color: Color(0xFF475569), size: kIconSizeMedium),
                         ),
                       );
                     },
@@ -116,7 +114,8 @@ class _WatchlistPageState extends State<WatchlistPage> {
               ),
             ),
 
-            const SizedBox(height: 8),
+            // Announcement marquee
+            const AnnouncementBanner(),
 
             // Watchlist items
             Expanded(
@@ -137,7 +136,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                           Text(
                             'No instruments in watchlist',
                             style: TextStyle(
-                                fontSize: 16, color: Colors.grey[600]),
+                                fontSize: kFontSizeSectionHeader, color: Colors.grey[600]),
                           ),
                           const SizedBox(height: 8),
                           ElevatedButton.icon(
@@ -189,7 +188,18 @@ class _WatchlistPageState extends State<WatchlistPage> {
                             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                             child: Row(
                               children: [
-                                const Expanded(child: SizedBox()),
+                                const Expanded(
+                                  child: Text(
+                                    'SCRIPTS',
+                                    style: TextStyle(
+                                      color: Color(0xFF94A3B8),
+                                      fontSize: kFontSizeCaption,
+                                      fontFamily: 'Inter',
+                                      fontWeight: kFontWeightSemiBold,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ),
                                 SizedBox(
                                   width: 180,
                                   child: Column(
@@ -202,9 +212,9 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                               textAlign: TextAlign.end,
                                               style: TextStyle(
                                                 color: Color(0xFF94A3B8),
-                                                fontSize: 10,
+                                                fontSize: kFontSizeCaption,
                                                 fontFamily: 'Inter',
-                                                fontWeight: FontWeight.w600,
+                                                fontWeight: kFontWeightSemiBold,
                                                 letterSpacing: 0.5,
                                               ),
                                             ),
@@ -216,9 +226,9 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                               textAlign: TextAlign.end,
                                               style: TextStyle(
                                                 color: Color(0xFF94A3B8),
-                                                fontSize: 10,
+                                                fontSize: kFontSizeCaption,
                                                 fontFamily: 'Inter',
-                                                fontWeight: FontWeight.w600,
+                                                fontWeight: kFontWeightSemiBold,
                                                 letterSpacing: 0.5,
                                               ),
                                             ),
@@ -234,9 +244,9 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                               textAlign: TextAlign.end,
                                               style: TextStyle(
                                                 color: Color(0xFF94A3B8),
-                                                fontSize: 10,
+                                                fontSize: kFontSizeCaption,
                                                 fontFamily: 'Inter',
-                                                fontWeight: FontWeight.w600,
+                                                fontWeight: kFontWeightSemiBold,
                                                 letterSpacing: 0.5,
                                               ),
                                             ),
@@ -248,9 +258,9 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                               textAlign: TextAlign.end,
                                               style: TextStyle(
                                                 color: Color(0xFF94A3B8),
-                                                fontSize: 10,
+                                                fontSize: kFontSizeCaption,
                                                 fontFamily: 'Inter',
-                                                fontWeight: FontWeight.w600,
+                                                fontWeight: kFontWeightSemiBold,
                                                 letterSpacing: 0.5,
                                               ),
                                             ),
@@ -337,7 +347,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
         );
       },
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         color: Colors.transparent,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -352,9 +362,9 @@ class _WatchlistPageState extends State<WatchlistPage> {
                     _buildInstrumentTitle(instrument, instType, strike, isOption, isFut),
                     style: const TextStyle(
                       color: Colors.black,
-                      fontSize: 12,
+                      fontSize: kFontSizeTradeSymbol,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.bold,
+                      fontWeight: kFontWeightSemiBold,
                       letterSpacing: -0.3,
                     ),
                     maxLines: 1,
@@ -367,9 +377,9 @@ class _WatchlistPageState extends State<WatchlistPage> {
                       instrument.expiryDisplay.toString().toUpperCase(),
                       style: const TextStyle(
                         color: Color(0xFF94A3B8),
-                        fontSize: 10,
+                        fontSize: kFontSizeCaption,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.bold,
+                        fontWeight: kFontWeightSemiBold,
                         letterSpacing: 0.5,
                       ),
                       maxLines: 1,
@@ -379,7 +389,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                     children: [
                       Icon(
                         isPositive ? Icons.north_east : Icons.south_west,
-                        size: 14,
+                        size: kIconSizeSmall,
                         color: isPositive
                             ? const Color(0xFF10B981)
                             : const Color(0xFFEF4444),
@@ -394,9 +404,9 @@ class _WatchlistPageState extends State<WatchlistPage> {
                             color: isPositive
                                 ? const Color(0xFF10B981)
                                 : const Color(0xFFEF4444),
-                            fontSize: 12,
+                            fontSize: kFontSizePositionDetail,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600,
+                            fontWeight: kFontWeightSemiBold,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -451,8 +461,8 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                   textAlign: TextAlign.end,
                                   style: TextStyle(
                                     fontFamily: 'Inter',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
+                                    fontSize: kFontSizePriceMain,
+                                    fontWeight: kFontWeightSemiBold,
                                     color: bidColor,
                                   ),
                                 )
@@ -461,8 +471,8 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                   textAlign: TextAlign.end,
                                   style: TextStyle(
                                     fontFamily: 'Inter',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
+                                    fontSize: kFontSizePriceMain,
+                                    fontWeight: kFontWeightSemiBold,
                                     color: bidColor,
                                   ),
                                 ),
@@ -480,8 +490,8 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                   textAlign: TextAlign.end,
                                   style: TextStyle(
                                     fontFamily: 'Inter',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
+                                    fontSize: kFontSizePriceMain,
+                                    fontWeight: kFontWeightSemiBold,
                                     color: askColor,
                                   ),
                                 )
@@ -490,8 +500,8 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                   textAlign: TextAlign.end,
                                   style: TextStyle(
                                     fontFamily: 'Inter',
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
+                                    fontSize: kFontSizePriceMain,
+                                    fontWeight: kFontWeightSemiBold,
                                     color: askColor,
                                   ),
                                 ),
@@ -509,8 +519,8 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                   textAlign: TextAlign.end,
                                   style: const TextStyle(
                                     fontFamily: 'Inter',
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
+                                    fontSize: kFontSizePriceSecondary,
+                                    fontWeight: kFontWeightSemiBold,
                                     color: Color(0xFF475569),
                                   ),
                                 )
@@ -519,8 +529,8 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                   textAlign: TextAlign.end,
                                   style: TextStyle(
                                     fontFamily: 'Inter',
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
+                                    fontSize: kFontSizePriceSecondary,
+                                    fontWeight: kFontWeightSemiBold,
                                     color: Color(0xFF475569),
                                   ),
                                 ),
@@ -538,8 +548,8 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                   textAlign: TextAlign.end,
                                   style: const TextStyle(
                                     fontFamily: 'Inter',
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
+                                    fontSize: kFontSizePriceSecondary,
+                                    fontWeight: kFontWeightSemiBold,
                                     color: Color(0xFF475569),
                                   ),
                                 )
@@ -548,8 +558,8 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                   textAlign: TextAlign.end,
                                   style: TextStyle(
                                     fontFamily: 'Inter',
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
+                                    fontSize: kFontSizePriceSecondary,
+                                    fontWeight: kFontWeightSemiBold,
                                     color: Color(0xFF475569),
                                   ),
                                 ),

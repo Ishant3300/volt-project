@@ -2,7 +2,6 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:animated_flip_counter/animated_flip_counter.dart';
 import 'package:jwt_decode/jwt_decode.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
@@ -437,18 +436,16 @@ class _OrdersPageState extends State<OrdersPage> {
                 Center(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: AnimatedFlipCounter(
-                      value: totalPnl,
-                      fractionDigits: 2,
-                      prefix: '₹',
-                      textStyle: TextStyle(
+                    child: Text(
+                            totalPnl.toStringAsFixed(2),
+                            style: TextStyle(
                         color: isTotalPositive
                             ? const Color(0xFF22C55E)
                             : const Color(0xFFEF4444),
                         fontSize: 20,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w700,
-                      ),
+                        fontWeight: kFontWeightBold,
+                          ),
                     ),
                   ),
                 ),
@@ -491,7 +488,7 @@ class _OrdersPageState extends State<OrdersPage> {
                             'No masters found',
                             style: TextStyle(
                               color: Color(0xFF94A3B8),
-                              fontSize: 14,
+                              fontSize: kFontSizeBody,
                               fontFamily: 'Inter',
                             ),
                           ),
@@ -561,9 +558,9 @@ class _OrdersPageState extends State<OrdersPage> {
                   name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?',
                   style: const TextStyle(
                     color: Color(0xFF3F45C7),
-                    fontSize: 18,
+                    fontSize: kFontSizeViewTitle,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w700,
+                    fontWeight: kFontWeightBold,
                   ),
                 ),
               ),
@@ -579,9 +576,9 @@ class _OrdersPageState extends State<OrdersPage> {
                     name,
                     style: const TextStyle(
                       color: Colors.black,
-                      fontSize: 14,
+                      fontSize: kFontSizeTradeSymbol,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.bold,
+                      fontWeight: kFontWeightSemiBold,
                       letterSpacing: -0.3,
                     ),
                     maxLines: 1,
@@ -594,16 +591,16 @@ class _OrdersPageState extends State<OrdersPage> {
                         username,
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
-                          fontSize: 12,
+                          fontSize: kFontSizeSubtitle,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
+                          fontWeight: kFontWeightMedium,
                         ),
                       ),
                       const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 6),
                         child: Text('·',
                             style: TextStyle(
-                                fontSize: 10, color: Color(0xFFCBD5E1))),
+                                fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1))),
                       ),
                       const Icon(Icons.people_outline,
                           size: 12, color: Color(0xFF94A3B8)),
@@ -612,9 +609,9 @@ class _OrdersPageState extends State<OrdersPage> {
                         '$userCount user${userCount != 1 ? "s" : ""}',
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
-                          fontSize: 12,
+                          fontSize: kFontSizeSubtitle,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
+                          fontWeight: kFontWeightMedium,
                         ),
                       ),
                     ],
@@ -624,18 +621,16 @@ class _OrdersPageState extends State<OrdersPage> {
             ),
 
             // Live P&L
-            AnimatedFlipCounter(
-              value: pnl,
-              fractionDigits: 2,
-              prefix: '₹',
-              textStyle: TextStyle(
+            Text(
+                            pnl.toStringAsFixed(2),
+                            style: TextStyle(
                 color: isPnlPositive
                     ? const Color(0xFF22C55E)
                     : const Color(0xFFEF4444),
-                fontSize: 14,
+                fontSize: kFontSizeBody,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w700,
-              ),
+                fontWeight: kFontWeightBold,
+                          ),
             ),
           ],
         ),
@@ -682,18 +677,16 @@ class _OrdersPageState extends State<OrdersPage> {
                 Center(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: AnimatedFlipCounter(
-                      value: _masterPositionPnl,
-                      fractionDigits: 2,
-                      prefix: '₹',
-                      textStyle: TextStyle(
+                    child: Text(
+                            _masterPositionPnl.toStringAsFixed(2),
+                            style: TextStyle(
                         color: isPnlPositive
                             ? const Color(0xFF22C55E)
                             : const Color(0xFFEF4444),
                         fontSize: 20,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w700,
-                      ),
+                        fontWeight: kFontWeightBold,
+                          ),
                     ),
                   ),
                 ),
@@ -723,7 +716,7 @@ class _OrdersPageState extends State<OrdersPage> {
                       Expanded(
                         child: TextField(
                           style: const TextStyle(
-                            fontSize: 13,
+                            fontSize: kFontSizeBodySmall,
                             color: Color(0xFF0F172A),
                             fontFamily: 'Inter',
                           ),
@@ -731,7 +724,7 @@ class _OrdersPageState extends State<OrdersPage> {
                             hintText: 'Search instrument...',
                             hintStyle: TextStyle(
                               color: Color(0xFF94A3B8),
-                              fontSize: 13,
+                              fontSize: kFontSizeBodySmall,
                               fontFamily: 'Inter',
                             ),
                             border: InputBorder.none,
@@ -786,7 +779,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                 : 'No matching instruments',
                             style: const TextStyle(
                               color: Color(0xFF94A3B8),
-                              fontSize: 14,
+                              fontSize: kFontSizeBody,
                               fontFamily: 'Inter',
                             ),
                           ),
@@ -868,9 +861,9 @@ class _OrdersPageState extends State<OrdersPage> {
                     displayName,
                     style: const TextStyle(
                       color: Colors.black,
-                      fontSize: 14,
+                      fontSize: kFontSizeTradeSymbol,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.bold,
+                      fontWeight: kFontWeightSemiBold,
                       letterSpacing: -0.3,
                     ),
                     maxLines: 1,
@@ -883,16 +876,16 @@ class _OrdersPageState extends State<OrdersPage> {
                         exchange,
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
-                          fontSize: 12,
+                          fontSize: kFontSizeSubtitle,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
+                          fontWeight: kFontWeightMedium,
                         ),
                       ),
                       const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 6),
                         child: Text('·',
                             style: TextStyle(
-                                fontSize: 10, color: Color(0xFFCBD5E1))),
+                                fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1))),
                       ),
                       const Icon(Icons.people_outline,
                           size: 12, color: Color(0xFF94A3B8)),
@@ -901,9 +894,9 @@ class _OrdersPageState extends State<OrdersPage> {
                         '$userCount',
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
-                          fontSize: 12,
+                          fontSize: kFontSizeSubtitle,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
+                          fontWeight: kFontWeightMedium,
                         ),
                       ),
                     ],
@@ -925,15 +918,15 @@ class _OrdersPageState extends State<OrdersPage> {
                     lotSize: (pos['lot_size'] as num?)?.toInt() ?? 1),
                 style: TextStyle(
                   color: sideColor,
-                  fontSize: 12,
+                  fontSize: kFontSizeSubtitle,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w700,
+                  fontWeight: kFontWeightBold,
                   letterSpacing: 0.3,
                 ),
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, size: 20, color: Color(0xFF94A3B8)),
+            const Icon(Icons.chevron_right, size: kIconSizeMedium, color: Color(0xFF94A3B8)),
           ],
         ),
       ),
@@ -1005,8 +998,8 @@ class _OrdersPageState extends State<OrdersPage> {
   // USER VIEW (existing, unchanged)
   // ============================================
   Widget _buildUserView() {
-    return Consumer<TradeMetricsProvider>(
-      builder: (context, provider, child) {
+    return Consumer2<TradeMetricsProvider, WatchlistProvider>(
+      builder: (context, provider, watchlistProvider, child) {
         // Filter out closed positions (netQty == 0)
         final openPositions =
             provider.positions.where((p) => p.netQty != 0).toList();
@@ -1035,17 +1028,16 @@ class _OrdersPageState extends State<OrdersPage> {
                   Center(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: AnimatedFlipCounter(
-                        value: posPnl,
-                        fractionDigits: 2,
-                        textStyle: TextStyle(
+                      child: Text(
+                            posPnl.toStringAsFixed(2),
+                            style: TextStyle(
                           color: isPosPnlPositive
                               ? const Color(0xFF22C55E)
                               : const Color(0xFFEF4444),
-                          fontSize: 24,
+                          fontSize: kFontSizePageTitle,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
-                        ),
+                          fontWeight: kFontWeightBold,
+                          ),
                       ),
                     ),
                   ),
@@ -1104,7 +1096,7 @@ class _OrdersPageState extends State<OrdersPage> {
                               curve: Curves.easeInOut,
                               child: const Icon(
                                 Icons.keyboard_arrow_down_rounded,
-                                size: 20,
+                                size: kIconSizeMedium,
                                 color: Color(0xFF94A3B8),
                               ),
                             ),
@@ -1139,9 +1131,9 @@ class _OrdersPageState extends State<OrdersPage> {
                               'Cancel',
                               style: TextStyle(
                                 color: Color(0xFF374151),
-                                fontSize: 12,
+                                fontSize: kFontSizeSubtitle,
                                 fontFamily: 'Inter',
-                                fontWeight: FontWeight.w600,
+                                fontWeight: kFontWeightSemiBold,
                               ),
                             ),
                           ),
@@ -1153,7 +1145,7 @@ class _OrdersPageState extends State<OrdersPage> {
                               '${_selectedPositionTokens.length} selected',
                               style: const TextStyle(
                                 color: Color(0xFF64748B),
-                                fontSize: 12,
+                                fontSize: kFontSizeSubtitle,
                                 fontFamily: 'Inter',
                               ),
                             ),
@@ -1186,9 +1178,9 @@ class _OrdersPageState extends State<OrdersPage> {
                                       : 'Select All',
                                   style: const TextStyle(
                                     color: Color(0xFF3F45C7),
-                                    fontSize: 12,
+                                    fontSize: kFontSizeSubtitle,
                                     fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: kFontWeightSemiBold,
                                   ),
                                 ),
                               ),
@@ -1213,9 +1205,9 @@ class _OrdersPageState extends State<OrdersPage> {
                                     color: _selectedPositionTokens.isEmpty
                                         ? const Color(0xFF9CA3AF)
                                         : Colors.white,
-                                    fontSize: 12,
+                                    fontSize: kFontSizeSubtitle,
                                     fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: kFontWeightSemiBold,
                                   ),
                                 ),
                               ),
@@ -1244,15 +1236,15 @@ class _OrdersPageState extends State<OrdersPage> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(Icons.check_box_outlined,
-                                    size: 14, color: Color(0xFF3F45C7)),
+                                    size: kIconSizeSmall, color: Color(0xFF3F45C7)),
                                 SizedBox(width: 4),
                                 Text(
                                   'Square Off',
                                   style: TextStyle(
                                     color: Color(0xFF3F45C7),
-                                    fontSize: 12,
+                                    fontSize: kFontSizeSubtitle,
                                     fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: kFontWeightSemiBold,
                                   ),
                                 ),
                               ],
@@ -1285,7 +1277,7 @@ class _OrdersPageState extends State<OrdersPage> {
                               'No open positions',
                               style: TextStyle(
                                 color: Color(0xFF64748B),
-                                fontSize: 16,
+                                fontSize: kFontSizeSectionHeader,
                                 fontFamily: 'Inter',
                               ),
                             ),
@@ -1351,21 +1343,19 @@ class _OrdersPageState extends State<OrdersPage> {
             label,
             style: const TextStyle(
               color: Color(0xFF64748B),
-              fontSize: 13,
+              fontSize: kFontSizeBodySmall,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w500,
+              fontWeight: kFontWeightMedium,
             ),
           ),
-          AnimatedFlipCounter(
-            value: value,
-            fractionDigits: 2,
-            prefix: '₹',
-            textStyle: TextStyle(
+          Text(
+                            value.toStringAsFixed(2),
+                            style: TextStyle(
               color: valueColor,
-              fontSize: 14,
+              fontSize: kFontSizeBody,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w600,
-            ),
+              fontWeight: kFontWeightSemiBold,
+                          ),
           ),
         ],
       ),
@@ -1399,9 +1389,9 @@ class _OrdersPageState extends State<OrdersPage> {
                   'Detailed Values',
                   style: TextStyle(
                     color: Color(0xFF0F172A),
-                    fontSize: 18,
+                    fontSize: kFontSizeViewTitle,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w700,
+                    fontWeight: kFontWeightBold,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -1430,18 +1420,18 @@ class _OrdersPageState extends State<OrdersPage> {
             label,
             style: const TextStyle(
               color: Color(0xFF64748B),
-              fontSize: 14,
+              fontSize: kFontSizeBody,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w500,
+              fontWeight: kFontWeightMedium,
             ),
           ),
           Text(
             value.toStringAsFixed(2),
             style: const TextStyle(
               color: Color(0xFF0F172A),
-              fontSize: 14,
+              fontSize: kFontSizeBody,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w600,
+              fontWeight: kFontWeightSemiBold,
             ),
           ),
         ],
@@ -1555,13 +1545,13 @@ class _OrdersPageState extends State<OrdersPage> {
             if (_isSelectionMode)
               const Icon(
                 Icons.check_box_outline_blank,
-                size: 20,
+                size: kIconSizeMedium,
                 color: Color(0xFF8E8E93),
               ),
             if (isSelected)
               const Icon(
                 Icons.check_box,
-                size: 20,
+                size: kIconSizeMedium,
                 color: Color(0xFF0A1E46),
               ),
             if (_isSelectionMode) const SizedBox(width: 8),
@@ -1575,9 +1565,9 @@ class _OrdersPageState extends State<OrdersPage> {
                         name,
                         style: const TextStyle(
                           color: Color(0xFF0F172A),
-                          fontSize: 13,
+                          fontSize: kFontSizePositionSymbol,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
+                          fontWeight: kFontWeightSemiBold,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -1594,9 +1584,9 @@ class _OrdersPageState extends State<OrdersPage> {
                         exchange,
                         style: const TextStyle(
                           color: Color(0xFF0F172A),
-                          fontSize: 13,
+                          fontSize: kFontSizePositionSymbol,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
+                          fontWeight: kFontWeightMedium,
                         ),
                       ),
                     ],
@@ -1606,9 +1596,9 @@ class _OrdersPageState extends State<OrdersPage> {
                     qtyInfo,
                     style: const TextStyle(
                       color: Color(0xFF64748B),
-                      fontSize: 12,
+                      fontSize: kFontSizePositionDetail,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w400,
+                      fontWeight: kFontWeightRegular,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -1618,56 +1608,52 @@ class _OrdersPageState extends State<OrdersPage> {
                         'ATP: ',
                         style: TextStyle(
                           color: Color(0xFF64748B),
-                          fontSize: 12,
+                          fontSize: kFontSizePositionDetail,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
+                          fontWeight: kFontWeightRegular,
                         ),
                       ),
-                      AnimatedFlipCounter(
-                        value: atp,
-                        fractionDigits: 2,
-                        textStyle: const TextStyle(
+                      Text(
+                            atp.toStringAsFixed(2),
+                            style: const TextStyle(
                           color: Color(0xFF64748B),
-                          fontSize: 12,
+                          fontSize: kFontSizePositionDetail,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
-                        ),
+                          fontWeight: kFontWeightRegular,
+                          ),
                       ),
                       const SizedBox(width: 16),
                       const Text(
                         'CMP: ',
                         style: TextStyle(
                           color: Color(0xFF64748B),
-                          fontSize: 12,
+                          fontSize: kFontSizePositionDetail,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
+                          fontWeight: kFontWeightRegular,
                         ),
                       ),
-                      AnimatedFlipCounter(
-                        value: cmp,
-                        fractionDigits: 2,
-                        textStyle: const TextStyle(
+                      Text(
+                            cmp.toStringAsFixed(2),
+                            style: const TextStyle(
                           color: Color(0xFF64748B),
-                          fontSize: 12,
+                          fontSize: kFontSizePositionDetail,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
-                        ),
+                          fontWeight: kFontWeightRegular,
+                          ),
                       ),
                     ],
                   ),
                 ],
               ),
             ),
-            AnimatedFlipCounter(
-              value: pnl,
-              fractionDigits: 2,
-              prefix: '₹',
-              textStyle: TextStyle(
+            Text(
+                            pnl.toStringAsFixed(2),
+                            style: TextStyle(
                 color: valueColor,
-                fontSize: 14,
+                fontSize: kFontSizePositionPnl,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w600,
-              ),
+                fontWeight: kFontWeightSemiBold,
+                          ),
             ),
           ],
         ),
@@ -1700,9 +1686,9 @@ class _OrdersPageState extends State<OrdersPage> {
                 'Square Off Positions',
                 style: TextStyle(
                   color: Color(0xFF0F172A),
-                  fontSize: 18,
+                  fontSize: kFontSizeViewTitle,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w700,
+                  fontWeight: kFontWeightBold,
                 ),
               ),
               const SizedBox(height: 12),
@@ -1711,9 +1697,9 @@ class _OrdersPageState extends State<OrdersPage> {
                 'This will place opposite market orders to close these positions.',
                 style: const TextStyle(
                   color: Color(0xFF64748B),
-                  fontSize: 14,
+                  fontSize: kFontSizeBody,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w400,
+                  fontWeight: kFontWeightRegular,
                   height: 1.5,
                 ),
               ),
@@ -1734,9 +1720,9 @@ class _OrdersPageState extends State<OrdersPage> {
                       'Cancel',
                       style: TextStyle(
                         color: Color(0xFF64748B),
-                        fontSize: 14,
+                        fontSize: kFontSizeBody,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
+                        fontWeight: kFontWeightSemiBold,
                       ),
                     ),
                   ),
@@ -1755,9 +1741,9 @@ class _OrdersPageState extends State<OrdersPage> {
                       'Square Off',
                       style: TextStyle(
                         color: Color(0xFFEF4444), // standard red
-                        fontSize: 14,
+                        fontSize: kFontSizeBody,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
+                        fontWeight: kFontWeightSemiBold,
                       ),
                     ),
                   ),
@@ -1890,9 +1876,9 @@ class _OrdersPageState extends State<OrdersPage> {
                       'Square Off Errors',
                       style: TextStyle(
                         color: Color(0xFF0F172A),
-                        fontSize: 18,
+                        fontSize: kFontSizeViewTitle,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w700,
+                        fontWeight: kFontWeightBold,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -1903,9 +1889,9 @@ class _OrdersPageState extends State<OrdersPage> {
                           errors.join('\n'),
                           style: const TextStyle(
                             color: Color(0xFF64748B),
-                            fontSize: 14,
+                            fontSize: kFontSizeBody,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
+                            fontWeight: kFontWeightRegular,
                             height: 1.5,
                           ),
                         ),
@@ -1928,9 +1914,9 @@ class _OrdersPageState extends State<OrdersPage> {
                           'OK',
                           style: TextStyle(
                             color: Color(0xFF0F172A),
-                            fontSize: 14,
+                            fontSize: kFontSizeBody,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600,
+                            fontWeight: kFontWeightSemiBold,
                           ),
                         ),
                       ),

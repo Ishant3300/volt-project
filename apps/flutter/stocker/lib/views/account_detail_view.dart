@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_profile_provider.dart';
+import '../utils/contants.dart';
 import '../utils/date_formatter.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'dart:io';
@@ -80,17 +81,24 @@ class _AccountDetailViewState extends State<AccountDetailView> {
                     children: [
                       GestureDetector(
                         onTap: () => Navigator.pop(context),
-                        child: const Icon(Icons.arrow_back,
-                            size: 24, color: Color(0xFF0F172A)),
+                        child: Container(
+                          width: 40, height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
+                          ),
+                          child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+                        ),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 12),
                       const Text(
                         'Account Detail',
                         style: TextStyle(
                           color: Color(0xFF0F172A),
-                          fontSize: 24,
+                          fontSize: kFontSizePageTitle,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
+                          fontWeight: kFontWeightBold,
                           letterSpacing: -0.5,
                         ),
                       ),
@@ -112,16 +120,16 @@ class _AccountDetailViewState extends State<AccountDetailView> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.shield, color: Color(0xFFEF4444), size: 20),
+                  const Icon(Icons.shield, color: Color(0xFFEF4444), size: kIconSizeMedium),
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Text(
                       'All profile running in this app is secure. The new security features are active.',
                       style: TextStyle(
                         color: Color(0xFFDC2626),
-                        fontSize: 12,
+                        fontSize: kFontSizeSubtitle,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
+                        fontWeight: kFontWeightMedium,
                         height: 1.2,
                       ),
                     ),
@@ -205,9 +213,9 @@ class _AccountDetailViewState extends State<AccountDetailView> {
             label,
             style: const TextStyle(
               color: Color(0xFF64748B),
-              fontSize: 14,
+              fontSize: kFontSizeBody,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w400,
+              fontWeight: kFontWeightRegular,
             ),
           ),
           Flexible(
@@ -216,9 +224,9 @@ class _AccountDetailViewState extends State<AccountDetailView> {
               textAlign: TextAlign.right,
               style: const TextStyle(
                 color: Color(0xFF1E293B),
-                fontSize: 14,
+                fontSize: kFontSizeBody,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w500,
+                fontWeight: kFontWeightMedium,
               ),
             ),
           ),

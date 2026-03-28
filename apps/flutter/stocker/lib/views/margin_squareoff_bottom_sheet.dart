@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../models/master.dart';
 import '../models/user.dart';
+import '../utils/contants.dart';
 
 class MarginSquareoffBottomSheet extends StatefulWidget {
   final Master? master;
@@ -216,9 +217,9 @@ class _MarginSquareoffBottomSheetState extends State<MarginSquareoffBottomSheet>
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.black,
-                            fontSize: 16,
+                            fontSize: kFontSizeSheetTitle,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600,
+                            fontWeight: kFontWeightSemiBold,
                           ),
                         ),
                       ],
@@ -235,9 +236,9 @@ class _MarginSquareoffBottomSheetState extends State<MarginSquareoffBottomSheet>
                         'Add Percentage (%)',
                         style: TextStyle(
                           color: const Color(0xFF2B2B2B),
-                          fontSize: 16,
+                          fontSize: kFontSizeSectionHeader,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
+                          fontWeight: kFontWeightMedium,
                         ),
                       ),
                       SizedBox(height: 8),
@@ -263,16 +264,16 @@ class _MarginSquareoffBottomSheetState extends State<MarginSquareoffBottomSheet>
                             hintText: 'Enter percentage',
                             hintStyle: TextStyle(
                               color: const Color(0xFF8E8E93),
-                              fontSize: 16,
+                              fontSize: kFontSizeSheetHint,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.w400,
+                              fontWeight: kFontWeightRegular,
                             ),
                           ),
                           style: TextStyle(
                             color: Colors.black,
-                            fontSize: 16,
+                            fontSize: kFontSizeSheetBody,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w400,
+                            fontWeight: kFontWeightRegular,
                           ),
                         ),
                       ),
@@ -298,9 +299,9 @@ class _MarginSquareoffBottomSheetState extends State<MarginSquareoffBottomSheet>
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: Colors.black,
-                                fontSize: 16,
+                                fontSize: kFontSizeButtonText,
                                 fontFamily: 'Inter',
-                                fontWeight: FontWeight.w600,
+                                fontWeight: kFontWeightSemiBold,
                                 height: 1.25,
                               ),
                             ),
@@ -333,9 +334,9 @@ class _MarginSquareoffBottomSheetState extends State<MarginSquareoffBottomSheet>
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: Colors.white,
-                                      fontSize: 16,
+                                      fontSize: kFontSizeButtonText,
                                       fontFamily: 'Inter',
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: kFontWeightSemiBold,
                                       height: 1.25,
                                     ),
                                   ),

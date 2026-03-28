@@ -1,11 +1,11 @@
-import 'package:flutter/material.dart';
-import 'master_management_view.dart';
+﻿import 'package:flutter/material.dart';
 import 'send_message_view.dart';
 import 'manage_reports_view.dart';
 import 'trade_margin_settings_view.dart';
 import 'brokerage_settings_view.dart';
 import 'group_quantity_view.dart';
 import 'script_quantity_settings_view.dart';
+import '../utils/contants.dart';
 
 class AdminSettingsView extends StatelessWidget {
   const AdminSettingsView({super.key});
@@ -41,7 +41,7 @@ class AdminSettingsView extends StatelessWidget {
                           ],
                         ),
                         child: const Icon(Icons.arrow_back,
-                            color: Colors.black, size: 20),
+                            color: Colors.black, size: kIconSizeMedium),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -49,9 +49,9 @@ class AdminSettingsView extends StatelessWidget {
                       'Admin Settings',
                       style: TextStyle(
                         color: Colors.black,
-                        fontSize: 18,
+                        fontSize: kFontSizeViewTitle,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
+                        fontWeight: kFontWeightSemiBold,
                       ),
                     ),
                   ],
@@ -115,9 +115,9 @@ class AdminSettingsView extends StatelessWidget {
         text,
         style: const TextStyle(
           color: Color(0xFF94A3B8),
-          fontSize: 11,
+          fontSize: kFontSizeNavLabel,
           fontFamily: 'Inter',
-          fontWeight: FontWeight.w600,
+          fontWeight: kFontWeightSemiBold,
           letterSpacing: 0.5,
         ),
       ),
@@ -157,24 +157,34 @@ class AdminSettingsView extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: const EdgeInsets.symmetric(vertical: 9),
             child: Row(
               children: [
-                Icon(icon, size: 20, color: const Color(0xFF3F45C7)),
-                const SizedBox(width: 12),
+                Container(
+                  width: kMenuIconCircleSize,
+                  height: kMenuIconCircleSize,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF1F5F9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Icon(icon, size: kMenuIconSize, color: const Color(0xFF1E3A8A)),
+                  ),
+                ),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Text(
                     label,
                     style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 14,
+                      color: Color(0xFF1E293B),
+                      fontSize: kFontSizeMenuItem,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w500,
+                      fontWeight: kFontWeightMedium,
                     ),
                   ),
                 ),
                 const Icon(Icons.chevron_right,
-                    size: 18, color: Color(0xFF94A3B8)),
+                    size: kMenuChevronSize, color: Color(0xFF94A3B8)),
               ],
             ),
           ),

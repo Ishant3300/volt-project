@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import '../utils/contants.dart';
 
 class EditMasterView extends StatelessWidget {
   final String name;
@@ -30,16 +31,16 @@ class EditMasterView extends StatelessWidget {
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: Icon(Icons.arrow_back, size: 24, color: Colors.black),
+                    child: Icon(Icons.arrow_back, size: kIconSizeLarge, color: Colors.black),
                   ),
                   SizedBox(width: 12),
                   Text(
                     'Master Management',
                     style: TextStyle(
                       color: Colors.black,
-                      fontSize: 16,
+                      fontSize: kFontSizeSectionHeader,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
+                      fontWeight: kFontWeightSemiBold,
                     ),
                   ),
                 ],
@@ -92,9 +93,9 @@ class EditMasterView extends StatelessWidget {
                 masterName,
                 style: TextStyle(
                   color: Colors.black,
-                  fontSize: 14,
+                  fontSize: kFontSizeBody,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w400,
+                  fontWeight: kFontWeightRegular,
                 ),
               ),
               Container(
@@ -107,9 +108,9 @@ class EditMasterView extends StatelessWidget {
                   active ? 'ACTIVE' : 'INACTIVE',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 10,
+                    fontSize: kFontSizeCaption,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
+                    fontWeight: kFontWeightRegular,
                   ),
                 ),
               ),
@@ -123,27 +124,27 @@ class EditMasterView extends StatelessWidget {
                 'BALANCE: $bal',
                 style: TextStyle(
                   color: const Color(0xFF999999),
-                  fontSize: 12,
+                  fontSize: kFontSizeSubtitle,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w400,
+                  fontWeight: kFontWeightRegular,
                 ),
               ),
               Text(
                 'CREDIT: $cred',
                 style: TextStyle(
                   color: const Color(0xFF999999),
-                  fontSize: 12,
+                  fontSize: kFontSizeSubtitle,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w400,
+                  fontWeight: kFontWeightRegular,
                 ),
               ),
               Text(
                 'PL SHARE: $pl',
                 style: TextStyle(
                   color: const Color(0xFF999999),
-                  fontSize: 12,
+                  fontSize: kFontSizeSubtitle,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w400,
+                  fontWeight: kFontWeightRegular,
                 ),
               ),
             ],

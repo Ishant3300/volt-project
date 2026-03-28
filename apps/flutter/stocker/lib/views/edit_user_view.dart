@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import '../utils/contants.dart';
 
 class EditUserView extends StatelessWidget {
   const EditUserView({super.key});
@@ -24,9 +25,9 @@ class EditUserView extends StatelessWidget {
                     'Update User',
                     style: TextStyle(
                       color: Colors.black,
-                      fontSize: 16,
+                      fontSize: kFontSizeSectionHeader,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
+                      fontWeight: kFontWeightSemiBold,
                     ),
                   ),
                 ],
@@ -46,9 +47,9 @@ class EditUserView extends StatelessWidget {
                       'User Type',
                       style: TextStyle(
                         color: const Color(0xFF2B2B2B),
-                        fontSize: 16,
+                        fontSize: kFontSizeSectionHeader,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
+                        fontWeight: kFontWeightMedium,
                       ),
                     ),
                     SizedBox(height: 8),
@@ -72,13 +73,13 @@ class EditUserView extends StatelessWidget {
                             'Select Item',
                             style: TextStyle(
                               color: const Color(0xFF8E8E93),
-                              fontSize: 16,
+                              fontSize: kFontSizeSectionHeader,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.w400,
+                              fontWeight: kFontWeightRegular,
                             ),
                           ),
                           Icon(Icons.keyboard_arrow_down,
-                              size: 24, color: Colors.black),
+                              size: kIconSizeLarge, color: Colors.black),
                         ],
                       ),
                     ),
@@ -90,9 +91,9 @@ class EditUserView extends StatelessWidget {
                       'PERSONAL DETAILS',
                       style: TextStyle(
                         color: const Color(0xFF8E8E93),
-                        fontSize: 12,
+                        fontSize: kFontSizeSubtitle,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
+                        fontWeight: kFontWeightMedium,
                       ),
                     ),
 
@@ -114,9 +115,9 @@ class EditUserView extends StatelessWidget {
                             'Name',
                             style: TextStyle(
                               color: const Color(0xFF2B2B2B),
-                              fontSize: 16,
+                              fontSize: kFontSizeSectionHeader,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.w500,
+                              fontWeight: kFontWeightMedium,
                             ),
                           ),
                           SizedBox(height: 8),
@@ -137,9 +138,9 @@ class EditUserView extends StatelessWidget {
                               'Placeholder',
                               style: TextStyle(
                                 color: const Color(0xFF8E8E93),
-                                fontSize: 16,
+                                fontSize: kFontSizeSectionHeader,
                                 fontFamily: 'Inter',
-                                fontWeight: FontWeight.w400,
+                                fontWeight: kFontWeightRegular,
                               ),
                             ),
                           ),
@@ -151,9 +152,9 @@ class EditUserView extends StatelessWidget {
                             'Username',
                             style: TextStyle(
                               color: const Color(0xFF2B2B2B),
-                              fontSize: 16,
+                              fontSize: kFontSizeSectionHeader,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.w500,
+                              fontWeight: kFontWeightMedium,
                             ),
                           ),
                           SizedBox(height: 8),
@@ -174,9 +175,9 @@ class EditUserView extends StatelessWidget {
                               'Placeholder',
                               style: TextStyle(
                                 color: const Color(0xFF8E8E93),
-                                fontSize: 16,
+                                fontSize: kFontSizeSectionHeader,
                                 fontFamily: 'Inter',
-                                fontWeight: FontWeight.w400,
+                                fontWeight: kFontWeightRegular,
                               ),
                             ),
                           ),
@@ -188,9 +189,9 @@ class EditUserView extends StatelessWidget {
                             'Credit',
                             style: TextStyle(
                               color: const Color(0xFF2B2B2B),
-                              fontSize: 16,
+                              fontSize: kFontSizeSectionHeader,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.w500,
+                              fontWeight: kFontWeightMedium,
                             ),
                           ),
                           SizedBox(height: 8),
@@ -211,9 +212,9 @@ class EditUserView extends StatelessWidget {
                               'Placeholder',
                               style: TextStyle(
                                 color: const Color(0xFF8E8E93),
-                                fontSize: 16,
+                                fontSize: kFontSizeSectionHeader,
                                 fontFamily: 'Inter',
-                                fontWeight: FontWeight.w400,
+                                fontWeight: kFontWeightRegular,
                               ),
                             ),
                           ),
@@ -225,9 +226,9 @@ class EditUserView extends StatelessWidget {
                             'Note/Remark',
                             style: TextStyle(
                               color: const Color(0xFF2B2B2B),
-                              fontSize: 16,
+                              fontSize: kFontSizeSectionHeader,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.w500,
+                              fontWeight: kFontWeightMedium,
                             ),
                           ),
                           SizedBox(height: 8),
@@ -248,9 +249,9 @@ class EditUserView extends StatelessWidget {
                               'Placeholder',
                               style: TextStyle(
                                 color: const Color(0xFF8E8E93),
-                                fontSize: 16,
+                                fontSize: kFontSizeSectionHeader,
                                 fontFamily: 'Inter',
-                                fontWeight: FontWeight.w400,
+                                fontWeight: kFontWeightRegular,
                               ),
                             ),
                           ),
@@ -265,9 +266,9 @@ class EditUserView extends StatelessWidget {
                       'EXCHANGE DETAIL',
                       style: TextStyle(
                         color: const Color(0xFF8E8E93),
-                        fontSize: 12,
+                        fontSize: kFontSizeSubtitle,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
+                        fontWeight: kFontWeightMedium,
                       ),
                     ),
 
@@ -300,12 +301,12 @@ class EditUserView extends StatelessWidget {
                           'HIGH LOW BETWEEN TRADE LIMIT',
                           style: TextStyle(
                             color: const Color(0xFF8E8E93),
-                            fontSize: 12,
+                            fontSize: kFontSizeSubtitle,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500,
+                            fontWeight: kFontWeightMedium,
                           ),
                         ),
-                        Icon(Icons.add, size: 24, color: Colors.black),
+                        Icon(Icons.add, size: kIconSizeLarge, color: Colors.black),
                       ],
                     ),
 
@@ -366,9 +367,9 @@ class EditUserView extends StatelessWidget {
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 16,
+                            fontSize: kFontSizeSectionHeader,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600,
+                            fontWeight: kFontWeightSemiBold,
                             height: 1.25,
                           ),
                         ),
@@ -395,15 +396,15 @@ class EditUserView extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(Icons.check_box_outline_blank,
-                      size: 24, color: Colors.black),
+                      size: kIconSizeLarge, color: Colors.black),
                   SizedBox(width: 8),
                   Text(
                     'NSE',
                     style: TextStyle(
                       color: Colors.black,
-                      fontSize: 16,
+                      fontSize: kFontSizeSectionHeader,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w400,
+                      fontWeight: kFontWeightRegular,
                     ),
                   ),
                 ],
@@ -413,15 +414,15 @@ class EditUserView extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(Icons.check_box_outline_blank,
-                      size: 24, color: Colors.black),
+                      size: kIconSizeLarge, color: Colors.black),
                   SizedBox(width: 8),
                   Text(
                     'Turnover',
                     style: TextStyle(
                       color: Colors.black,
-                      fontSize: 16,
+                      fontSize: kFontSizeSectionHeader,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w400,
+                      fontWeight: kFontWeightRegular,
                     ),
                   ),
                 ],
@@ -431,15 +432,15 @@ class EditUserView extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(Icons.check_box_outline_blank,
-                      size: 24, color: Colors.black),
+                      size: kIconSizeLarge, color: Colors.black),
                   SizedBox(width: 8),
                   Text(
                     'Lot',
                     style: TextStyle(
                       color: Colors.black,
-                      fontSize: 16,
+                      fontSize: kFontSizeSectionHeader,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w400,
+                      fontWeight: kFontWeightRegular,
                     ),
                   ),
                 ],
@@ -466,12 +467,12 @@ class EditUserView extends StatelessWidget {
                 'Select Item',
                 style: TextStyle(
                   color: const Color(0xFF8E8E93),
-                  fontSize: 16,
+                  fontSize: kFontSizeSectionHeader,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w400,
+                  fontWeight: kFontWeightRegular,
                 ),
               ),
-              Icon(Icons.keyboard_arrow_down, size: 24, color: Colors.black),
+              Icon(Icons.keyboard_arrow_down, size: kIconSizeLarge, color: Colors.black),
             ],
           ),
         ),
@@ -493,16 +494,16 @@ class EditUserView extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.check_box_outline_blank, size: 24, color: Colors.black),
+          Icon(Icons.check_box_outline_blank, size: kIconSizeLarge, color: Colors.black),
           SizedBox(width: 10),
           Flexible(
             child: Text(
               label,
               style: TextStyle(
                 color: Colors.black,
-                fontSize: 16,
+                fontSize: kFontSizeSectionHeader,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w400,
+                fontWeight: kFontWeightRegular,
               ),
               overflow: TextOverflow.ellipsis,
             ),

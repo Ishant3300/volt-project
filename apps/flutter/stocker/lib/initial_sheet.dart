@@ -1,4 +1,4 @@
-import 'dart:developer';
+﻿import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -9,6 +9,7 @@ import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
 import 'pages/login_page.dart';
 import 'home_page.dart';
+import 'utils/contants.dart';
 
 class InitialScreen extends StatefulWidget {
   const InitialScreen({super.key});
@@ -247,9 +248,9 @@ class _SplashScreenState extends State<SplashScreen>
                         'APEX',
                         style: TextStyle(
                           color: Color(0xFF0F172A),
-                          fontSize: 36,
+                          fontSize: kFontSizeDisplay,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w800,
+                          fontWeight: kFontWeightBold,
                           letterSpacing: 4,
                         ),
                       ),
@@ -263,9 +264,9 @@ class _SplashScreenState extends State<SplashScreen>
                       'YOUR EDGE IN THE MARKET',
                       style: TextStyle(
                         color: Color(0xFF64748B),
-                        fontSize: 12,
+                        fontSize: kFontSizeSubtitle,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
+                        fontWeight: kFontWeightMedium,
                         letterSpacing: 1.5,
                       ),
                     ),

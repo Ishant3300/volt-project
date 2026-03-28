@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/master.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../providers/user_profile_provider.dart';
+import '../utils/contants.dart';
 
 class CreditDebitBottomSheet extends StatefulWidget {
   final Master? master;
@@ -150,9 +151,9 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.black,
-              fontSize: 16,
+              fontSize: kFontSizeSheetTitle,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w600,
+              fontWeight: kFontWeightSemiBold,
             ),
           ),
 
@@ -181,9 +182,9 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: _selectedTab == 0 ? Colors.white : const Color(0xFF333333),
-                        fontSize: 16,
+                        fontSize: kFontSizeSectionHeader,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
+                        fontWeight: kFontWeightMedium,
                         height: 1.25,
                       ),
                     ),
@@ -210,9 +211,9 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: _selectedTab == 1 ? Colors.white : const Color(0xFF333333),
-                        fontSize: 16,
+                        fontSize: kFontSizeSectionHeader,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
+                        fontWeight: kFontWeightMedium,
                         height: 1.25,
                       ),
                     ),
@@ -236,9 +237,9 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
               'Available Credit: ${(widget.master?.credits ?? widget.user?.credits ?? 0).toStringAsFixed(2)}',
               style: TextStyle(
                 color: Colors.black,
-                fontSize: 16,
+                fontSize: kFontSizeSectionHeader,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w400,
+                fontWeight: kFontWeightRegular,
               ),
             ),
           ),
@@ -250,9 +251,9 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
             'Add Amount',
             style: TextStyle(
               color: const Color(0xFF2B2B2B),
-              fontSize: 16,
+              fontSize: kFontSizeSectionHeader,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w500,
+              fontWeight: kFontWeightMedium,
             ),
           ),
           SizedBox(height: 8),
@@ -263,9 +264,9 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
               hintText: 'Enter amount',
               hintStyle: TextStyle(
                 color: const Color(0xFF8E8E93),
-                fontSize: 16,
+                fontSize: kFontSizeSectionHeader,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w400,
+                fontWeight: kFontWeightRegular,
               ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               border: OutlineInputBorder(
@@ -290,9 +291,9 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
             'Comment',
             style: TextStyle(
               color: const Color(0xFF2B2B2B),
-              fontSize: 16,
+              fontSize: kFontSizeSectionHeader,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w500,
+              fontWeight: kFontWeightMedium,
             ),
           ),
           SizedBox(height: 8),
@@ -303,9 +304,9 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
               hintText: 'Add a comment (optional)',
               hintStyle: TextStyle(
                 color: const Color(0xFF8E8E93),
-                fontSize: 16,
+                fontSize: kFontSizeSectionHeader,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w400,
+                fontWeight: kFontWeightRegular,
               ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               border: OutlineInputBorder(
@@ -342,9 +343,9 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.black,
-                        fontSize: 16,
+                        fontSize: kFontSizeButtonText,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
+                        fontWeight: kFontWeightSemiBold,
                         height: 1.25,
                       ),
                     ),
@@ -379,9 +380,9 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 16,
+                              fontSize: kFontSizeButtonText,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.w600,
+                              fontWeight: kFontWeightSemiBold,
                               height: 1.25,
                             ),
                           ),

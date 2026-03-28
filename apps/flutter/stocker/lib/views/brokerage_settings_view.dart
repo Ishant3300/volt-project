@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../services/sercure_storage_service.dart';
 import 'add_brokerage_to_exchange_view.dart';
+import '../utils/contants.dart';
 
 class BrokerageSettingsView extends StatefulWidget {
   const BrokerageSettingsView({super.key});
@@ -172,15 +173,15 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                                 offset: const Offset(0, 2))
                           ]),
                       child: const Icon(Icons.arrow_back,
-                          color: Colors.black, size: 20))),
+                          color: Colors.black, size: kIconSizeMedium))),
               const SizedBox(width: 12),
               const Expanded(
                   child: Text('Brokerage Settings',
                       style: TextStyle(
                           color: Colors.black,
-                          fontSize: 18,
+                          fontSize: kFontSizeViewTitle,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600))),
+                          fontWeight: kFontWeightSemiBold))),
               if (_isAdmin) ...[
                 GestureDetector(
                   onTap: () {
@@ -200,9 +201,9 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(10)),
                       child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.add, color: Colors.white, size: 16),
+                        Icon(Icons.add, color: Colors.white, size: kIconSizeDefault),
                         SizedBox(width: 4),
-                        Text('Create', style: TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w600))
+                        Text('Create', style: TextStyle(color: Colors.white, fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold))
                       ])),
                 ),
               ],
@@ -261,14 +262,14 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                         ? [FilteringTextInputFormatter.digitsOnly]
                         : null,
                     style: const TextStyle(
-                        fontSize: 13,
+                        fontSize: kFontSizeBodySmall,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500),
+                        fontWeight: kFontWeightMedium),
                     decoration: const InputDecoration(
                         hintText: 'Value',
                         hintStyle: TextStyle(
                             color: Color(0xFFCBD5E1),
-                            fontSize: 13,
+                            fontSize: kFontSizeBodySmall,
                             fontFamily: 'Inter'),
                         contentPadding:
                             EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -288,9 +289,9 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                       child: const Text('Apply',
                           style: TextStyle(
                               color: Colors.white,
-                              fontSize: 13,
+                              fontSize: kFontSizeBodySmall,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.w600)))),
+                              fontWeight: kFontWeightSemiBold)))),
             ])),
         const SizedBox(height: 10),
 
@@ -311,16 +312,16 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                     child: Text('SCRIPT',
                         style: TextStyle(
                             color: Color(0xFF94A3B8),
-                            fontSize: 10,
+                            fontSize: kFontSizeCaption,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600,
+                            fontWeight: kFontWeightSemiBold,
                             letterSpacing: 0.5))),
                 const Text('BRK VALUE',
                     style: TextStyle(
                         color: Color(0xFF94A3B8),
-                        fontSize: 10,
+                        fontSize: kFontSizeCaption,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
+                        fontWeight: kFontWeightSemiBold,
                         letterSpacing: 0.5)),
               ]),
             )),
@@ -340,7 +341,7 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                               : 'No settings found',
                           style: const TextStyle(
                               color: Color(0xFF94A3B8),
-                              fontSize: 13,
+                              fontSize: kFontSizeBodySmall,
                               fontFamily: 'Inter')))
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -366,15 +367,15 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                                   child: Text(name,
                                       style: const TextStyle(
                                           color: Color(0xFF334155),
-                                          fontSize: 13,
+                                          fontSize: kFontSizeBodySmall,
                                           fontFamily: 'Inter',
-                                          fontWeight: FontWeight.w500))),
+                                          fontWeight: kFontWeightMedium))),
                               Text('${item['brk_value']}',
                                   style: const TextStyle(
                                       color: Color(0xFF3F45C7),
-                                      fontSize: 13,
+                                      fontSize: kFontSizeBodySmall,
                                       fontFamily: 'Inter',
-                                      fontWeight: FontWeight.w700)),
+                                      fontWeight: kFontWeightBold)),
                             ]),
                           ),
                         );
@@ -410,9 +411,9 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
             size: 18, color: Color(0xFF94A3B8)),
         style: const TextStyle(
             color: Colors.black,
-            fontSize: 13,
+            fontSize: kFontSizeBodySmall,
             fontFamily: 'Inter',
-            fontWeight: FontWeight.w500),
+            fontWeight: kFontWeightMedium),
         items: items
             .map((k) => DropdownMenuItem(
                 value: k,

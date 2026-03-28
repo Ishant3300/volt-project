@@ -1,10 +1,11 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stocker/models/kite_instrument.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/services/kite_service.dart';
+import '../utils/contants.dart';
 
 class InstrumentSearchPage extends StatefulWidget {
   const InstrumentSearchPage({super.key});
@@ -256,7 +257,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
               child: const Padding(
                 padding: EdgeInsets.only(left: 16, right: 8),
                 child: Icon(Icons.arrow_back,
-                    color: Color(0xFF475569), size: 20),
+                    color: Color(0xFF475569), size: kIconSizeMedium),
               ),
             ),
             Expanded(
@@ -264,18 +265,18 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                 controller: _searchController,
                 focusNode: _searchFocusNode,
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: kFontSizeBody,
                   color: Color(0xFF0F172A),
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w400,
+                  fontWeight: kFontWeightRegular,
                 ),
                 decoration: const InputDecoration(
                   hintText: 'Try: NIFTY FUT, BANKNIFTY CE, 22000 PE',
                   hintStyle: TextStyle(
                     color: Color(0xFF94A3B8),
-                    fontSize: 14,
+                    fontSize: kFontSizeBody,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
+                    fontWeight: kFontWeightRegular,
                   ),
                   border: InputBorder.none,
                   isDense: true,
@@ -293,7 +294,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                 child: const Padding(
                   padding: EdgeInsets.only(right: 16),
                   child: Icon(Icons.close,
-                      color: Color(0xFF94A3B8), size: 18),
+                      color: Color(0xFF94A3B8), size: kIconSizeDefault),
                 ),
               ),
           ],
@@ -352,9 +353,9 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: kFontSizeSubtitle,
             fontFamily: 'Inter',
-            fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+            fontWeight: isActive ? kFontWeightSemiBold : kFontWeightMedium,
             color: isActive ? Colors.white : const Color(0xFF94A3B8),
             letterSpacing: 0.3,
           ),
@@ -432,8 +433,8 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                     child: Text(
                       label.toUpperCase(),
                       style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                        fontSize: kFontSizeCaption,
+                        fontWeight: kFontWeightSemiBold,
                         color: Color(0xFF94A3B8),
                         fontFamily: 'Inter',
                         letterSpacing: 0.5,
@@ -482,15 +483,15 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(Icons.search,
-                        size: 14, color: Color(0xFF94A3B8)),
+                        size: kIconSizeSmall, color: Color(0xFF94A3B8)),
                     const SizedBox(width: 6),
                     Text(
                       _displayCount < _allItems.length
                           ? '$_displayCount of $_totalResults results'
                           : '$_totalResults results',
                       style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                        fontSize: kFontSizeSubtitle,
+                        fontWeight: kFontWeightMedium,
                         color: Color(0xFF475569),
                         fontFamily: 'Inter',
                       ),
@@ -531,8 +532,8 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                   : (instrument.isIndex ? 'IDX' : instrument.exchange),
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
+                fontSize: kFontSizeCaption,
+                fontWeight: kFontWeightSemiBold,
                 color: typeColor,
                 fontFamily: 'Inter',
                 letterSpacing: 0.3,
@@ -560,8 +561,8 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                     Text(
                       instrument.tradingsymbol,
                       style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
+                        fontSize: kFontSizeCaption,
+                        fontWeight: kFontWeightMedium,
                         color: Color(0xFF94A3B8),
                         fontFamily: 'Inter',
                         letterSpacing: 0.3,
@@ -572,15 +573,15 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                         padding: EdgeInsets.symmetric(horizontal: 6),
                         child: Text('·',
                             style: TextStyle(
-                                fontSize: 10, color: Color(0xFFCBD5E1))),
+                                fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1))),
                       ),
                       Text(
                         'LOT ${instrument.lotSize}',
                         style: const TextStyle(
-                          fontSize: 10,
+                          fontSize: kFontSizeCaption,
                           color: Color(0xFF94A3B8),
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
+                          fontWeight: kFontWeightMedium,
                         ),
                       ),
                     ],
@@ -589,15 +590,15 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                         padding: EdgeInsets.symmetric(horizontal: 6),
                         child: Text('·',
                             style: TextStyle(
-                                fontSize: 10, color: Color(0xFFCBD5E1))),
+                                fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1))),
                       ),
                       Text(
-                        '₹${instrument.strike.toInt()}',
+                        '${instrument.strike.toInt()}',
                         style: const TextStyle(
-                          fontSize: 10,
+                          fontSize: kFontSizeCaption,
                           color: Color(0xFF94A3B8),
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
+                          fontWeight: kFontWeightMedium,
                         ),
                       ),
                     ],
@@ -620,7 +621,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
               ),
               child: Icon(
                 isAdded ? Icons.check : Icons.add,
-                size: 18,
+                size: kIconSizeDefault,
                 color: isAdded
                     ? const Color(0xFF10B981)
                     : const Color(0xFF3F45C7),
@@ -637,8 +638,8 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
       return Text(
         text,
         style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 14,
+          fontWeight: kFontWeightSemiBold,
+          fontSize: kFontSizeBody,
           color: Color(0xFF0F172A),
           fontFamily: 'Inter',
           letterSpacing: -0.3,
@@ -670,8 +671,8 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
       return Text(
         text,
         style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 14,
+          fontWeight: kFontWeightSemiBold,
+          fontSize: kFontSizeBody,
           color: Color(0xFF0F172A),
           fontFamily: 'Inter',
           letterSpacing: -0.3,
@@ -705,7 +706,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
         text: text.substring(range[0], range[1]),
         style: const TextStyle(
           backgroundColor: Color(0xFFFEF08A),
-          fontWeight: FontWeight.w700,
+          fontWeight: kFontWeightBold,
         ),
       ));
       lastEnd = range[1];
@@ -720,8 +721,8 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
       overflow: TextOverflow.ellipsis,
       text: TextSpan(
         style: const TextStyle(
-          fontWeight: FontWeight.w600,
-          fontSize: 14,
+          fontWeight: kFontWeightSemiBold,
+          fontSize: kFontSizeBody,
           color: Color(0xFF0F172A),
           fontFamily: 'Inter',
           letterSpacing: -0.3,
@@ -750,16 +751,16 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                 ),
               ],
             ),
-            child: const Icon(Icons.search, size: 32, color: Color(0xFFCBD5E1)),
+            child: const Icon(Icons.search, size: kIconSizeXLarge, color: Color(0xFFCBD5E1)),
           ),
           const SizedBox(height: 20),
           const Text(
             'Search for instruments',
             style: TextStyle(
               color: Color(0xFF475569),
-              fontSize: 16,
+              fontSize: kFontSizeSectionHeader,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w600,
+              fontWeight: kFontWeightSemiBold,
             ),
           ),
           const SizedBox(height: 8),
@@ -767,9 +768,9 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
             'Try: NIFTY FUT, BANKNIFTY CE, 22000 PE',
             style: TextStyle(
               color: Color(0xFF94A3B8),
-              fontSize: 13,
+              fontSize: kFontSizeBodySmall,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w400,
+              fontWeight: kFontWeightRegular,
             ),
           ),
         ],
@@ -797,16 +798,16 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
               ],
             ),
             child: const Icon(Icons.search_off,
-                size: 32, color: Color(0xFFCBD5E1)),
+                size: kIconSizeXLarge, color: Color(0xFFCBD5E1)),
           ),
           const SizedBox(height: 20),
           const Text(
             'No results found',
             style: TextStyle(
               color: Color(0xFF475569),
-              fontSize: 16,
+              fontSize: kFontSizeSectionHeader,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w600,
+              fontWeight: kFontWeightSemiBold,
             ),
           ),
           const SizedBox(height: 8),
@@ -815,9 +816,9 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Color(0xFF94A3B8),
-              fontSize: 13,
+              fontSize: kFontSizeBodySmall,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w400,
+              fontWeight: kFontWeightRegular,
             ),
           ),
         ],

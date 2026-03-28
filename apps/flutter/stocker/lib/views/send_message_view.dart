@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../services/announcement_service.dart';
+import '../utils/contants.dart';
 
 class SendMessageView extends StatefulWidget {
   const SendMessageView({super.key});
@@ -91,11 +92,11 @@ class _SendMessageViewState extends State<SendMessageView> {
                         color: Colors.white, borderRadius: BorderRadius.circular(12),
                         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
                       ),
-                      child: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
+                      child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text('Announcement', style: TextStyle(color: Colors.black, fontSize: 18, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                  const Text('Announcement', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
                 ],
               ),
             ),
@@ -107,7 +108,7 @@ class _SendMessageViewState extends State<SendMessageView> {
                   children: [
                     // Current announcement
                     if (_currentMessage != null && _currentMessage!.isNotEmpty) ...[
-                      const Text('CURRENT ANNOUNCEMENT', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+                      const Text('CURRENT ANNOUNCEMENT', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
                       const SizedBox(height: 12),
                       Container(
                         width: double.infinity, padding: const EdgeInsets.all(16),
@@ -119,7 +120,7 @@ class _SendMessageViewState extends State<SendMessageView> {
                           children: [
                             const Icon(Icons.campaign, color: Color(0xFFDC2626), size: 18),
                             const SizedBox(width: 10),
-                            Expanded(child: Text(_currentMessage!, style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600))),
+                            Expanded(child: Text(_currentMessage!, style: const TextStyle(color: Color(0xFFDC2626), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold))),
                             GestureDetector(
                               onTap: _isClearing ? null : _clear,
                               child: _isClearing
@@ -133,7 +134,7 @@ class _SendMessageViewState extends State<SendMessageView> {
                     ],
 
                     // New announcement
-                    const Text('NEW ANNOUNCEMENT', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+                    const Text('NEW ANNOUNCEMENT', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
                     const SizedBox(height: 12),
                     Container(
                       width: double.infinity, padding: const EdgeInsets.all(16),
@@ -143,15 +144,15 @@ class _SendMessageViewState extends State<SendMessageView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text('This message will appear as a scrolling banner on all users\' Watchlist and Profile pages.',
-                            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w500, height: 1.4)),
+                            style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightMedium, height: 1.4)),
                           const SizedBox(height: 16),
                           TextField(
                             controller: _messageCtrl,
                             maxLines: 4,
-                            style: const TextStyle(fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+                            style: const TextStyle(fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
                             decoration: const InputDecoration(
                               hintText: 'Type your announcement...',
-                              hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: 14, fontFamily: 'Inter'),
+                              hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBody, fontFamily: 'Inter'),
                               border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12)), borderSide: BorderSide(color: Color(0xFFF1F5F9))),
                               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12)), borderSide: BorderSide(color: Color(0xFFF1F5F9))),
                               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12)), borderSide: BorderSide(color: Color(0xFF3F45C7))),
@@ -174,7 +175,7 @@ class _SendMessageViewState extends State<SendMessageView> {
                         child: Center(
                           child: _isSending
                               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                              : const Text('SEND ANNOUNCEMENT', style: TextStyle(color: Colors.white, fontSize: 15, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.3)),
+                              : const Text('SEND ANNOUNCEMENT', style: TextStyle(color: Colors.white, fontSize: kFontSizeButtonText, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.3)),
                         ),
                       ),
                     ),

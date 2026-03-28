@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:stocker/models/brokerage_rule.dart';
 import 'package:stocker/models/trade.dart';
@@ -163,11 +164,22 @@ class TradeMetricsProvider with ChangeNotifier {
   }
 
   /// Called on every price tick from WebSocket.
-  void updateLtp(String instrumentToken, double ltp) {
+  void updateLtp(String instrumentToken, double ltp, {double? bid, double? ask}) {
+    bool changed = false;
     if (_ltpMap[instrumentToken] != ltp) {
       _ltpMap[instrumentToken] = ltp;
-      _calculateMetrics();
+      changed = true;
     }
+    // Store bid/ask for position P&L calculation (matches CMP display)
+    if (bid != null && bid > 0) {
+      final key = '${instrumentToken}_bid';
+      if (_ltpMap[key] != bid) { _ltpMap[key] = bid; changed = true; }
+    }
+    if (ask != null && ask > 0) {
+      final key = '${instrumentToken}_ask';
+      if (_ltpMap[key] != ask) { _ltpMap[key] = ask; changed = true; }
+    }
+    if (changed) _calculateMetrics();
   }
 
   /// Push current cached metrics to server for DB persistence.
@@ -194,8 +206,8 @@ class TradeMetricsProvider with ChangeNotifier {
     _credit = userProfileProvider.user?.credits ??
         userProfileProvider.master?.credits ??
         _credit;
-    _balance = userProfileProvider.user?.balance ??
-        userProfileProvider.master?.balance ??
+    _balance = userProfileProvider.user?.equity ??
+        userProfileProvider.master?.equity ??
         _balance;
 
     // 2. Aggregate trades using running-average ATP.
@@ -268,6 +280,11 @@ class TradeMetricsProvider with ChangeNotifier {
     double totalFloating = 0;
     double totalMargin = 0;
 
+    log('📊 [Metrics] _margins count: ${_margins.length}, trades count: ${sortedTrades.length}, positions: ${aggMap.length}');
+    for (var m in _margins) {
+      log('📊 [Metrics] Margin rule: exchange=${m.exchangeName}, script=${m.scriptName}, type=${m.amountType}, value=${m.tradeMargin}');
+    }
+
     for (var agg in aggMap.values) {
       final run = running[agg.instrumentToken]!;
       int netQty = run.netQty;
@@ -278,17 +295,27 @@ class TradeMetricsProvider with ChangeNotifier {
       double ltp = _ltpMap[agg.instrumentToken] ??
           (avgBuyPrice > 0 ? avgBuyPrice : avgSellPrice);
 
+      // Use bid for long positions, ask for short (matches CMP display)
+      double valuationPrice = ltp;
+      if (netQty > 0) {
+        valuationPrice = _ltpMap['${agg.instrumentToken}_bid'] ?? ltp;
+      } else if (netQty < 0) {
+        valuationPrice = _ltpMap['${agg.instrumentToken}_ask'] ?? ltp;
+      }
+
       double floating = 0;
       if (netQty > 0) {
-        floating = (ltp - avgBuyPrice) * netQty;
+        floating = (valuationPrice - avgBuyPrice) * netQty;
       } else if (netQty < 0) {
-        floating = (avgSellPrice - ltp) * netQty.abs();
+        floating = (avgSellPrice - valuationPrice) * netQty.abs();
       }
       totalFloating += floating;
 
       // Calculate margin
       double positionMargin = 0;
       if (netQty != 0) {
+        log('📊 [Margin] Position: ${agg.tradingsymbol}, netQty=$netQty, rawName=${agg.rawName}, segment=${agg.segment}, exchange=${agg.exchange}, lotSize=${agg.lotSize}');
+
         // 1. Try per-instrument rule: match raw_name to script_name + segment
         TradeMargin? rule;
         if (agg.rawName.isNotEmpty) {
@@ -339,8 +366,11 @@ class TradeMetricsProvider with ChangeNotifier {
               seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-OPT';
 
           if (isLotBased && rule.amountType == 'amount') {
-            // Lot-based: margin = just the flat trade_margin value (NOT multiplied by lots or qty)
-            positionMargin = rule.tradeMargin;
+            // Lot-based: margin = trade_margin per lot × number of lots
+            final lots = agg.lotSize > 0
+                ? (netQty.abs() / agg.lotSize).ceil()
+                : netQty.abs();
+            positionMargin = rule.tradeMargin * lots;
           } else if (rule.amountType == 'percentage') {
             // Percentage-based: margin = qty * ATP * (trade_margin / 100)
             // Use avgBuyPrice for longs, avgSellPrice for shorts — NOT ltp
@@ -352,6 +382,9 @@ class TradeMetricsProvider with ChangeNotifier {
             // Flat amount fallback for non-lot-based
             positionMargin = netQty.abs() * rule.tradeMargin;
           }
+          log('📊 [Margin] Rule found: exchange=${rule.exchangeName}, script=${rule.scriptName}, type=${rule.amountType}, tradeMargin=${rule.tradeMargin}, isLotBased=$isLotBased → positionMargin=$positionMargin');
+        } else {
+          log('📊 [Margin] ⚠️ NO RULE FOUND for ${agg.tradingsymbol} (rawName=${agg.rawName}, segment=${agg.segment}, exchange=${agg.exchange})');
         }
         totalMargin += positionMargin;
       }
@@ -419,8 +452,12 @@ class TradeMetricsProvider with ChangeNotifier {
     _positionPnl = totalFloating;
     _m2mPnl = _realisedPnl + _positionPnl;
     _marginUsed = totalMargin;
+    // Equity = credit + M2M - marginUsed (margin is locked/reserved from equity)
     _equity = _credit + _m2mPnl - _marginUsed;
-    _freeMargin = _equity - _marginUsed;
+    // Free Margin = equity (equity already has margin deducted)
+    _freeMargin = _equity;
+
+    log('📊 [Metrics] FINAL: credit=$_credit, realised=$_realisedPnl, floating=$_positionPnl, m2m=$_m2mPnl, marginUsed=$_marginUsed, equity=$_equity, freeMargin=$_freeMargin');
 
     notifyListeners();
   }

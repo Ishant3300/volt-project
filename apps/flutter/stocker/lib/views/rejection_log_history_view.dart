@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -102,7 +102,7 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                         ],
                       ),
                       child: const Icon(Icons.arrow_back,
-                          color: Colors.black, size: 20),
+                          color: Colors.black, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -110,9 +110,9 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                     child: Text('Rejection Log',
                         style: TextStyle(
                             color: Colors.black,
-                            fontSize: 18,
+                            fontSize: kFontSizeViewTitle,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600)),
+                            fontWeight: kFontWeightSemiBold)),
                   ),
                 ],
               ),
@@ -135,17 +135,17 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                 controller: _searchController,
                 onSubmitted: (_) => _onSearch(),
                 style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: kFontSizeBody,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w500),
+                    fontWeight: kFontWeightMedium),
                 decoration: InputDecoration(
                   hintText: 'Search by script name...',
                   hintStyle: const TextStyle(
                       color: Color(0xFFCBD5E1),
-                      fontSize: 14,
+                      fontSize: kFontSizeBody,
                       fontFamily: 'Inter'),
                   prefixIcon: const Icon(Icons.search,
-                      color: Color(0xFF94A3B8), size: 20),
+                      color: Color(0xFF94A3B8), size: kIconSizeMedium),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? GestureDetector(
                           onTap: () {
@@ -175,9 +175,9 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                     '${_logs.length} entries',
                     style: const TextStyle(
                         color: Color(0xFF94A3B8),
-                        fontSize: 11,
+                        fontSize: kFontSizeNavLabel,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500),
+                        fontWeight: kFontWeightMedium),
                   ),
                 ),
               ),
@@ -253,9 +253,9 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
           const Text('No rejected trades',
               style: TextStyle(
                   color: Color(0xFF475569),
-                  fontSize: 15,
+                  fontSize: kFontSizeButtonText,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w600)),
+                  fontWeight: kFontWeightSemiBold)),
         ],
       ),
     );
@@ -326,9 +326,9 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                       child: Text(symbol,
                           style: const TextStyle(
                               color: Colors.black,
-                              fontSize: 14,
+                              fontSize: kFontSizeBody,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.w600,
+                              fontWeight: kFontWeightSemiBold,
                               letterSpacing: -0.3),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
@@ -343,9 +343,9 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                       child: Text(txnType,
                           style: TextStyle(
                               color: sideColor,
-                              fontSize: 10,
+                              fontSize: kFontSizeCaption,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.w700,
+                              fontWeight: kFontWeightBold,
                               letterSpacing: 0.3)),
                     ),
                   ],
@@ -365,9 +365,9 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                     Text(statusLabel,
                         style: TextStyle(
                             color: statusColor,
-                            fontSize: 10,
+                            fontSize: kFontSizeCaption,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w700,
+                            fontWeight: kFontWeightBold,
                             letterSpacing: 0.3)),
                   ],
                 ),
@@ -379,23 +379,23 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
           // Row 2: Order details
           Row(
             children: [
-              Text('$orderType · ${qty.toStringAsFixed(0)} Qty · ₹${price.toStringAsFixed(2)}',
+              Text('$orderType · ${qty.toStringAsFixed(0)} Qty · ${price.toStringAsFixed(2)}',
                   style: const TextStyle(
                       color: Color(0xFF94A3B8),
-                      fontSize: 11,
+                      fontSize: kFontSizeNavLabel,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w500)),
+                      fontWeight: kFontWeightMedium)),
               const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 5),
                   child: Text('·',
                       style: TextStyle(
-                          fontSize: 10, color: Color(0xFFCBD5E1)))),
+                          fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1)))),
               Text(exchange,
                   style: const TextStyle(
                       color: Color(0xFF94A3B8),
-                      fontSize: 11,
+                      fontSize: kFontSizeNavLabel,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w500)),
+                      fontWeight: kFontWeightMedium)),
             ],
           ),
           const SizedBox(height: 4),
@@ -406,24 +406,24 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
               Text(formattedDate,
                   style: const TextStyle(
                       color: Color(0xFFCBD5E1),
-                      fontSize: 10,
+                      fontSize: kFontSizeCaption,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w500)),
+                      fontWeight: kFontWeightMedium)),
               if (!isUser && username.isNotEmpty) ...[
                 const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 5),
                     child: Text('·',
                         style: TextStyle(
-                            fontSize: 10, color: Color(0xFFCBD5E1)))),
+                            fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1)))),
                 const Icon(Icons.person_outline,
                     size: 11, color: Color(0xFFCBD5E1)),
                 const SizedBox(width: 3),
                 Text(username,
                     style: const TextStyle(
                         color: Color(0xFFCBD5E1),
-                        fontSize: 10,
+                        fontSize: kFontSizeCaption,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500)),
+                        fontWeight: kFontWeightMedium)),
               ],
             ],
           ),
@@ -440,15 +440,15 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                   borderRadius: BorderRadius.circular(10)),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, size: 14, color: statusColor),
+                  Icon(Icons.info_outline, size: kIconSizeSmall, color: statusColor),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(remarks,
                         style: TextStyle(
                             color: statusColor,
-                            fontSize: 11,
+                            fontSize: kFontSizeNavLabel,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500),
+                            fontWeight: kFontWeightMedium),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis),
                   ),

@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../services/sercure_storage_service.dart';
 import 'add_instrument_to_lot_view.dart';
+import '../utils/contants.dart';
 
 class GroupQuantityLotDetailView extends StatefulWidget {
   final String exchange;
@@ -78,12 +79,12 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
             child: Container(width: 40, height: 40,
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
-              child: const Icon(Icons.arrow_back, color: Colors.black, size: 20)),
+              child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium)),
           ),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(widget.lotName, style: const TextStyle(color: Colors.black, fontSize: 18, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
-            Text('${widget.exchange} · ${_instruments.length} instruments', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontFamily: 'Inter')),
+            Text(widget.lotName, style: const TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+            Text('${widget.exchange} · ${_instruments.length} instruments', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: 'Inter')),
           ])),
         ])),
 
@@ -95,7 +96,7 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
               decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(12)),
               child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Icon(Icons.edit, color: Colors.white, size: 18), SizedBox(width: 6),
-                Text('Edit Instruments', style: TextStyle(color: Colors.white, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                Text('Edit Instruments', style: TextStyle(color: Colors.white, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
               ]),
             ),
           )),
@@ -105,7 +106,7 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
         Expanded(child: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5))
           : _instruments.isEmpty
-            ? const Center(child: Text('No instruments added yet', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter')))
+            ? const Center(child: Text('No instruments added yet', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: 'Inter')))
             : RefreshIndicator(onRefresh: _fetchLotData, child: ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: _instruments.length,
@@ -120,7 +121,7 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
                     child: Row(children: [
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(inst['instrument_symbol'] ?? 'N/A', style: const TextStyle(color: Color(0xFF3F45C7), fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: -0.3)),
+                        Text(inst['instrument_symbol'] ?? 'N/A', style: const TextStyle(color: Color(0xFF3F45C7), fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: -0.3)),
                         const SizedBox(height: 8),
                         Row(children: [
                           _chip('Max', '${inst['max_qty']}'),
@@ -134,14 +135,14 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
                         GestureDetector(
                           onTap: () => showDialog(context: context, builder: (ctx) => AlertDialog(
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                            title: const Text('Delete Instrument', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600, fontSize: 16)),
-                            content: const Text('Are you sure?', style: TextStyle(fontFamily: 'Inter', fontSize: 13)),
+                            title: const Text('Delete Instrument', style: TextStyle(fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, fontSize: kFontSizeSectionHeader)),
+                            content: const Text('Are you sure?', style: TextStyle(fontFamily: 'Inter', fontSize: kFontSizeBodySmall)),
                             actions: [
                               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8), fontFamily: 'Inter'))),
                               GestureDetector(
                                 onTap: () { Navigator.pop(ctx); _deleteInstrument(inst['id'], inst['instrument_symbol']); },
                                 child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(10)),
-                                  child: const Text('Delete', style: TextStyle(color: Colors.white, fontFamily: 'Inter', fontWeight: FontWeight.w600, fontSize: 13))),
+                                  child: const Text('Delete', style: TextStyle(color: Colors.white, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, fontSize: kFontSizeBodySmall))),
                               ),
                             ],
                           )),
@@ -164,8 +165,8 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Text('$label ', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.3)),
-        Text(value, style: const TextStyle(color: Color(0xFF334155), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w700)),
+        Text('$label ', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.3)),
+        Text(value, style: const TextStyle(color: Color(0xFF334155), fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightBold)),
       ]),
     );
   }

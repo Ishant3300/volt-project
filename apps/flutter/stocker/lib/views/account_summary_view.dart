@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -169,11 +169,11 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
                   width: 40, height: 40,
                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
                     boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
-                  child: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
+                  child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
                 ),
               ),
               const SizedBox(width: 12),
-              const Text('Account Summary', style: TextStyle(color: Colors.black, fontSize: 18, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+              const Text('Account Summary', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
             ]),
           ),
 
@@ -220,7 +220,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
                   child: Container(
                     height: 42, alignment: Alignment.center,
                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))),
-                    child: const Text('Clear', style: TextStyle(color: Color(0xFF64748B), fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                    child: const Text('Clear', style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
                   ),
                 )),
                 const SizedBox(width: 10),
@@ -231,7 +231,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
                     decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(12)),
                     child: _isLoading
                         ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Text('View', style: TextStyle(color: Colors.white, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                        : const Text('View', style: TextStyle(color: Colors.white, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
                   ),
                 )),
               ]),
@@ -245,10 +245,10 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
                 child: TextField(
                   controller: _searchCtrl,
                   onChanged: (v) => setState(() => _searchQuery = v.trim()),
-                  style: const TextStyle(fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+                  style: const TextStyle(fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
                   decoration: const InputDecoration(
                     hintText: 'Search exchange or script',
-                    hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, fontFamily: 'Inter'),
+                    hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall, fontFamily: 'Inter'),
                     prefixIcon: Icon(Icons.search, size: 18, color: Color(0xFF94A3B8)),
                     contentPadding: EdgeInsets.symmetric(vertical: 12),
                     border: InputBorder.none,
@@ -266,6 +266,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
     );
   }
 
+
   // ── Helper widgets ──
 
   Widget _buildDropdown(String value, List<String> items, ValueChanged<String?> onChanged, {Map<String, String>? displayMap}) {
@@ -280,7 +281,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
           value: items.contains(value) ? value : items.first,
           isExpanded: true,
           icon: const Icon(Icons.keyboard_arrow_down, size: 18, color: Color(0xFF94A3B8)),
-          style: const TextStyle(color: Colors.black, fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+          style: const TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
           items: items.map((k) => DropdownMenuItem(value: k, child: Text(displayMap?[k] ?? k, overflow: TextOverflow.ellipsis))).toList(),
           onChanged: onChanged,
         ),
@@ -296,9 +297,9 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE2E8F0))),
       child: Row(children: [
-        Icon(Icons.calendar_today, size: 14, color: isPlaceholder ? const Color(0xFFCBD5E1) : const Color(0xFF3F45C7)),
+        Icon(Icons.calendar_today, size: kIconSizeSmall, color: isPlaceholder ? const Color(0xFFCBD5E1) : const Color(0xFF3F45C7)),
         const SizedBox(width: 6),
-        Expanded(child: Text(text, style: TextStyle(color: isPlaceholder ? const Color(0xFFCBD5E1) : Colors.black, fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+        Expanded(child: Text(text, style: TextStyle(color: isPlaceholder ? const Color(0xFFCBD5E1) : Colors.black, fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightMedium), overflow: TextOverflow.ellipsis)),
       ]),
     );
   }
@@ -316,7 +317,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
         ),
       ),
       const SizedBox(width: 4),
-      Text(label, style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w500)),
+      Text(label, style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
     ]);
   }
 
@@ -333,7 +334,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
 
   Widget _buildInstrumentResults() {
     if (_instruments.isEmpty) {
-      return const Center(child: Text('No data', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter')));
+      return const Center(child: Text('No data', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: 'Inter')));
     }
 
     final totalPnl = _d(_totals['pnl']);
@@ -354,14 +355,14 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
           _totalPill('Trades', totalTrades.toDouble(), plain: true),
           const Spacer(),
           if (_weekLabel.isNotEmpty)
-            Flexible(child: Text(_weekLabel, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontFamily: 'Inter'), overflow: TextOverflow.ellipsis)),
+            Flexible(child: Text(_weekLabel, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: 'Inter'), overflow: TextOverflow.ellipsis)),
         ]),
       ),
       const SizedBox(height: 6),
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Align(alignment: Alignment.centerLeft,
-          child: Text('${_instruments.length} instruments', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w500))),
+          child: Text('${_instruments.length} instruments', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightMedium))),
       ),
       const SizedBox(height: 6),
       Expanded(
@@ -378,8 +379,8 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
     final text = plain ? value.toInt().toString() : _fmtSigned(value);
     final color = colored ? _pnlColor(value) : const Color(0xFF334155);
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      Text('$label ', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.w500)),
-      Text(text, style: TextStyle(color: color, fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w700)),
+      Text('$label ', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
+      Text(text, style: TextStyle(color: color, fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightBold)),
     ]);
   }
 
@@ -395,21 +396,21 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
     final netQty = (inst['net_qty'] as num?)?.toInt() ?? 0;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Symbol + exchange
         Row(children: [
-          Expanded(child: Text(symbol, style: const TextStyle(color: Color(0xFF3F45C7), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: -0.3))),
+          Expanded(child: Text(symbol, style: const TextStyle(color: Color(0xFF3F45C7), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: -0.3))),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6)),
-            child: Text(exchange, style: const TextStyle(color: Color(0xFF64748B), fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+            child: Text(exchange, style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
           ),
         ]),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
 
         // Buy / Sell grid
         Container(
@@ -426,7 +427,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
             ]),
           ]),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
 
         // P&L + Brokerage + Net Qty row
         Row(children: [
@@ -444,9 +445,10 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(border: showRight ? const Border(right: BorderSide(color: Color(0xFFF1F5F9))) : null),
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.w500, letterSpacing: 0.3)),
-          Text(value, style: TextStyle(color: valueColor, fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightMedium, letterSpacing: 0.3)),
+          const SizedBox(height: 3),
+          Text(value, style: TextStyle(color: valueColor, fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
         ]),
       ),
     );
@@ -457,8 +459,8 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(color: const Color(0xFFFAFBFC), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFF1F5F9))),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Text('$label ', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 9, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.3)),
-        Text(value, style: TextStyle(color: color, fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w700)),
+        Text('$label ', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBadge, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.3)),
+        Text(value, style: TextStyle(color: color, fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightBold)),
       ]),
     );
   }
@@ -467,14 +469,14 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
 
   Widget _buildCreditResults() {
     if (_creditRows.isEmpty) {
-      return const Center(child: Text('No transactions', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter')));
+      return const Center(child: Text('No transactions', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: 'Inter')));
     }
 
     return Column(children: [
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Align(alignment: Alignment.centerLeft,
-          child: Text('${_creditRows.length} transactions', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w500))),
+          child: Text('${_creditRows.length} transactions', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightMedium))),
       ),
       const SizedBox(height: 6),
       Expanded(
@@ -509,8 +511,8 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -519,15 +521,15 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(color: typeColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-            child: Text(type, style: TextStyle(color: typeColor, fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w700)),
+            child: Text(type, style: TextStyle(color: typeColor, fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightBold)),
           ),
           const SizedBox(width: 8),
           if (username.isNotEmpty)
-            Text(username.toUpperCase(), style: const TextStyle(color: Color(0xFF3F45C7), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: -0.3)),
+            Text(username.toUpperCase(), style: const TextStyle(color: Color(0xFF3F45C7), fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: -0.3)),
           const Spacer(),
-          Text(timeStr, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontFamily: 'Inter')),
+          Text(timeStr, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: 'Inter')),
         ]),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
 
         // 2×2 grid: Opening / Closing / Credit / Debit
         Container(
@@ -548,7 +550,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
         // Note
         if (note.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text(note, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontFamily: 'Inter', fontStyle: FontStyle.italic)),
+          Text(note, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontStyle: FontStyle.italic)),
         ],
       ]),
     );

@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +6,7 @@ import '../models/master.dart';
 import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../providers/user_profile_provider.dart';
+import '../utils/contants.dart';
 
 class CreateMasterView extends StatefulWidget {
   final Master? master;
@@ -311,7 +312,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                         ],
                       ),
                       child: const Icon(Icons.arrow_back,
-                          color: Colors.black, size: 20),
+                          color: Colors.black, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -319,9 +320,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                     widget.master != null ? 'Edit Master' : 'Create Master',
                     style: const TextStyle(
                       color: Colors.black,
-                      fontSize: 18,
+                      fontSize: kFontSizeViewTitle,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
+                      fontWeight: kFontWeightSemiBold,
                     ),
                   ),
                 ],
@@ -508,9 +509,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                                       : 'CREATE MASTER',
                                   style: const TextStyle(
                                     color: Colors.white,
-                                    fontSize: 15,
+                                    fontSize: kFontSizeButtonText,
                                     fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: kFontWeightSemiBold,
                                     letterSpacing: 0.3,
                                   ),
                                 ),
@@ -536,9 +537,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
       text,
       style: const TextStyle(
         color: Color(0xFF94A3B8),
-        fontSize: 11,
+        fontSize: kFontSizeNavLabel,
         fontFamily: 'Inter',
-        fontWeight: FontWeight.w600,
+        fontWeight: kFontWeightSemiBold,
         letterSpacing: 0.5,
       ),
     );
@@ -587,9 +588,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               label,
               style: const TextStyle(
                 color: Color(0xFF94A3B8),
-                fontSize: 13,
+                fontSize: kFontSizeBodySmall,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w500,
+                fontWeight: kFontWeightMedium,
               ),
             ),
           ),
@@ -600,18 +601,18 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               keyboardType: keyboardType,
               style: const TextStyle(
                 color: Colors.black,
-                fontSize: 14,
+                fontSize: kFontSizeBody,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w500,
+                fontWeight: kFontWeightMedium,
               ),
               decoration: InputDecoration(
                 border: InputBorder.none,
                 hintText: hint ?? label,
                 hintStyle: const TextStyle(
                   color: Color(0xFFCBD5E1),
-                  fontSize: 14,
+                  fontSize: kFontSizeBody,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w400,
+                  fontWeight: kFontWeightRegular,
                 ),
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
@@ -641,9 +642,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               label,
               style: const TextStyle(
                 color: Color(0xFF94A3B8),
-                fontSize: 13,
+                fontSize: kFontSizeBodySmall,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w500,
+                fontWeight: kFontWeightMedium,
               ),
             ),
           ),
@@ -655,9 +656,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                   hint,
                   style: const TextStyle(
                     color: Color(0xFFCBD5E1),
-                    fontSize: 14,
+                    fontSize: kFontSizeBody,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
+                    fontWeight: kFontWeightRegular,
                   ),
                 ),
                 isExpanded: true,
@@ -665,9 +666,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                     size: 18, color: Color(0xFF94A3B8)),
                 style: const TextStyle(
                   color: Colors.black,
-                  fontSize: 14,
+                  fontSize: kFontSizeBody,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w500,
+                  fontWeight: kFontWeightMedium,
                 ),
                 dropdownColor: Colors.white,
                 borderRadius: BorderRadius.circular(16),
@@ -709,9 +710,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 title,
                 style: const TextStyle(
                   color: Colors.black,
-                  fontSize: 14,
+                  fontSize: kFontSizeBody,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w600,
+                  fontWeight: kFontWeightSemiBold,
                 ),
               ),
               const SizedBox(height: 12),
@@ -728,16 +729,16 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                   keyboardType: TextInputType.number,
                   style: const TextStyle(
                     color: Colors.black,
-                    fontSize: 14,
+                    fontSize: kFontSizeBody,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w500,
+                    fontWeight: kFontWeightMedium,
                   ),
                   decoration: InputDecoration(
                     border: InputBorder.none,
                     hintText: 'Enter value',
                     hintStyle: const TextStyle(
                         color: Color(0xFFCBD5E1),
-                        fontSize: 14,
+                        fontSize: kFontSizeBody,
                         fontFamily: 'Inter'),
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(vertical: 10),
@@ -761,9 +762,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                             : 'Our: 100',
                         style: const TextStyle(
                           color: Color(0xFF3F45C7),
-                          fontSize: 12,
+                          fontSize: kFontSizeSubtitle,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
+                          fontWeight: kFontWeightSemiBold,
                         ),
                       ),
                     ),
@@ -786,9 +787,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                           color: remaining < 0
                               ? const Color(0xFFEF4444)
                               : const Color(0xFF10B981),
-                          fontSize: 12,
+                          fontSize: kFontSizeSubtitle,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
+                          fontWeight: kFontWeightSemiBold,
                         ),
                       ),
                     ),
@@ -828,9 +829,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                   values.values.every((v) => v) ? 'Deselect All' : 'Select All',
                   style: const TextStyle(
                     color: Color(0xFF3F45C7),
-                    fontSize: 11,
+                    fontSize: kFontSizeNavLabel,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600,
+                    fontWeight: kFontWeightSemiBold,
                   ),
                 ),
               ),
@@ -864,9 +865,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                     key,
                     style: TextStyle(
                       color: selected ? Colors.white : const Color(0xFF64748B),
-                      fontSize: 13,
+                      fontSize: kFontSizeBodySmall,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
+                      fontWeight: kFontWeightSemiBold,
                     ),
                   ),
                 ),
@@ -888,9 +889,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             label,
             style: const TextStyle(
               color: Colors.black,
-              fontSize: 14,
+              fontSize: kFontSizeBody,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w500,
+              fontWeight: kFontWeightMedium,
             ),
           ),
           GestureDetector(

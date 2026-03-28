@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -6,6 +6,7 @@ import 'dart:developer';
 import '../providers/user_profile_provider.dart';
 import '../services/admin_service.dart';
 import '../models/user.dart';
+import '../utils/contants.dart';
 
 class CreateUserView extends StatefulWidget {
   final User? user;
@@ -309,7 +310,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                         ],
                       ),
                       child: const Icon(Icons.arrow_back,
-                          color: Colors.black, size: 20),
+                          color: Colors.black, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -317,9 +318,9 @@ class _CreateUserViewState extends State<CreateUserView> {
                     widget.user != null ? 'Edit User' : 'Create User',
                     style: const TextStyle(
                       color: Colors.black,
-                      fontSize: 18,
+                      fontSize: kFontSizeViewTitle,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
+                      fontWeight: kFontWeightSemiBold,
                     ),
                   ),
                 ],
@@ -397,9 +398,9 @@ class _CreateUserViewState extends State<CreateUserView> {
                                   : 'Select All',
                               style: const TextStyle(
                                   color: Color(0xFF3F45C7),
-                                  fontSize: 11,
+                                  fontSize: kFontSizeNavLabel,
                                   fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w600),
+                                  fontWeight: kFontWeightSemiBold),
                             ),
                           ),
                         ),
@@ -415,7 +416,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                             child: Text('No exchanges available',
                                 style: TextStyle(
                                     color: Color(0xFF94A3B8),
-                                    fontSize: 13,
+                                    fontSize: kFontSizeBodySmall,
                                     fontFamily: 'Inter')),
                           ),
                         ),
@@ -436,9 +437,9 @@ class _CreateUserViewState extends State<CreateUserView> {
                                           child: Text('Exchange',
                                               style: TextStyle(
                                                   color: Color(0xFF94A3B8),
-                                                  fontSize: 11,
+                                                  fontSize: kFontSizeNavLabel,
                                                   fontFamily: 'Inter',
-                                                  fontWeight: FontWeight.w600,
+                                                  fontWeight: kFontWeightSemiBold,
                                                   letterSpacing: 0.5)))),
                                   Expanded(
                                       flex: 1,
@@ -446,9 +447,9 @@ class _CreateUserViewState extends State<CreateUserView> {
                                           child: Text('T/O',
                                               style: TextStyle(
                                                   color: Color(0xFF94A3B8),
-                                                  fontSize: 11,
+                                                  fontSize: kFontSizeNavLabel,
                                                   fontFamily: 'Inter',
-                                                  fontWeight: FontWeight.w600,
+                                                  fontWeight: kFontWeightSemiBold,
                                                   letterSpacing: 0.5)))),
                                   Expanded(
                                       flex: 1,
@@ -456,9 +457,9 @@ class _CreateUserViewState extends State<CreateUserView> {
                                           child: Text('Lot',
                                               style: TextStyle(
                                                   color: Color(0xFF94A3B8),
-                                                  fontSize: 11,
+                                                  fontSize: kFontSizeNavLabel,
                                                   fontFamily: 'Inter',
-                                                  fontWeight: FontWeight.w600,
+                                                  fontWeight: kFontWeightSemiBold,
                                                   letterSpacing: 0.5)))),
                                   SizedBox(
                                       width: 130,
@@ -466,9 +467,9 @@ class _CreateUserViewState extends State<CreateUserView> {
                                           child: Text('Group',
                                               style: TextStyle(
                                                   color: Color(0xFF94A3B8),
-                                                  fontSize: 11,
+                                                  fontSize: kFontSizeNavLabel,
                                                   fontFamily: 'Inter',
-                                                  fontWeight: FontWeight.w600,
+                                                  fontWeight: kFontWeightSemiBold,
                                                   letterSpacing: 0.5)))),
                                 ],
                               ),
@@ -512,9 +513,9 @@ class _CreateUserViewState extends State<CreateUserView> {
                                   : 'Select All',
                               style: const TextStyle(
                                   color: Color(0xFF3F45C7),
-                                  fontSize: 11,
+                                  fontSize: kFontSizeNavLabel,
                                   fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w600),
+                                  fontWeight: kFontWeightSemiBold),
                             ),
                           ),
                         ),
@@ -530,7 +531,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                             child: Text('No trade limits available',
                                 style: TextStyle(
                                     color: Color(0xFF94A3B8),
-                                    fontSize: 13,
+                                    fontSize: kFontSizeBodySmall,
                                     fontFamily: 'Inter')),
                           ),
                         ),
@@ -564,9 +565,9 @@ class _CreateUserViewState extends State<CreateUserView> {
                                     color: selected
                                         ? Colors.white
                                         : const Color(0xFF64748B),
-                                    fontSize: 13,
+                                    fontSize: kFontSizeBodySmall,
                                     fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: kFontWeightSemiBold,
                                   ),
                                 ),
                               ),
@@ -630,9 +631,9 @@ class _CreateUserViewState extends State<CreateUserView> {
                                       : 'CREATE USER',
                                   style: const TextStyle(
                                       color: Colors.white,
-                                      fontSize: 15,
+                                      fontSize: kFontSizeButtonText,
                                       fontFamily: 'Inter',
-                                      fontWeight: FontWeight.w600,
+                                      fontWeight: kFontWeightSemiBold,
                                       letterSpacing: 0.3),
                                 ),
                         ),
@@ -657,9 +658,9 @@ class _CreateUserViewState extends State<CreateUserView> {
       text,
       style: const TextStyle(
         color: Color(0xFF94A3B8),
-        fontSize: 11,
+        fontSize: kFontSizeNavLabel,
         fontFamily: 'Inter',
-        fontWeight: FontWeight.w600,
+        fontWeight: kFontWeightSemiBold,
         letterSpacing: 0.5,
       ),
     );
@@ -707,9 +708,9 @@ class _CreateUserViewState extends State<CreateUserView> {
               label,
               style: const TextStyle(
                   color: Color(0xFF94A3B8),
-                  fontSize: 13,
+                  fontSize: kFontSizeBodySmall,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w500),
+                  fontWeight: kFontWeightMedium),
             ),
           ),
           Expanded(
@@ -719,15 +720,15 @@ class _CreateUserViewState extends State<CreateUserView> {
               keyboardType: keyboardType,
               style: const TextStyle(
                   color: Colors.black,
-                  fontSize: 14,
+                  fontSize: kFontSizeBody,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w500),
+                  fontWeight: kFontWeightMedium),
               decoration: InputDecoration(
                 border: InputBorder.none,
                 hintText: label,
                 hintStyle: const TextStyle(
                     color: Color(0xFFCBD5E1),
-                    fontSize: 14,
+                    fontSize: kFontSizeBody,
                     fontFamily: 'Inter'),
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
@@ -770,7 +771,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: enabled
-                      ? const Icon(Icons.check, color: Colors.white, size: 14)
+                      ? const Icon(Icons.check, color: Colors.white, size: kIconSizeSmall)
                       : null,
                 ),
                 const SizedBox(width: 8),
@@ -778,9 +779,9 @@ class _CreateUserViewState extends State<CreateUserView> {
                   child: Text(exchange,
                       style: const TextStyle(
                           color: Colors.black,
-                          fontSize: 13,
+                          fontSize: kFontSizeBodySmall,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500),
+                          fontWeight: kFontWeightMedium),
                       overflow: TextOverflow.ellipsis),
                 ),
               ],
@@ -814,7 +815,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: (settings['turnover'] as bool) && !toBlocked
-                    ? const Icon(Icons.check, color: Colors.white, size: 14)
+                    ? const Icon(Icons.check, color: Colors.white, size: kIconSizeSmall)
                     : null,
               ),
             ),
@@ -847,7 +848,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: (settings['lot'] as bool) && !lotBlocked
-                    ? const Icon(Icons.check, color: Colors.white, size: 14)
+                    ? const Icon(Icons.check, color: Colors.white, size: kIconSizeSmall)
                     : null,
               ),
             ),
@@ -872,17 +873,17 @@ class _CreateUserViewState extends State<CreateUserView> {
                       : 'Select',
                   style: const TextStyle(
                       color: Color(0xFFCBD5E1),
-                      fontSize: 12,
+                      fontSize: kFontSizeSubtitle,
                       fontFamily: 'Inter'),
                 ),
                 isExpanded: true,
                 icon: const Icon(Icons.keyboard_arrow_down,
-                    size: 16, color: Color(0xFF94A3B8)),
+                    size: kIconSizeDefault, color: Color(0xFF94A3B8)),
                 style: const TextStyle(
                     color: Colors.black,
-                    fontSize: 12,
+                    fontSize: kFontSizeSubtitle,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w500),
+                    fontWeight: kFontWeightMedium),
                 dropdownColor: Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 onChanged: (_exchangeLotNames[exchange]?.isEmpty ?? true)
@@ -911,9 +912,9 @@ class _CreateUserViewState extends State<CreateUserView> {
             child: Text(label,
                 style: const TextStyle(
                     color: Colors.black,
-                    fontSize: 14,
+                    fontSize: kFontSizeBody,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w500)),
+                    fontWeight: kFontWeightMedium)),
           ),
           GestureDetector(
             onTap: () => onChanged(!value),

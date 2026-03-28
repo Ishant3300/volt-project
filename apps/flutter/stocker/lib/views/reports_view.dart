@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'dart:developer';
 import 'package:printing/printing.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../providers/user_profile_provider.dart';
 import '../services/api_service.dart';
 import '../services/kite_service.dart';
@@ -39,17 +40,24 @@ class ReportsView extends StatelessWidget {
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.arrow_back,
-                        size: 24, color: Color(0xFF0F172A)),
+                    child: Container(
+                      width: 40, height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
+                      ),
+                      child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+                    ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 12),
                   const Text(
                     'Reports',
                     style: TextStyle(
                       color: Color(0xFF0F172A),
-                      fontSize: 24,
+                      fontSize: kFontSizePageTitle,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
+                      fontWeight: kFontWeightBold,
                       letterSpacing: -0.5,
                     ),
                   ),
@@ -68,16 +76,16 @@ class ReportsView extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.shield, color: Color(0xFFEF4444), size: 20),
+                  const Icon(Icons.shield, color: Color(0xFFEF4444), size: kIconSizeMedium),
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Text(
                       'All profile running in this app is secure. The new security features are active.',
                       style: TextStyle(
                         color: Color(0xFFDC2626),
-                        fontSize: 12,
+                        fontSize: kFontSizeSubtitle,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
+                        fontWeight: kFontWeightMedium,
                         height: 1.2,
                       ),
                     ),
@@ -104,32 +112,32 @@ class ReportsView extends StatelessWidget {
                   padding: EdgeInsets.zero,
                   children: [
                     _buildReportItem(
-                        context, 'Account Summary', Icons.account_balance,
+                        context, 'Account Summary', kIconAccountSummary,
                         showBorder: true),
                     if (!isUser)
                       _buildReportItem(
-                          context, 'Profit & Loss', Icons.trending_up,
+                          context, 'Profit & Loss', kIconProfitAndLoss,
                           showBorder: true),
                     _buildReportItem(
-                        context, 'Generate PDF', Icons.picture_as_pdf,
+                        context, 'Generate PDF', kIconGeneratePdf,
                         showBorder: true),
                     if (!isUser)
                       _buildReportItem(
-                          context, 'Weekly Admin Report', Icons.calendar_today,
+                          context, 'Weekly Admin Report', kIconWeeklyAdminReport,
                           showBorder: true),
-                    _buildReportItem(context, 'Intraday History', Icons.history,
+                    _buildReportItem(context, 'Intraday History', kIconIntradayHistory,
                         showBorder: true),
                     _buildReportItem(
-                        context, 'Userwise Open Position', Icons.open_in_new,
+                        context, 'Userwise Open Position', kIconUserwisePosition,
                         showBorder: true),
                     _buildReportItem(
-                        context, 'Script Qty Details', Icons.list_alt,
+                        context, 'Script Qty Details', kIconScriptQtyDetails,
                         showBorder: true),
                     _buildReportItem(
-                        context, 'Deleted Trades', Icons.delete_outline,
+                        context, 'Deleted Trades', kIconDeletedTrades,
                         showBorder: true),
                     _buildReportItem(
-                        context, 'Rejection Log History', Icons.error_outline,
+                        context, 'Rejection Log History', kIconRejectionLogHistory,
                         showBorder: false),
                   ],
                 ),
@@ -141,7 +149,7 @@ class ReportsView extends StatelessWidget {
     );
   }
 
-  Widget _buildReportItem(BuildContext context, String title, IconData icon,
+  Widget _buildReportItem(BuildContext context, String title, String svgPath,
       {required bool showBorder}) {
     return GestureDetector(
       onTap: () {
@@ -194,7 +202,7 @@ class ReportsView extends StatelessWidget {
         }
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
         decoration: showBorder
             ? const BoxDecoration(
                 border: Border(
@@ -208,14 +216,19 @@ class ReportsView extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  width: 32,
-                  height: 32,
+                  width: kMenuIconCircleSize,
+                  height: kMenuIconCircleSize,
                   decoration: const BoxDecoration(
                     color: Color(0xFFF1F5F9),
                     shape: BoxShape.circle,
                   ),
                   child: Center(
-                    child: Icon(icon, size: 16, color: const Color(0xFF1E3A8A)),
+                    child: SvgPicture.asset(
+                      svgPath,
+                      width: kMenuIconSize,
+                      height: kMenuIconSize,
+                      colorFilter: const ColorFilter.mode(Color(0xFF1E3A8A), BlendMode.srcIn),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -223,14 +236,14 @@ class ReportsView extends StatelessWidget {
                   title,
                   style: const TextStyle(
                     color: Color(0xFF1E293B),
-                    fontSize: 16,
+                    fontSize: kFontSizeMenuItem,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w500,
+                    fontWeight: kFontWeightMedium,
                   ),
                 ),
               ],
             ),
-            const Icon(Icons.chevron_right, size: 24, color: Color(0xFF94A3B8)),
+            const Icon(Icons.chevron_right, size: kMenuChevronSize, color: Color(0xFF94A3B8)),
           ],
         ),
       ),
@@ -576,7 +589,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
           EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         padding:
-            const EdgeInsets.only(top: 24, left: 16, right: 16, bottom: 32),
+            EdgeInsets.only(top: 24, left: 16, right: 16, bottom: 32 + MediaQuery.of(context).viewPadding.bottom),
         decoration: const ShapeDecoration(
           color: Colors.white,
           shape: RoundedRectangleBorder(
@@ -592,18 +605,18 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
               const Text('Generate PDF',
                   style: TextStyle(
                       color: Colors.black,
-                      fontSize: 16,
+                      fontSize: kFontSizeSheetTitle,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600)),
+                      fontWeight: kFontWeightSemiBold)),
               const SizedBox(height: 16),
 
               // Mode selector — layout type only
               const Text('Report Type',
                   style: TextStyle(
                       color: Color(0xFF64748B),
-                      fontSize: 12,
+                      fontSize: kFontSizeSheetLabel,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
+                      fontWeight: kFontWeightSemiBold,
                       letterSpacing: 0.5)),
               const SizedBox(height: 8),
               Row(
@@ -634,9 +647,9 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                 const Text('Select User',
                     style: TextStyle(
                         color: Color(0xFF64748B),
-                        fontSize: 12,
+                        fontSize: kFontSizeSheetLabel,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
+                        fontWeight: kFontWeightSemiBold,
                         letterSpacing: 0.5)),
                 const SizedBox(height: 8),
                 GestureDetector(
@@ -666,9 +679,9 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                               color: _selectedUser != null
                                   ? const Color(0xFF0F172A)
                                   : const Color(0xFF8E8E93),
-                              fontSize: 14,
+                              fontSize: kFontSizeSheetBody,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.w400,
+                              fontWeight: kFontWeightRegular,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -698,11 +711,11 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                           child: TextField(
                             controller: _userSearchController,
                             style: const TextStyle(
-                                fontSize: 13, fontFamily: 'Inter'),
+                                fontSize: kFontSizeSheetHint, fontFamily: 'Inter'),
                             decoration: const InputDecoration(
                               hintText: 'Search by name...',
                               hintStyle: TextStyle(
-                                  color: Color(0xFFCBD5E1), fontSize: 13),
+                                  color: Color(0xFFCBD5E1), fontSize: kFontSizeSheetHint),
                               prefixIcon: Icon(Icons.search,
                                   size: 18, color: Color(0xFF94A3B8)),
                               contentPadding: EdgeInsets.symmetric(
@@ -751,9 +764,9 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                                 color: Colors.black,
-                                fontSize: 15,
+                                fontSize: kFontSizeButtonText,
                                 fontFamily: 'Inter',
-                                fontWeight: FontWeight.w600)),
+                                fontWeight: kFontWeightSemiBold)),
                       ),
                     ),
                   ),
@@ -779,9 +792,9 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 15,
+                                    fontSize: kFontSizeButtonText,
                                     fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w600)),
+                                    fontWeight: kFontWeightSemiBold)),
                       ),
                     ),
                   ),
@@ -824,7 +837,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                   : const Color(0xFF1E293B),
               fontSize: 13,
               fontFamily: 'Inter',
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              fontWeight: isSelected ? kFontWeightSemiBold : kFontWeightRegular,
             )),
       ),
     );
@@ -852,7 +865,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                   : const Color(0xFF8E8E93),
               fontSize: 15,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w400,
+              fontWeight: kFontWeightRegular,
             ),
           ),
           const Icon(Icons.calendar_today, size: 18, color: Colors.black),
@@ -880,7 +893,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
             color: selected ? Colors.white : const Color(0xFF64748B),
             fontSize: 13,
             fontFamily: 'Inter',
-            fontWeight: FontWeight.w600,
+            fontWeight: kFontWeightSemiBold,
           ),
         ),
       ),

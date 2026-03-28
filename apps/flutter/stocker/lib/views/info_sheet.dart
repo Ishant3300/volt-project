@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import '../utils/contants.dart';
 
 class InfoSheet extends StatelessWidget {
   const InfoSheet({super.key});
@@ -27,9 +28,9 @@ class InfoSheet extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.black,
-              fontSize: 16,
+              fontSize: kFontSizeSheetTitle,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w600,
+              fontWeight: kFontWeightSemiBold,
             ),
           ),
           SizedBox(height: 16),
@@ -66,9 +67,9 @@ class InfoSheet extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.black,
-                    fontSize: 16,
+                    fontSize: kFontSizeButtonText,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600,
+                    fontWeight: kFontWeightSemiBold,
                   ),
                 ),
               ),
@@ -93,18 +94,18 @@ class InfoSheet extends StatelessWidget {
             label,
             style: TextStyle(
               color: Colors.black,
-              fontSize: 14,
+              fontSize: kFontSizeSheetBody,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w400,
+              fontWeight: kFontWeightRegular,
             ),
           ),
           Text(
             value,
             style: TextStyle(
               color: Colors.black,
-              fontSize: 14,
+              fontSize: kFontSizeSheetBody,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w400,
+              fontWeight: kFontWeightRegular,
             ),
           ),
         ],

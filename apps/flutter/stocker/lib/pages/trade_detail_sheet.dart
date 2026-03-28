@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:stocker/models/trade.dart';
+import '../utils/contants.dart';
 
 class TradeDetailSheet extends StatefulWidget {
   final Trade trade;
@@ -61,16 +62,6 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Drag handle
-          Container(
-            margin: const EdgeInsets.only(top: 12, bottom: 8),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: const Color(0xFFCBD5E1),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
 
           // Header card
           Container(
@@ -98,9 +89,9 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                         trade.tradingSymbol,
                         style: const TextStyle(
                           color: Colors.black,
-                          fontSize: 16,
+                          fontSize: kFontSizeSectionHeader,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
+                          fontWeight: kFontWeightBold,
                           letterSpacing: -0.3,
                         ),
                       ),
@@ -118,9 +109,9 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                               _getFormattedVolume(),
                               style: TextStyle(
                                 color: _sideColor,
-                                fontSize: 11,
+                                fontSize: kFontSizeNavLabel,
                                 fontFamily: 'Inter',
-                                fontWeight: FontWeight.bold,
+                                fontWeight: kFontWeightSemiBold,
                                 letterSpacing: 0.3,
                               ),
                             ),
@@ -137,9 +128,9 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                               trade.exchange,
                               style: const TextStyle(
                                 color: Color(0xFF64748B),
-                                fontSize: 11,
+                                fontSize: kFontSizeNavLabel,
                                 fontFamily: 'Inter',
-                                fontWeight: FontWeight.w600,
+                                fontWeight: kFontWeightSemiBold,
                               ),
                             ),
                           ),
@@ -152,12 +143,12 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '₹${trade.price.toStringAsFixed(2)}',
+                      '${trade.price.toStringAsFixed(2)}',
                       style: const TextStyle(
                         color: Colors.black,
-                        fontSize: 18,
+                        fontSize: kFontSizeViewTitle,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w700,
+                        fontWeight: kFontWeightBold,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -176,9 +167,9 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                           color: trade.status.toLowerCase() == 'completed'
                               ? const Color(0xFF10B981)
                               : const Color(0xFFB45309),
-                          fontSize: 10,
+                          fontSize: kFontSizeCaption,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.bold,
+                          fontWeight: kFontWeightSemiBold,
                           letterSpacing: 0.3,
                         ),
                       ),
@@ -219,7 +210,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                     _buildRow(
                         'Type', '$_sideLabel / ${trade.orderType ?? 'MARKET'}'),
                     _buildRow(_volumeUnit, _volumeValue.toString()),
-                    _buildRow('Price', '₹${trade.price.toStringAsFixed(2)}'),
+                    _buildRow('Price', '${trade.price.toStringAsFixed(2)}'),
                     if (trade.productType != null)
                       _buildRow('Product', trade.productType!),
                     _buildRow('Status', _displayStatus),
@@ -233,7 +224,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
 
           // Close button
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 24 + MediaQuery.of(context).viewPadding.bottom),
             child: SizedBox(
               width: double.infinity,
               height: 48,
@@ -249,9 +240,9 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                   'Close',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 15,
+                    fontSize: kFontSizeButtonText,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600,
+                    fontWeight: kFontWeightSemiBold,
                   ),
                 ),
               ),
@@ -277,9 +268,9 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
             label,
             style: const TextStyle(
               color: Color(0xFF94A3B8),
-              fontSize: 13,
+              fontSize: kFontSizeBodySmall,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w500,
+              fontWeight: kFontWeightMedium,
             ),
           ),
           const SizedBox(width: 16),
@@ -289,9 +280,9 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
               textAlign: TextAlign.right,
               style: const TextStyle(
                 color: Colors.black,
-                fontSize: 13,
+                fontSize: kFontSizeBodySmall,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w600,
+                fontWeight: kFontWeightSemiBold,
               ),
             ),
           ),

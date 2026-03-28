@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
@@ -80,9 +80,9 @@ class _ChangePasswordViewState extends State<ChangePasswordView> {
             child: Container(width: 40, height: 40,
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
-              child: const Icon(Icons.arrow_back, color: Colors.black, size: 20))),
+              child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium))),
           const SizedBox(width: 12),
-          const Text('Change Password', style: TextStyle(color: Colors.black, fontSize: 18, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+          const Text('Change Password', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
         ])),
 
         Expanded(child: SingleChildScrollView(padding: const EdgeInsets.symmetric(horizontal: 16), child: Container(
@@ -104,7 +104,7 @@ class _ChangePasswordViewState extends State<ChangePasswordView> {
             onTap: _reset,
             child: Container(height: 48, alignment: Alignment.center,
               decoration: BoxDecoration(color: const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(12)),
-              child: const Text('RESET', style: TextStyle(color: Color(0xFF334155), fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600))),
+              child: const Text('RESET', style: TextStyle(color: Color(0xFF334155), fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold))),
           )),
           const SizedBox(width: 12),
           Expanded(child: GestureDetector(
@@ -113,7 +113,7 @@ class _ChangePasswordViewState extends State<ChangePasswordView> {
               decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(12)),
               child: _isLoading
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('UPDATE', style: TextStyle(color: Colors.white, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600))),
+                : const Text('UPDATE', style: TextStyle(color: Colors.white, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold))),
           )),
         ])),
       ])),
@@ -122,17 +122,17 @@ class _ChangePasswordViewState extends State<ChangePasswordView> {
 
   Widget _field(String label, TextEditingController ctrl, bool obscure, VoidCallback toggleObscure) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: const TextStyle(color: Color(0xFF334155), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+      Text(label, style: const TextStyle(color: Color(0xFF334155), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
       const SizedBox(height: 8),
       Container(height: 48,
         decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))),
         child: TextField(controller: ctrl, obscureText: obscure,
-          style: const TextStyle(fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+          style: const TextStyle(fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
           decoration: InputDecoration(
-            hintText: 'Enter $label'.toLowerCase(), hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, fontFamily: 'Inter'),
+            hintText: 'Enter $label'.toLowerCase(), hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall, fontFamily: 'Inter'),
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14), border: InputBorder.none,
             suffixIcon: GestureDetector(onTap: toggleObscure,
-              child: Icon(obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20, color: const Color(0xFF94A3B8))),
+              child: Icon(obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: kIconSizeMedium, color: const Color(0xFF94A3B8))),
           )),
       ),
     ]);

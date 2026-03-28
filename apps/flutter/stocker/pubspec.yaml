@@ -74,6 +74,8 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/icon_with_bg.png"
   remove_alpha_ios: true
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: "assets/icon_with_bg.png"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -90,6 +92,11 @@ flutter:
     - assets/trade_bell_sound.mp3
     - assets/Subtract.svg
     - assets/icon_with_bg.png
+    - lib/icons/
+    - lib/icons/profile_page_icons/
+    - lib/icons/reports_view_icons/
+    - lib/icons/settings_view_icons/
+    - lib/icons/username_view_icons/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

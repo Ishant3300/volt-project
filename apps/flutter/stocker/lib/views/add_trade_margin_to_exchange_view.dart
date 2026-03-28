@@ -1,9 +1,10 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../services/admin_service.dart';
+import '../utils/contants.dart';
 
 class AddTradeMarginToExchangeView extends StatefulWidget {
   final String exchange;
@@ -184,15 +185,15 @@ class _AddTradeMarginToExchangeViewState extends State<AddTradeMarginToExchangeV
               color: Colors.white, borderRadius: BorderRadius.circular(12),
               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
             ),
-            child: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
+            child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Trade Margin · $label',
-              style: const TextStyle(color: Colors.black, fontSize: 18, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+              style: const TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
           Text('${widget.exchange} · ${_instruments.length} instruments',
-              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontFamily: 'Inter')),
+              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: 'Inter')),
         ])),
       ]),
     );
@@ -208,10 +209,10 @@ class _AddTradeMarginToExchangeViewState extends State<AddTradeMarginToExchangeV
         border: Border.all(color: const Color(0xFF3F45C7).withValues(alpha: 0.15)),
       ),
       child: Row(children: [
-        const Icon(Icons.info_outline, size: 16, color: Color(0xFF3F45C7)),
+        const Icon(Icons.info_outline, size: kIconSizeDefault, color: Color(0xFF3F45C7)),
         const SizedBox(width: 8),
         Expanded(child: Text('Values are in ${label.toLowerCase()}. Tap save icon to update.',
-          style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontFamily: 'Inter'))),
+          style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeSubtitle, fontFamily: 'Inter'))),
       ]),
     );
   }
@@ -226,12 +227,12 @@ class _AddTradeMarginToExchangeViewState extends State<AddTradeMarginToExchangeV
           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
         ),
         child: Row(children: [
-          const Padding(padding: EdgeInsets.only(left: 14, right: 8), child: Icon(Icons.search, color: Color(0xFF94A3B8), size: 20)),
+          const Padding(padding: EdgeInsets.only(left: 14, right: 8), child: Icon(Icons.search, color: Color(0xFF94A3B8), size: kIconSizeMedium)),
           Expanded(child: TextField(
             controller: _searchCtrl,
-            style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A), fontFamily: 'Inter'),
+            style: const TextStyle(fontSize: kFontSizeBody, color: Color(0xFF0F172A), fontFamily: 'Inter'),
             decoration: const InputDecoration(
-              hintText: 'Filter instruments...', hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 14, fontFamily: 'Inter'),
+              hintText: 'Filter instruments...', hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: 'Inter'),
               border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 12),
             ),
             onChanged: _filterInstruments,
@@ -252,9 +253,9 @@ class _AddTradeMarginToExchangeViewState extends State<AddTradeMarginToExchangeV
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(8)),
       child: Row(children: [
-        const Expanded(flex: 3, child: Text('SCRIPT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8), fontFamily: 'Inter', letterSpacing: 0.5))),
+        const Expanded(flex: 3, child: Text('SCRIPT', style: TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: Color(0xFF94A3B8), fontFamily: 'Inter', letterSpacing: 0.5))),
         const SizedBox(width: 4),
-        Expanded(flex: 2, child: Text(label.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8), fontFamily: 'Inter', letterSpacing: 0.5))),
+        Expanded(flex: 2, child: Text(label.toUpperCase(), style: const TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: Color(0xFF94A3B8), fontFamily: 'Inter', letterSpacing: 0.5))),
         const SizedBox(width: 4),
         const SizedBox(width: 36),
       ]),
@@ -265,13 +266,13 @@ class _AddTradeMarginToExchangeViewState extends State<AddTradeMarginToExchangeV
     return const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
       CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5),
       SizedBox(height: 16),
-      Text('Loading instruments...', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter')),
+      Text('Loading instruments...', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: 'Inter')),
     ]));
   }
 
   Widget _buildList() {
     if (_filteredInstruments.isEmpty) {
-      return const Center(child: Text('No instruments found', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14, fontFamily: 'Inter')));
+      return const Center(child: Text('No instruments found', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: 'Inter')));
     }
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -287,7 +288,7 @@ class _AddTradeMarginToExchangeViewState extends State<AddTradeMarginToExchangeV
           ),
           child: Row(children: [
             Expanded(flex: 3, child: Text(entry.scriptName,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF0F172A), fontFamily: 'Inter'),
+                style: const TextStyle(fontSize: kFontSizeBodySmall, fontWeight: kFontWeightSemiBold, color: Color(0xFF0F172A), fontFamily: 'Inter'),
                 maxLines: 1, overflow: TextOverflow.ellipsis)),
             const SizedBox(width: 4),
             Expanded(flex: 2, child: _buildCompactInput(entry.marginCtrl, () => setState(() => entry.isModified = true))),
@@ -316,7 +317,7 @@ class _AddTradeMarginToExchangeViewState extends State<AddTradeMarginToExchangeV
       child: TextField(
         controller: ctrl,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF0F172A), fontFamily: 'Inter'),
+        style: const TextStyle(fontSize: kFontSizeBodySmall, fontWeight: kFontWeightSemiBold, color: Color(0xFF0F172A), fontFamily: 'Inter'),
         decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 10)),
         onChanged: (_) => onChanged(),
       ),

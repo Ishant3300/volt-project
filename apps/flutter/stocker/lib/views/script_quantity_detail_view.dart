@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_profile_provider.dart';
@@ -179,17 +179,17 @@ class _ScriptQuantityDetailViewState extends State<ScriptQuantityDetailView> {
                     color: Colors.white, borderRadius: BorderRadius.circular(12),
                     boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
                   ),
-                  child: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
+                  child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   const Text('Script Quantity',
-                    style: TextStyle(color: Colors.black, fontSize: 18, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                    style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
                   if (!isUser)
                     const Text('All Lots (Read Only)',
-                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w500)),
+                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
                 ]),
               ),
             ]),
@@ -247,10 +247,10 @@ class _ScriptQuantityDetailViewState extends State<ScriptQuantityDetailView> {
               child: TextField(
                 controller: _searchCtrl,
                 onChanged: (v) => setState(() => _searchQuery = v),
-                style: const TextStyle(fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+                style: const TextStyle(fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
                 decoration: InputDecoration(
                   hintText: 'Search script...',
-                  hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, fontFamily: 'Inter'),
+                  hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall, fontFamily: 'Inter'),
                   prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFF94A3B8)),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? GestureDetector(
@@ -278,8 +278,8 @@ class _ScriptQuantityDetailViewState extends State<ScriptQuantityDetailView> {
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
               ),
               child: Row(children: [
-                Text('Group Name :  ', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500)),
-                Text(groupName, style: const TextStyle(color: Colors.black, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w700)),
+                Text('Group Name :  ', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
+                Text(groupName, style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightBold)),
               ]),
             ),
 
@@ -307,7 +307,7 @@ class _ScriptQuantityDetailViewState extends State<ScriptQuantityDetailView> {
                 : data.isEmpty
                     ? Center(child: Text(
                         _getEmptyMessage(isUser),
-                        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter')))
+                        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: 'Inter')))
                     : Container(
                         margin: const EdgeInsets.symmetric(horizontal: 16),
                         decoration: const BoxDecoration(
@@ -349,7 +349,7 @@ class _ScriptQuantityDetailViewState extends State<ScriptQuantityDetailView> {
             children: [
               Text(label, style: TextStyle(
                 color: isSorted ? const Color(0xFF3F45C7) : const Color(0xFF94A3B8),
-                fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.3)),
+                fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.3)),
               const SizedBox(width: 2),
               Icon(
                 isSorted ? (_sortAsc ? Icons.arrow_upward : Icons.arrow_downward) : Icons.unfold_more,
@@ -381,20 +381,20 @@ class _ScriptQuantityDetailViewState extends State<ScriptQuantityDetailView> {
           child: Padding(
             padding: const EdgeInsets.only(left: 14),
             child: Text(symbol,
-              style: const TextStyle(color: Colors.black, fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: -0.3)),
+              style: const TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: -0.3)),
           ),
         ),
         // Breakup Qty
         Expanded(
           flex: 2,
           child: Text(brkQty.toStringAsFixed(1), textAlign: TextAlign.right,
-            style: const TextStyle(color: Color(0xFF334155), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500)),
+            style: const TextStyle(color: Color(0xFF334155), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
         ),
         // Max Qty
         Expanded(
           flex: 2,
           child: Text(maxQty.toStringAsFixed(1), textAlign: TextAlign.right,
-            style: const TextStyle(color: Color(0xFF334155), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500)),
+            style: const TextStyle(color: Color(0xFF334155), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
         ),
         // Lot Size
         Expanded(
@@ -402,7 +402,7 @@ class _ScriptQuantityDetailViewState extends State<ScriptQuantityDetailView> {
           child: Padding(
             padding: const EdgeInsets.only(right: 14),
             child: Text(lotSize.toStringAsFixed(1), textAlign: TextAlign.right,
-              style: const TextStyle(color: Color(0xFF334155), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500)),
+              style: const TextStyle(color: Color(0xFF334155), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
           ),
         ),
       ]),
@@ -429,7 +429,7 @@ class _ScriptQuantityDetailViewState extends State<ScriptQuantityDetailView> {
           value: value,
           isExpanded: true,
           icon: const Icon(Icons.keyboard_arrow_down, size: 18, color: Color(0xFF94A3B8)),
-          style: const TextStyle(color: Colors.black, fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600),
+          style: const TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold),
           items: items.map((e) => DropdownMenuItem(
             value: e,
             child: Text(displayMap?[e] ?? e, overflow: TextOverflow.ellipsis),

@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import '../utils/contants.dart';
 
 class UserStatusView extends StatelessWidget {
   const UserStatusView({super.key});
@@ -17,16 +18,16 @@ class UserStatusView extends StatelessWidget {
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: Icon(Icons.arrow_back, size: 24, color: Colors.black),
+                    child: Icon(Icons.arrow_back, size: kIconSizeLarge, color: Colors.black),
                   ),
                   SizedBox(width: 12),
                   Text(
                     'User Status',
                     style: TextStyle(
                       color: Colors.black,
-                      fontSize: 16,
+                      fontSize: kFontSizeSectionHeader,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
+                      fontWeight: kFontWeightSemiBold,
                     ),
                   ),
                 ],
@@ -73,9 +74,9 @@ class UserStatusView extends StatelessWidget {
                 name,
                 style: TextStyle(
                   color: Colors.black,
-                  fontSize: 14,
+                  fontSize: kFontSizeBody,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w400,
+                  fontWeight: kFontWeightRegular,
                 ),
               ),
               Container(
@@ -88,9 +89,9 @@ class UserStatusView extends StatelessWidget {
                   isActive ? 'ACTIVE' : 'INACTIVE',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 10,
+                    fontSize: kFontSizeCaption,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
+                    fontWeight: kFontWeightRegular,
                   ),
                 ),
               ),
@@ -104,27 +105,27 @@ class UserStatusView extends StatelessWidget {
                 'BALANCE: $balance',
                 style: TextStyle(
                   color: const Color(0xFF999999),
-                  fontSize: 12,
+                  fontSize: kFontSizeSubtitle,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w400,
+                  fontWeight: kFontWeightRegular,
                 ),
               ),
               Text(
                 'CREDIT: $credit',
                 style: TextStyle(
                   color: const Color(0xFF999999),
-                  fontSize: 12,
+                  fontSize: kFontSizeSubtitle,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w400,
+                  fontWeight: kFontWeightRegular,
                 ),
               ),
               Text(
                 'PL SHARE: $plShare',
                 style: TextStyle(
                   color: const Color(0xFF999999),
-                  fontSize: 12,
+                  fontSize: kFontSizeSubtitle,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w400,
+                  fontWeight: kFontWeightRegular,
                 ),
               ),
             ],

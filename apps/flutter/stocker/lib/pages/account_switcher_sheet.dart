@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stocker/services/multi_account_service.dart';
+import '../utils/contants.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
@@ -111,7 +112,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Remove Account',
-            style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+            style: TextStyle(fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
         content: Text(
           'Remove ${account.username} (${account.role}) from saved accounts?',
           style: const TextStyle(fontFamily: 'Inter'),
@@ -128,7 +129,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                 style: TextStyle(
                     color: Color(0xFFEF4444),
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600)),
+                    fontWeight: kFontWeightSemiBold)),
           ),
         ],
       ),
@@ -186,16 +187,6 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Drag handle
-          Container(
-            margin: const EdgeInsets.only(top: 12, bottom: 8),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: const Color(0xFFCBD5E1),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
 
           // Title
           const Padding(
@@ -204,9 +195,9 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
               'Switch Account',
               style: TextStyle(
                 color: Color(0xFF0F172A),
-                fontSize: 18,
+                fontSize: kFontSizeViewTitle,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w700,
+                fontWeight: kFontWeightBold,
                 letterSpacing: -0.3,
               ),
             ),
@@ -225,7 +216,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                       style: TextStyle(
                           color: Color(0xFF64748B),
                           fontFamily: 'Inter',
-                          fontSize: 14)),
+                          fontSize: kFontSizeBody)),
                 ],
               ),
             )
@@ -246,7 +237,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
 
             // Add account button
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 24 + MediaQuery.of(context).viewPadding.bottom),
               child: GestureDetector(
                 onTap: _addNewAccount,
                 child: Container(
@@ -265,15 +256,15 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.add_circle_outline,
-                          color: Color(0xFF3F45C7), size: 20),
+                          color: Color(0xFF3F45C7), size: kIconSizeMedium),
                       SizedBox(width: 10),
                       Text(
                         'Add Another Account',
                         style: TextStyle(
                           color: Color(0xFF3F45C7),
-                          fontSize: 15,
+                          fontSize: kFontSizeButtonText,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
+                          fontWeight: kFontWeightSemiBold,
                         ),
                       ),
                     ],
@@ -320,9 +311,9 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                       .toUpperCase(),
                   style: TextStyle(
                     color: roleColor,
-                    fontSize: 18,
+                    fontSize: kFontSizeViewTitle,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w700,
+                    fontWeight: kFontWeightBold,
                   ),
                 ),
               ),
@@ -341,9 +332,9 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                           account.name ?? account.username,
                           style: const TextStyle(
                             color: Color(0xFF0F172A),
-                            fontSize: 15,
+                            fontSize: kFontSizeButtonText,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600,
+                            fontWeight: kFontWeightSemiBold,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -362,9 +353,9 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                             'ACTIVE',
                             style: TextStyle(
                               color: Color(0xFF10B981),
-                              fontSize: 9,
+                              fontSize: kFontSizeBadge,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.w700,
+                              fontWeight: kFontWeightBold,
                               letterSpacing: 0.5,
                             ),
                           ),
@@ -376,15 +367,15 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                   Row(
                     children: [
                       Icon(_roleIcon(account.role),
-                          size: 12, color: const Color(0xFF94A3B8)),
+                          size: kIconSizeSmall, color: const Color(0xFF94A3B8)),
                       const SizedBox(width: 4),
                       Text(
                         '${account.username} · ${account.role}',
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
-                          fontSize: 12,
+                          fontSize: kFontSizeSubtitle,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
+                          fontWeight: kFontWeightMedium,
                         ),
                       ),
                     ],
@@ -405,7 +396,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.close,
-                      size: 14, color: Color(0xFF94A3B8)),
+                      size: kIconSizeSmall, color: Color(0xFF94A3B8)),
                 ),
               )
             else

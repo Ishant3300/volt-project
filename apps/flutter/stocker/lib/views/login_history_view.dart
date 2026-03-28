@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -98,13 +98,13 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
                       ),
-                      child: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
+                      child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text('Login History', style: TextStyle(color: Colors.black, fontSize: 18, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                  const Text('Login History', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
                   const Spacer(),
-                  Text('${_filtered.length} entries', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w500)),
+                  Text('${_filtered.length} entries', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
                 ],
               ),
             ),
@@ -119,11 +119,11 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
               ),
               child: TextField(
                 controller: _searchController,
-                style: const TextStyle(fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+                style: const TextStyle(fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
                 decoration: const InputDecoration(
                   hintText: 'Search by name or username...',
-                  hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: 14, fontFamily: 'Inter'),
-                  prefixIcon: Icon(Icons.search, color: Color(0xFF94A3B8), size: 20),
+                  hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBody, fontFamily: 'Inter'),
+                  prefixIcon: Icon(Icons.search, color: Color(0xFF94A3B8), size: kIconSizeMedium),
                   contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   border: InputBorder.none,
                 ),
@@ -163,7 +163,7 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
             child: const Icon(Icons.history, size: 28, color: Color(0xFFCBD5E1)),
           ),
           const SizedBox(height: 16),
-          const Text('No login history', style: TextStyle(color: Color(0xFF475569), fontSize: 15, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+          const Text('No login history', style: TextStyle(color: Color(0xFF475569), fontSize: kFontSizeButtonText, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
         ],
       ),
     );
@@ -207,16 +207,16 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
               Container(
                 width: 36, height: 36,
                 decoration: BoxDecoration(color: roleColor.withValues(alpha: 0.1), shape: BoxShape.circle),
-                child: Center(child: Text(username.isNotEmpty ? username[0].toUpperCase() : '?', style: TextStyle(color: roleColor, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w700))),
+                child: Center(child: Text(username.isNotEmpty ? username[0].toUpperCase() : '?', style: TextStyle(color: roleColor, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightBold))),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(name, style: const TextStyle(color: Colors.black, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                child: Text(name, style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(color: roleColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                child: Text(role, style: TextStyle(color: roleColor, fontSize: 9, fontFamily: 'Inter', fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+                child: Text(role, style: TextStyle(color: roleColor, fontSize: kFontSizeBadge, fontFamily: 'Inter', fontWeight: kFontWeightBold, letterSpacing: 0.5)),
               ),
             ],
           ),
@@ -241,12 +241,12 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: const Color(0xFF94A3B8)),
+          Icon(icon, size: kFontSizeBodySmall, color: const Color(0xFF94A3B8)),
           const SizedBox(width: 4),
           Flexible(
             child: Text(
               text,
-              style: const TextStyle(color: Color(0xFF64748B), fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+              style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
               overflow: TextOverflow.ellipsis,
             ),
           ),

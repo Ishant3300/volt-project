@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
@@ -8,6 +8,7 @@ import 'package:stocker/services/api_service.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
 import 'package:stocker/services/firebase_service.dart';
 import '../home_page.dart';
+import '../utils/contants.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -129,19 +130,19 @@ class _LoginPageState extends State<LoginPage> {
                         width: 80,
                         height: 80,
                       ),
-                      const SizedBox(height: 16),
-                      const Text('APEX', style: TextStyle(color: Color(0xFF0F172A), fontSize: 32, fontFamily: 'Inter', fontWeight: FontWeight.w800, letterSpacing: 3)),
-                      const SizedBox(height: 13),
-                      const Text(
+                      const SizedBox(height: 12),
+                      Text('APEX', style: TextStyle(color: Color(0xFF0F172A), fontSize: kFontSizeLoginTitle, fontFamily: 'Inter', fontWeight: kFontWeightBold, letterSpacing: 3)),
+                      const SizedBox(height: 8),
+                      Text(
                         'To sign in to an account in the application,\nenter your username and password',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w400),
+                        style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightRegular),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
 
                       // Server field
                       _buildFieldLabel('Server'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Container(
                         width: double.infinity,
                         height: 48,
@@ -154,7 +155,7 @@ class _LoginPageState extends State<LoginPage> {
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
                             value: _selectedServer == 'Select Server' ? null : _selectedServer,
-                            hint: const Text('Select Server', style: TextStyle(color: Color(0xFFCBD5E1), fontSize: 15, fontFamily: 'Inter')),
+                            hint: Text('Select Server', style: TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeButtonText, fontFamily: 'Inter')),
                             items: ['test'].map((String value) {
                               return DropdownMenuItem<String>(value: value, child: Text(value));
                             }).toList(),
@@ -164,25 +165,25 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 14),
 
                       // Username field
                       _buildFieldLabel('Username'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       _buildTextField(_usernameController, 'Enter Username', false),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 14),
 
                       // Password field
                       _buildFieldLabel('Password'),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       _buildTextField(_passwordController, 'Enter Password', true),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
 
                       Align(
                         alignment: Alignment.centerLeft,
-                        child: const Text('Forgot password?', style: TextStyle(color: Color(0xFF3F45C7), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                        child: Text('Forgot password?', style: TextStyle(color: Color(0xFF3F45C7), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
 
                       // Continue button
                       GestureDetector(
@@ -207,7 +208,7 @@ class _LoginPageState extends State<LoginPage> {
                           child: Center(
                             child: _isLoading
                                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                : const Text('CONTINUE', style: TextStyle(color: Colors.white, fontSize: 15, fontFamily: 'Inter', fontWeight: FontWeight.w700)),
+                                : Text('CONTINUE', style: TextStyle(color: Colors.white, fontSize: kFontSizeButtonText, fontFamily: 'Inter', fontWeight: kFontWeightBold)),
                           ),
                         ),
                       ),
@@ -221,8 +222,8 @@ class _LoginPageState extends State<LoginPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Text.rich(
                     TextSpan(children: [
-                      const TextSpan(text: 'By clicking "Continue", I have read and agree\nwith the ', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontFamily: 'Inter')),
-                      TextSpan(text: 'Term & Privacy Policy', style: TextStyle(color: Colors.black.withValues(alpha: 0.7), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w500, decoration: TextDecoration.underline)),
+                      const TextSpan(text: 'By clicking "Continue", I have read and agree\nwith the ', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: 'Inter')),
+                      TextSpan(text: 'Term & Privacy Policy', style: TextStyle(color: Colors.black.withValues(alpha: 0.7), fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightMedium, decoration: TextDecoration.underline)),
                     ]),
                     textAlign: TextAlign.center,
                   ),
@@ -239,7 +240,7 @@ class _LoginPageState extends State<LoginPage> {
   Widget _buildFieldLabel(String label) {
     return Align(
       alignment: Alignment.centerLeft,
-      child: Text(label, style: const TextStyle(color: Color(0xFF64748B), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.3)),
+      child: Text(label, style: const TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.3)),
     );
   }
 
@@ -247,10 +248,10 @@ class _LoginPageState extends State<LoginPage> {
     return TextField(
       controller: controller,
       obscureText: obscure,
-      style: const TextStyle(fontSize: 15, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+      style: const TextStyle(fontSize: kFontSizeButtonText, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 15, fontFamily: 'Inter'),
+        hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeButtonText, fontFamily: 'Inter'),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         filled: true,
         fillColor: Colors.white,

@@ -1,5 +1,4 @@
-import 'dart:async';
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_profile_provider.dart';
@@ -20,7 +19,6 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
   String _searchQuery = '';
   final _searchCtrl = TextEditingController();
 
-  // Filter state
   String? _filterExchange;
   String? _filterTradingsymbol;
   String? _filterUserId;
@@ -52,7 +50,6 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
       final params = <String>[];
       if (_filterExchange != null) params.add('exchange=$_filterExchange');
       if (_filterTradingsymbol != null) params.add('tradingsymbol=$_filterTradingsymbol');
-      if (_filterUserId != null) params.add('search=');
       final qs = params.isNotEmpty ? '?${params.join('&')}' : '';
       final res = await ApiService(backendUrl).get('/trade/userwise-positions$qs', token: token);
       if (res.statusCode == 200) {
@@ -62,9 +59,7 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
         }
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -91,15 +86,11 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
 
   Future<void> _openFilter() async {
     final result = await showModalBottomSheet<Map<String, dynamic>>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      context: context, isScrollControlled: true, backgroundColor: Colors.transparent,
       builder: (_) => UserwisePositionFilterBottomSheet(
-        role: _role,
-        initialExchange: _filterExchange,
+        role: _role, initialExchange: _filterExchange,
         initialTradingsymbol: _filterTradingsymbol,
-        initialUserId: _filterUserId,
-        initialUserName: _filterUserName,
+        initialUserId: _filterUserId, initialUserName: _filterUserName,
       ),
     );
     if (result != null) {
@@ -113,6 +104,16 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
     }
   }
 
+  String _volumeLabel(Map<String, dynamic> pos) {
+    final netQty = ((pos['net_qty'] as num?)?.toInt() ?? 0).abs();
+    final segment = (pos['segment'] as String? ?? '').toUpperCase();
+    final exchange = (pos['exchange'] as String? ?? '').toUpperCase();
+    final lotSize = (pos['lot_size'] as num?)?.toInt() ?? 1;
+    final bool isLot = segment == 'MCX-FUT' || segment == 'MCX-OPT' || segment == 'NFO-OPT' || (segment.isEmpty && exchange == 'MCX');
+    if (isLot && lotSize > 0) return '${(netQty / lotSize).round()}';
+    return '$netQty';
+  }
+
   @override
   Widget build(BuildContext context) {
     final filtered = _filtered;
@@ -120,267 +121,141 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
       backgroundColor: const Color(0xFFF8FAFC),
       body: SafeArea(
         child: Column(children: [
-          // Header
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(children: [
               GestureDetector(
                 onTap: () => Navigator.pop(context),
-                child: Container(
-                  width: 40, height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white, borderRadius: BorderRadius.circular(12),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
-                  ),
-                  child: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
-                ),
+                child: Container(width: 40, height: 40,
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
+                  child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium)),
               ),
               const SizedBox(width: 12),
-              const Expanded(
-                child: Text('Userwise Positions',
-                  style: TextStyle(color: Colors.black, fontSize: 18,
-                    fontFamily: 'Inter', fontWeight: FontWeight.w600)),
-              ),
-              // Count badge
+              const Expanded(child: Text('Userwise Open Position', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold))),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF3F45C7).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text('${filtered.length}',
-                  style: const TextStyle(color: Color(0xFF3F45C7), fontSize: 13,
-                    fontFamily: 'Inter', fontWeight: FontWeight.w700)),
+                decoration: BoxDecoration(color: const Color(0xFF3F45C7).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                child: Text('${filtered.length}', style: const TextStyle(color: Color(0xFF3F45C7), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightBold)),
               ),
             ]),
           ),
-
-          // Search + Filter
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(children: [
-              Expanded(
-                child: Container(
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: Colors.white, borderRadius: BorderRadius.circular(12),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
-                  ),
-                  child: TextField(
-                    controller: _searchCtrl,
-                    onChanged: (v) => setState(() => _searchQuery = v),
-                    style: const TextStyle(fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500),
-                    decoration: InputDecoration(
-                      hintText: 'Search user or instrument...',
-                      hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, fontFamily: 'Inter'),
-                      prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFF94A3B8)),
-                      suffixIcon: _searchQuery.isNotEmpty
-                          ? GestureDetector(
-                              onTap: () { _searchCtrl.clear(); setState(() => _searchQuery = ''); },
-                              child: const Icon(Icons.close, size: 18, color: Color(0xFF94A3B8)))
-                          : null,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                      border: InputBorder.none,
-                    ),
-                  ),
-                ),
-              ),
+              Expanded(child: Container(height: 44,
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
+                child: TextField(controller: _searchCtrl, onChanged: (v) => setState(() => _searchQuery = v),
+                  style: const TextStyle(fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
+                  decoration: InputDecoration(hintText: 'Search user or instrument...', hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall, fontFamily: 'Inter'),
+                    prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFF94A3B8)),
+                    suffixIcon: _searchQuery.isNotEmpty ? GestureDetector(onTap: () { _searchCtrl.clear(); setState(() => _searchQuery = ''); }, child: const Icon(Icons.close, size: 18, color: Color(0xFF94A3B8))) : null,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12), border: InputBorder.none)),
+              )),
               const SizedBox(width: 10),
-              GestureDetector(
-                onTap: _openFilter,
-                child: Container(
-                  width: 44, height: 44,
-                  decoration: BoxDecoration(
-                    color: _hasActiveFilters ? const Color(0xFF3F45C7) : Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
-                  ),
-                  child: Icon(Icons.tune,
-                    size: 20,
-                    color: _hasActiveFilters ? Colors.white : const Color(0xFF94A3B8)),
-                ),
-              ),
+              GestureDetector(onTap: _openFilter, child: Container(width: 44, height: 44,
+                decoration: BoxDecoration(color: _hasActiveFilters ? const Color(0xFF3F45C7) : Colors.white, borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
+                child: Icon(Icons.tune, size: kIconSizeMedium, color: _hasActiveFilters ? Colors.white : const Color(0xFF94A3B8)))),
             ]),
           ),
-
-          // Active filter chips
           if (_hasActiveFilters)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+            Padding(padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
               child: Wrap(spacing: 8, runSpacing: 6, children: [
-                if (_filterExchange != null) _buildChip(_filterExchange!),
-                if (_filterTradingsymbol != null) _buildChip(_filterTradingsymbol!),
-                if (_filterUserName != null) _buildChip(_filterUserName!),
-              ]),
-            ),
-
+                if (_filterExchange != null) _chip(_filterExchange!),
+                if (_filterTradingsymbol != null) _chip(_filterTradingsymbol!),
+                if (_filterUserName != null) _chip(_filterUserName!),
+              ])),
           const SizedBox(height: 12),
-
-          // List
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5))
                 : filtered.isEmpty
-                    ? Center(child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.inbox_outlined, size: 48, color: const Color(0xFF94A3B8).withValues(alpha: 0.5)),
-                          const SizedBox(height: 12),
-                          const Text('No open positions',
-                            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14, fontFamily: 'Inter')),
-                        ],
-                      ))
-                    : RefreshIndicator(
-                        color: const Color(0xFF3F45C7),
-                        onRefresh: _fetch,
-                        child: ListView.separated(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                    ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.inbox_outlined, size: 48, color: const Color(0xFF94A3B8).withValues(alpha: 0.5)),
+                        const SizedBox(height: 12),
+                        const Text('No open positions', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: 'Inter'))]))
+                    : RefreshIndicator(color: const Color(0xFF3F45C7), onRefresh: _fetch,
+                        child: ListView.separated(padding: const EdgeInsets.symmetric(horizontal: 16),
                           itemCount: filtered.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 8),
-                          itemBuilder: (_, i) => _buildCard(filtered[i]),
-                        ),
-                      ),
+                          separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                          itemBuilder: (_, i) => _buildRow(filtered[i]))),
           ),
         ]),
       ),
     );
   }
 
-  Widget _buildChip(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFF3F45C7).withValues(alpha: 0.2)),
-      ),
-      child: Text(label,
-        style: const TextStyle(color: Color(0xFF3F45C7), fontSize: 11,
-          fontFamily: 'Inter', fontWeight: FontWeight.w600)),
-    );
+  Widget _chip(String label) {
+    return Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF3F45C7).withValues(alpha: 0.2))),
+      child: Text(label, style: const TextStyle(color: Color(0xFF3F45C7), fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)));
   }
 
-  Widget _buildCard(Map<String, dynamic> pos) {
-    final netQty = (pos['net_qty'] as num?)?.toDouble() ?? 0;
-    final side = pos['side'] ?? (netQty > 0 ? 'BUY' : 'SELL');
-    final avgBuy = (pos['avg_buy_price'] as num?)?.toDouble() ?? 0;
-    final avgSell = (pos['avg_sell_price'] as num?)?.toDouble() ?? 0;
-    final totalBuyQty = (pos['total_buy_qty'] as num?)?.toDouble() ?? 0;
-    final totalSellQty = (pos['total_sell_qty'] as num?)?.toDouble() ?? 0;
-
-    // Realised P&L: closed portion
-    double realisedPnl = 0;
-    final closedQty = totalBuyQty < totalSellQty ? totalBuyQty : totalSellQty;
-    if (closedQty > 0 && avgBuy > 0 && avgSell > 0) {
-      realisedPnl = (avgSell - avgBuy) * closedQty;
-    }
-
-    final avgRate = side == 'BUY' ? avgBuy : avgSell;
-    final marginUsed = avgRate * netQty.abs();
-    final isProfit = realisedPnl >= 0;
+  Widget _buildRow(Map<String, dynamic> pos) {
+    final symbol = pos['tradingsymbol'] ?? '';
+    final exchange = pos['exchange'] ?? '';
+    final username = pos['username'] ?? '';
+    final masterUsername = pos['master_username'] ?? '';
+    final side = pos['side'] ?? 'BUY';
+    final marginUsed = (pos['margin_used'] as num?)?.toDouble() ?? 0;
+    final avgRate = (pos['avg_rate'] as num?)?.toDouble() ?? 0;
+    final vol = _volumeLabel(pos);
+    final sideColor = side == 'BUY' ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+    final floatingPnl = (pos['floating_pnl'] as num?)?.toDouble() ?? 0;
+    final pnlColor = floatingPnl >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444);
 
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Top row: symbol + P&L badge
+        // Row 1: Symbol + side badge → P&L badge
         Row(children: [
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(pos['tradingsymbol'] ?? '',
-                style: const TextStyle(color: Color(0xFF3F45C7), fontSize: 14,
-                  fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: -0.3)),
-              const SizedBox(height: 2),
-              Row(children: [
-                Text(pos['exchange'] ?? '',
-                  style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11,
-                    fontFamily: 'Inter', fontWeight: FontWeight.w500, letterSpacing: 0.5)),
-                const Text(' · ', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
-                Text(pos['username'] ?? '',
-                  style: const TextStyle(color: Color(0xFF64748B), fontSize: 11,
-                    fontFamily: 'Inter', fontWeight: FontWeight.w600)),
-                if ((pos['master_username'] ?? '').toString().isNotEmpty) ...[
-                  const Text(' · ', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(pos['master_username'],
-                      style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10,
-                        fontFamily: 'Inter', fontWeight: FontWeight.w500)),
-                  ),
-                ],
-              ]),
-            ]),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: isProfit ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '${isProfit ? '+' : ''}${realisedPnl.toStringAsFixed(2)}',
-              style: const TextStyle(color: Colors.white, fontSize: 12,
-                fontFamily: 'Inter', fontWeight: FontWeight.w600),
-            ),
-          ),
+          Expanded(child: Row(children: [
+            Flexible(child: Text('$exchange $symbol',
+              style: const TextStyle(color: Colors.black, fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold),
+              maxLines: 1, overflow: TextOverflow.ellipsis)),
+            const SizedBox(width: 6),
+            Container(padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: BoxDecoration(color: sideColor.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+              child: Text(side, style: TextStyle(color: sideColor, fontSize: kFontSizeBadge, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold))),
+          ])),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(color: pnlColor.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+            child: Text('${floatingPnl >= 0 ? '+' : ''}${floatingPnl.toStringAsFixed(2)}',
+              style: TextStyle(color: pnlColor, fontSize: kFontSizeBadge, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold))),
         ]),
-
-        const SizedBox(height: 10),
-
-        // Details grid
+        const SizedBox(height: 5),
+        // Row 2: 4-column grid — Username | Qty | Avg Rate | Margin
         Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(color: const Color(0xFFF1F5F9)),
           ),
-          child: Column(children: [
-            Row(children: [
-              _gridCell('POSITION', side,
-                valueColor: side == 'BUY' ? const Color(0xFF10B981) : const Color(0xFFEF4444)),
-              _gridCell('OPEN QTY', netQty.abs().toStringAsFixed(0),
-                valueColor: const Color(0xFF3F45C7), showRightBorder: false),
-            ]),
-            Container(height: 1, color: const Color(0xFFF1F5F9)),
-            Row(children: [
-              _gridCell('MARGIN USED', marginUsed.toStringAsFixed(2)),
-              _gridCell('AVG RATE', avgRate.toStringAsFixed(2), showRightBorder: false),
-            ]),
+          child: Row(children: [
+            Expanded(child: _gridCell('User', username.isNotEmpty ? (masterUsername.isNotEmpty ? '$username ($masterUsername)' : username) : '--', showRight: true)),
+            Expanded(child: _gridCell('Qty', side == 'SELL' ? '-$vol' : vol, valueColor: sideColor, showRight: true)),
+            Expanded(child: _gridCell('Avg Rate', avgRate.toStringAsFixed(2), showRight: true)),
+            Expanded(child: _gridCell('Margin', marginUsed.toStringAsFixed(2), showRight: false)),
           ]),
         ),
       ]),
     );
   }
 
-  Widget _gridCell(String label, String value, {Color? valueColor, bool showRightBorder = true}) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          border: showRightBorder
-              ? const Border(right: BorderSide(color: Color(0xFFF1F5F9)))
-              : null,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label,
-              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10,
-                fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.5)),
-            const SizedBox(height: 4),
-            Text(value,
-              style: TextStyle(color: valueColor ?? Colors.black, fontSize: 12,
-                fontFamily: 'Inter', fontWeight: FontWeight.w600)),
-          ],
-        ),
+  Widget _gridCell(String label, String value, {Color? valueColor, bool showRight = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        border: showRight ? const Border(right: BorderSide(color: Color(0xFFF1F5F9))) : null,
       ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBadge, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
+        const SizedBox(height: 1),
+        Text(value, style: TextStyle(color: valueColor ?? Colors.black, fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold),
+          maxLines: 1, overflow: TextOverflow.ellipsis),
+      ]),
     );
   }
 }

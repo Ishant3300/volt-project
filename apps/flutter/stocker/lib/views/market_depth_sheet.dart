@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:stocker/models/market_depth.dart';
 import 'package:stocker/services/api_service.dart';
@@ -97,9 +97,9 @@ class _MarketDepthSheetState extends State<MarketDepthSheet> {
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.black,
-              fontSize: 16,
+              fontSize: kFontSizeSheetTitle,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w600,
+              fontWeight: kFontWeightSemiBold,
             ),
           ),
           SizedBox(height: 16),
@@ -172,9 +172,9 @@ class _MarketDepthSheetState extends State<MarketDepthSheet> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.black,
-                    fontSize: 16,
+                    fontSize: kFontSizeButtonText,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600,
+                    fontWeight: kFontWeightSemiBold,
                   ),
                 ),
               ),
@@ -195,9 +195,9 @@ class _MarketDepthSheetState extends State<MarketDepthSheet> {
           'OHLC Data',
           style: TextStyle(
             color: Colors.black,
-            fontSize: 14,
+            fontSize: kFontSizeBody,
             fontFamily: 'Inter',
-            fontWeight: FontWeight.w600,
+            fontWeight: kFontWeightSemiBold,
           ),
         ),
         SizedBox(height: 12),
@@ -237,9 +237,9 @@ class _MarketDepthSheetState extends State<MarketDepthSheet> {
               label,
               style: TextStyle(
                 color: const Color(0xFF8E8E93),
-                fontSize: 12,
+                fontSize: kFontSizeSheetLabel,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w400,
+                fontWeight: kFontWeightRegular,
               ),
             ),
             SizedBox(height: 4),
@@ -247,9 +247,9 @@ class _MarketDepthSheetState extends State<MarketDepthSheet> {
               value,
               style: TextStyle(
                 color: Colors.black,
-                fontSize: 16,
+                fontSize: kFontSizeSectionHeader,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w600,
+                fontWeight: kFontWeightSemiBold,
               ),
             ),
           ],
@@ -274,18 +274,18 @@ class _MarketDepthSheetState extends State<MarketDepthSheet> {
             'Last Price',
             style: TextStyle(
               color: const Color(0xFF8E8E93),
-              fontSize: 14,
+              fontSize: kFontSizeBody,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w400,
+              fontWeight: kFontWeightRegular,
             ),
           ),
           Text(
             _marketDepth!.lastPrice!.toStringAsFixed(2),
             style: TextStyle(
               color: Colors.black,
-              fontSize: 18,
+              fontSize: kFontSizeViewTitle,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w600,
+              fontWeight: kFontWeightSemiBold,
             ),
           ),
         ],

@@ -1,9 +1,10 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../utils/contants.dart';
 
 class MarketHoursView extends StatefulWidget {
   const MarketHoursView({super.key});
@@ -151,9 +152,9 @@ class _MarketHoursViewState extends State<MarketHoursView> {
             child: Container(width: 40, height: 40,
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
-              child: const Icon(Icons.arrow_back, color: Colors.black, size: 20))),
+              child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium))),
           const SizedBox(width: 12),
-          const Text('Market Timings', style: TextStyle(color: Colors.black, fontSize: 18, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+          const Text('Market Timings', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
         ])),
 
         // Exchange dropdown
@@ -162,8 +163,8 @@ class _MarketHoursViewState extends State<MarketHoursView> {
             boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
           child: DropdownButtonHideUnderline(child: DropdownButton<String>(
             value: _selectedExchange, isExpanded: true,
-            icon: const Icon(Icons.keyboard_arrow_down, size: 20, color: Color(0xFF94A3B8)),
-            style: const TextStyle(color: Colors.black, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600),
+            icon: const Icon(Icons.keyboard_arrow_down, size: kIconSizeMedium, color: Color(0xFF94A3B8)),
+            style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold),
             items: _exchanges.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
             onChanged: (v) => setState(() { _selectedExchange = v!; }),
           )),
@@ -190,22 +191,22 @@ class _MarketHoursViewState extends State<MarketHoursView> {
                 startingDayOfWeek: StartingDayOfWeek.sunday,
                 headerStyle: const HeaderStyle(
                   titleCentered: true, formatButtonVisible: false,
-                  titleTextStyle: TextStyle(color: Colors.black, fontSize: 15, fontFamily: 'Inter', fontWeight: FontWeight.w700),
+                  titleTextStyle: TextStyle(color: Colors.black, fontSize: kFontSizeButtonText, fontFamily: 'Inter', fontWeight: kFontWeightBold),
                   leftChevronIcon: Icon(Icons.chevron_left, color: Color(0xFF3F45C7), size: 22),
                   rightChevronIcon: Icon(Icons.chevron_right, color: Color(0xFF3F45C7), size: 22),
                 ),
                 daysOfWeekStyle: const DaysOfWeekStyle(
-                  weekdayStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w600),
-                  weekendStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w600),
+                  weekdayStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold),
+                  weekendStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold),
                 ),
                 calendarStyle: CalendarStyle(
                   outsideDaysVisible: false,
-                  defaultTextStyle: const TextStyle(color: Color(0xFF334155), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500),
-                  weekendTextStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+                  defaultTextStyle: const TextStyle(color: Color(0xFF334155), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
+                  weekendTextStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
                   todayDecoration: BoxDecoration(color: const Color(0xFF3F45C7).withValues(alpha: 0.12), shape: BoxShape.circle),
-                  todayTextStyle: const TextStyle(color: Color(0xFF3F45C7), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w700),
+                  todayTextStyle: const TextStyle(color: Color(0xFF3F45C7), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightBold),
                   selectedDecoration: const BoxDecoration(color: Color(0xFF3F45C7), shape: BoxShape.circle),
-                  selectedTextStyle: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w700),
+                  selectedTextStyle: const TextStyle(color: Colors.white, fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightBold),
                   cellMargin: const EdgeInsets.all(4),
                 ),
                 calendarBuilders: CalendarBuilders(
@@ -228,13 +229,13 @@ class _MarketHoursViewState extends State<MarketHoursView> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 // Day label + status badge
                 Row(children: [
-                  Text(_dayLabel(sel), style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.5)),
+                  Text(_dayLabel(sel), style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
                   const Spacer(),
                   _statusBadge(status),
                 ]),
                 if (holiday != null) ...[
                   const SizedBox(height: 6),
-                  Text(holiday['description'] ?? '', style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w500, fontStyle: FontStyle.italic)),
+                  Text(holiday['description'] ?? '', style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightMedium, fontStyle: FontStyle.italic)),
                 ],
                 const SizedBox(height: 12),
 
@@ -243,7 +244,7 @@ class _MarketHoursViewState extends State<MarketHoursView> {
                 else if (status == _DayStatus.closed)
                   Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(color: const Color(0xFFEF4444).withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
-                    child: Text(_closedReason(sel, holiday), style: const TextStyle(color: Color(0xFFEF4444), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500)))
+                    child: Text(_closedReason(sel, holiday), style: const TextStyle(color: Color(0xFFEF4444), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium)))
                 else ...[
                   // Show timing from API (or holiday special timing)
                   if (holidayTiming != null)
@@ -251,7 +252,7 @@ class _MarketHoursViewState extends State<MarketHoursView> {
                   else if (exchangeTiming != null)
                     _timingPill(exchangeTiming['start_time'], exchangeTiming['end_time'])
                   else
-                    const Text('Timing data not available', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontFamily: 'Inter')),
+                    const Text('Timing data not available', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: 'Inter')),
                 ],
               ]),
             ),
@@ -274,7 +275,7 @@ class _MarketHoursViewState extends State<MarketHoursView> {
   Widget _timingPill(dynamic startEpoch, dynamic endEpoch, {bool partial = false}) {
     return Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(color: partial ? const Color(0xFFF59E0B) : const Color(0xFF10B981), borderRadius: BorderRadius.circular(12)),
-      child: Text('${_formatEpoch(startEpoch)} - ${_formatEpoch(endEpoch)}', style: const TextStyle(color: Colors.white, fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600)));
+      child: Text('${_formatEpoch(startEpoch)} - ${_formatEpoch(endEpoch)}', style: const TextStyle(color: Colors.white, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)));
   }
 
   Widget _statusBadge(_DayStatus s) {
@@ -285,7 +286,7 @@ class _MarketHoursViewState extends State<MarketHoursView> {
     };
     return Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-      child: Text(label, style: TextStyle(color: color, fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w700, letterSpacing: 0.5)));
+      child: Text(label, style: TextStyle(color: color, fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightBold, letterSpacing: 0.5)));
   }
 
   String _dayLabel(DateTime d) {
@@ -304,7 +305,7 @@ class _MarketHoursViewState extends State<MarketHoursView> {
     return Row(mainAxisSize: MainAxisSize.min, children: [
       Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: c)),
       const SizedBox(width: 6),
-      Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w500)),
+      Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
     ]);
   }
 }

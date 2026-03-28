@@ -1,9 +1,9 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:jwt_decode/jwt_decode.dart';
-import 'package:animated_flip_counter/animated_flip_counter.dart';
 import '../models/master.dart';
 import '../models/user.dart';
 import '../models/trade.dart';
@@ -113,7 +113,7 @@ class _UsernameViewState extends State<UsernameView> {
 
   String get username => _currentMaster?.username ?? _currentUser!.username;
   double get credits => _currentMaster?.credits ?? _currentUser!.credits;
-  double get balance => _currentMaster?.balance ?? _currentUser!.balance;
+  double get balance => _currentMaster?.equity ?? _currentUser!.equity;
   String get createdAt => _currentMaster?.createdAt ?? _currentUser!.createdAt;
   String? get lastLogin => _currentMaster?.lastLogin ?? _currentUser?.lastLogin;
   String? get ipAddress => _currentMaster?.ipAddress ?? _currentUser?.ipAddress;
@@ -548,7 +548,7 @@ class _UsernameViewState extends State<UsernameView> {
                             ],
                           ),
                           child: const Icon(Icons.arrow_back,
-                              color: Colors.black, size: 20),
+                              color: Colors.black, size: kIconSizeMedium),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -556,9 +556,9 @@ class _UsernameViewState extends State<UsernameView> {
                         username,
                         style: const TextStyle(
                             color: Colors.black,
-                            fontSize: 18,
+                            fontSize: kFontSizeViewTitle,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600),
+                            fontWeight: kFontWeightSemiBold),
                       ),
                     ],
                   ),
@@ -585,70 +585,14 @@ class _UsernameViewState extends State<UsernameView> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.edit_outlined,
-                              size: 14, color: Color(0xFF3F45C7)),
+                              size: kIconSizeSmall, color: Color(0xFF3F45C7)),
                           SizedBox(width: 4),
                           Text('Edit',
                               style: TextStyle(
                                   color: Color(0xFF3F45C7),
-                                  fontSize: 13,
+                                  fontSize: kFontSizeBodySmall,
                                   fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Credit / Balance
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('CREDIT',
-                            style: TextStyle(
-                                color: Color(0xFF94A3B8),
-                                fontSize: 10,
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.5)),
-                        const SizedBox(height: 2),
-                        Text('₹${credits.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                                color: Colors.black,
-                                fontSize: 13,
-                                fontFamily: 'Inter',
-                                fontWeight: FontWeight.w700)),
-                      ],
-                    ),
-                  ),
-                  Container(
-                      width: 1, height: 28, color: const Color(0xFFF1F5F9)),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('BALANCE',
-                              style: TextStyle(
-                                  color: Color(0xFF94A3B8),
-                                  fontSize: 10,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.5)),
-                          const SizedBox(height: 2),
-                          Text('₹${balance.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                  color: Colors.black,
-                                  fontSize: 13,
-                                  fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w700)),
+                                  fontWeight: kFontWeightSemiBold)),
                         ],
                       ),
                     ),
@@ -718,9 +662,9 @@ class _UsernameViewState extends State<UsernameView> {
             textAlign: TextAlign.center,
             style: TextStyle(
               color: selected ? Colors.white : const Color(0xFF94A3B8),
-              fontSize: 13,
+              fontSize: kFontSizeBodySmall,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w600,
+              fontWeight: kFontWeightSemiBold,
             ),
           ),
         ),
@@ -776,14 +720,14 @@ class _UsernameViewState extends State<UsernameView> {
             child: Column(
               children: [
                 _settingRow(
-                    Icons.account_balance_wallet_outlined, 'Credit/Debit'),
-                _settingRow(Icons.grid_view_rounded, 'Group Quantity Settings'),
-                _settingRow(Icons.shield_outlined, 'Margin SquareOff Settings'),
-                _settingRow(Icons.tune_outlined, 'Brk Settings'),
-                _settingRow(Icons.schedule_outlined, 'Intraday SquareOff'),
-                _settingRow(Icons.trending_up_outlined, 'Trade Margin'),
-                _settingRow(Icons.share_outlined, 'Sharing Details'),
-                _settingRow(Icons.list_alt_outlined, 'Script Quantity Setting',
+                    kIconCreditDebit, 'Credit/Debit'),
+                _settingRow(kIconGroupQuantity, 'Group Quantity Settings'),
+                _settingRow(kIconMarginSquareoff, 'Margin SquareOff Settings'),
+                _settingRow(kIconBrokerageSettings, 'Brk Settings'),
+                _settingRow(kIconIntradaySquareoff, 'Intraday SquareOff'),
+                _settingRow(kIconTradeMargin, 'Trade Margin'),
+                _settingRow(kIconSharingDetails, 'Sharing Details'),
+                _settingRow(kIconScriptQuantity, 'Script Quantity Setting',
                     isLast: _currentMaster == null),
                 if (_currentMaster != null)
                   _settingRow(
@@ -800,9 +744,9 @@ class _UsernameViewState extends State<UsernameView> {
           _card(
             child: Column(
               children: [
-                _settingRow(Icons.error_outline, 'Rejection Log'),
-                _settingRow(Icons.picture_as_pdf_outlined, 'Generate PDF'),
-                _settingRow(Icons.description_outlined, 'Settlement Report',
+                _settingRow(kIconRejectionLog, 'Rejection Log'),
+                _settingRow(kIconGeneratePdfUser, 'Generate PDF'),
+                _settingRow(kIconSettlementReport, 'Settlement Report',
                     isLast: true),
               ],
             ),
@@ -826,18 +770,18 @@ class _UsernameViewState extends State<UsernameView> {
               Text(label,
                   style: const TextStyle(
                       color: Color(0xFF94A3B8),
-                      fontSize: 13,
+                      fontSize: kFontSizeBodySmall,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w500)),
+                      fontWeight: kFontWeightMedium)),
               const SizedBox(width: 16),
               Expanded(
                 child: Text(value,
                     textAlign: TextAlign.right,
                     style: const TextStyle(
                         color: Colors.black,
-                        fontSize: 13,
+                        fontSize: kFontSizeBodySmall,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500),
+                        fontWeight: kFontWeightMedium),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis),
               ),
@@ -849,7 +793,7 @@ class _UsernameViewState extends State<UsernameView> {
     );
   }
 
-  Widget _settingRow(IconData icon, String label, {bool isLast = false}) {
+  Widget _settingRow(dynamic iconOrPath, String label, {bool isLast = false}) {
     return Column(
       children: [
         GestureDetector(
@@ -859,17 +803,25 @@ class _UsernameViewState extends State<UsernameView> {
             padding: const EdgeInsets.symmetric(vertical: 14),
             child: Row(
               children: [
-                Icon(icon, size: 20, color: const Color(0xFF3F45C7)),
+                iconOrPath is String
+                    ? SvgPicture.asset(iconOrPath,
+                        width: kIconSizeMedium,
+                        height: kIconSizeMedium,
+                        colorFilter: const ColorFilter.mode(
+                            Color(0xFF3F45C7), BlendMode.srcIn))
+                    : Icon(iconOrPath as IconData,
+                        size: kIconSizeMedium,
+                        color: const Color(0xFF3F45C7)),
                 const SizedBox(width: 12),
                 Expanded(
                     child: Text(label,
                         style: const TextStyle(
                             color: Colors.black,
-                            fontSize: 14,
+                            fontSize: kFontSizeBody,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500))),
+                            fontWeight: kFontWeightMedium))),
                 const Icon(Icons.chevron_right,
-                    size: 18, color: Color(0xFF94A3B8)),
+                    size: kIconSizeMedium, color: Color(0xFF94A3B8)),
               ],
             ),
           ),
@@ -912,7 +864,7 @@ class _UsernameViewState extends State<UsernameView> {
                         color: Colors.white,
                         fontSize: 13,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600)),
+                        fontWeight: kFontWeightSemiBold)),
               ),
             ),
           ],
@@ -961,7 +913,7 @@ class _UsernameViewState extends State<UsernameView> {
                           color: Color(0xFF475569),
                           fontSize: 16,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600)),
+                          fontWeight: kFontWeightSemiBold)),
                 ],
               ),
             ),
@@ -1101,9 +1053,9 @@ class _UsernameViewState extends State<UsernameView> {
                       child: Text(trade.tradingSymbol,
                           style: const TextStyle(
                               color: Colors.black,
-                              fontSize: 14,
+                              fontSize: kFontSizeTradeSymbol,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.bold,
+                              fontWeight: kFontWeightSemiBold,
                               letterSpacing: -0.3),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
@@ -1118,9 +1070,9 @@ class _UsernameViewState extends State<UsernameView> {
                       child: Text(sideLabel,
                           style: TextStyle(
                               color: sideColor,
-                              fontSize: 10,
+                              fontSize: kFontSizeTradeBadge,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.bold,
+                              fontWeight: kFontWeightSemiBold,
                               letterSpacing: 0.3)),
                     ),
                   ],
@@ -1137,9 +1089,9 @@ class _UsernameViewState extends State<UsernameView> {
                       'Closed ${_tradeDuration(tradePnl.openedAt, trade.createdAt)}',
                       style: const TextStyle(
                           color: Color(0xFF64748B),
-                          fontSize: 10,
+                          fontSize: kFontSizeTradeBadge,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600),
+                          fontWeight: kFontWeightSemiBold),
                     ),
                   ),
                 ],
@@ -1149,23 +1101,23 @@ class _UsernameViewState extends State<UsernameView> {
                     Text(_tradeVolumeLabel(trade),
                         style: const TextStyle(
                             color: Color(0xFF94A3B8),
-                            fontSize: 10,
+                            fontSize: kFontSizeTradeMetadata,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500)),
+                            fontWeight: kFontWeightMedium)),
                     const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 6),
                         child: Text('·',
                             style: TextStyle(
-                                fontSize: 10, color: Color(0xFFCBD5E1)))),
+                                fontSize: kFontSizeTradeMetadata, color: Color(0xFFCBD5E1)))),
                     const Icon(Icons.access_time,
                         size: 11, color: Color(0xFF94A3B8)),
                     const SizedBox(width: 3),
                     Text(formattedDate,
                         style: const TextStyle(
                             color: Color(0xFF94A3B8),
-                            fontSize: 10,
+                            fontSize: kFontSizeTradeMetadata,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500)),
+                            fontWeight: kFontWeightMedium)),
                   ],
                 ),
                 if (trade.userName != null) ...[
@@ -1179,9 +1131,9 @@ class _UsernameViewState extends State<UsernameView> {
                         child: Text(trade.userName!,
                             style: const TextStyle(
                                 color: Color(0xFF94A3B8),
-                                fontSize: 10,
+                                fontSize: kFontSizeTradeMetadata,
                                 fontFamily: 'Inter',
-                                fontWeight: FontWeight.w500),
+                                fontWeight: kFontWeightMedium),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
                       ),
@@ -1198,9 +1150,9 @@ class _UsernameViewState extends State<UsernameView> {
               Text(trade.price.toStringAsFixed(2),
                   style: const TextStyle(
                       color: Colors.black,
-                      fontSize: 14,
+                      fontSize: kFontSizeTradePrice,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.bold)),
+                      fontWeight: kFontWeightSemiBold)),
               if (isClosing) ...[
                 const SizedBox(height: 6),
                 Container(
@@ -1219,9 +1171,9 @@ class _UsernameViewState extends State<UsernameView> {
                       color: tradePnl.pnl >= 0
                           ? const Color(0xFF10B981)
                           : const Color(0xFFEF4444),
-                      fontSize: 10,
+                      fontSize: kFontSizeTradeBadge,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w700,
+                      fontWeight: kFontWeightBold,
                     ),
                   ),
                 ),
@@ -1258,9 +1210,9 @@ class _UsernameViewState extends State<UsernameView> {
                     Text(trade.tradingSymbol,
                         style: const TextStyle(
                             color: Colors.black,
-                            fontSize: 14,
+                            fontSize: kFontSizeTradeSymbol,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.bold,
+                            fontWeight: kFontWeightSemiBold,
                             letterSpacing: -0.3),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
@@ -1275,9 +1227,9 @@ class _UsernameViewState extends State<UsernameView> {
                           '${trade.transactionType} · ${_tradeVolumeLabel(trade)}',
                           style: TextStyle(
                               color: sideColor,
-                              fontSize: 10,
+                              fontSize: kFontSizeTradeBadge,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.bold,
+                              fontWeight: kFontWeightSemiBold,
                               letterSpacing: 0.3)),
                     ),
                     if (trade.userName != null) ...[
@@ -1291,9 +1243,9 @@ class _UsernameViewState extends State<UsernameView> {
                             child: Text(trade.userName!,
                                 style: const TextStyle(
                                     color: Color(0xFF94A3B8),
-                                    fontSize: 10,
+                                    fontSize: kFontSizeTradeMetadata,
                                     fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w500),
+                                    fontWeight: kFontWeightMedium),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis),
                           ),
@@ -1310,9 +1262,9 @@ class _UsernameViewState extends State<UsernameView> {
                   Text(trade.price.toStringAsFixed(2),
                       style: const TextStyle(
                           color: Colors.black,
-                          fontSize: 14,
+                          fontSize: kFontSizeTradePrice,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.bold)),
+                          fontWeight: kFontWeightSemiBold)),
                 ],
               ),
             ],
@@ -1334,9 +1286,9 @@ class _UsernameViewState extends State<UsernameView> {
                 child: const Text('PENDING',
                     style: TextStyle(
                         color: Color(0xFFB45309),
-                        fontSize: 10,
+                        fontSize: kFontSizeTradeBadge,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.bold,
+                        fontWeight: kFontWeightSemiBold,
                         letterSpacing: 0.3)),
               ),
               const SizedBox(width: 10),
@@ -1345,9 +1297,9 @@ class _UsernameViewState extends State<UsernameView> {
               Text(formattedDate,
                   style: const TextStyle(
                       color: Color(0xFF94A3B8),
-                      fontSize: 10,
+                      fontSize: kFontSizeTradeMetadata,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w500)),
+                      fontWeight: kFontWeightMedium)),
             ],
           ),
         ),
@@ -1392,7 +1344,7 @@ class _UsernameViewState extends State<UsernameView> {
                         color: Colors.white,
                         fontSize: 13,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600)),
+                        fontWeight: kFontWeightSemiBold)),
               ),
             ),
           ],
@@ -1436,7 +1388,7 @@ class _UsernameViewState extends State<UsernameView> {
                 color: Color(0xFF94A3B8),
                 fontSize: 12,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w500,
+                fontWeight: kFontWeightMedium,
                 letterSpacing: 0.5),
           ),
           const SizedBox(height: 12),
@@ -1498,9 +1450,9 @@ class _UsernameViewState extends State<UsernameView> {
                       Text(symbol,
                           style: const TextStyle(
                               color: Colors.black,
-                              fontSize: 14,
+                              fontSize: kFontSizePositionSymbol,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.w600,
+                              fontWeight: kFontWeightSemiBold,
                               letterSpacing: -0.3),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
@@ -1510,9 +1462,9 @@ class _UsernameViewState extends State<UsernameView> {
                           Text(exchange,
                               style: const TextStyle(
                                   color: Color(0xFF94A3B8),
-                                  fontSize: 11,
+                                  fontSize: kFontSizePositionDetail,
                                   fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w500)),
+                                  fontWeight: kFontWeightMedium)),
                           const SizedBox(width: 6),
                           Container(
                               width: 3,
@@ -1521,12 +1473,12 @@ class _UsernameViewState extends State<UsernameView> {
                                   color: Color(0xFFCBD5E1),
                                   shape: BoxShape.circle)),
                           const SizedBox(width: 6),
-                          Text('Avg: ₹${avgPrice.toStringAsFixed(2)}',
+                          Text('Avg: ${avgPrice.toStringAsFixed(2)}',
                               style: const TextStyle(
                                   color: Color(0xFF94A3B8),
-                                  fontSize: 11,
+                                  fontSize: kFontSizePositionDetail,
                                   fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w500)),
+                                  fontWeight: kFontWeightMedium)),
                         ],
                       ),
                     ],
@@ -1545,9 +1497,9 @@ class _UsernameViewState extends State<UsernameView> {
                         '${isBuy ? "BUY" : "SELL"} ${_positionVolumeLabel(pos)}',
                         style: TextStyle(
                             color: sideColor,
-                            fontSize: 11,
+                            fontSize: kFontSizePositionDetail,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w700,
+                            fontWeight: kFontWeightBold,
                             letterSpacing: 0.5),
                       ),
                     ),
@@ -1567,17 +1519,15 @@ class _UsernameViewState extends State<UsernameView> {
                                   color: Color(0xFF94A3B8),
                                   fontSize: 9,
                                   fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: kFontWeightSemiBold,
                                   letterSpacing: 0.5)),
-                          AnimatedFlipCounter(
-                            value: ltp,
-                            fractionDigits: 2,
-                            prefix: '₹',
-                            textStyle: const TextStyle(
+                          Text(
+                            ltp.toStringAsFixed(2),
+                            style: const TextStyle(
                                 color: Color(0xFF3F45C7),
                                 fontSize: 12,
                                 fontFamily: 'Inter',
-                                fontWeight: FontWeight.w700),
+                                fontWeight: kFontWeightBold),
                           ),
                         ],
                       ),
@@ -1595,21 +1545,19 @@ class _UsernameViewState extends State<UsernameView> {
                 const Text('FLOATING P&L',
                     style: TextStyle(
                         color: Color(0xFF94A3B8),
-                        fontSize: 10,
+                        fontSize: kFontSizeTradeMetadata,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
+                        fontWeight: kFontWeightSemiBold,
                         letterSpacing: 0.3)),
-                AnimatedFlipCounter(
-                  value: floating,
-                  fractionDigits: 2,
-                  prefix: floating >= 0 ? '+₹' : '₹',
-                  textStyle: TextStyle(
+                Text(
+                  '${floating >= 0 ? '+' : ''}${floating.toStringAsFixed(2)}',
+                  style: TextStyle(
                     color: floating >= 0
                         ? const Color(0xFF10B981)
                         : const Color(0xFFEF4444),
-                    fontSize: 14,
+                    fontSize: kFontSizePositionPnl,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w700,
+                    fontWeight: kFontWeightBold,
                   ),
                 ),
               ],
@@ -1676,7 +1624,7 @@ class _UsernameViewState extends State<UsernameView> {
 
   Widget _liveMetricCell(String label, double value,
       {bool showRightBorder = false}) {
-    final bool isColored = label.contains('P&L') || label == 'Equity';
+    final bool isColored = label.contains('P&L') || label == 'Free Margin';
     final Color valueColor = isColored
         ? (value >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444))
         : const Color(0xFF0F172A);
@@ -1697,18 +1645,17 @@ class _UsernameViewState extends State<UsernameView> {
                   color: Color(0xFF94A3B8),
                   fontSize: 9,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w600,
+                  fontWeight: kFontWeightSemiBold,
                   letterSpacing: 0.3),
               overflow: TextOverflow.ellipsis),
           const SizedBox(height: 4),
-          AnimatedFlipCounter(
-            value: value,
-            fractionDigits: 2,
-            textStyle: TextStyle(
+          Text(
+            value.toStringAsFixed(2),
+            style: TextStyle(
                 color: valueColor,
                 fontSize: 13,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w700),
+                fontWeight: kFontWeightBold),
           ),
         ],
       ),
@@ -1721,9 +1668,9 @@ class _UsernameViewState extends State<UsernameView> {
     return Text(text,
         style: const TextStyle(
             color: Color(0xFF94A3B8),
-            fontSize: 11,
+            fontSize: kFontSizeNavLabel,
             fontFamily: 'Inter',
-            fontWeight: FontWeight.w600,
+            fontWeight: kFontWeightSemiBold,
             letterSpacing: 0.5));
   }
 
@@ -1754,9 +1701,9 @@ class _UsernameViewState extends State<UsernameView> {
           Text(label,
               style: const TextStyle(
                   color: Colors.black,
-                  fontSize: 14,
+                  fontSize: kFontSizeBody,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w500)),
+                  fontWeight: kFontWeightMedium)),
           GestureDetector(
             onTap: () => _handleToggle(label, !isOn),
             child: AnimatedContainer(
@@ -1925,8 +1872,11 @@ class _UsernameViewState extends State<UsernameView> {
                 builder: (_) => const ScriptQuantitySettingsView()));
         break;
       case 'Sharing Details':
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const SharingDetailsView()));
+        Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => SharingDetailsView(
+                    master: _currentMaster, user: _currentUser)));
         break;
       case 'Rejection Log':
         Navigator.push(context,
@@ -1944,8 +1894,11 @@ class _UsernameViewState extends State<UsernameView> {
         );
         break;
       case 'Settlement Report':
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const SettlementReportView()));
+        Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => SettlementReportView(
+                    master: _currentMaster, user: _currentUser)));
         break;
       case 'Account Limit':
         if (_currentMaster != null) _showAccountLimitSheet();
@@ -1986,7 +1939,7 @@ class _UsernameViewState extends State<UsernameView> {
                         color: Colors.white,
                         fontSize: 13,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600)),
+                        fontWeight: kFontWeightSemiBold)),
               ),
             ),
           ],
@@ -2023,7 +1976,7 @@ class _UsernameViewState extends State<UsernameView> {
                           color: Color(0xFF475569),
                           fontSize: 16,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600)),
+                          fontWeight: kFontWeightSemiBold)),
                 ],
               ),
             ),
@@ -2079,7 +2032,7 @@ class _UsernameViewState extends State<UsernameView> {
                             color: Color(0xFF3F45C7),
                             fontSize: 16,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w700),
+                            fontWeight: kFontWeightBold),
                       ),
                     ),
                   ),
@@ -2093,26 +2046,26 @@ class _UsernameViewState extends State<UsernameView> {
                                 color: Colors.black,
                                 fontSize: 14,
                                 fontFamily: 'Inter',
-                                fontWeight: FontWeight.w600)),
+                                fontWeight: kFontWeightSemiBold)),
                         const SizedBox(height: 2),
                         Text(user.username,
                             style: const TextStyle(
                                 color: Color(0xFF94A3B8),
                                 fontSize: 12,
                                 fontFamily: 'Inter',
-                                fontWeight: FontWeight.w500)),
+                                fontWeight: kFontWeightMedium)),
                       ],
                     ),
                   ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text('₹${user.balance.toStringAsFixed(2)}',
+                      Text('${user.equity.toStringAsFixed(2)}',
                           style: const TextStyle(
                               color: Colors.black,
                               fontSize: 13,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.w600)),
+                              fontWeight: kFontWeightSemiBold)),
                       const SizedBox(height: 2),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -2131,7 +2084,7 @@ class _UsernameViewState extends State<UsernameView> {
                                 : const Color(0xFFEF4444),
                             fontSize: 10,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w600,
+                            fontWeight: kFontWeightSemiBold,
                           ),
                         ),
                       ),
@@ -2139,7 +2092,7 @@ class _UsernameViewState extends State<UsernameView> {
                   ),
                   const SizedBox(width: 4),
                   const Icon(Icons.chevron_right,
-                      size: 18, color: Color(0xFF94A3B8)),
+                      size: kIconSizeMedium, color: Color(0xFF94A3B8)),
                 ],
               ),
             ),
@@ -2288,21 +2241,13 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Handle
-                  Center(
-                    child: Container(
-                        width: 40,
-                        height: 4,
-                        decoration: BoxDecoration(
-                            color: const Color(0xFFCBD5E1),
-                            borderRadius: BorderRadius.circular(2))),
-                  ),
                   const SizedBox(height: 16),
                   const Text('Account Limit',
                       style: TextStyle(
                           color: Colors.black,
                           fontSize: 18,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700)),
+                          fontWeight: kFontWeightBold)),
                   const SizedBox(height: 4),
                   const Text(
                       'Set limits on how many accounts this master can create',
@@ -2322,7 +2267,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
                                 color: Colors.black,
                                 fontSize: 14,
                                 fontFamily: 'Inter',
-                                fontWeight: FontWeight.w600)),
+                                fontWeight: kFontWeightSemiBold)),
                         GestureDetector(
                           onTap: () => setState(() => _enabled = !_enabled),
                           child: AnimatedContainer(
@@ -2403,7 +2348,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
                                     color: Color(0xFF3F45C7),
                                     fontSize: 12,
                                     fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w500),
+                                    fontWeight: kFontWeightMedium),
                               ),
                             ),
                           ],
@@ -2433,7 +2378,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
                                         color: Color(0xFF64748B),
                                         fontSize: 14,
                                         fontFamily: 'Inter',
-                                        fontWeight: FontWeight.w600))),
+                                        fontWeight: kFontWeightSemiBold))),
                           ),
                         ),
                       ),
@@ -2461,7 +2406,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
                                           color: Colors.white,
                                           fontSize: 14,
                                           fontFamily: 'Inter',
-                                          fontWeight: FontWeight.w600)),
+                                          fontWeight: kFontWeightSemiBold)),
                             ),
                           ),
                         ),
@@ -2504,7 +2449,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
                   color: Color(0xFF94A3B8),
                   fontSize: 13,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w500)),
+                  fontWeight: kFontWeightMedium)),
           SizedBox(
             width: 80,
             child: TextField(
@@ -2515,7 +2460,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
                   color: Colors.black,
                   fontSize: 14,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w600),
+                  fontWeight: kFontWeightSemiBold),
               decoration: const InputDecoration(
                   border: InputBorder.none,
                   isDense: true,
@@ -2540,7 +2485,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
                       color: Colors.black,
                       fontSize: 13,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w500))),
+                      fontWeight: kFontWeightMedium))),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
@@ -2551,7 +2496,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
                     color: Color(0xFF3F45C7),
                     fontSize: 11,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w600)),
+                    fontWeight: kFontWeightSemiBold)),
           ),
           const SizedBox(width: 6),
           Container(
@@ -2571,7 +2516,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
                     : const Color(0xFFEF4444),
                 fontSize: 11,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w600,
+                fontWeight: kFontWeightSemiBold,
               ),
             ),
           ),

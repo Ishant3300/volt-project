@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_profile_provider.dart';
@@ -78,11 +78,11 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
                   width: 40, height: 40,
                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
                     boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
-                  child: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
+                  child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
                 ),
               ),
               const SizedBox(width: 12),
-              const Text('Weekly Admin Report', style: TextStyle(color: Colors.black, fontSize: 18, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+              const Text('Weekly Admin Report', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
             ]),
           ),
 
@@ -111,11 +111,11 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
             child: TextField(
               controller: _searchCtrl,
               onChanged: (v) => setState(() => _searchQuery = v.trim()),
-              style: const TextStyle(fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+              style: const TextStyle(fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
               decoration: InputDecoration(
                 hintText: 'Search $label...',
-                hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 14, fontFamily: 'Inter'),
-                prefixIcon: const Icon(Icons.search, color: Color(0xFF94A3B8), size: 20),
+                hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBody, fontFamily: 'Inter'),
+                prefixIcon: const Icon(Icons.search, color: Color(0xFF94A3B8), size: kIconSizeMedium),
                 suffixIcon: _searchCtrl.text.isNotEmpty
                     ? GestureDetector(onTap: () { _searchCtrl.clear(); setState(() => _searchQuery = ''); },
                         child: const Icon(Icons.close, color: Color(0xFF94A3B8), size: 18))
@@ -131,7 +131,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Align(alignment: Alignment.centerLeft,
-              child: Text('${filtered.length} $label', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w500))),
+              child: Text('${filtered.length} $label', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightMedium))),
           ),
           const SizedBox(height: 8),
 
@@ -140,7 +140,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5))
                 : filtered.isEmpty
-                    ? const Center(child: Text('No data', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter')))
+                    ? const Center(child: Text('No data', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: 'Inter')))
                     : RefreshIndicator(
                         onRefresh: _fetch,
                         child: ListView.builder(
@@ -161,8 +161,8 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Text('$label: ', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w500)),
-        Text(_fmtSigned(value), style: TextStyle(color: _pnlColor(value), fontSize: 11, fontFamily: 'Inter', fontWeight: FontWeight.w700)),
+        Text('$label: ', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
+        Text(_fmtSigned(value), style: TextStyle(color: _pnlColor(value), fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightBold)),
       ]),
     );
   }
@@ -179,22 +179,22 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
     final totalAdmin = _d(row['total_admin']);
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Header: username + parent badge
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(username.toUpperCase(), style: const TextStyle(color: Color(0xFF3F45C7), fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: -0.3)),
+          Text(username.toUpperCase(), style: const TextStyle(color: Color(0xFF3F45C7), fontSize: kFontSizeName, fontFamily: 'Inter', fontWeight: kFontWeightName, letterSpacing: -0.3)),
           if (parentUsername.isNotEmpty)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(color: const Color(0xFF94A3B8), borderRadius: BorderRadius.circular(6)),
-              child: Text('PARENT: $parentUsername', style: const TextStyle(color: Colors.white, fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+              child: Text('PARENT: $parentUsername', style: const TextStyle(color: Colors.white, fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
             ),
         ]),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
 
         // Stats grid
         Container(
@@ -214,7 +214,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
             ]),
           ]),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
 
         // Summary row
         Row(children: [
@@ -231,13 +231,14 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
   Widget _statCell(String label, double value, {required bool showRight}) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           border: showRight ? const Border(right: BorderSide(color: Color(0xFFF1F5F9))) : null,
         ),
-        child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontFamily: 'Inter', fontWeight: FontWeight.w500, letterSpacing: 0.3)),
-          Text(_fmt(value), style: TextStyle(color: _pnlColor(value), fontSize: 12, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightMedium, letterSpacing: 0.3)),
+          const SizedBox(height: 3),
+          Text(_fmt(value), style: TextStyle(color: _pnlColor(value), fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
         ]),
       ),
     );
@@ -254,12 +255,12 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
         ),
         child: Column(children: [
           Text(label, textAlign: TextAlign.center,
-            style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 9, fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.3)),
+            style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBadge, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.3)),
           const SizedBox(height: 4),
           Container(width: 20, height: 1, color: const Color(0xFFE2E8F0)),
           const SizedBox(height: 4),
           Text(_fmtSigned(value), textAlign: TextAlign.center,
-            style: TextStyle(color: _pnlColor(value), fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w700)),
+            style: TextStyle(color: _pnlColor(value), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightBold)),
         ]),
       ),
     );

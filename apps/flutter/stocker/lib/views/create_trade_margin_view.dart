@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../services/kite_service.dart';
 import '../models/kite_instrument.dart';
+import '../utils/contants.dart';
 
 class CreateTradeMarginView extends StatefulWidget {
   const CreateTradeMarginView({super.key});
@@ -175,8 +176,8 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
                 title: const Text('Add Trade Margin',
                     style: TextStyle(
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16)),
+                        fontWeight: kFontWeightSemiBold,
+                        fontSize: kFontSizeSectionHeader)),
                 content: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -184,9 +185,9 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
                       Text(inst.tradingsymbol,
                           style: const TextStyle(
                               color: Color(0xFF3F45C7),
-                              fontSize: 14,
+                              fontSize: kFontSizeBody,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.w600,
+                              fontWeight: kFontWeightSemiBold,
                               letterSpacing: -0.3)),
                       const SizedBox(height: 14),
                       _dialogDropdown(localType, _amountTypes,
@@ -196,7 +197,7 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
                           valueCtrl,
                           localType == 'percentage'
                               ? 'Percentage (%)'
-                              : 'Amount (₹)'),
+                              : 'Amount'),
                     ]),
                 actions: [
                   TextButton(
@@ -264,8 +265,8 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
                               style: TextStyle(
                                   color: Colors.white,
                                   fontFamily: 'Inter',
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13)),
+                                  fontWeight: kFontWeightSemiBold,
+                                  fontSize: kFontSizeBodySmall)),
                     ),
                   ),
                 ],
@@ -309,15 +310,15 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
                         offset: const Offset(0, 2))
                   ]),
               child:
-                  const Icon(Icons.arrow_back, color: Colors.black, size: 20)),
+                  const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium)),
         ),
         const SizedBox(width: 12),
         const Text('Create Trade Margin',
             style: TextStyle(
                 color: Colors.black,
-                fontSize: 18,
+                fontSize: kFontSizeViewTitle,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w600)),
+                fontWeight: kFontWeightSemiBold)),
       ]),
     );
   }
@@ -351,9 +352,9 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
               child: Text(ex,
                   style: TextStyle(
                       color: sel ? Colors.white : const Color(0xFF64748B),
-                      fontSize: 13,
+                      fontSize: kFontSizeBodySmall,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600)),
+                      fontWeight: kFontWeightSemiBold)),
             ),
           );
         },
@@ -378,21 +379,21 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
         child: Row(children: [
           const Padding(
               padding: EdgeInsets.only(left: 16, right: 8),
-              child: Icon(Icons.search, color: Color(0xFF94A3B8), size: 20)),
+              child: Icon(Icons.search, color: Color(0xFF94A3B8), size: kIconSizeMedium)),
           Expanded(
               child: TextField(
             controller: _searchCtrl,
             focusNode: _searchFocus,
             style: const TextStyle(
-                fontSize: 14,
+                fontSize: kFontSizeBody,
                 color: Color(0xFF0F172A),
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w400),
+                fontWeight: kFontWeightRegular),
             decoration: const InputDecoration(
                 hintText: 'Search instruments...',
                 hintStyle: TextStyle(
                     color: Color(0xFF94A3B8),
-                    fontSize: 14,
+                    fontSize: kFontSizeBody,
                     fontFamily: 'Inter'),
                 border: InputBorder.none,
                 isDense: true,
@@ -428,7 +429,7 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
           child: Text('Search for an instrument to add',
               style: TextStyle(
                   color: Color(0xFF94A3B8),
-                  fontSize: 13,
+                  fontSize: kFontSizeBodySmall,
                   fontFamily: 'Inter')));
     }
     if (_isSearching && _groupedResults.isEmpty) {
@@ -441,7 +442,7 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
           child: Text('No results found',
               style: TextStyle(
                   color: Color(0xFF94A3B8),
-                  fontSize: 13,
+                  fontSize: kFontSizeBodySmall,
                   fontFamily: 'Inter')));
     }
     return Stack(children: [
@@ -486,8 +487,8 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
                       color: const Color(0xFFF8FAFC),
                       child: Text(label.toUpperCase(),
                           style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
+                              fontSize: kFontSizeCaption,
+                              fontWeight: kFontWeightSemiBold,
                               color: Color(0xFF94A3B8),
                               fontFamily: 'Inter',
                               letterSpacing: 0.5))),
@@ -522,8 +523,8 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
                       ? '$_displayCount of $_totalResults results'
                       : '$_totalResults results',
                   style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                      fontSize: kFontSizeSubtitle,
+                      fontWeight: kFontWeightMedium,
                       color: Color(0xFF475569),
                       fontFamily: 'Inter')),
             ))),
@@ -553,8 +554,8 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
                       : inst.exchange,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                      fontSize: kFontSizeCaption,
+                      fontWeight: kFontWeightSemiBold,
                       color: typeColor,
                       fontFamily: 'Inter',
                       letterSpacing: 0.3))),
@@ -568,25 +569,25 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
                 Row(children: [
                   Text(inst.tradingsymbol,
                       style: const TextStyle(
-                          fontSize: 10,
+                          fontSize: kFontSizeCaption,
                           color: Color(0xFF94A3B8),
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500)),
+                          fontWeight: kFontWeightMedium)),
                   const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 5),
                       child: Text('·',
                           style: TextStyle(
-                              fontSize: 10, color: Color(0xFFCBD5E1)))),
+                              fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1)))),
                   Text('LOT ${inst.lotSize}',
                       style: const TextStyle(
-                          fontSize: 10,
+                          fontSize: kFontSizeCaption,
                           color: Color(0xFF94A3B8),
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500)),
+                          fontWeight: kFontWeightMedium)),
                 ]),
               ])),
           const Icon(Icons.add_circle_outline,
-              size: 20, color: Color(0xFF3F45C7)),
+              size: kIconSizeMedium, color: Color(0xFF3F45C7)),
         ]),
       ),
     );
@@ -596,8 +597,8 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
     if (query.isEmpty)
       return Text(text,
           style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
+              fontWeight: kFontWeightSemiBold,
+              fontSize: kFontSizeBody,
               color: Color(0xFF0F172A),
               fontFamily: 'Inter',
               letterSpacing: -0.3),
@@ -620,8 +621,8 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
     if (starts.isEmpty)
       return Text(text,
           style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
+              fontWeight: kFontWeightSemiBold,
+              fontSize: kFontSizeBody,
               color: Color(0xFF0F172A),
               fontFamily: 'Inter',
               letterSpacing: -0.3),
@@ -643,7 +644,7 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
           text: text.substring(r[0], r[1]),
           style: const TextStyle(
               backgroundColor: Color(0xFFFEF08A),
-              fontWeight: FontWeight.w700)));
+              fontWeight: kFontWeightBold)));
       last = r[1];
     }
     if (last < text.length) spans.add(TextSpan(text: text.substring(last)));
@@ -652,8 +653,8 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
         overflow: TextOverflow.ellipsis,
         text: TextSpan(
             style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
+                fontWeight: kFontWeightSemiBold,
+                fontSize: kFontSizeBody,
                 color: Color(0xFF0F172A),
                 fontFamily: 'Inter',
                 letterSpacing: -0.3),
@@ -677,9 +678,9 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
                     size: 18, color: Color(0xFF94A3B8)),
                 style: const TextStyle(
                     color: Colors.black,
-                    fontSize: 13,
+                    fontSize: kFontSizeBodySmall,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w500),
+                    fontWeight: kFontWeightMedium),
                 items: items
                     .map((k) => DropdownMenuItem(
                         value: k, child: Text(k.toUpperCase())))
@@ -692,11 +693,11 @@ class _CreateTradeMarginViewState extends State<CreateTradeMarginView> {
         controller: ctrl,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         style: const TextStyle(
-            fontSize: 14, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+            fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
         decoration: InputDecoration(
             hintText: hint,
             hintStyle: const TextStyle(
-                color: Color(0xFFCBD5E1), fontSize: 13, fontFamily: 'Inter'),
+                color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall, fontFamily: 'Inter'),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             filled: true,

@@ -1,8 +1,7 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:jwt_decode/jwt_decode.dart';
-import 'package:animated_flip_counter/animated_flip_counter.dart';
 import 'package:stocker/models/user.dart' as user_model;
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/live_price_service.dart';
@@ -322,7 +321,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                         ],
                       ),
                       child: const Icon(Icons.arrow_back_ios_new,
-                          size: 16, color: Color(0xFF475569)),
+                          size: kIconSizeDefault, color: Color(0xFF475569)),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -334,9 +333,9 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                           widget.tradingsymbol,
                           style: const TextStyle(
                             color: Colors.black,
-                            fontSize: 16,
+                            fontSize: kFontSizeSectionHeader,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.bold,
+                            fontWeight: kFontWeightSemiBold,
                             letterSpacing: -0.3,
                           ),
                         ),
@@ -347,9 +346,9 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                               widget.exchange,
                               style: const TextStyle(
                                 color: Color(0xFF94A3B8),
-                                fontSize: 12,
+                                fontSize: kFontSizeSubtitle,
                                 fontFamily: 'Inter',
-                                fontWeight: FontWeight.w500,
+                                fontWeight: kFontWeightMedium,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -366,9 +365,9 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                               'Net: ${widget.netQty > 0 ? "+" : ""}${widget.netQty}',
                               style: TextStyle(
                                 color: sideColor,
-                                fontSize: 12,
+                                fontSize: kFontSizeSubtitle,
                                 fontFamily: 'Inter',
-                                fontWeight: FontWeight.w600,
+                                fontWeight: kFontWeightSemiBold,
                               ),
                             ),
                           ],
@@ -392,23 +391,21 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                             'LTP',
                             style: TextStyle(
                               color: Color(0xFF94A3B8),
-                              fontSize: 9,
+                              fontSize: kFontSizeBadge,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.w600,
+                              fontWeight: kFontWeightSemiBold,
                               letterSpacing: 0.5,
                             ),
                           ),
                           const SizedBox(height: 1),
-                          AnimatedFlipCounter(
-                            value: _ltp!,
-                            fractionDigits: 2,
-                            prefix: '₹',
-                            textStyle: const TextStyle(
+                          Text(
+                          _ltp!.toStringAsFixed(2),
+                            style: const TextStyle(
                               color: Color(0xFF3F45C7),
-                              fontSize: 14,
+                              fontSize: kFontSizeBody,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.w700,
-                            ),
+                              fontWeight: kFontWeightBold,
+                          ),
                           ),
                         ],
                       ),
@@ -426,9 +423,9 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                     '${_users.length} user${_users.length != 1 ? "s" : ""} with open positions',
                     style: const TextStyle(
                       color: Color(0xFF94A3B8),
-                      fontSize: 12,
+                      fontSize: kFontSizeSubtitle,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w500,
+                      fontWeight: kFontWeightMedium,
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -488,7 +485,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
             'No users with open positions',
             style: TextStyle(
               color: Color(0xFF94A3B8),
-              fontSize: 14,
+              fontSize: kFontSizeBody,
               fontFamily: 'Inter',
             ),
           ),
@@ -561,9 +558,9 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                       (user['name'] ?? 'U')[0].toUpperCase(),
                       style: const TextStyle(
                         color: Color(0xFF3F45C7),
-                        fontSize: 16,
+                        fontSize: kFontSizeSectionHeader,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w700,
+                        fontWeight: kFontWeightBold,
                       ),
                     ),
                   ),
@@ -577,9 +574,9 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                         user['name'] ?? 'Unknown',
                         style: const TextStyle(
                           color: Colors.black,
-                          fontSize: 14,
+                          fontSize: kFontSizeName,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
+                          fontWeight: kFontWeightName,
                           letterSpacing: -0.3,
                         ),
                       ),
@@ -588,9 +585,9 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                         '@${user['username'] ?? ''}',
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
-                          fontSize: 12,
+                          fontSize: kFontSizeSubtitle,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w400,
+                          fontWeight: kFontWeightRegular,
                         ),
                       ),
                     ],
@@ -611,9 +608,9 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                         '$side ${netQty.abs()} QTY',
                         style: TextStyle(
                           color: sideColor,
-                          fontSize: 11,
+                          fontSize: kFontSizeNavLabel,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
+                          fontWeight: kFontWeightBold,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -623,39 +620,36 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Avg: ₹',
+                          'Avg: ',
                           style: const TextStyle(
                             color: Color(0xFF94A3B8),
-                            fontSize: 11,
+                            fontSize: kFontSizeNavLabel,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500,
+                            fontWeight: kFontWeightMedium,
                           ),
                         ),
-                        AnimatedFlipCounter(
-                          value: avgPrice,
-                          fractionDigits: 2,
-                          textStyle: const TextStyle(
+                        Text(
+                            avgPrice.toStringAsFixed(2),
+                            style: const TextStyle(
                             color: Color(0xFF94A3B8),
-                            fontSize: 11,
+                            fontSize: kFontSizeNavLabel,
                             fontFamily: 'Inter',
-                            fontWeight: FontWeight.w500,
+                            fontWeight: kFontWeightMedium,
                           ),
                         ),
                       ],
                     ),
                     if (instrumentPnl != null) ...[
                       const SizedBox(height: 3),
-                      AnimatedFlipCounter(
-                        value: instrumentPnl,
-                        fractionDigits: 2,
-                        prefix: instrumentPnl >= 0 ? '+₹' : '₹',
-                        textStyle: TextStyle(
+                      Text(
+                        '${instrumentPnl >= 0 ? '+' : ''}${instrumentPnl.toStringAsFixed(2)}',
+                        style: TextStyle(
                           color: instrumentPnl >= 0
                               ? const Color(0xFF10B981)
                               : const Color(0xFFEF4444),
-                          fontSize: 12,
+                          fontSize: kFontSizeSubtitle,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w700,
+                          fontWeight: kFontWeightBold,
                         ),
                       ),
                     ],

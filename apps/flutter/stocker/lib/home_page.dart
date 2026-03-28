@@ -1,4 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'utils/contants.dart';
 import 'pages/watchlist_page.dart';
 import 'pages/orders_page.dart';
 import 'pages/history_page.dart';
@@ -29,8 +31,9 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  Widget _buildNavItem(IconData icon, IconData activeIcon, String label, int index) {
+  Widget _buildNavItem(String svgPath, String label, int index) {
     final bool isSelected = _selectedIndex == index;
+    final color = isSelected ? const Color(0xFF3F45C7) : const Color(0xFF94A3B8);
     return GestureDetector(
       onTap: () => _onItemTapped(index),
       behavior: HitTestBehavior.opaque,
@@ -45,19 +48,20 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              isSelected ? activeIcon : icon,
-              size: 22,
-              color: isSelected ? const Color(0xFF3F45C7) : const Color(0xFF94A3B8),
+            SvgPicture.asset(
+              svgPath,
+              width: kFontSizeNavIcon,
+              height: kFontSizeNavIcon,
+              colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
             ),
             const SizedBox(height: 4),
             Text(
               label,
               style: TextStyle(
                 fontFamily: 'Inter',
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? const Color(0xFF3F45C7) : const Color(0xFF94A3B8),
+                fontSize: kFontSizeNavLabel,
+                fontWeight: isSelected ? kFontWeightSemiBold : kFontWeightMedium,
+                color: color,
                 letterSpacing: 0.2,
               ),
             ),
@@ -93,10 +97,10 @@ class _MyHomePageState extends State<MyHomePage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildNavItem(Icons.bookmark_outline, Icons.bookmark, 'Watchlist', 0),
-                _buildNavItem(Icons.receipt_long_outlined, Icons.receipt_long, 'Orders', 1),
-                _buildNavItem(Icons.pie_chart_outline, Icons.pie_chart, 'History', 2),
-                _buildNavItem(Icons.person_outline, Icons.person, 'Profile', 3),
+                _buildNavItem(kIconWatchlist, 'Watchlist', 0),
+                _buildNavItem(kIconOrders, 'Orders', 1),
+                _buildNavItem(kIconHistory, 'History', 2),
+                _buildNavItem(kIconProfile, 'Profile', 3),
               ],
             ),
           ),

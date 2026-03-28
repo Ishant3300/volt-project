@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../services/kite_service.dart';
 import '../models/kite_instrument.dart';
+import '../utils/contants.dart';
 
 class CreateScriptQuantityView extends StatefulWidget {
   const CreateScriptQuantityView({super.key});
@@ -268,15 +269,15 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
                         offset: const Offset(0, 2))
                   ]),
               child:
-                  const Icon(Icons.arrow_back, color: Colors.black, size: 20)),
+                  const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium)),
         ),
         const SizedBox(width: 12),
         const Text('Create Script Quantity',
             style: TextStyle(
                 color: Colors.black,
-                fontSize: 18,
+                fontSize: kFontSizeViewTitle,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w600)),
+                fontWeight: kFontWeightSemiBold)),
       ]),
     );
   }
@@ -311,9 +312,9 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
               child: Text(ex,
                   style: TextStyle(
                       color: sel ? Colors.white : const Color(0xFF64748B),
-                      fontSize: 13,
+                      fontSize: kFontSizeBodySmall,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600)),
+                      fontWeight: kFontWeightSemiBold)),
             ),
           );
         },
@@ -338,21 +339,21 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
         child: Row(children: [
           const Padding(
               padding: EdgeInsets.only(left: 16, right: 8),
-              child: Icon(Icons.search, color: Color(0xFF94A3B8), size: 20)),
+              child: Icon(Icons.search, color: Color(0xFF94A3B8), size: kIconSizeMedium)),
           Expanded(
               child: TextField(
             controller: _searchCtrl,
             focusNode: _searchFocus,
             style: const TextStyle(
-                fontSize: 14,
+                fontSize: kFontSizeBody,
                 color: Color(0xFF0F172A),
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w400),
+                fontWeight: kFontWeightRegular),
             decoration: const InputDecoration(
                 hintText: 'Search instruments...',
                 hintStyle: TextStyle(
                     color: Color(0xFF94A3B8),
-                    fontSize: 14,
+                    fontSize: kFontSizeBody,
                     fontFamily: 'Inter'),
                 border: InputBorder.none,
                 isDense: true,
@@ -392,7 +393,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
           child: Text('Search for an instrument to add',
               style: TextStyle(
                   color: Color(0xFF94A3B8),
-                  fontSize: 13,
+                  fontSize: kFontSizeBodySmall,
                   fontFamily: 'Inter')));
     }
     if (_isSearching && _groupedResults.isEmpty) {
@@ -405,7 +406,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
           child: Text('No results found',
               style: TextStyle(
                   color: Color(0xFF94A3B8),
-                  fontSize: 13,
+                  fontSize: kFontSizeBodySmall,
                   fontFamily: 'Inter')));
     }
     return Stack(children: [
@@ -450,8 +451,8 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
                       color: const Color(0xFFF8FAFC),
                       child: Text(label.toUpperCase(),
                           style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
+                              fontSize: kFontSizeCaption,
+                              fontWeight: kFontWeightSemiBold,
                               color: Color(0xFF94A3B8),
                               fontFamily: 'Inter',
                               letterSpacing: 0.5))),
@@ -486,8 +487,8 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
                       ? '$_displayCount of $_totalResults results'
                       : '$_totalResults results',
                   style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                      fontSize: kFontSizeSubtitle,
+                      fontWeight: kFontWeightMedium,
                       color: Color(0xFF475569),
                       fontFamily: 'Inter')),
             ))),
@@ -523,8 +524,8 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
                         : _selected!.exchange,
                     textAlign: TextAlign.center,
                     style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                        fontSize: kFontSizeCaption,
+                        fontWeight: kFontWeightSemiBold,
                         color: Color(0xFF3F45C7),
                         fontFamily: 'Inter'))),
             const SizedBox(width: 12),
@@ -534,14 +535,14 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
                     children: [
                   Text(_selected!.tradingsymbol,
                       style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                          fontSize: kFontSizeBody,
+                          fontWeight: kFontWeightSemiBold,
                           color: Color(0xFF0F172A),
                           fontFamily: 'Inter',
                           letterSpacing: -0.3)),
                   Text('${_selected!.exchange}  ·  LOT ${_selected!.lotSize}',
                       style: const TextStyle(
-                          fontSize: 11,
+                          fontSize: kFontSizeNavLabel,
                           color: Color(0xFF94A3B8),
                           fontFamily: 'Inter')),
                 ])),
@@ -580,9 +581,9 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         color: Colors.white,
-                        fontSize: 15,
+                        fontSize: kFontSizeButtonText,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600)),
+                        fontWeight: kFontWeightSemiBold)),
           ),
         ),
       ]),
@@ -593,8 +594,8 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label,
           style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+              fontSize: kFontSizeBodySmall,
+              fontWeight: kFontWeightMedium,
               color: Color(0xFF475569),
               fontFamily: 'Inter')),
       const SizedBox(height: 6),
@@ -602,14 +603,14 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
           controller: ctrl,
           keyboardType: TextInputType.number,
           style: const TextStyle(
-              fontSize: 14,
+              fontSize: kFontSizeBody,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w500,
+              fontWeight: kFontWeightMedium,
               color: Color(0xFF0F172A)),
           decoration: InputDecoration(
               hintText: hint,
               hintStyle: const TextStyle(
-                  color: Color(0xFFCBD5E1), fontSize: 13, fontFamily: 'Inter'),
+                  color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall, fontFamily: 'Inter'),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
               filled: true,
@@ -650,8 +651,8 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
                       : inst.exchange,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
+                      fontSize: kFontSizeCaption,
+                      fontWeight: kFontWeightSemiBold,
                       color: typeColor,
                       fontFamily: 'Inter',
                       letterSpacing: 0.3))),
@@ -665,21 +666,21 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
                 Row(children: [
                   Text(inst.tradingsymbol,
                       style: const TextStyle(
-                          fontSize: 10,
+                          fontSize: kFontSizeCaption,
                           color: Color(0xFF94A3B8),
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500)),
+                          fontWeight: kFontWeightMedium)),
                   const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 5),
                       child: Text('·',
                           style: TextStyle(
-                              fontSize: 10, color: Color(0xFFCBD5E1)))),
+                              fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1)))),
                   Text('LOT ${inst.lotSize}',
                       style: const TextStyle(
-                          fontSize: 10,
+                          fontSize: kFontSizeCaption,
                           color: Color(0xFF94A3B8),
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500)),
+                          fontWeight: kFontWeightMedium)),
                 ]),
               ])),
           const Icon(Icons.chevron_right, size: 18, color: Color(0xFFCBD5E1)),
@@ -692,8 +693,8 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
     if (query.isEmpty)
       return Text(text,
           style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
+              fontWeight: kFontWeightSemiBold,
+              fontSize: kFontSizeBody,
               color: Color(0xFF0F172A),
               fontFamily: 'Inter',
               letterSpacing: -0.3),
@@ -716,8 +717,8 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
     if (starts.isEmpty)
       return Text(text,
           style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
+              fontWeight: kFontWeightSemiBold,
+              fontSize: kFontSizeBody,
               color: Color(0xFF0F172A),
               fontFamily: 'Inter',
               letterSpacing: -0.3),
@@ -739,7 +740,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
           text: text.substring(r[0], r[1]),
           style: const TextStyle(
               backgroundColor: Color(0xFFFEF08A),
-              fontWeight: FontWeight.w700)));
+              fontWeight: kFontWeightBold)));
       last = r[1];
     }
     if (last < text.length) spans.add(TextSpan(text: text.substring(last)));
@@ -748,8 +749,8 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
         overflow: TextOverflow.ellipsis,
         text: TextSpan(
             style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
+                fontWeight: kFontWeightSemiBold,
+                fontSize: kFontSizeBody,
                 color: Color(0xFF0F172A),
                 fontFamily: 'Inter',
                 letterSpacing: -0.3),

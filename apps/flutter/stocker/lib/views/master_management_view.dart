@@ -1,10 +1,11 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/master.dart';
 import '../services/admin_service.dart';
 import '../services/api_service.dart';
+import '../utils/contants.dart';
 import 'master_management_card_view.dart';
 
 class MasterManagementView extends StatefulWidget {
@@ -134,9 +135,9 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                         'Master Management',
                         style: TextStyle(
                           color: Colors.black,
-                          fontSize: 16,
+                          fontSize: kFontSizeSectionHeader,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
+                          fontWeight: kFontWeightSemiBold,
                         ),
                       ),
                     ],
@@ -165,7 +166,7 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                     child: Row(
                       children: [
                         Icon(Icons.search,
-                            size: 24, color: const Color(0xFF8E8E93)),
+                            size: kIconSizeLarge, color: const Color(0xFF8E8E93)),
                         SizedBox(width: 10),
                         Expanded(
                           child: TextField(
@@ -179,9 +180,9 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                               hintText: 'Search masters',
                               hintStyle: TextStyle(
                                 color: const Color(0xFF8E8E93),
-                                fontSize: 16,
+                                fontSize: kFontSizeSectionHeader,
                                 fontFamily: 'Inter',
-                                fontWeight: FontWeight.w400,
+                                fontWeight: kFontWeightRegular,
                               ),
                               isDense: true,
                               contentPadding: EdgeInsets.zero,
@@ -192,7 +193,7 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                     ),
                   ),
                   Icon(Icons.filter_list,
-                      size: 24, color: const Color(0xFF8E8E93)),
+                      size: kIconSizeLarge, color: const Color(0xFF8E8E93)),
                 ],
               ),
             ),
@@ -226,7 +227,7 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                                     : 'No results found',
                                 style: TextStyle(
                                   color: const Color(0xFF8E8E93),
-                                  fontSize: 16,
+                                  fontSize: kFontSizeSectionHeader,
                                   fontFamily: 'Inter',
                                 ),
                               ),
@@ -267,7 +268,7 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                                     child: Row(
                                       children: [
                                         Icon(Icons.person,
-                                            size: 24, color: Colors.black),
+                                            size: kIconSizeLarge, color: Colors.black),
                                         SizedBox(width: 10),
                                         Expanded(
                                           child: Column(
@@ -285,10 +286,10 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                                                           .toUpperCase(),
                                                       style: TextStyle(
                                                         color: Colors.black,
-                                                        fontSize: 14,
+                                                        fontSize: kFontSizeBody,
                                                         fontFamily: 'Inter',
                                                         fontWeight:
-                                                            FontWeight.w400,
+                                                            kFontWeightRegular,
                                                       ),
                                                       overflow:
                                                           TextOverflow.ellipsis,
@@ -317,10 +318,10 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                                                           'MASTER',
                                                           style: TextStyle(
                                                             color: Colors.white,
-                                                            fontSize: 10,
+                                                            fontSize: kFontSizeCaption,
                                                             fontFamily: 'Inter',
                                                             fontWeight:
-                                                                FontWeight.w500,
+                                                                kFontWeightMedium,
                                                           ),
                                                         ),
                                                       ),
@@ -351,10 +352,10 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                                                               : 'INACTIVE',
                                                           style: TextStyle(
                                                             color: Colors.white,
-                                                            fontSize: 10,
+                                                            fontSize: kFontSizeCaption,
                                                             fontFamily: 'Inter',
                                                             fontWeight:
-                                                                FontWeight.w400,
+                                                                kFontWeightRegular,
                                                           ),
                                                         ),
                                                       ),
@@ -381,14 +382,14 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                                                   children: [
                                                     Flexible(
                                                       child: Text(
-                                                        'BAL: ${master.balance.toStringAsFixed(2)}',
+                                                        'BAL: ${master.equity.toStringAsFixed(2)}',
                                                         style: TextStyle(
                                                           color: const Color(
                                                               0xFF007AFF),
-                                                          fontSize: 11,
+                                                          fontSize: kFontSizeNavLabel,
                                                           fontFamily: 'Inter',
                                                           fontWeight:
-                                                              FontWeight.w500,
+                                                              kFontWeightMedium,
                                                         ),
                                                         overflow: TextOverflow
                                                             .ellipsis,
@@ -400,10 +401,10 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                                                         'P&L: ${master.pnlSharing.toStringAsFixed(0)}%',
                                                         style: TextStyle(
                                                           color: Colors.black,
-                                                          fontSize: 11,
+                                                          fontSize: kFontSizeNavLabel,
                                                           fontFamily: 'Inter',
                                                           fontWeight:
-                                                              FontWeight.w500,
+                                                              kFontWeightMedium,
                                                         ),
                                                         overflow: TextOverflow
                                                             .ellipsis,

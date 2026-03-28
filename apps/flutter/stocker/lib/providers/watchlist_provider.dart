@@ -53,7 +53,7 @@ class WatchlistProvider with ChangeNotifier {
 
       // Send to Metrics Provider for realtime calculation
       if (price != null) {
-        tradeMetricsProvider?.updateLtp(token, price);
+        tradeMetricsProvider?.updateLtp(token, price, bid: bidPrice, ask: askPrice);
       }
 
       // log('💰 Price update for token $token: LTP=$price, Change=$change, Change%=$changePercent');

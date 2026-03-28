@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../services/admin_service.dart';
+import '../utils/contants.dart';
 
 class AddInstrumentToLotView extends StatefulWidget {
   final String exchange;
@@ -257,7 +258,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
               ),
-              child: const Icon(Icons.arrow_back, color: Colors.black, size: 20),
+              child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
             ),
           ),
           const SizedBox(width: 12),
@@ -266,9 +267,9 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(widget.lotName,
-                    style: const TextStyle(color: Colors.black, fontSize: 18, fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                    style: const TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
                 Text('${widget.exchange} · ${_instruments.length} instruments',
-                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontFamily: 'Inter')),
+                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: 'Inter')),
               ],
             ),
           ),
@@ -288,14 +289,14 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.info_outline, size: 16, color: Color(0xFF3F45C7)),
+          const Icon(Icons.info_outline, size: kIconSizeDefault, color: Color(0xFF3F45C7)),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               _isLotBased
                   ? 'Values are in lots. Tap save icon to update each instrument.'
                   : 'Values are in quantity. Tap save icon to update each instrument.',
-              style: const TextStyle(color: Color(0xFF64748B), fontSize: 12, fontFamily: 'Inter'),
+              style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeSubtitle, fontFamily: 'Inter'),
             ),
           ),
         ],
@@ -317,15 +318,15 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
           children: [
             const Padding(
               padding: EdgeInsets.only(left: 14, right: 8),
-              child: Icon(Icons.search, color: Color(0xFF94A3B8), size: 20),
+              child: Icon(Icons.search, color: Color(0xFF94A3B8), size: kIconSizeMedium),
             ),
             Expanded(
               child: TextField(
                 controller: _searchCtrl,
-                style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A), fontFamily: 'Inter'),
+                style: const TextStyle(fontSize: kFontSizeBody, color: Color(0xFF0F172A), fontFamily: 'Inter'),
                 decoration: const InputDecoration(
                   hintText: 'Filter instruments...',
-                  hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: 14, fontFamily: 'Inter'),
+                  hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: 'Inter'),
                   border: InputBorder.none, isDense: true,
                   contentPadding: EdgeInsets.symmetric(vertical: 12),
                 ),
@@ -356,11 +357,11 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
       ),
       child: Row(
         children: [
-          const Expanded(flex: 3, child: Text('Instrument', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8), fontFamily: 'Inter', letterSpacing: 0.5))),
+          const Expanded(flex: 3, child: Text('Instrument', style: TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: Color(0xFF94A3B8), fontFamily: 'Inter', letterSpacing: 0.5))),
           const SizedBox(width: 4),
-          Expanded(flex: 2, child: Text(_qtyLabel, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8), fontFamily: 'Inter', letterSpacing: 0.5))),
+          Expanded(flex: 2, child: Text(_qtyLabel, style: const TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: Color(0xFF94A3B8), fontFamily: 'Inter', letterSpacing: 0.5))),
           const SizedBox(width: 4),
-          Expanded(flex: 2, child: Text(_brkLabel, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFF94A3B8), fontFamily: 'Inter', letterSpacing: 0.5))),
+          Expanded(flex: 2, child: Text(_brkLabel, style: const TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: Color(0xFF94A3B8), fontFamily: 'Inter', letterSpacing: 0.5))),
           const SizedBox(width: 4),
           const SizedBox(width: 36), // save button space
         ],
@@ -375,7 +376,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
         children: [
           CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5),
           SizedBox(height: 16),
-          Text('Loading instruments...', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 13, fontFamily: 'Inter')),
+          Text('Loading instruments...', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: 'Inter')),
         ],
       ),
     );
@@ -384,7 +385,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
   Widget _buildList() {
     if (_filteredInstruments.isEmpty) {
       return const Center(
-        child: Text('No instruments found', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14, fontFamily: 'Inter')),
+        child: Text('No instruments found', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: 'Inter')),
       );
     }
 
@@ -417,11 +418,11 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(entry.rawName,
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF0F172A), fontFamily: 'Inter'),
+                    style: const TextStyle(fontSize: kFontSizeBodySmall, fontWeight: kFontWeightSemiBold, color: Color(0xFF0F172A), fontFamily: 'Inter'),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
                 if (!_isLotBased)
                   Text('Lot: ${entry.lotSize}',
-                      style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8), fontFamily: 'Inter')),
+                      style: const TextStyle(fontSize: kFontSizeCaption, color: Color(0xFF94A3B8), fontFamily: 'Inter')),
               ],
             ),
           ),
@@ -471,7 +472,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
         controller: ctrl,
         keyboardType: TextInputType.number,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF0F172A), fontFamily: 'Inter'),
+        style: const TextStyle(fontSize: kFontSizeBodySmall, fontWeight: kFontWeightSemiBold, color: Color(0xFF0F172A), fontFamily: 'Inter'),
         decoration: const InputDecoration(
           border: InputBorder.none, isDense: true,
           contentPadding: EdgeInsets.symmetric(vertical: 10),

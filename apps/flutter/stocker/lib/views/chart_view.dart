@@ -1,4 +1,4 @@
-import 'dart:developer';
+﻿import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:interactive_chart/interactive_chart.dart';
 import 'package:intl/intl.dart';
@@ -205,9 +205,9 @@ class _ChartViewState extends State<ChartView> {
                   : widget.instrument.tradingsymbol,
               style: const TextStyle(
                 color: Colors.black,
-                fontSize: 18,
+                fontSize: kFontSizeViewTitle,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w600,
+                fontWeight: kFontWeightSemiBold,
               ),
             ),
             if (widget.instrument.expiry != null)
@@ -215,9 +215,9 @@ class _ChartViewState extends State<ChartView> {
                 widget.instrument.expiryDisplay,
                 style: const TextStyle(
                   color: Color(0xFF8E8E93),
-                  fontSize: 12,
+                  fontSize: kFontSizeSubtitle,
                   fontFamily: 'Inter',
-                  fontWeight: FontWeight.w400,
+                  fontWeight: kFontWeightRegular,
                 ),
               ),
           ],
@@ -262,9 +262,9 @@ class _ChartViewState extends State<ChartView> {
                         displayName,
                         style: TextStyle(
                           color: isSelected ? Colors.white : Colors.black,
-                          fontSize: 14,
+                          fontSize: kFontSizeBody,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
+                          fontWeight: kFontWeightMedium,
                         ),
                       ),
                     ),
@@ -303,9 +303,9 @@ class _ChartViewState extends State<ChartView> {
                       displayName,
                       style: TextStyle(
                         color: isSelected ? Colors.white : Colors.black,
-                        fontSize: 12,
+                        fontSize: kFontSizeSubtitle,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
+                        fontWeight: kFontWeightMedium,
                       ),
                     ),
                   ),
@@ -343,7 +343,7 @@ class _ChartViewState extends State<ChartView> {
                               Text(
                                 'No chart data available',
                                 style: TextStyle(
-                                  fontSize: 16,
+                                  fontSize: kFontSizeSectionHeader,
                                   color: Colors.grey[600],
                                 ),
                               ),
@@ -351,7 +351,7 @@ class _ChartViewState extends State<ChartView> {
                               Text(
                                 'Try a different time range or interval',
                                 style: TextStyle(
-                                  fontSize: 14,
+                                  fontSize: kFontSizeBody,
                                   color: Colors.grey[500],
                                 ),
                               ),
@@ -373,11 +373,11 @@ class _ChartViewState extends State<ChartView> {
                             priceGridLineColor: Colors.grey.withOpacity(0.2),
                             priceLabelStyle: const TextStyle(
                               color: Colors.black87,
-                              fontSize: 12,
+                              fontSize: kFontSizeSubtitle,
                             ),
                             timeLabelStyle: const TextStyle(
                               color: Colors.black87,
-                              fontSize: 12,
+                              fontSize: kFontSizeSubtitle,
                             ),
                           ),
                         ),

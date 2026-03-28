@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import '../utils/contants.dart';
 import 'market_hours_view.dart';
 import 'set_quantity_values.dart';
 import 'change_password_view.dart';
@@ -25,17 +27,24 @@ class SettingsView extends StatelessWidget {
                   children: [
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
-                      child: const Icon(Icons.arrow_back,
-                          size: 24, color: Color(0xFF0F172A)),
+                      child: Container(
+                        width: 40, height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
+                        ),
+                        child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+                      ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     const Text(
                       'Settings',
                       style: TextStyle(
                         color: Color(0xFF0F172A),
-                        fontSize: 24,
+                        fontSize: kFontSizePageTitle,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w700,
+                        fontWeight: kFontWeightBold,
                         letterSpacing: -0.5,
                       ),
                     ),
@@ -55,16 +64,16 @@ class SettingsView extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Icon(Icons.shield,
-                        color: Color(0xFFEF4444), size: 20),
+                        color: Color(0xFFEF4444), size: kIconSizeMedium),
                     const SizedBox(width: 12),
                     const Expanded(
                       child: Text(
                         'All profile running in this app is secure. The new security features are active.',
                         style: TextStyle(
                           color: Color(0xFFDC2626),
-                          fontSize: 12,
+                          fontSize: kFontSizeSubtitle,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w500,
+                          fontWeight: kFontWeightMedium,
                           height: 1.2,
                         ),
                       ),
@@ -87,20 +96,17 @@ class SettingsView extends StatelessWidget {
                 clipBehavior: Clip.antiAlias,
                 child: Column(
                   children: [
-                    _buildMenuItem(context, Icons.access_time, 'Market Hours'),
+                    _buildMenuItem(context, kIconMarketHours, 'Market Hours'),
                     _buildDivider(),
-                    _buildMenuItem(context, Icons.format_list_numbered,
-                        'Set Quantity Values'),
+                    _buildMenuItem(context, kIconSetQuantityValues, 'Set Quantity Values'),
                     _buildDivider(),
-                    _buildMenuItem(context, Icons.lock, 'Change Password'),
+                    _buildMenuItem(context, kIconChangePassword, 'Change Password'),
                     _buildDivider(),
-                    _buildMenuItem(
-                        context, Icons.notifications, 'Notification'),
+                    _buildMenuItem(context, kIconNotifications, 'Notification'),
                     _buildDivider(),
-                    _buildMenuItem(
-                        context, Icons.privacy_tip, 'Privacy Policy'),
+                    _buildMenuItem(context, kIconPrivacyPolicy, 'Privacy Policy'),
                     _buildDivider(),
-                    _buildMenuItem(context, Icons.description, 'Terms of Use'),
+                    _buildMenuItem(context, kIconTermsOfUse, 'Terms of Use'),
                   ],
                 ),
               ),
@@ -113,7 +119,7 @@ class SettingsView extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuItem(BuildContext context, IconData icon, String title) {
+  Widget _buildMenuItem(BuildContext context, String svgPath, String title) {
     return GestureDetector(
       onTap: () {
         if (title == 'Market Hours') {
@@ -151,7 +157,7 @@ class SettingsView extends StatelessWidget {
         }
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
         color: Colors.transparent,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -159,14 +165,19 @@ class SettingsView extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  width: 32,
-                  height: 32,
+                  width: kMenuIconCircleSize,
+                  height: kMenuIconCircleSize,
                   decoration: const BoxDecoration(
                     color: Color(0xFFF1F5F9),
                     shape: BoxShape.circle,
                   ),
                   child: Center(
-                    child: Icon(icon, size: 16, color: const Color(0xFF1E3A8A)),
+                    child: SvgPicture.asset(
+                      svgPath,
+                      width: kMenuIconSize,
+                      height: kMenuIconSize,
+                      colorFilter: const ColorFilter.mode(Color(0xFF1E3A8A), BlendMode.srcIn),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -174,14 +185,14 @@ class SettingsView extends StatelessWidget {
                   title,
                   style: const TextStyle(
                     color: Color(0xFF1E293B),
-                    fontSize: 16,
+                    fontSize: kFontSizeMenuItem,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w500,
+                    fontWeight: kFontWeightMedium,
                   ),
                 ),
               ],
             ),
-            const Icon(Icons.chevron_right, size: 24, color: Color(0xFF94A3B8)),
+            const Icon(Icons.chevron_right, size: kMenuChevronSize, color: Color(0xFF94A3B8)),
           ],
         ),
       ),

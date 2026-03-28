@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../models/master.dart';
 import '../models/user.dart';
+import '../utils/contants.dart';
 
 class IntradaySquareoffBottomSheet extends StatefulWidget {
   final Master? master;
@@ -223,9 +224,9 @@ class _IntradaySquareoffBottomSheetState extends State<IntradaySquareoffBottomSh
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.black,
-                          fontSize: 16,
+                          fontSize: kFontSizeSheetTitle,
                           fontFamily: 'Inter',
-                          fontWeight: FontWeight.w600,
+                          fontWeight: kFontWeightSemiBold,
                         ),
                       ),
                     ],
@@ -243,7 +244,7 @@ class _IntradaySquareoffBottomSheetState extends State<IntradaySquareoffBottomSh
                         'No exchanges allowed',
                         style: TextStyle(
                           color: const Color(0xFF8E8E93),
-                          fontSize: 16,
+                          fontSize: kFontSizeSectionHeader,
                         ),
                       ),
                     ),
@@ -273,9 +274,9 @@ class _IntradaySquareoffBottomSheetState extends State<IntradaySquareoffBottomSh
                                   exchange.toUpperCase(),
                                   style: TextStyle(
                                     color: const Color(0xFF2B2B2B),
-                                    fontSize: 16,
+                                    fontSize: kFontSizeSectionHeader,
                                     fontFamily: 'Inter',
-                                    fontWeight: FontWeight.w500,
+                                    fontWeight: kFontWeightMedium,
                                   ),
                                 ),
                                 GestureDetector(
@@ -334,9 +335,9 @@ class _IntradaySquareoffBottomSheetState extends State<IntradaySquareoffBottomSh
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: Colors.black,
-                              fontSize: 16,
+                              fontSize: kFontSizeButtonText,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.w600,
+                              fontWeight: kFontWeightSemiBold,
                               height: 1.25,
                             ),
                           ),
@@ -358,9 +359,9 @@ class _IntradaySquareoffBottomSheetState extends State<IntradaySquareoffBottomSh
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 16,
+                              fontSize: kFontSizeButtonText,
                               fontFamily: 'Inter',
-                              fontWeight: FontWeight.w600,
+                              fontWeight: kFontWeightSemiBold,
                               height: 1.25,
                             ),
                           ),

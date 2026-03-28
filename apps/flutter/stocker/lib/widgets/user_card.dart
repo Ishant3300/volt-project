@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/user.dart';
+import '../utils/contants.dart';
 
 class UserCard extends StatelessWidget {
   final User user;
@@ -13,7 +14,7 @@ class UserCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final balance = user.balance.toStringAsFixed(2);
+    final balance = user.equity.toStringAsFixed(2);
     final credit = user.credits.toStringAsFixed(2);
     final plShare = '${user.pnlSharing.toStringAsFixed(1)}%';
 
@@ -44,9 +45,9 @@ class UserCard extends StatelessWidget {
                     user.username,
                     style: TextStyle(
                       color: Colors.black,
-                      fontSize: 14,
+                      fontSize: kFontSizeName,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w600,
+                      fontWeight: kFontWeightName,
                     ),
                   ),
                 ),
@@ -63,9 +64,9 @@ class UserCard extends StatelessWidget {
                     user.status.toUpperCase(),
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 10,
+                      fontSize: kFontSizeCaption,
                       fontFamily: 'Inter',
-                      fontWeight: FontWeight.w400,
+                      fontWeight: kFontWeightRegular,
                     ),
                   ),
                 ),
@@ -76,9 +77,9 @@ class UserCard extends StatelessWidget {
               user.name,
               style: TextStyle(
                 color: const Color(0xFF666666),
-                fontSize: 12,
+                fontSize: kFontSizeSubtitle,
                 fontFamily: 'Inter',
-                fontWeight: FontWeight.w400,
+                fontWeight: kFontWeightRegular,
               ),
             ),
             SizedBox(height: 10),
@@ -89,27 +90,27 @@ class UserCard extends StatelessWidget {
                   'BALANCE: $balance',
                   style: TextStyle(
                     color: const Color(0xFF999999),
-                    fontSize: 12,
+                    fontSize: kFontSizeSubtitle,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
+                    fontWeight: kFontWeightRegular,
                   ),
                 ),
                 Text(
                   'CREDIT: $credit',
                   style: TextStyle(
                     color: const Color(0xFF999999),
-                    fontSize: 12,
+                    fontSize: kFontSizeSubtitle,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
+                    fontWeight: kFontWeightRegular,
                   ),
                 ),
                 Text(
                   'PL SHARE: $plShare',
                   style: TextStyle(
                     color: const Color(0xFF999999),
-                    fontSize: 12,
+                    fontSize: kFontSizeSubtitle,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
+                    fontWeight: kFontWeightRegular,
                   ),
                 ),
               ],

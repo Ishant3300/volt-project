@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import '../utils/contants.dart';
 
 class SummaryFilterBottomSheet extends StatefulWidget {
   const SummaryFilterBottomSheet({super.key});
@@ -33,9 +34,9 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
             textAlign: TextAlign.center,
             style: TextStyle(
               color: Colors.black,
-              fontSize: 16,
+              fontSize: kFontSizeSheetTitle,
               fontFamily: 'Inter',
-              fontWeight: FontWeight.w600,
+              fontWeight: kFontWeightSemiBold,
             ),
           ),
 
@@ -59,12 +60,12 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
                   'From - To Date',
                   style: TextStyle(
                     color: const Color(0xFF8E8E93),
-                    fontSize: 16,
+                    fontSize: kFontSizeSheetHint,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
+                    fontWeight: kFontWeightRegular,
                   ),
                 ),
-                Icon(Icons.calendar_today, size: 20, color: const Color(0xFF222222)),
+                Icon(Icons.calendar_today, size: kIconSizeMedium, color: const Color(0xFF222222)),
               ],
             ),
           ),
@@ -89,9 +90,9 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
                   'Select Item',
                   style: TextStyle(
                     color: const Color(0xFF8E8E93),
-                    fontSize: 16,
+                    fontSize: kFontSizeSheetHint,
                     fontFamily: 'Inter',
-                    fontWeight: FontWeight.w400,
+                    fontWeight: kFontWeightRegular,
                   ),
                 ),
                 Icon(Icons.keyboard_arrow_down, color: const Color(0xFF8E8E93)),
@@ -124,9 +125,9 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: _selectedTabIndex == 0 ? Colors.white : const Color(0xFF333333),
-                        fontSize: 16,
+                        fontSize: kFontSizeSectionHeader,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
+                        fontWeight: kFontWeightMedium,
                       ),
                     ),
                   ),
@@ -148,9 +149,9 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: _selectedTabIndex == 1 ? Colors.white : const Color(0xFF333333),
-                        fontSize: 16,
+                        fontSize: kFontSizeSectionHeader,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
+                        fontWeight: kFontWeightMedium,
                       ),
                     ),
                   ),
@@ -176,9 +177,9 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: _selectedTabIndex == 2 ? Colors.white : const Color(0xFF333333),
-                        fontSize: 16,
+                        fontSize: kFontSizeSectionHeader,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w500,
+                        fontWeight: kFontWeightMedium,
                       ),
                     ),
                   ),
@@ -208,9 +209,9 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.black,
-                        fontSize: 16,
+                        fontSize: kFontSizeButtonText,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
+                        fontWeight: kFontWeightSemiBold,
                       ),
                     ),
                   ),
@@ -234,9 +235,9 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 16,
+                        fontSize: kFontSizeButtonText,
                         fontFamily: 'Inter',
-                        fontWeight: FontWeight.w600,
+                        fontWeight: kFontWeightSemiBold,
                       ),
                     ),
                   ),

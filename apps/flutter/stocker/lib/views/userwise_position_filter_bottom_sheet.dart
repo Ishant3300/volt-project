@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
@@ -134,9 +134,9 @@ class _UserwisePositionFilterBottomSheetState
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.only(
+        padding: EdgeInsets.only(
         top: 24, left: 16, right: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + MediaQuery.of(context).viewPadding.bottom + 24,
       ),
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -146,20 +146,10 @@ class _UserwisePositionFilterBottomSheetState
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Handle bar
-          Center(
-            child: Container(
-              width: 40, height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE2E8F0),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
           const SizedBox(height: 16),
-          const Text('Filter Positions',
-            style: TextStyle(color: Colors.black, fontSize: 16,
-              fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+          Text('Filter Positions',
+            style: TextStyle(color: Colors.black, fontSize: kFontSizeSheetTitle,
+              fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
           const SizedBox(height: 16),
 
           // Exchange dropdown
@@ -214,9 +204,9 @@ class _UserwisePositionFilterBottomSheetState
                     color: const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text('Clear',
-                    style: TextStyle(color: Color(0xFF64748B), fontSize: 14,
-                      fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                  child: Text('Clear',
+                    style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBody,
+                      fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
                 ),
               ),
             ),
@@ -230,9 +220,9 @@ class _UserwisePositionFilterBottomSheetState
                     color: const Color(0xFF3F45C7),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Text('View',
-                    style: TextStyle(color: Colors.white, fontSize: 14,
-                      fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                  child: Text('View',
+                    style: TextStyle(color: Colors.white, fontSize: kFontSizeBody,
+                      fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
                 ),
               ),
             ),
@@ -244,8 +234,8 @@ class _UserwisePositionFilterBottomSheetState
 
   Widget _buildLabel(String text) {
     return Text(text,
-      style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12,
-        fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: 0.5));
+      style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSheetLabel,
+        fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.5));
   }
 
   Widget _buildExchangeDropdown() {
@@ -260,8 +250,8 @@ class _UserwisePositionFilterBottomSheetState
         child: DropdownButton<String>(
           value: _selectedExchange,
           isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down, size: 18, color: Color(0xFF94A3B8)),
-          style: const TextStyle(color: Colors.black, fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+          icon: Icon(Icons.keyboard_arrow_down, size: kIconSizeDefault, color: Color(0xFF94A3B8)),
+          style: TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
           items: _exchanges.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
           onChanged: (v) => setState(() {
             _selectedExchange = v!;
@@ -291,18 +281,18 @@ class _UserwisePositionFilterBottomSheetState
       child: TextField(
         controller: controller,
         onChanged: onChanged,
-        style: const TextStyle(fontSize: 13, fontFamily: 'Inter', fontWeight: FontWeight.w500),
+        style: TextStyle(fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, fontFamily: 'Inter'),
+          hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall, fontFamily: 'Inter'),
           suffixIcon: isSearching
               ? const Padding(padding: EdgeInsets.all(12),
                   child: SizedBox(width: 16, height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF3F45C7))))
               : (controller.text.isNotEmpty
                   ? GestureDetector(onTap: onClear,
-                      child: const Icon(Icons.close, size: 18, color: Color(0xFF94A3B8)))
-                  : const Icon(Icons.search, size: 18, color: Color(0xFF94A3B8))),
+                      child: Icon(Icons.close, size: kIconSizeDefault, color: Color(0xFF94A3B8)))
+                  : Icon(Icons.search, size: kIconSizeDefault, color: Color(0xFF94A3B8))),
           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           border: InputBorder.none,
         ),
@@ -339,14 +329,14 @@ class _UserwisePositionFilterBottomSheetState
               ),
               child: Row(children: [
                 Expanded(child: Text(inst['tradingsymbol'] ?? '',
-                  style: const TextStyle(color: Colors.black, fontSize: 13,
-                    fontFamily: 'Inter', fontWeight: FontWeight.w600, letterSpacing: -0.3))),
+                  style: TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall,
+                    fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: -0.3))),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6)),
                   child: Text(inst['instrument_type'] ?? '',
-                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 10,
-                      fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                    style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeCaption,
+                      fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
                 ),
               ]),
             ),
@@ -388,12 +378,12 @@ class _UserwisePositionFilterBottomSheetState
               ),
               child: Row(children: [
                 Text(uname,
-                  style: const TextStyle(color: Colors.black, fontSize: 13,
-                    fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                  style: TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall,
+                    fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
                 if (name.isNotEmpty) ...[
                   const SizedBox(width: 8),
                   Text(name,
-                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontFamily: 'Inter')),
+                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: 'Inter')),
                 ],
               ]),
             ),
