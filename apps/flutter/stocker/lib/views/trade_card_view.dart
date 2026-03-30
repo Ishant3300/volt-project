@@ -39,23 +39,25 @@ class _TradeCardPageState extends State<TradeCardPage> {
   int _selectedQuickQty = 100;
   List<int> _quickQuantities = [100, 200, 500, 1000, 2000, 5000];
   String _orderType = 'Market Execution';
-  final List<String> _orderTypes = [
-    'Market Execution',
-    'Buy Limit',
-    'Sell Limit'
-  ];
 
   /// Returns the available order types, filtering out Sell Limit for options
-  /// when the user has no position.
+  /// when the user has no position. Adds Custom Price for admin only.
   List<String> get _availableOrderTypes {
+    final profile = Provider.of<UserProfileProvider>(context, listen: false);
+    final base = <String>['Market Execution', 'Buy Limit', 'Sell Limit'];
+
     if (_isOption) {
-      // Only show Sell Limit if user holds this option
       final netQty = _getNetPosition(context);
       if (netQty <= 0) {
-        return ['Market Execution', 'Buy Limit'];
+        base.remove('Sell Limit');
       }
     }
-    return _orderTypes;
+
+    if (profile.isAdmin) {
+      base.add('Custom Price');
+    }
+
+    return base;
   }
 
   final TextEditingController _qtyController = TextEditingController();
@@ -413,8 +415,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
             .getByToken(widget.item.instrument.instrumentToken) ??
         widget.item;
 
-    final isLimit = _orderType != 'Market Execution';
-    final tradePrice = isLimit
+    final isLimit = _orderType == 'Buy Limit' || _orderType == 'Sell Limit';
+    final isCustomPrice = _orderType == 'Custom Price';
+    final tradePrice = (isLimit || isCustomPrice)
         ? (double.tryParse(_priceController.text) ?? currentPrice)
         : currentPrice;
 
@@ -1512,6 +1515,116 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                         ),
                                       ),
                                     ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ] else if (_orderType == 'Custom Price') ...[
+                            // Custom Price: price input + SELL/BUY buttons
+                            Expanded(
+                              child: Column(
+                                children: [
+                                  Container(
+                                    width: double.infinity,
+                                    height: 46,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    decoration: ShapeDecoration(
+                                      color: const Color(0xFFF2F2F7),
+                                      shape: RoundedRectangleBorder(
+                                        side: const BorderSide(width: 1, color: Color(0xFFC7C7CC)),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                    ),
+                                    child: Center(
+                                      child: TextField(
+                                        controller: _priceController,
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        inputFormatters: [
+                                          FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                                        ],
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          color: Colors.black,
+                                          fontSize: kFontSizeSectionHeader,
+                                          fontFamily: 'Inter',
+                                          fontWeight: kFontWeightMedium,
+                                        ),
+                                        decoration: const InputDecoration(
+                                          border: InputBorder.none,
+                                          isDense: true,
+                                          contentPadding: EdgeInsets.zero,
+                                          hintText: 'Enter price',
+                                          hintStyle: TextStyle(
+                                            color: Color(0xFFC7C7CC),
+                                            fontSize: kFontSizeSectionHeader,
+                                            fontFamily: 'Inter',
+                                            fontWeight: kFontWeightMedium,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            final customPrice = double.tryParse(_priceController.text);
+                                            if (customPrice == null || customPrice <= 0) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(content: Text('Enter a valid price'), backgroundColor: Color(0xFFEF4444)),
+                                              );
+                                              return;
+                                            }
+                                            _handleTrade('SELL', customPrice);
+                                          },
+                                          child: Container(
+                                            height: 56,
+                                            decoration: BoxDecoration(
+                                              gradient: const LinearGradient(
+                                                begin: Alignment.centerLeft,
+                                                end: Alignment.centerRight,
+                                                colors: [Color(0xFFFF3C00), Color(0xFF7A0F37)],
+                                              ),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: const Center(
+                                              child: Text('SELL', style: TextStyle(color: Colors.white, fontSize: kFontSizeSectionHeader, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: GestureDetector(
+                                          onTap: () {
+                                            final customPrice = double.tryParse(_priceController.text);
+                                            if (customPrice == null || customPrice <= 0) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(content: Text('Enter a valid price'), backgroundColor: Color(0xFFEF4444)),
+                                              );
+                                              return;
+                                            }
+                                            _handleTrade('BUY', customPrice);
+                                          },
+                                          child: Container(
+                                            height: 56,
+                                            decoration: BoxDecoration(
+                                              gradient: const LinearGradient(
+                                                begin: Alignment.centerLeft,
+                                                end: Alignment.centerRight,
+                                                colors: [Color(0xFFC6529E), Color(0xFF3B43C9)],
+                                              ),
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                            child: const Center(
+                                              child: Text('BUY', style: TextStyle(color: Colors.white, fontSize: kFontSizeSectionHeader, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
