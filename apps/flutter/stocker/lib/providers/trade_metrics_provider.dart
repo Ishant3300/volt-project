@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:stocker/models/brokerage_rule.dart';
 import 'package:stocker/models/trade.dart';
@@ -280,11 +279,6 @@ class TradeMetricsProvider with ChangeNotifier {
     double totalFloating = 0;
     double totalMargin = 0;
 
-    log('📊 [Metrics] _margins count: ${_margins.length}, trades count: ${sortedTrades.length}, positions: ${aggMap.length}');
-    for (var m in _margins) {
-      log('📊 [Metrics] Margin rule: exchange=${m.exchangeName}, script=${m.scriptName}, type=${m.amountType}, value=${m.tradeMargin}');
-    }
-
     for (var agg in aggMap.values) {
       final run = running[agg.instrumentToken]!;
       int netQty = run.netQty;
@@ -314,8 +308,6 @@ class TradeMetricsProvider with ChangeNotifier {
       // Calculate margin
       double positionMargin = 0;
       if (netQty != 0) {
-        log('📊 [Margin] Position: ${agg.tradingsymbol}, netQty=$netQty, rawName=${agg.rawName}, segment=${agg.segment}, exchange=${agg.exchange}, lotSize=${agg.lotSize}');
-
         // 1. Try per-instrument rule: match raw_name to script_name + segment
         TradeMargin? rule;
         if (agg.rawName.isNotEmpty) {
@@ -382,9 +374,6 @@ class TradeMetricsProvider with ChangeNotifier {
             // Flat amount fallback for non-lot-based
             positionMargin = netQty.abs() * rule.tradeMargin;
           }
-          log('📊 [Margin] Rule found: exchange=${rule.exchangeName}, script=${rule.scriptName}, type=${rule.amountType}, tradeMargin=${rule.tradeMargin}, isLotBased=$isLotBased → positionMargin=$positionMargin');
-        } else {
-          log('📊 [Margin] ⚠️ NO RULE FOUND for ${agg.tradingsymbol} (rawName=${agg.rawName}, segment=${agg.segment}, exchange=${agg.exchange})');
         }
         totalMargin += positionMargin;
       }
@@ -456,8 +445,6 @@ class TradeMetricsProvider with ChangeNotifier {
     _equity = _credit + _m2mPnl - _marginUsed;
     // Free Margin = equity (equity already has margin deducted)
     _freeMargin = _equity;
-
-    log('📊 [Metrics] FINAL: credit=$_credit, realised=$_realisedPnl, floating=$_positionPnl, m2m=$_m2mPnl, marginUsed=$_marginUsed, equity=$_equity, freeMargin=$_freeMargin');
 
     notifyListeners();
   }

@@ -852,11 +852,27 @@ class _PortfolioPageState extends State<PortfolioPage>
     return result;
   }
 
-  /// Returns the user-friendly instrument name for a trade, falling back to raw tradingSymbol.
+  /// Returns the formatted instrument name for history page display.
+  /// Format: "GOLD | 2APR" (uppercase name, pipe, day + abbreviated month)
   String _displayName(Trade trade) {
     final watchlist = Provider.of<WatchlistProvider>(context, listen: false);
-    return watchlist.getByToken(trade.instrumentToken)?.instrument.userFriendlyName
-        ?? trade.tradingSymbol;
+    final wItem = watchlist.getByToken(trade.instrumentToken);
+    final inst = wItem?.instrument;
+
+    if (inst != null) {
+      final base = (inst.name.isNotEmpty ? inst.name : inst.tradingsymbol).toUpperCase();
+      if (inst.expiry != null) {
+        final day = inst.expiry!.day;
+        const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+        final month = months[inst.expiry!.month - 1];
+        if (inst.instrumentType == 'CE' || inst.instrumentType == 'PE') {
+          return '$base | $day$month ${inst.strike.toInt()} ${inst.instrumentType}';
+        }
+        return '$base | $day $month';
+      }
+      return base;
+    }
+    return trade.tradingSymbol.toUpperCase();
   }
 
   Widget _buildCompletedTradeCard(Trade trade, {_PerTradePnl? tradePnl}) {
