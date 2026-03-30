@@ -997,12 +997,71 @@ class _OrdersPageState extends State<OrdersPage> {
   // ============================================
   // USER VIEW (existing, unchanged)
   // ============================================
+  bool _expiredCheckDone = false;
+
+  /// Check for expired instrument positions and auto-squareoff
+  Future<void> _checkAndSquareOffExpired(List<PositionAgg> openPositions, WatchlistProvider watchlistProvider) async {
+    if (_expiredCheckDone) return;
+    _expiredCheckDone = true;
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final expiredTokens = <String>[];
+
+    for (final pos in openPositions) {
+      final wItem = watchlistProvider.getByToken(pos.instrumentToken);
+      final expiry = wItem?.instrument.expiry;
+      if (expiry != null) {
+        final expiryDate = DateTime(expiry.year, expiry.month, expiry.day);
+        if (expiryDate.isBefore(today)) {
+          expiredTokens.add(pos.instrumentToken);
+        }
+      }
+    }
+
+    if (expiredTokens.isEmpty) return;
+
+    try {
+      final storage = SecureStorageService();
+      final token = await storage.getToken();
+      if (token == null) return;
+
+      final apiService = ApiService(backendUrl);
+      final res = await apiService.post('/trade/auto-squareoff-expired', {
+        'instrument_tokens': expiredTokens,
+      }, token: token);
+
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final squaredOff = (body['data']?['squared_off'] as List?)?.length ?? 0;
+        if (squaredOff > 0 && mounted) {
+          Provider.of<TradeMetricsProvider>(context, listen: false).fetchBaseData();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Auto squared off $squaredOff expired position(s)'),
+              backgroundColor: const Color(0xFF10B981),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error auto-squaring off expired positions: $e');
+    }
+  }
+
   Widget _buildUserView() {
     return Consumer2<TradeMetricsProvider, WatchlistProvider>(
       builder: (context, provider, watchlistProvider, child) {
         // Filter out closed positions (netQty == 0)
         final openPositions =
             provider.positions.where((p) => p.netQty != 0).toList();
+
+        // Check for expired positions on first load
+        if (openPositions.isNotEmpty && !_expiredCheckDone) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _checkAndSquareOffExpired(openPositions, watchlistProvider);
+          });
+        }
 
         final double posPnl = provider.positionPnl;
         final double m2m = provider.m2mPnl;
