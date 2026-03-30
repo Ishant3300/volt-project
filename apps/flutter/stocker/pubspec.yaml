@@ -91,7 +91,7 @@ flutter:
   assets:
     - assets/trade_bell_sound.mp3
     - assets/Subtract.svg
-    - assets/icon_with_bg.png
+    - assets/new_app_icon.png
     - lib/icons/
     - lib/icons/profile_page_icons/
     - lib/icons/reports_view_icons/
