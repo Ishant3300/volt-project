@@ -1,4 +1,4 @@
-package com.example.stocker
+package com.apexlive.apex
 
 import io.flutter.embedding.android.FlutterActivity
 

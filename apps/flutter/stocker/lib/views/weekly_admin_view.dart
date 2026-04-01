@@ -99,6 +99,8 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
                 _pill('M2M', _d(_totals['m2m_pnl'])),
                 const SizedBox(width: 6),
                 _pill('Brokerage', _d(_totals['brokerage'])),
+                const SizedBox(width: 6),
+                _pill('Total Admin', -_d(_totals['total_admin'])),
               ]),
             ),
           const SizedBox(height: 12),
@@ -216,13 +218,13 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
         ),
         const SizedBox(height: 8),
 
-        // Summary row
+        // Summary row (inverted: user profit = admin loss, user loss = admin profit)
         Row(children: [
-          _summaryBox('TOTAL P&L', totalPnl),
+          _summaryBox('TOTAL P&L', -totalPnl),
           const SizedBox(width: 8),
-          _summaryBox('ADMIN PROFIT', adminProfit),
+          _summaryBox('ADMIN PROFIT', -adminProfit),
           const SizedBox(width: 8),
-          _summaryBox('TOTAL ADMIN', totalAdmin),
+          _summaryBox('TOTAL ADMIN', -totalAdmin),
         ]),
       ]),
     );

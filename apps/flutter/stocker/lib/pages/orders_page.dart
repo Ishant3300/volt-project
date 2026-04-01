@@ -1352,10 +1352,12 @@ class _OrdersPageState extends State<OrdersPage> {
                             final displayName = wItem?.instrument.userFriendlyName ?? pos.tradingsymbol;
                             // CMP: show bid price for BUY positions (exit = sell at bid),
                             // ask price for SELL positions (exit = buy at ask).
-                            // Fall back to LTP if bid/ask not available.
+                            // Fall back to LTP ± spread if bid/ask not available.
+                            final ltp = pos.ltp;
+                            final fallbackSpread = ltp * 0.0005;
                             final cmp = isBuy
-                                ? (wItem?.bidPrice ?? pos.ltp)
-                                : (wItem?.askPrice ?? pos.ltp);
+                                ? (wItem?.bidPrice ?? (ltp > 0 ? ltp - fallbackSpread : ltp))
+                                : (wItem?.askPrice ?? (ltp > 0 ? ltp + fallbackSpread : ltp));
                             return Column(
                               children: [
                                 _buildOrderItem(

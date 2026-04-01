@@ -54,6 +54,7 @@ dependencies:
   flutter_local_notifications: ^18.0.1
   audioplayers: ^6.1.0
   flutter_svg: ^2.0.10+1
+  webview_flutter: ^4.10.0
 
 
 dev_dependencies:

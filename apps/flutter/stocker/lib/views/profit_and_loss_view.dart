@@ -116,11 +116,11 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
               child: Row(children: [
-                _totalItem('Realised', _totals['realised']!),
+                _totalItem('Realised', -_totals['realised']!),
                 Container(width: 1, height: 36, color: const Color(0xFFF1F5F9)),
-                _totalItem('Position', _totals['position']!),
+                _totalItem('Position', -_totals['position']!),
                 Container(width: 1, height: 36, color: const Color(0xFFF1F5F9)),
-                _totalItem('M2M', _totals['m2m']!),
+                _totalItem('M2M', -_totals['m2m']!),
               ]),
             ),
           const SizedBox(height: 12),
@@ -221,9 +221,10 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
 
   Widget _buildRow(Map<String, dynamic> row, int index) {
     final username = row['username'] ?? '';
-    final realised = (row['realised_pnl'] as num?)?.toDouble() ?? 0;
-    final position = (row['position_pnl'] as num?)?.toDouble() ?? 0;
-    final m2m = (row['m2m_pnl'] as num?)?.toDouble() ?? 0;
+    // Invert signs: user profit = admin/master loss
+    final realised = -((row['realised_pnl'] as num?)?.toDouble() ?? 0);
+    final position = -((row['position_pnl'] as num?)?.toDouble() ?? 0);
+    final m2m = -((row['m2m_pnl'] as num?)?.toDouble() ?? 0);
     final isEven = index % 2 == 0;
 
     return Container(

@@ -5,8 +5,8 @@ import 'market_hours_view.dart';
 import 'set_quantity_values.dart';
 import 'change_password_view.dart';
 import 'notification_settings_view.dart';
-import 'privacy_view.dart';
 import 'terms_view.dart';
+import 'webview_page.dart';
 
 class SettingsView extends StatelessWidget {
   const SettingsView({super.key});
@@ -52,36 +52,6 @@ class SettingsView extends StatelessWidget {
                 ),
               ),
 
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                padding: const EdgeInsets.all(10),
-                decoration: ShapeDecoration(
-                  color: const Color(0xFFFEF2F2),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.shield,
-                        color: Color(0xFFEF4444), size: kIconSizeMedium),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Text(
-                        'All profile running in this app is secure. The new security features are active.',
-                        style: TextStyle(
-                          color: Color(0xFFDC2626),
-                          fontSize: kFontSizeSubtitle,
-                          fontFamily: 'Inter',
-                          fontWeight: kFontWeightMedium,
-                          height: 1.2,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
               const SizedBox(height: 8),
 
               Container(
@@ -106,7 +76,7 @@ class SettingsView extends StatelessWidget {
                     _buildDivider(),
                     _buildMenuItem(context, kIconPrivacyPolicy, 'Privacy Policy'),
                     _buildDivider(),
-                    _buildMenuItem(context, kIconTermsOfUse, 'Terms of Use'),
+                    _buildMenuItem(context, kIconTermsOfUse, 'Rules And Regulations'),
                   ],
                 ),
               ),
@@ -147,9 +117,12 @@ class SettingsView extends StatelessWidget {
         } else if (title == 'Privacy Policy') {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const PrivacyView()),
+            MaterialPageRoute(
+                builder: (context) => const WebViewPage(
+                    url: 'https://apexlive.framer.website/privacy',
+                    title: 'Privacy Policy')),
           );
-        } else if (title == 'Terms of Use') {
+        } else if (title == 'Rules And Regulations') {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const TermsView()),

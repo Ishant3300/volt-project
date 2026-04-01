@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
@@ -23,6 +24,32 @@ class _LoginPageState extends State<LoginPage> {
 
   String _selectedServer = 'Select Server';
   bool _isLoading = false;
+  List<Map<String, dynamic>> _servers = [];
+  bool _isLoadingServers = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchServers();
+  }
+
+  Future<void> _fetchServers() async {
+    setState(() => _isLoadingServers = true);
+    try {
+      final res = await ApiService(backendUrl).get('/servers');
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['success'] == true) {
+          final data = body['data'];
+          final List serverList = data is Map ? (data['servers'] ?? []) : (data ?? []);
+          setState(() {
+            _servers = serverList.cast<Map<String, dynamic>>();
+          });
+        }
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _isLoadingServers = false);
+  }
 
   void _login() async {
     if (_selectedServer == 'Select Server') {
@@ -155,9 +182,14 @@ class _LoginPageState extends State<LoginPage> {
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
                             value: _selectedServer == 'Select Server' ? null : _selectedServer,
-                            hint: Text('Select Server', style: TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeButtonText, fontFamily: 'Inter')),
-                            items: ['test'].map((String value) {
-                              return DropdownMenuItem<String>(value: value, child: Text(value));
+                            hint: Text(
+                              _isLoadingServers ? 'Loading...' : 'Select Server',
+                              style: TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeButtonText, fontFamily: 'Inter'),
+                            ),
+                            isExpanded: true,
+                            items: _servers.map((s) {
+                              final name = s['name']?.toString() ?? '';
+                              return DropdownMenuItem<String>(value: name, child: Text(name));
                             }).toList(),
                             onChanged: (String? newValue) {
                               if (newValue != null) setState(() => _selectedServer = newValue);

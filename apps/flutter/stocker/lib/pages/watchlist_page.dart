@@ -240,7 +240,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                         children: [
                                           const Expanded(
                                             child: Text(
-                                              'LOW',
+                                              'HIGH',
                                               textAlign: TextAlign.end,
                                               style: TextStyle(
                                                 color: Color(0xFF94A3B8),
@@ -254,7 +254,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                           SizedBox(width: 21),
                                           const Expanded(
                                             child: Text(
-                                              'HIGH',
+                                              'LOW',
                                               textAlign: TextAlign.end,
                                               style: TextStyle(
                                                 color: Color(0xFF94A3B8),
