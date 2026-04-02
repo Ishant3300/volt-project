@@ -23,12 +23,11 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
   String _activeTab = 'ALL';
   Timer? _debounceTimer;
   int _totalResults = 0;
-
-  // Pagination: fetch large batch, render incrementally
-  static const int _fetchLimit = 200;
-  static const int _pageSize = 50;
-  List<dynamic> _allItems = []; // flat list of all fetched items
-  int _displayCount = _pageSize;
+  bool _hasMore = false;
+  int _currentPage = 1;
+  bool _isLoadingMore = false;
+  String _lastQuery = '';
+  List<dynamic> _allItems = [];
   final ScrollController _scrollController = ScrollController();
 
   final List<Map<String, String>> _tabs = [
@@ -68,15 +67,10 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
 
   void _onScroll() {
     if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      if (_displayCount < _allItems.length) {
-        setState(() {
-          _displayCount =
-              (_displayCount + _pageSize).clamp(0, _allItems.length);
-          _groupedResults =
-              _buildGroupsFromItems(_allItems.take(_displayCount).toList());
-        });
-      }
+            _scrollController.position.maxScrollExtent - 200 &&
+        _hasMore &&
+        !_isLoadingMore) {
+      _loadMore();
     }
   }
 
@@ -92,8 +86,10 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
       setState(() {
         _groupedResults = [];
         _allItems = [];
-        _displayCount = _pageSize;
         _totalResults = 0;
+        _hasMore = false;
+        _currentPage = 1;
+        _lastQuery = '';
         _isSearching = false;
       });
       return;
@@ -101,52 +97,81 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
 
     setState(() {
       _isSearching = true;
+      _currentPage = 1;
+      _allItems = [];
+      _lastQuery = query;
     });
 
     try {
       final kiteService = Provider.of<KiteService>(context, listen: false);
-
-      log('🔍 Performing smart search: "$query" (category: $_activeTab)');
-
       final result = await kiteService.smartSearchInstruments(
         query,
         category: _activeTab,
-        limit: _fetchLimit,
+        limit: 10,
+        page: 1,
       );
 
       if (!mounted || _searchController.text != query) return;
 
       final groups = result['groups'] as List<dynamic>? ?? [];
       final total = result['total'] as int? ?? 0;
+      final hasMore = result['hasMore'] as bool? ?? false;
 
-      // Flatten all items from all groups for client-side pagination
-      final allItems = <dynamic>[];
+      final items = <dynamic>[];
       for (final g in groups) {
-        final items = (g as Map)['items'] as List<dynamic>? ?? [];
-        allItems.addAll(items);
+        final gItems = (g as Map)['items'] as List<dynamic>? ?? [];
+        items.addAll(gItems);
       }
 
       setState(() {
-        _allItems = allItems;
+        _allItems = items;
         _totalResults = total;
-        _displayCount = _pageSize.clamp(0, allItems.length);
-        _groupedResults =
-            _buildGroupsFromItems(allItems.take(_displayCount).toList());
+        _hasMore = hasMore;
+        _groupedResults = _buildGroupsFromItems(items);
         _isSearching = false;
       });
-
-      log('   ✅ Got ${groups.length} groups with $total total results');
     } catch (e) {
       log('   ❌ Search error: $e');
-      setState(() {
-        _isSearching = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Search failed: $e'), backgroundColor: Colors.red),
-        );
+      setState(() => _isSearching = false);
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || !_hasMore || _lastQuery.isEmpty) return;
+
+    setState(() => _isLoadingMore = true);
+
+    try {
+      final kiteService = Provider.of<KiteService>(context, listen: false);
+      final nextPage = _currentPage + 1;
+      final result = await kiteService.smartSearchInstruments(
+        _lastQuery,
+        category: _activeTab,
+        limit: 10,
+        page: nextPage,
+      );
+
+      if (!mounted) return;
+
+      final groups = result['groups'] as List<dynamic>? ?? [];
+      final hasMore = result['hasMore'] as bool? ?? false;
+
+      final newItems = <dynamic>[];
+      for (final g in groups) {
+        final gItems = (g as Map)['items'] as List<dynamic>? ?? [];
+        newItems.addAll(gItems);
       }
+
+      setState(() {
+        _currentPage = nextPage;
+        _hasMore = hasMore;
+        _allItems.addAll(newItems);
+        _groupedResults = _buildGroupsFromItems(_allItems);
+        _isLoadingMore = false;
+      });
+    } catch (e) {
+      log('   ❌ Load more error: $e');
+      setState(() => _isLoadingMore = false);
     }
   }
 
@@ -402,7 +427,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
             controller: _scrollController,
             padding: const EdgeInsets.only(bottom: 80),
             itemCount: _groupedResults.length +
-                (_displayCount < _allItems.length ? 1 : 0),
+                (_isLoadingMore ? 1 : 0),
             itemBuilder: (context, groupIndex) {
               // Load more indicator at the end
               if (groupIndex == _groupedResults.length) {
@@ -486,8 +511,8 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                         size: kIconSizeSmall, color: Color(0xFF94A3B8)),
                     const SizedBox(width: 6),
                     Text(
-                      _displayCount < _allItems.length
-                          ? '$_displayCount of $_totalResults results'
+                      _hasMore
+                          ? '${_allItems.length} of $_totalResults results'
                           : '$_totalResults results',
                       style: const TextStyle(
                         fontSize: kFontSizeSubtitle,

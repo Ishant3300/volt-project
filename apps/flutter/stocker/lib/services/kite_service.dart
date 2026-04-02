@@ -137,13 +137,14 @@ class KiteService {
   Future<Map<String, dynamic>> smartSearchInstruments(
     String query, {
     String category = 'ALL',
-    int limit = 50,
+    int limit = 10,
+    int page = 1,
   }) async {
     try {
       final token = await _getToken();
 
       final endpoint =
-          '/kite/instruments/smart-search?q=$query&category=$category&limit=$limit';
+          '/kite/instruments/smart-search?q=$query&category=$category&limit=$limit&page=$page';
       final response = await api.get(endpoint, token: token);
       final decoded = jsonDecode(response.body);
 
@@ -151,10 +152,10 @@ class KiteService {
         return Map<String, dynamic>.from(decoded['data']);
       }
 
-      return {'groups': [], 'total': 0, 'query': query};
+      return {'groups': [], 'total': 0, 'query': query, 'page': page, 'hasMore': false};
     } catch (e) {
       log('   ❌ Error smart searching instruments: $e');
-      return {'groups': [], 'total': 0, 'query': query};
+      return {'groups': [], 'total': 0, 'query': query, 'page': page, 'hasMore': false};
     }
   }
 

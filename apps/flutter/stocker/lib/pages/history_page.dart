@@ -872,7 +872,63 @@ class _PortfolioPageState extends State<PortfolioPage>
       }
       return base;
     }
-    return trade.tradingSymbol.toUpperCase();
+
+    // Fallback: parse raw tradingsymbol into friendly format
+    return _friendlySymbolName(trade.tradingSymbol);
+  }
+
+  /// Parse tradingsymbol like "GOLD26APRFUT" or "NIFTY2530622500CE"
+  /// into a user-friendly name like "GOLD | 26 APR FUT" or "NIFTY | 22500 CE"
+  String _friendlySymbolName(String symbol) {
+    if (symbol.isEmpty) return symbol;
+
+    const months = [
+      'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+      'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'
+    ];
+
+    for (final month in months) {
+      final monthIdx = symbol.toUpperCase().indexOf(month);
+      if (monthIdx > 0) {
+        final basePart = symbol.substring(0, monthIdx);
+        final afterMonth = symbol.substring(monthIdx + month.length);
+
+        String name = '';
+        String dateDigits = '';
+        for (int i = 0; i < basePart.length; i++) {
+          if (basePart[i].contains(RegExp(r'[0-9]'))) {
+            dateDigits = basePart.substring(i);
+            break;
+          }
+          name += basePart[i];
+        }
+
+        if (afterMonth == 'FUT') {
+          return '$name | $dateDigits $month FUT';
+        }
+
+        String suffix = '';
+        String strike = afterMonth;
+        if (afterMonth.endsWith('CE')) {
+          suffix = 'CE';
+          strike = afterMonth.substring(0, afterMonth.length - 2);
+        } else if (afterMonth.endsWith('PE')) {
+          suffix = 'PE';
+          strike = afterMonth.substring(0, afterMonth.length - 2);
+        }
+
+        if (suffix.isNotEmpty && strike.isNotEmpty) {
+          return '$name | $strike $suffix $month';
+        }
+        if (suffix.isNotEmpty) {
+          return '$name | $suffix $month';
+        }
+
+        return '$name | $dateDigits $month $afterMonth'.trim();
+      }
+    }
+
+    return symbol.toUpperCase();
   }
 
   Widget _buildCompletedTradeCard(Trade trade, {_PerTradePnl? tradePnl}) {
@@ -943,6 +999,26 @@ class _PortfolioPageState extends State<PortfolioPage>
                               ),
                             ),
                           ),
+                          if (trade.placedBy == 'ADMIN') ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF3F45C7).withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Text(
+                                'ADMIN',
+                                style: TextStyle(
+                                  color: Color(0xFF3F45C7),
+                                  fontSize: kFontSizeTradeBadge,
+                                  fontFamily: 'Inter',
+                                  fontWeight: kFontWeightSemiBold,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

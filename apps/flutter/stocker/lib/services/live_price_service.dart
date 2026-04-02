@@ -13,6 +13,9 @@ class LivePriceService {
   Function(bool)? onConnectionChanged;
   Function(Map<String, dynamic>)? onTradeExecuted;
   Function(Map<String, dynamic>)? onTradePlaced;
+  Function(Map<String, dynamic>)? onMetricsUpdate;
+  Function(Map<String, dynamic>)? onMasterMetricsUpdate;
+  Function(List<dynamic>)? onAdminMetricsUpdate;
 
   bool get isConnected => _isConnected;
 
@@ -97,6 +100,18 @@ class LivePriceService {
           onTradePlaced?.call(data);
           break;
 
+        case 'metrics_update':
+          onMetricsUpdate?.call(data['data'] as Map<String, dynamic>);
+          break;
+
+        case 'master_metrics_update':
+          onMasterMetricsUpdate?.call(data['data'] as Map<String, dynamic>);
+          break;
+
+        case 'admin_metrics_update':
+          onAdminMetricsUpdate?.call(data['data'] as List<dynamic>);
+          break;
+
         default:
           log('❓ Unknown message type: $type');
       }
@@ -107,16 +122,17 @@ class LivePriceService {
 
   /// Authenticate this WebSocket connection with the user's ID
   /// so the backend can send targeted trade_executed events
-  void authenticate(String userId) {
+  void authenticate(String userId, {String? role}) {
     if (!_isConnected || _channel == null) {
       log('⚠️  Cannot authenticate, not connected');
       return;
     }
 
-    log('🔐 Authenticating WebSocket as user: $userId');
+    log('🔐 Authenticating WebSocket as user: $userId${role != null ? ' ($role)' : ''}');
     final message = jsonEncode({
       'type': 'auth',
       'userId': userId,
+      if (role != null) 'role': role,
     });
     _channel!.sink.add(message);
   }

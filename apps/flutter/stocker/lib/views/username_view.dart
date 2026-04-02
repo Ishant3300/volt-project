@@ -131,13 +131,89 @@ class _UsernameViewState extends State<UsernameView> {
       if (price == null) return;
       setState(() {
         _ltpMap[token] = price;
-        _recalcLiveMetrics();
       });
     };
+
+    // Server-pushed metrics from metricsEngine — update position tab in real-time
+    _livePriceService.onMetricsUpdate = (data) {
+      if (!mounted) return;
+      final userId = data['user_id']?.toString() ?? '';
+      // Only apply if this is the user we're viewing
+      if (_currentUser != null && userId == _currentUser!.id) {
+        setState(() {
+          _liveUserMetrics = Map<String, dynamic>.from(data);
+          final List positions = data['positions'] ?? [];
+          _livePositions = positions.cast<Map<String, dynamic>>();
+        });
+      }
+    };
+
+    // Server-pushed master metrics — update aggregated position tab for master view
+    _livePriceService.onMasterMetricsUpdate = (data) {
+      if (!mounted || _currentMaster == null) return;
+      final List users = data['users'] ?? [];
+      for (final u in users) {
+        final uid = u['user_id']?.toString() ?? '';
+        if (uid.isNotEmpty) {
+          _perUserMetricsCache[uid] = Map<String, dynamic>.from(u);
+        }
+      }
+      _reaggregateMasterMetrics();
+    };
+
     _livePriceService.onConnectionChanged = (connected) {
       if (connected) _authenticateAndSubscribe();
     };
     _livePriceService.connect();
+  }
+
+  /// When viewing a master's position tab, accumulate per-user metric pushes
+  /// to keep the aggregated view live.
+  final Map<String, Map<String, dynamic>> _perUserMetricsCache = {};
+
+  void _reaggregateMasterMetrics() {
+
+    // Re-aggregate from all cached user metrics
+    double totalRealised = 0, totalFloating = 0, totalMargin = 0, totalCredit = 0;
+    final Map<String, Map<String, dynamic>> instrMap = {};
+
+    for (final userMetrics in _perUserMetricsCache.values) {
+      totalRealised += (userMetrics['realised_pnl'] as num?)?.toDouble() ?? 0;
+      totalFloating += (userMetrics['position_pnl'] as num?)?.toDouble() ?? 0;
+      totalMargin += (userMetrics['margin_used'] as num?)?.toDouble() ?? 0;
+      totalCredit += (userMetrics['credit'] as num?)?.toDouble() ?? 0;
+
+      final List positions = userMetrics['positions'] ?? [];
+      for (final pos in positions) {
+        final iToken = pos['instrument_token']?.toString() ?? '';
+        if (iToken.isEmpty) continue;
+        if (!instrMap.containsKey(iToken)) {
+          instrMap[iToken] = Map<String, dynamic>.from(pos);
+          instrMap[iToken]!['net_qty'] = 0;
+          instrMap[iToken]!['floating_pnl'] = 0.0;
+        }
+        instrMap[iToken]!['net_qty'] = (instrMap[iToken]!['net_qty'] as int) + ((pos['net_qty'] as num?)?.toInt() ?? 0);
+        instrMap[iToken]!['floating_pnl'] = (instrMap[iToken]!['floating_pnl'] as double) + ((pos['floating_pnl'] as num?)?.toDouble() ?? 0);
+      }
+    }
+
+    final livePositions = instrMap.values.where((p) => (p['net_qty'] as int) != 0).toList();
+    final m2m = totalRealised + totalFloating;
+    final equity = totalCredit + m2m - totalMargin;
+
+    setState(() {
+      _livePositions = livePositions;
+      _liveUserMetrics = {
+        'credit': _round2(totalCredit),
+        'realised_pnl': _round2(totalRealised),
+        'position_pnl': _round2(totalFloating),
+        'm2m_pnl': _round2(m2m),
+        'margin_used': _round2(totalMargin),
+        'equity': _round2(equity),
+        'free_margin': _round2(equity),
+        'positions': livePositions,
+      };
+    });
   }
 
   Future<void> _authenticateAndSubscribe() async {
@@ -146,7 +222,8 @@ class _UsernameViewState extends State<UsernameView> {
       if (token != null) {
         final payload = Jwt.parseJwt(token);
         final userId = payload['id'] as String?;
-        if (userId != null) _livePriceService.authenticate(userId);
+        final role = payload['role'] as String?;
+        if (userId != null) _livePriceService.authenticate(userId, role: role);
       }
     } catch (e) {
       log('⚠️ Failed to authenticate WebSocket: $e');
@@ -161,47 +238,74 @@ class _UsernameViewState extends State<UsernameView> {
     try {
       final token = await _storage.getToken();
       final apiService = ApiService(backendUrl);
-      // Admin needs to pass master_id or user_id so backend knows what to fetch
-      final role = await _storage.getRole();
-      String url = '/master/positions/user-metrics';
-      if (role == 'ADMIN') {
-        if (_currentMaster != null) {
-          url += '?master_id=${_currentMaster!.id}';
-        } else if (_currentUser != null) {
-          url += '?user_id=${_currentUser!.id}';
-        }
+
+      // Use metricsEngine cached metrics (same data as WebSocket push)
+      String url = '/master/positions/live-metrics';
+      if (_currentUser != null) {
+        url += '?user_id=${_currentUser!.id}';
+      } else if (_currentMaster != null) {
+        url += '?master_id=${_currentMaster!.id}';
       }
+
       final response = await apiService.get(url, token: token);
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body);
         final List data = body['data'] ?? [];
         final Set<String> tokens = {};
 
-        if (_currentUser != null) {
-          // User view: find this specific user's data
-          final targetId = _currentUser?.id ?? '';
-          for (final user in data) {
-            final uid = user['user_id']?.toString() ?? '';
-            if (uid == targetId) {
-              _liveUserMetrics = Map<String, dynamic>.from(user);
-              final List positions = user['positions'] ?? [];
-              _livePositions = positions.cast<Map<String, dynamic>>();
-              for (final pos in positions) {
-                final t = pos['instrument_token']?.toString();
-                if (t != null) tokens.add(t);
-              }
-              break;
-            }
-          }
-        } else {
-          // Master view: aggregate all users' positions into master-level metrics
-          _liveUserMetrics = _aggregateMasterMetrics(data);
-          _livePositions = (_liveUserMetrics!['positions'] as List)
-              .cast<Map<String, dynamic>>();
-          for (final pos in _livePositions) {
+        if (_currentUser != null && data.isNotEmpty) {
+          // Single user metrics
+          _liveUserMetrics = Map<String, dynamic>.from(data[0]);
+          final List positions = _liveUserMetrics!['positions'] ?? [];
+          _livePositions = positions.cast<Map<String, dynamic>>();
+          for (final pos in positions) {
             final t = pos['instrument_token']?.toString();
             if (t != null) tokens.add(t);
           }
+        } else if (_currentMaster != null && data.isNotEmpty) {
+          // Master view: aggregate all users' metrics and seed per-user cache
+          double totalRealised = 0, totalFloating = 0, totalMargin = 0, totalCredit = 0;
+          final Map<String, Map<String, dynamic>> instrMap = {};
+
+          for (final userMetrics in data) {
+            // Seed per-user cache for live WebSocket updates
+            final uid = userMetrics['user_id']?.toString() ?? '';
+            if (uid.isNotEmpty) {
+              _perUserMetricsCache[uid] = Map<String, dynamic>.from(userMetrics);
+            }
+            totalRealised += (userMetrics['realised_pnl'] as num?)?.toDouble() ?? 0;
+            totalFloating += (userMetrics['position_pnl'] as num?)?.toDouble() ?? 0;
+            totalMargin += (userMetrics['margin_used'] as num?)?.toDouble() ?? 0;
+            totalCredit += (userMetrics['credit'] as num?)?.toDouble() ?? 0;
+
+            final List positions = userMetrics['positions'] ?? [];
+            for (final pos in positions) {
+              final iToken = pos['instrument_token']?.toString() ?? '';
+              if (iToken.isEmpty) continue;
+              if (!instrMap.containsKey(iToken)) {
+                instrMap[iToken] = Map<String, dynamic>.from(pos);
+                instrMap[iToken]!['net_qty'] = 0;
+                instrMap[iToken]!['floating_pnl'] = 0.0;
+              }
+              instrMap[iToken]!['net_qty'] = (instrMap[iToken]!['net_qty'] as int) + ((pos['net_qty'] as num?)?.toInt() ?? 0);
+              instrMap[iToken]!['floating_pnl'] = (instrMap[iToken]!['floating_pnl'] as double) + ((pos['floating_pnl'] as num?)?.toDouble() ?? 0);
+              tokens.add(iToken);
+            }
+          }
+
+          _livePositions = instrMap.values.where((p) => (p['net_qty'] as int) != 0).toList();
+          final m2m = totalRealised + totalFloating;
+          final equity = totalCredit + m2m - totalMargin;
+          _liveUserMetrics = {
+            'credit': _round2(totalCredit),
+            'realised_pnl': _round2(totalRealised),
+            'position_pnl': _round2(totalFloating),
+            'm2m_pnl': _round2(m2m),
+            'margin_used': _round2(totalMargin),
+            'equity': _round2(equity),
+            'free_margin': _round2(equity),
+            'positions': _livePositions,
+          };
         }
 
         _allTokens = tokens;
@@ -215,175 +319,6 @@ class _UsernameViewState extends State<UsernameView> {
     } finally {
       if (mounted) setState(() => _isLoadingLivePositions = false);
     }
-  }
-
-  /// Aggregate all users' positions into a single master-level summary.
-  Map<String, dynamic> _aggregateMasterMetrics(List data) {
-    final Map<String, Map<String, dynamic>> instrMap = {};
-    double totalRealised = 0;
-    double totalBalance = 0;
-    double totalMarginUsed = 0;
-
-    for (final user in data) {
-      totalRealised += (user['realised_pnl'] as num?)?.toDouble() ?? 0;
-      totalBalance += (user['balance'] as num?)?.toDouble() ?? 0;
-      totalMarginUsed += (user['margin_used'] as num?)?.toDouble() ?? 0;
-
-      final List positions = user['positions'] ?? [];
-      for (final pos in positions) {
-        final iToken = pos['instrument_token']?.toString() ?? '';
-        if (iToken.isEmpty) continue;
-        if (!instrMap.containsKey(iToken)) {
-          instrMap[iToken] = {
-            'instrument_token': iToken,
-            'tradingsymbol': pos['tradingsymbol'],
-            'exchange': pos['exchange'],
-            'segment': pos['segment'] ?? '',
-            'lot_size': (pos['lot_size'] as num?)?.toInt() ?? 1,
-            'total_buy_qty': 0,
-            'total_sell_qty': 0,
-            'total_buy_value': 0.0,
-            'total_sell_value': 0.0,
-          };
-        }
-        final agg = instrMap[iToken]!;
-        agg['total_buy_qty'] += (pos['total_buy_qty'] as num?)?.toInt() ?? 0;
-        agg['total_sell_qty'] += (pos['total_sell_qty'] as num?)?.toInt() ?? 0;
-        agg['total_buy_value'] +=
-            (pos['total_buy_value'] as num?)?.toDouble() ?? 0;
-        agg['total_sell_value'] +=
-            (pos['total_sell_value'] as num?)?.toDouble() ?? 0;
-      }
-    }
-
-    // Compute net_qty and avg prices for each aggregated instrument
-    final List<Map<String, dynamic>> positions = [];
-    double totalFloating = 0;
-
-    for (final agg in instrMap.values) {
-      final int buyQty = agg['total_buy_qty'] as int;
-      final int sellQty = agg['total_sell_qty'] as int;
-      final double buyVal = agg['total_buy_value'] as double;
-      final double sellVal = agg['total_sell_value'] as double;
-      final int netQty = buyQty - sellQty;
-      final double avgBuy = buyQty > 0 ? buyVal / buyQty : 0;
-      final double avgSell = sellQty > 0 ? sellVal / sellQty : 0;
-
-      agg['net_qty'] = netQty;
-      agg['avg_buy_price'] = avgBuy;
-      agg['avg_sell_price'] = avgSell;
-
-      if (netQty != 0) {
-        final double ltp =
-            _ltpMap[agg['instrument_token']] ?? (netQty > 0 ? avgBuy : avgSell);
-        double floating = 0;
-        if (netQty > 0)
-          floating = (ltp - avgBuy) * netQty;
-        else
-          floating = (avgSell - ltp) * netQty.abs();
-        totalFloating += floating;
-        positions.add(Map<String, dynamic>.from(agg));
-      }
-    }
-
-    final double m2m = totalRealised + totalFloating;
-    final double equity = totalBalance + m2m;
-
-    return {
-      'balance': totalBalance,
-      'realised_pnl': _round2(totalRealised),
-      'position_pnl': _round2(totalFloating),
-      'm2m_pnl': _round2(m2m),
-      'margin_used': _round2(totalMarginUsed),
-      'equity': _round2(equity),
-      'free_margin': _round2(equity - totalMarginUsed),
-      'positions': positions,
-    };
-  }
-
-  void _recalcLiveMetrics() {
-    if (_liveUserMetrics == null) return;
-
-    if (_currentMaster != null) {
-      // Master view: re-aggregate from _livePositions using fresh LTP
-      double totalFloating = 0;
-
-      for (final pos in _livePositions) {
-        final String iToken = pos['instrument_token']?.toString() ?? '';
-        final int netQty = (pos['net_qty'] as num?)?.toInt() ?? 0;
-        final double avgBuy = (pos['avg_buy_price'] as num?)?.toDouble() ?? 0;
-        final double avgSell = (pos['avg_sell_price'] as num?)?.toDouble() ?? 0;
-        final double ltp = _ltpMap[iToken] ?? (netQty > 0 ? avgBuy : avgSell);
-
-        double floating = 0;
-        if (netQty > 0)
-          floating = (ltp - avgBuy) * netQty;
-        else if (netQty < 0) floating = (avgSell - ltp) * netQty.abs();
-        totalFloating += floating;
-      }
-
-      final double totalRealised =
-          (_liveUserMetrics!['realised_pnl'] as num?)?.toDouble() ?? 0;
-      final double totalBalance =
-          (_liveUserMetrics!['balance'] as num?)?.toDouble() ?? 0;
-      final double marginUsed =
-          (_liveUserMetrics!['margin_used'] as num?)?.toDouble() ?? 0;
-      final double m2m = totalRealised + totalFloating;
-      final double equity = totalBalance + m2m;
-
-      _liveUserMetrics!['position_pnl'] = _round2(totalFloating);
-      _liveUserMetrics!['m2m_pnl'] = _round2(m2m);
-      _liveUserMetrics!['equity'] = _round2(equity);
-      _liveUserMetrics!['free_margin'] = _round2(equity - marginUsed);
-      return;
-    }
-
-    // User view: trust realised_pnl from backend, only update floating.
-    final user = _liveUserMetrics!;
-    final List positions = user['positions'] ?? [];
-    if (positions.isEmpty) {
-      // If no positions, just ensure M2M = realised
-      final double realised = (user['realised_pnl'] as num?)?.toDouble() ?? 0;
-      final double balance = (user['balance'] as num?)?.toDouble() ?? 0;
-      final double marginUsed = (user['margin_used'] as num?)?.toDouble() ?? 0;
-      user['position_pnl'] = 0.0;
-      user['m2m_pnl'] = _round2(realised);
-      user['equity'] = _round2(balance + realised);
-      user['free_margin'] = _round2((balance + realised) - marginUsed);
-      return;
-    }
-
-    final double balance = (user['balance'] as num?)?.toDouble() ?? 0;
-    final double realised = (user['realised_pnl'] as num?)?.toDouble() ?? 0;
-    double totalFloating = 0;
-
-    for (final pos in positions) {
-      final String iToken = pos['instrument_token']?.toString() ?? '';
-      final int buyQty = (pos['total_buy_qty'] as num?)?.toInt() ?? 0;
-      final int sellQty = (pos['total_sell_qty'] as num?)?.toInt() ?? 0;
-      final double buyVal = (pos['total_buy_value'] as num?)?.toDouble() ?? 0;
-      final double sellVal = (pos['total_sell_value'] as num?)?.toDouble() ?? 0;
-      final int netQty = buyQty - sellQty;
-
-      final double avgBuy = buyQty > 0 ? buyVal / buyQty : 0;
-      final double avgSell = sellQty > 0 ? sellVal / sellQty : 0;
-      final double ltp = _ltpMap[iToken] ??
-          (pos['avg_buy_price'] as num?)?.toDouble() ??
-          (netQty > 0 ? avgBuy : avgSell);
-
-      if (netQty > 0)
-        totalFloating += (ltp - avgBuy) * netQty;
-      else if (netQty < 0) totalFloating += (avgSell - ltp) * netQty.abs();
-    }
-
-    final double m2m = realised + totalFloating;
-    final double marginUsed = (user['margin_used'] as num?)?.toDouble() ?? 0;
-    final double equity = balance + m2m;
-
-    user['position_pnl'] = _round2(totalFloating);
-    user['m2m_pnl'] = _round2(m2m);
-    user['equity'] = _round2(equity);
-    user['free_margin'] = _round2(equity - marginUsed);
   }
 
   double _round2(double v) => (v * 100).roundToDouble() / 100;
@@ -1409,21 +1344,24 @@ class _UsernameViewState extends State<UsernameView> {
     final Color sideColor =
         isBuy ? const Color(0xFF10B981) : const Color(0xFFEF4444);
 
-    final int buyQty = (pos['total_buy_qty'] as num?)?.toInt() ?? 0;
-    final int sellQty = (pos['total_sell_qty'] as num?)?.toInt() ?? 0;
-    final double buyVal = (pos['total_buy_value'] as num?)?.toDouble() ?? 0;
-    final double sellVal = (pos['total_sell_value'] as num?)?.toDouble() ?? 0;
-    final double avgBuy = buyQty > 0 ? buyVal / buyQty : 0;
-    final double avgSell = sellQty > 0 ? sellVal / sellQty : 0;
-    final double avgPrice = isBuy ? avgBuy : avgSell;
-    final double ltp = _ltpMap[iToken] ??
-        (pos['avg_buy_price'] as num?)?.toDouble() ??
-        avgPrice;
+    final double avgBuyPrice = (pos['avg_buy_price'] as num?)?.toDouble() ?? 0;
+    final double avgSellPrice = (pos['avg_sell_price'] as num?)?.toDouble() ?? 0;
+    final double avgPrice = isBuy ? avgBuyPrice : avgSellPrice;
+    final double ltp = _ltpMap[iToken] ?? (pos['ltp'] as num?)?.toDouble() ?? avgPrice;
 
-    double floating = 0;
-    if (netQty > 0)
-      floating = (ltp - avgBuy) * netQty;
-    else if (netQty < 0) floating = (avgSell - ltp) * netQty.abs();
+    // CMP: bid for BUY (exit = sell at bid), ask for SELL (exit = buy at ask)
+    // Fall back to LTP ± 0.05% spread if bid/ask not available
+    final fallbackSpread = ltp * 0.0005;
+    final double cmp = isBuy
+        ? (_ltpMap['${iToken}_bid'] ?? (ltp > 0 ? ltp - fallbackSpread : ltp))
+        : (_ltpMap['${iToken}_ask'] ?? (ltp > 0 ? ltp + fallbackSpread : ltp));
+
+    // Use server-pushed floating P&L if available, else compute from LTP
+    double floating = (pos['floating_pnl'] as num?)?.toDouble() ?? 0;
+    if (floating == 0 && netQty != 0) {
+      if (netQty > 0) floating = (ltp - avgBuyPrice) * netQty;
+      else floating = (avgSellPrice - ltp) * netQty.abs();
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1473,9 +1411,27 @@ class _UsernameViewState extends State<UsernameView> {
                                   color: Color(0xFFCBD5E1),
                                   shape: BoxShape.circle)),
                           const SizedBox(width: 6),
-                          Text('Avg: ${avgPrice.toStringAsFixed(2)}',
+                          Text('${isBuy ? "BUY" : "SELL"}: ${_positionVolumeLabel(pos)}',
+                              style: TextStyle(
+                                  color: sideColor,
+                                  fontSize: kFontSizePositionDetail,
+                                  fontFamily: 'Inter',
+                                  fontWeight: kFontWeightSemiBold)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text('ATP: ${avgPrice.toStringAsFixed(2)}',
                               style: const TextStyle(
-                                  color: Color(0xFF94A3B8),
+                                  color: Color(0xFF64748B),
+                                  fontSize: kFontSizePositionDetail,
+                                  fontFamily: 'Inter',
+                                  fontWeight: kFontWeightMedium)),
+                          const SizedBox(width: 12),
+                          Text('CMP: ${cmp.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                  color: Color(0xFF64748B),
                                   fontSize: kFontSizePositionDetail,
                                   fontFamily: 'Inter',
                                   fontWeight: kFontWeightMedium)),
@@ -1484,71 +1440,6 @@ class _UsernameViewState extends State<UsernameView> {
                     ],
                   ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                          color: sideColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8)),
-                      child: Text(
-                        '${isBuy ? "BUY" : "SELL"} ${_positionVolumeLabel(pos)}',
-                        style: TextStyle(
-                            color: sideColor,
-                            fontSize: kFontSizePositionDetail,
-                            fontFamily: 'Inter',
-                            fontWeight: kFontWeightBold,
-                            letterSpacing: 0.5),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                          color:
-                              const Color(0xFF3F45C7).withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(8)),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text('LTP ',
-                              style: TextStyle(
-                                  color: Color(0xFF94A3B8),
-                                  fontSize: 9,
-                                  fontFamily: 'Inter',
-                                  fontWeight: kFontWeightSemiBold,
-                                  letterSpacing: 0.5)),
-                          Text(
-                            ltp.toStringAsFixed(2),
-                            style: const TextStyle(
-                                color: Color(0xFF3F45C7),
-                                fontSize: 12,
-                                fontFamily: 'Inter',
-                                fontWeight: kFontWeightBold),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            const Divider(height: 1, color: Color(0xFFF1F5F9)),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('FLOATING P&L',
-                    style: TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: kFontSizeTradeMetadata,
-                        fontFamily: 'Inter',
-                        fontWeight: kFontWeightSemiBold,
-                        letterSpacing: 0.3)),
                 Text(
                   '${floating >= 0 ? '+' : ''}${floating.toStringAsFixed(2)}',
                   style: TextStyle(

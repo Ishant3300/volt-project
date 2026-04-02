@@ -6,6 +6,7 @@ import '../models/master.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
 import '../services/admin_service.dart';
+import '../services/sercure_storage_service.dart';
 import '../providers/user_profile_provider.dart';
 import '../utils/contants.dart';
 import 'create_user_view.dart';
@@ -26,6 +27,10 @@ class _UserManagementViewState extends State<UserManagementView> {
   String? _error;
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+
+  // Computed equity from backend (matches orders_page formula)
+  Map<String, double> _userEquityMap = {};
+  Map<String, double> _masterEquityMap = {};
 
   @override
   void initState() {
@@ -116,12 +121,37 @@ class _UserManagementViewState extends State<UserManagementView> {
           });
         }
       }
+
+      // Fetch computed equity (matches orders_page formula)
+      _fetchBulkEquity(apiService);
     } catch (e) {
       log('❌ Error fetching data: $e');
       setState(() {
         _error = 'Error: $e';
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _fetchBulkEquity(ApiService apiService) async {
+    try {
+      final token = await SecureStorageService().getToken();
+      final res = await apiService.get('/master/positions/bulk-equity', token: token);
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['success'] == true) {
+          final usersMap = body['data']['users'] as Map<String, dynamic>? ?? {};
+          final mastersMap = body['data']['masters'] as Map<String, dynamic>? ?? {};
+          if (mounted) {
+            setState(() {
+              _userEquityMap = usersMap.map((k, v) => MapEntry(k, (v as num).toDouble()));
+              _masterEquityMap = mastersMap.map((k, v) => MapEntry(k, (v as num).toDouble()));
+            });
+          }
+        }
+      }
+    } catch (e) {
+      log('⚠️ Failed to fetch bulk equity: $e');
     }
   }
 
@@ -620,7 +650,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                   Row(
                     children: [
                       Text(
-                        'BAL: ${master.equity.toStringAsFixed(2)}',
+                        'Equity: ${(_masterEquityMap[master.id] ?? master.equity).toStringAsFixed(2)}',
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: kFontSizeNavLabel,
@@ -752,7 +782,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                   Row(
                     children: [
                       Text(
-                        'BAL: ${user.equity.toStringAsFixed(2)}',
+                        'Equity: ${(_userEquityMap[user.id] ?? user.equity).toStringAsFixed(2)}',
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: kFontSizeNavLabel,

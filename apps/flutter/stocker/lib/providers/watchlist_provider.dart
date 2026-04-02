@@ -83,14 +83,22 @@ class WatchlistProvider with ChangeNotifier {
         tradeMetricsProvider!.fetchBaseData();
       }
 
-      // Show snackbar notification to the user
-      _showTradeNotification(data);
+      // Only show snackbar for async limit order executions (status field present)
+      // Market orders already show their own snackbar from the trade card page
+      if (data['status'] == 'completed') {
+        _showTradeNotification(data);
+      }
     };
 
     _livePriceService.onTradePlaced = (data) {
       log('📝 Trade placed via WebSocket: ${data['tradingsymbol']} ${data['transaction_type']} ${data['quantity']}');
       // Re-fetch trades so orders tab updates instantly
       tradeMetricsProvider?.fetchBaseData();
+    };
+
+    // Server-pushed metrics (single source of truth from metricsEngine)
+    _livePriceService.onMetricsUpdate = (data) {
+      tradeMetricsProvider?.applyServerMetrics(data);
     };
 
     _livePriceService.onConnectionChanged = (connected) {
@@ -130,9 +138,10 @@ class WatchlistProvider with ChangeNotifier {
       if (token != null) {
         final payload = Jwt.parseJwt(token);
         final userId = payload['id'] as String?;
+        final role = payload['role'] as String?;
         if (userId != null) {
-          log('🔐 Authenticating WebSocket as userId: "$userId"');
-          _livePriceService.authenticate(userId);
+          log('🔐 Authenticating WebSocket as userId: "$userId" role: "$role"');
+          _livePriceService.authenticate(userId, role: role);
         } else {
           log('⚠️  JWT payload has no "id" field – auth skipped. Payload keys: ${payload.keys.join(', ')}');
         }
@@ -149,7 +158,7 @@ class WatchlistProvider with ChangeNotifier {
     final symbol = data['tradingsymbol'] ?? '';
     final side = data['transaction_type'] ?? '';
     final qty = data['quantity'] ?? '';
-    final price = data['executed_price'] ?? '';
+    final price = data['executed_price'] ?? data['price'] ?? '';
     final pnl = data['pnl'];
 
     String message = '✅ $symbol $side $qty @ $price';

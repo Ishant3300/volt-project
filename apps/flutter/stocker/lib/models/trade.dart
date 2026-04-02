@@ -21,6 +21,7 @@ class Trade {
   final double brokerage; // brokerage deducted for this trade
   final double netAmount; // pnl - brokerage
   final String rawName; // raw instrument name from KiteInstrument (for margin lookup)
+  final String placedBy; // USER, ADMIN, or MASTER
 
   Trade({
     required this.id,
@@ -45,6 +46,7 @@ class Trade {
     this.brokerage = 0,
     this.netAmount = 0,
     this.rawName = '',
+    this.placedBy = 'USER',
   });
 
   /// True when this trade should be displayed in lots instead of raw quantity.
@@ -95,6 +97,7 @@ class Trade {
       brokerage: (json['brokerage'] as num?)?.toDouble() ?? 0.0,
       netAmount: (json['net_amount'] as num?)?.toDouble() ?? 0.0,
       rawName: json['raw_name']?.toString() ?? '',
+      placedBy: json['placed_by']?.toString() ?? 'USER',
     );
   }
 

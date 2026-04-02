@@ -135,8 +135,40 @@ class _OrdersPageState extends State<OrdersPage> {
 
       setState(() {
         _ltpMap[token] = price;
-        _recalcMasterMetrics();
-        _recalcAdminMasterPnl();
+      });
+    };
+
+    // Server-pushed master metrics (from metricsEngine)
+    _livePriceService.onMasterMetricsUpdate = (data) {
+      if (!mounted) return;
+      setState(() {
+        _masterPositionPnl = (data['total_pnl'] as num?)?.toDouble() ?? _masterPositionPnl;
+        final List users = data['users'] ?? [];
+        for (final u in users) {
+          final uid = u['user_id']?.toString() ?? '';
+          if (uid.isEmpty) continue;
+          for (final um in _userMetrics) {
+            if (um['user_id']?.toString() == uid) {
+              um['equity'] = u['equity'];
+              um['m2m_pnl'] = u['m2m_pnl'];
+              um['position_pnl'] = u['position_pnl'];
+              um['realised_pnl'] = u['realised_pnl'];
+              break;
+            }
+          }
+        }
+      });
+    };
+
+    // Server-pushed admin metrics (from metricsEngine)
+    _livePriceService.onAdminMetricsUpdate = (data) {
+      if (!mounted) return;
+      setState(() {
+        for (final item in data) {
+          final mid = item['master_id']?.toString() ?? '';
+          final pnl = (item['total_pnl'] as num?)?.toDouble() ?? 0;
+          if (mid.isNotEmpty) _adminMasterPnl[mid] = pnl;
+        }
       });
     };
 
@@ -156,8 +188,9 @@ class _OrdersPageState extends State<OrdersPage> {
       if (token != null) {
         final payload = Jwt.parseJwt(token);
         final userId = payload['id'] as String?;
+        final role = payload['role'] as String?;
         if (userId != null) {
-          _livePriceService.authenticate(userId);
+          _livePriceService.authenticate(userId, role: role);
         }
       }
     } catch (e) {
@@ -934,26 +967,21 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   /// Parse tradingsymbol like "GOLD26APRFUT" or "NIFTY2530622500CE"
-  /// into a user-friendly name like "GOLD 26 APR FUT" or "NIFTY 22500 CE 06 MAR"
+  /// into a user-friendly name like "GOLD | 26 APR FUT" or "NIFTY | 22500 CE"
   String _friendlySymbolName(String symbol) {
     if (symbol.isEmpty) return symbol;
 
-    // Common month codes
     const months = [
       'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
       'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'
     ];
 
-    // Try to find a month code in the symbol
     for (final month in months) {
       final monthIdx = symbol.toUpperCase().indexOf(month);
       if (monthIdx > 0) {
         final basePart = symbol.substring(0, monthIdx);
         final afterMonth = symbol.substring(monthIdx + month.length);
 
-        // Extract name (letters) and date digits from basePart
-        // e.g. "GOLD26" → name="GOLD", date="26"
-        // e.g. "NIFTY25306" → name="NIFTY", date="25306" (YY+DD)
         String name = '';
         String dateDigits = '';
         for (int i = 0; i < basePart.length; i++) {
@@ -964,12 +992,10 @@ class _OrdersPageState extends State<OrdersPage> {
           name += basePart[i];
         }
 
-        // afterMonth could be "FUT", "22500CE", strike+type, etc.
         if (afterMonth == 'FUT') {
-          return '$name $dateDigits $month FUT';
+          return '$name | $dateDigits $month FUT';
         }
 
-        // Check for CE/PE at the end (options)
         String suffix = '';
         String strike = afterMonth;
         if (afterMonth.endsWith('CE')) {
@@ -981,17 +1007,17 @@ class _OrdersPageState extends State<OrdersPage> {
         }
 
         if (suffix.isNotEmpty && strike.isNotEmpty) {
-          return '$name $strike $suffix $month';
+          return '$name | $strike $suffix $month';
         }
         if (suffix.isNotEmpty) {
-          return '$name $suffix $month';
+          return '$name | $suffix $month';
         }
 
-        return '$name $dateDigits $month $afterMonth'.trim();
+        return '$name | $dateDigits $month $afterMonth'.trim();
       }
     }
 
-    return symbol;
+    return symbol.toUpperCase();
   }
 
   // ============================================

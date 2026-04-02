@@ -108,36 +108,6 @@ class _AccountDetailViewState extends State<AccountDetailView> {
               ),
             ),
 
-            // Security notice
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              padding: const EdgeInsets.all(10),
-              decoration: ShapeDecoration(
-                color: const Color(0xFFFEF2F2),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.shield, color: Color(0xFFEF4444), size: kIconSizeMedium),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'All profile running in this app is secure. The new security features are active.',
-                      style: TextStyle(
-                        color: Color(0xFFDC2626),
-                        fontSize: kFontSizeSubtitle,
-                        fontFamily: 'Inter',
-                        fontWeight: kFontWeightMedium,
-                        height: 1.2,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
             const SizedBox(height: 8),
 
             // Account details card
