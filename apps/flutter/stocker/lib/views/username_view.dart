@@ -375,14 +375,8 @@ class _UsernameViewState extends State<UsernameView> {
     try {
       final token = await _storage.getToken();
       final apiService = ApiService(backendUrl);
-      // Admin uses /admin/users?master_id=X, Master uses /master/users (auto-filtered)
-      final role = await _storage.getRole();
-      final String url;
-      if (role == 'ADMIN') {
-        url = '/admin/users?master_id=${_currentMaster!.id}&limit=100';
-      } else {
-        url = '/master/users?limit=100';
-      }
+      // Always pass the viewed master's ID to get their hierarchy's users
+      final url = '/admin/users?master_id=${_currentMaster!.id}&limit=100';
       final response = await apiService.get(url, token: token);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

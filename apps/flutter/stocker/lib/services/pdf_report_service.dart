@@ -44,7 +44,7 @@ class PdfReportService {
     // Per-instrument sections
     for (final instr in instruments) {
       final exchange = instr['exchange'] ?? '';
-      final symbol = instr['tradingsymbol'] ?? '';
+      final symbol = instr['display_name'] ?? instr['tradingsymbol'] ?? '';
       final buys = (instr['buys'] as List?) ?? [];
       final sells = (instr['sells'] as List?) ?? [];
       final pnl = (instr['pnl'] as num?)?.toDouble() ?? 0;
@@ -185,7 +185,7 @@ class PdfReportService {
       final net = (i['net_pnl'] as num?)?.toDouble() ?? 0;
       rows.add(pw.TableRow(children: [
         _cell(i['exchange'] ?? '', cs),
-        _cell(i['tradingsymbol'] ?? '', cs),
+        _cell(i['display_name'] ?? i['tradingsymbol'] ?? '', cs),
         _cell('${pnl < 0 ? '- ' : ''}${_fmt.format(pnl.abs())}', cs),
         _cell(_fmt.format(br), cs),
         _cell('${net < 0 ? '- ' : ''}${_fmt.format(net.abs())}', cs),
@@ -234,7 +234,7 @@ class PdfReportService {
       final isBuy = cf['type'] == 'Buy';
       rows.add(pw.TableRow(children: [
         _cell(cf['exchange'] ?? '', cs.copyWith(color: isBuy ? PdfColors.blue : PdfColors.red)),
-        _cell(cf['tradingsymbol'] ?? '', cs.copyWith(color: isBuy ? PdfColors.blue : PdfColors.red)),
+        _cell(cf['display_name'] ?? cf['tradingsymbol'] ?? '', cs.copyWith(color: isBuy ? PdfColors.blue : PdfColors.red)),
         _cell(cf['type'] ?? '', cs.copyWith(color: isBuy ? PdfColors.blue : PdfColors.red)),
         _cell(_fmt.format((cf['quantity'] as num).toDouble()), cs),
         _cell(_fmt.format((cf['price'] as num).toDouble()), cs),
@@ -286,7 +286,7 @@ class PdfReportService {
     // Per-instrument sections
     for (final instr in instruments) {
       final exchange = instr['exchange'] ?? '';
-      final symbol = instr['tradingsymbol'] ?? '';
+      final symbol = instr['display_name'] ?? instr['tradingsymbol'] ?? '';
       final allTrades = (instr['all_trades'] as List?) ?? [];
       final pnl = (instr['pnl'] as num?)?.toDouble() ?? 0;
       final brokerage = (instr['brokerage'] as num?)?.toDouble() ?? 0;
@@ -467,7 +467,7 @@ class PdfReportService {
       final net = (i['net_pnl'] as num?)?.toDouble() ?? 0;
       rows.add(pw.TableRow(children: [
         _cell(i['exchange'] ?? '', cs),
-        _cell(i['tradingsymbol'] ?? '', cs),
+        _cell(i['display_name'] ?? i['tradingsymbol'] ?? '', cs),
         _cell('${pnl < 0 ? '-' : ''}${_fmt.format(pnl.abs())}', cs.copyWith(color: pnl < 0 ? PdfColors.red : PdfColors.black)),
         _cell(_fmt.format(br), cs),
         _cell('${net < 0 ? '-' : ''}${_fmt.format(net.abs())}', cs.copyWith(color: net < 0 ? PdfColors.red : PdfColors.black)),
@@ -528,7 +528,7 @@ class PdfReportService {
       final color = isBuy ? PdfColors.blue : PdfColors.red;
       rows.add(pw.TableRow(children: [
         _cell(cf['exchange'] ?? '', cs.copyWith(color: color)),
-        _cell(cf['tradingsymbol'] ?? '', cs.copyWith(color: color)),
+        _cell(cf['display_name'] ?? cf['tradingsymbol'] ?? '', cs.copyWith(color: color)),
         _cell(cf['type'] ?? '', cs.copyWith(color: color)),
         _cell(_fmt.format((cf['quantity'] as num).toDouble()), cs),
         _cell(_fmt.format((cf['price'] as num).toDouble()), cs),

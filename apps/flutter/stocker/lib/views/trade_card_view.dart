@@ -692,6 +692,50 @@ class _TradeCardPageState extends State<TradeCardPage> {
 
             const SizedBox(height: 16),
 
+            // Info button (visible to all roles — admin sees it in user section, user/master see it here)
+            Consumer<UserProfileProvider>(
+              builder: (context, userProfile, child) {
+                if (!userProfile.isUser && !userProfile.isMaster) {
+                  return const SizedBox.shrink(); // Admin has info in user section
+                }
+                return Padding(
+                  padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      GestureDetector(
+                        onTap: () => showInfoSheet(
+                          context,
+                          instrumentToken: widget.item.instrument.instrumentToken,
+                          tradingsymbol: widget.item.instrument.tradingsymbol,
+                          lotSize: _lotLimitInfo?.lotSize,
+                          maxQty: _lotLimitInfo?.maxQty,
+                          breakQty: _lotLimitInfo?.breakQty,
+                          groupName: _lotLimitInfo?.groupName,
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.info_outline,
+                                size: kIconSizeMedium, color: Color(0xFF3F45C7)),
+                            SizedBox(width: 4),
+                            Text(
+                              'Info',
+                              style: TextStyle(
+                                color: Color(0xFF3F45C7),
+                                fontSize: kFontSizeBody,
+                                fontFamily: 'Inter',
+                                fontWeight: kFontWeightMedium,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+
             // User selection dropdown
             Consumer<UserProfileProvider>(
               builder: (context, userProfile, child) {
@@ -718,7 +762,15 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                 ),
                               ),
                               GestureDetector(
-                                onTap: () => showInfoSheet(context),
+                                onTap: () => showInfoSheet(
+                                  context,
+                                  instrumentToken: widget.item.instrument.instrumentToken,
+                                  tradingsymbol: widget.item.instrument.tradingsymbol,
+                                  lotSize: _lotLimitInfo?.lotSize,
+                                  maxQty: _lotLimitInfo?.maxQty,
+                                  breakQty: _lotLimitInfo?.breakQty,
+                                  groupName: _lotLimitInfo?.groupName,
+                                ),
                                 child: const Row(
                                   children: [
                                     Icon(Icons.info_outline,

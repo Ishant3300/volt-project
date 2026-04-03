@@ -118,9 +118,9 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
               child: Row(children: [
                 _totalItem('Realised', -_totals['realised']!),
                 Container(width: 1, height: 36, color: const Color(0xFFF1F5F9)),
-                _totalItem('Position', -_totals['position']!),
+                _totalItem('M2M', -_totals['position']!),
                 Container(width: 1, height: 36, color: const Color(0xFFF1F5F9)),
-                _totalItem('M2M', -_totals['m2m']!),
+                _totalItem('Total', -_totals['m2m']!),
               ]),
             ),
           const SizedBox(height: 12),
@@ -167,7 +167,7 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
             ),
             child: Row(children: List.generate(4, (i) {
-              final labels = [label.toUpperCase(), 'REALISED', 'POSITION', 'M2M'];
+              final labels = [label.toUpperCase(), 'REALISED', 'M2M', 'TOTAL'];
               final isSorted = _sortCol == i;
               return Expanded(
                 child: GestureDetector(

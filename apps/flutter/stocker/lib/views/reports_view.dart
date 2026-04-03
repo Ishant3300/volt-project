@@ -754,11 +754,12 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                               borderRadius: BorderRadius.circular(8)),
                         ),
                         child: _isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                    color: Colors.white, strokeWidth: 2))
+                            ? const Center(
+                                child: SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                      color: Colors.white, strokeWidth: 2)))
                             : const Text('VIEW',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
