@@ -1,5 +1,7 @@
 ﻿import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
@@ -106,10 +108,19 @@ class _LoginPageState extends State<LoginPage> {
 
           apiService.setInitializing(false);
 
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const MyHomePage(title: 'Stocker App')),
-          );
+          // Check if disclaimer has been accepted
+          const storage = FlutterSecureStorage();
+          final accepted = await storage.read(key: 'disclaimer_accepted');
+          if (!mounted) return;
+
+          if (accepted == 'true') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const MyHomePage(title: 'Stocker App')),
+            );
+          } else {
+            _showDisclaimerDialog();
+          }
         } else {
           apiService.setInitializing(false);
           ScaffoldMessenger.of(context).showSnackBar(
@@ -127,6 +138,137 @@ class _LoginPageState extends State<LoginPage> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _showDisclaimerDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('⚠️', style: TextStyle(fontSize: 40)),
+              const SizedBox(height: 12),
+              Text(
+                'Important Notice',
+                style: TextStyle(
+                  fontSize: kFontSizeSectionHeader,
+                  fontFamily: 'Inter',
+                  fontWeight: kFontWeightBold,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'APEX is a simulation-based trading platform designed for educational purposes only.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: kFontSizeBody,
+                  fontFamily: 'Inter',
+                  fontWeight: kFontWeightSemiBold,
+                  color: const Color(0xFF334155),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildBulletPoint('No real money trading is supported'),
+              _buildBulletPoint('No deposits or withdrawals are possible'),
+              _buildBulletPoint('All trades, prices, and profits/losses are simulated or based on delayed data'),
+              _buildBulletPoint('APEX does not provide financial or investment advice'),
+              const SizedBox(height: 16),
+              Text(
+                'By continuing, you acknowledge that you are using a virtual trading environment and not a real brokerage service.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: kFontSizeSubtitle,
+                  fontFamily: 'Inter',
+                  fontWeight: kFontWeightRegular,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+              const SizedBox(height: 24),
+              // I Understand & Continue
+              GestureDetector(
+                onTap: () async {
+                  const storage = FlutterSecureStorage();
+                  await storage.write(key: 'disclaimer_accepted', value: 'true');
+                  if (!mounted) return;
+                  Navigator.of(ctx).pop();
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => const MyHomePage(title: 'Stocker App')),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [Color(0xFFC6529E), Color(0xFF3B43C9)],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'I Understand & Continue',
+                      style: TextStyle(color: Colors.white, fontSize: kFontSizeButtonText, fontFamily: 'Inter', fontWeight: kFontWeightBold),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Exit App
+              GestureDetector(
+                onTap: () => exit(0),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Center(
+                    child: Text(
+                      'Exit App',
+                      style: TextStyle(color: const Color(0xFF64748B), fontSize: kFontSizeButtonText, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBulletPoint(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('•  ', style: TextStyle(fontSize: 14, color: Color(0xFF64748B))),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: kFontSizeBodySmall,
+                fontFamily: 'Inter',
+                fontWeight: kFontWeightRegular,
+                color: const Color(0xFF64748B),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
