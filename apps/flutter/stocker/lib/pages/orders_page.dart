@@ -142,7 +142,8 @@ class _OrdersPageState extends State<OrdersPage> {
     _livePriceService.onMasterMetricsUpdate = (data) {
       if (!mounted) return;
       setState(() {
-        _masterPositionPnl = (data['total_pnl'] as num?)?.toDouble() ?? _masterPositionPnl;
+        // Invert sign: user profit = master loss
+        _masterPositionPnl = -((data['total_pnl'] as num?)?.toDouble() ?? _masterPositionPnl);
         final List users = data['users'] ?? [];
         for (final u in users) {
           final uid = u['user_id']?.toString() ?? '';
@@ -166,7 +167,8 @@ class _OrdersPageState extends State<OrdersPage> {
       setState(() {
         for (final item in data) {
           final mid = item['master_id']?.toString() ?? '';
-          final pnl = (item['total_pnl'] as num?)?.toDouble() ?? 0;
+          // Invert sign: user profit = admin loss
+          final pnl = -((item['total_pnl'] as num?)?.toDouble() ?? 0);
           if (mid.isNotEmpty) _adminMasterPnl[mid] = pnl;
         }
       });
@@ -266,7 +268,8 @@ class _OrdersPageState extends State<OrdersPage> {
       }
       totalPnl += realised + floating;
     }
-    _masterPositionPnl = (totalPnl * 100).roundToDouble() / 100;
+    // Invert sign: user profit = master loss
+    _masterPositionPnl = -((totalPnl * 100).roundToDouble() / 100);
   }
 
   // ============================================
@@ -341,8 +344,9 @@ class _OrdersPageState extends State<OrdersPage> {
           floating += (ltp - avgBuy) * netQty;
         else if (netQty < 0) floating += (avgSell - ltp) * netQty.abs();
       }
+      // Invert sign: user profit = admin loss
       _adminMasterPnl[masterId] =
-          ((realised + floating) * 100).roundToDouble() / 100;
+          -(((realised + floating) * 100).roundToDouble() / 100);
     }
   }
 

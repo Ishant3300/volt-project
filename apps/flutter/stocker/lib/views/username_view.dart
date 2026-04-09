@@ -199,7 +199,8 @@ class _UsernameViewState extends State<UsernameView> {
 
     final livePositions = instrMap.values.where((p) => (p['net_qty'] as int) != 0).toList();
     final m2m = totalRealised + totalFloating;
-    final equity = totalCredit + m2m - totalMargin;
+    final equity = totalCredit + m2m;
+    final freeMargin = equity - totalMargin;
 
     setState(() {
       _livePositions = livePositions;
@@ -210,7 +211,7 @@ class _UsernameViewState extends State<UsernameView> {
         'm2m_pnl': _round2(m2m),
         'margin_used': _round2(totalMargin),
         'equity': _round2(equity),
-        'free_margin': _round2(equity),
+        'free_margin': _round2(freeMargin),
         'positions': livePositions,
       };
     });
@@ -295,7 +296,8 @@ class _UsernameViewState extends State<UsernameView> {
 
           _livePositions = instrMap.values.where((p) => (p['net_qty'] as int) != 0).toList();
           final m2m = totalRealised + totalFloating;
-          final equity = totalCredit + m2m - totalMargin;
+          final equity = totalCredit + m2m;
+          final freeMargin = equity - totalMargin;
           _liveUserMetrics = {
             'credit': _round2(totalCredit),
             'realised_pnl': _round2(totalRealised),
@@ -303,7 +305,7 @@ class _UsernameViewState extends State<UsernameView> {
             'm2m_pnl': _round2(m2m),
             'margin_used': _round2(totalMargin),
             'equity': _round2(equity),
-            'free_margin': _round2(equity),
+            'free_margin': _round2(freeMargin),
             'positions': _livePositions,
           };
         }
@@ -1290,6 +1292,7 @@ class _UsernameViewState extends State<UsernameView> {
         _currentMaster?.credits ?? (metrics['credit'] as num?)?.toDouble() ?? 0;
     final double marginUsed = (metrics['margin_used'] as num?)?.toDouble() ?? 0;
     final double equity = (metrics['equity'] as num?)?.toDouble() ?? 0;
+    final double freeMargin = (metrics['free_margin'] as num?)?.toDouble() ?? 0;
 
     return RefreshIndicator(
       onRefresh: _fetchLivePositions,
@@ -1306,6 +1309,8 @@ class _UsernameViewState extends State<UsernameView> {
                 _liveMetricGridRow('M2M P&L', m2mPnl, 'Credit', credit),
                 const Divider(height: 1, color: Color(0xFFF1F5F9)),
                 _liveMetricGridRow('Margin Used', marginUsed, 'Equity', equity),
+                const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                _liveMetricGridRow('Free Margin', freeMargin, '', 0, hideSecond: true),
               ],
             ),
           ),
@@ -1496,12 +1501,15 @@ class _UsernameViewState extends State<UsernameView> {
     return '${trade.quantity} QTY';
   }
 
-  Widget _liveMetricGridRow(String l1, double v1, String l2, double v2) {
+  Widget _liveMetricGridRow(String l1, double v1, String l2, double v2, {bool hideSecond = false}) {
     return IntrinsicHeight(
       child: Row(
         children: [
-          Expanded(child: _liveMetricCell(l1, v1, showRightBorder: true)),
-          Expanded(child: _liveMetricCell(l2, v2)),
+          Expanded(child: _liveMetricCell(l1, v1, showRightBorder: !hideSecond)),
+          if (!hideSecond)
+            Expanded(child: _liveMetricCell(l2, v2))
+          else
+            const Expanded(child: SizedBox()),
         ],
       ),
     );

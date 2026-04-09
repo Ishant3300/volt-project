@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'dart:convert';
 import 'dart:developer';
 import '../views/account_detail_view.dart';
 import '../views/user_management_view.dart';
@@ -10,6 +11,7 @@ import '../views/settings_view.dart';
 import '../views/admin_settings_view.dart';
 import '../services/sercure_storage_service.dart';
 import '../services/auth_service.dart';
+import '../services/api_service.dart';
 import '../services/multi_account_service.dart';
 import '../providers/user_profile_provider.dart';
 import '../providers/trade_metrics_provider.dart';
@@ -137,6 +139,152 @@ class _ProfilePageState extends State<ProfilePage> {
         setState(() {
           _isLoggingOut = false;
         });
+      }
+    }
+  }
+
+  Future<void> _handleDeleteAccount() async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Delete Account',
+                  style: TextStyle(
+                      color: Color(0xFF0F172A),
+                      fontSize: kFontSizeViewTitle,
+                      fontFamily: 'Inter',
+                      fontWeight: kFontWeightBold)),
+              const SizedBox(height: 12),
+              const Text(
+                'Are you sure you want to delete your account? This action cannot be undone.\n\nAll your data will be permanently removed.',
+                style: TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: kFontSizeBody,
+                    fontFamily: 'Inter',
+                    fontWeight: kFontWeightRegular,
+                    height: 1.5),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: const Text('Cancel',
+                        style: TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: kFontSizeBody,
+                            fontFamily: 'Inter',
+                            fontWeight: kFontWeightSemiBold)),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    style: TextButton.styleFrom(
+                      backgroundColor: const Color(0xFFFEF2F2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: const Text('Delete',
+                        style: TextStyle(
+                            color: Color(0xFFEF4444),
+                            fontSize: kFontSizeBody,
+                            fontFamily: 'Inter',
+                            fontWeight: kFontWeightSemiBold)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final token = await _storage.getToken();
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      final response = await apiService.delete('/auth/account', token: token);
+
+      if (!mounted) return;
+      Navigator.pop(context); // dismiss loading
+
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && body['success'] == true) {
+        // Unregister FCM
+        try {
+          await FirebaseService().unregisterToken();
+        } catch (_) {}
+
+        // Clear local data
+        final profileProvider =
+            Provider.of<UserProfileProvider>(context, listen: false);
+        profileProvider.clearProfile();
+        Provider.of<TradeMetricsProvider>(context, listen: false).clear();
+
+        final activeKey = await _multiAccount.getActiveKey();
+        if (activeKey != null) {
+          await _multiAccount.removeAccount(activeKey);
+        }
+
+        await _storage.deleteToken();
+        await _storage.deleteRole();
+
+        if (!mounted) return;
+
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginPage()),
+          (route) => false,
+        );
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Account deleted successfully'),
+            backgroundColor: Color(0xFF10B981),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(body['message'] ?? 'Failed to delete account'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // dismiss loading
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
       }
     }
   }
@@ -373,24 +521,12 @@ class _ProfilePageState extends State<ProfilePage> {
                     _buildMenuItem(context, 'Switch Account',
                         icon: Icons.swap_horiz),
                     _buildDivider(),
+                    _buildMenuItem(context, 'Delete Account',
+                        svgPath: kIconDeleteAccount, isRed: true),
+                    _buildDivider(),
                     _buildMenuItem(context, 'Logout',
                         svgPath: kIconLogout, isRed: true),
                   ],
-                ),
-              ),
-
-              const SizedBox(height: 6),
-
-              // Delete account
-              const Center(
-                child: Text(
-                  'Delete Account',
-                  style: TextStyle(
-                    color: Color(0xFF334155),
-                    fontSize: kFontSizeSubtitle,
-                    fontFamily: 'Inter',
-                    fontWeight: kFontWeightSemiBold,
-                  ),
                 ),
               ),
 
@@ -410,6 +546,8 @@ class _ProfilePageState extends State<ProfilePage> {
           : () {
               if (title == 'Logout') {
                 _handleLogout();
+              } else if (title == 'Delete Account') {
+                _handleDeleteAccount();
               } else if (title == 'Admin Setting') {
                 Navigator.push(
                   context,
