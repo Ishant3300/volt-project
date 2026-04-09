@@ -20,21 +20,31 @@ import 'dart:developer';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  FlutterError.onError = (details) {
+    print('🔴 FLUTTER ERROR: ${details.exception}');
+    print('🔴 STACK: ${details.stack}');
+  };
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  print('✅ Firebase initialized');
+
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   await FirebaseService().init();
-  log('Starting APEX App');
-  log('   Backend URL: ');
+  print('✅ FirebaseService initialized');
+
+  print('🚀 Starting APEX App');
   runApp(const MyApp());
+  print('✅ runApp called');
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
   @override
   Widget build(BuildContext context) {
-    log('Building MyApp');
+    print('🔨 Building MyApp widget tree');
     return MultiProvider(
       providers: [
         Provider<ApiService>(

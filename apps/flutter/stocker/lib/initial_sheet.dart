@@ -25,16 +25,18 @@ class _InitialScreenState extends State<InitialScreen> {
   @override
   void initState() {
     super.initState();
+    print('🏁 InitialScreen initState called');
     _checkAuthStatus();
   }
 
   Future<void> _checkAuthStatus() async {
-    log('🔐 Checking authentication status...');
+    print('🔐 Checking authentication status...');
 
     await Future.delayed(const Duration(seconds: 2));
 
     try {
       final token = await _storage.getToken();
+      print('🔐 Token retrieved: ${token != null ? "exists" : "null"}');
 
       if (!mounted) return;
 
@@ -44,57 +46,81 @@ class _InitialScreenState extends State<InitialScreen> {
         final apiService = Provider.of<ApiService>(context, listen: false);
         apiService.setInitializing(true);
 
-        final profileProvider =
-            Provider.of<UserProfileProvider>(context, listen: false);
-        await profileProvider.fetchProfile();
+        try {
+          final profileProvider =
+              Provider.of<UserProfileProvider>(context, listen: false);
+          await profileProvider.fetchProfile().timeout(
+            const Duration(seconds: 15),
+            onTimeout: () {
+              log('⏰ Profile fetch timed out');
+              throw Exception('Profile fetch timed out');
+            },
+          );
 
-        if (!mounted) return;
-        final tradeMetricsProvider =
-            Provider.of<TradeMetricsProvider>(context, listen: false);
-        await tradeMetricsProvider.fetchBaseData();
+          if (!mounted) return;
+          final tradeMetricsProvider =
+              Provider.of<TradeMetricsProvider>(context, listen: false);
+          await tradeMetricsProvider.fetchBaseData().timeout(
+            const Duration(seconds: 15),
+            onTimeout: () {
+              log('⏰ Base data fetch timed out');
+              throw Exception('Base data fetch timed out');
+            },
+          );
 
-        apiService.setInitializing(false);
+          apiService.setInitializing(false);
 
-        if (!mounted) return;
+          if (!mounted) return;
 
-        log('✅ Profile loaded, navigating to home');
+          log('✅ Profile loaded, navigating to home');
 
-        // Ensure current session is in multi-account list (migration for existing users)
-        final multiAccount = MultiAccountService();
-        final accounts = await multiAccount.getSavedAccounts();
-        final role = await _storage.getRole();
-        final username = profileProvider.user?.username ??
-            profileProvider.master?.username ??
-            '';
-        if (username.isNotEmpty && role != null) {
-          final key = '${username}_$role';
-          final exists = accounts.any((a) => a.key == key);
-          if (!exists) {
-            await multiAccount.saveAccount(SavedAccount(
-              username: username,
-              role: role,
-              token: token,
-              name: profileProvider.user?.name ??
-                  profileProvider.master?.name ??
-                  username,
-            ));
-            await multiAccount.setActiveKey(key);
-            log('📦 Migrated existing session to multi-account list');
-          } else {
-            // Update token in case it changed
-            await multiAccount.updateToken(key, token);
-            await multiAccount.setActiveKey(key);
+          // Ensure current session is in multi-account list (migration for existing users)
+          final multiAccount = MultiAccountService();
+          final accounts = await multiAccount.getSavedAccounts();
+          final role = await _storage.getRole();
+          final username = profileProvider.user?.username ??
+              profileProvider.master?.username ??
+              '';
+          if (username.isNotEmpty && role != null) {
+            final key = '${username}_$role';
+            final exists = accounts.any((a) => a.key == key);
+            if (!exists) {
+              await multiAccount.saveAccount(SavedAccount(
+                username: username,
+                role: role,
+                token: token,
+                name: profileProvider.user?.name ??
+                    profileProvider.master?.name ??
+                    username,
+              ));
+              await multiAccount.setActiveKey(key);
+              log('📦 Migrated existing session to multi-account list');
+            } else {
+              // Update token in case it changed
+              await multiAccount.updateToken(key, token);
+              await multiAccount.setActiveKey(key);
+            }
           }
-        }
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const MyHomePage(title: 'APEX'),
-          ),
-        );
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const MyHomePage(title: 'APEX'),
+            ),
+          );
+        } catch (e) {
+          log('❌ Error during profile fetch: $e');
+          apiService.setInitializing(false);
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginPage()),
+          );
+        }
       } else {
         log('❌ No token found, navigating to login');
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const LoginPage()),
@@ -104,8 +130,10 @@ class _InitialScreenState extends State<InitialScreen> {
       log('❌ Error checking auth status: $e');
 
       if (mounted) {
-        final apiService = Provider.of<ApiService>(context, listen: false);
-        apiService.setInitializing(false);
+        try {
+          final apiService = Provider.of<ApiService>(context, listen: false);
+          apiService.setInitializing(false);
+        } catch (_) {}
       }
 
       if (!mounted) return;
