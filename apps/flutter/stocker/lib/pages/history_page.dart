@@ -1034,17 +1034,42 @@ class _PortfolioPageState extends State<PortfolioPage>
                   ],
                 ),
                 const SizedBox(height: 6),
-                // Row 2: Volume → date (only for closed trades)
+                // Row 2: Volume + master name → date
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      _tradeVolumeLabel(trade),
-                      style: const TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: kFontSizeCaption,
-                        fontFamily: 'Inter',
-                        fontWeight: kFontWeightMedium,
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Text(
+                            _tradeVolumeLabel(trade),
+                            style: const TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: kFontSizeCaption,
+                              fontFamily: 'Inter',
+                              fontWeight: kFontWeightMedium,
+                            ),
+                          ),
+                          if (_isAdmin && trade.masterName != null) ...[
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 6),
+                              child: Text('·', style: TextStyle(fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1))),
+                            ),
+                            Flexible(
+                              child: Text(
+                                'M: ${trade.masterName!}',
+                                style: const TextStyle(
+                                  color: Color(0xFF94A3B8),
+                                  fontSize: kFontSizeCaption,
+                                  fontFamily: 'Inter',
+                                  fontWeight: kFontWeightMedium,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                     if ((_isAdmin || _isMaster) || (tradePnl != null && tradePnl.isClosing))
@@ -1081,36 +1106,28 @@ class _PortfolioPageState extends State<PortfolioPage>
             ),
             child: Row(
               children: [
-                if (trade.userName != null) ...[
-                  const Icon(Icons.person_outline,
-                      size: 13, color: Color(0xFF94A3B8)),
-                  const SizedBox(width: 4),
-                  Text(
-                    trade.userName!,
-                    style: const TextStyle(
-                      color: Color(0xFF333333),
-                      fontSize: kFontSizeCaption,
-                      fontFamily: 'Inter',
-                      fontWeight: kFontWeightMedium,
-                    ),
-                  ),
-                ],
-                if (_isAdmin && trade.masterName != null) ...[
-                  const SizedBox(width: 14),
-                  const Icon(Icons.person_outline,
-                      size: 13, color: Color(0xFF94A3B8)),
-                  const SizedBox(width: 4),
-                  Text(
-                    'M:${trade.masterName!}',
-                    style: const TextStyle(
-                      color: Color(0xFF333333),
-                      fontSize: kFontSizeCaption,
-                      fontFamily: 'Inter',
-                      fontWeight: kFontWeightMedium,
-                    ),
-                  ),
-                ],
-                if (!_isAdmin) ...[
+                Expanded(
+                  child: Row(
+                    children: [
+                      if (_isAdmin && trade.userName != null) ...[
+                        const Icon(Icons.person_outline,
+                            size: 13, color: Color(0xFF94A3B8)),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            trade.userName!,
+                            style: const TextStyle(
+                              color: Color(0xFF333333),
+                              fontSize: kFontSizeCaption,
+                              fontFamily: 'Inter',
+                              fontWeight: kFontWeightMedium,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                      if (!_isAdmin && !_isMaster) ...[
                   if (tradePnl != null && tradePnl.isClosing)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1142,7 +1159,27 @@ class _PortfolioPageState extends State<PortfolioPage>
                     ),
                   ],
                 ],
-                const Spacer(),
+                if ((_isAdmin || _isMaster) && tradePnl != null && tradePnl.isClosing)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Closed ${_tradeDuration(tradePnl.openedAt, trade.createdAt)}',
+                      style: const TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: kFontSizeCaption,
+                        fontFamily: 'Inter',
+                        fontWeight: kFontWeightSemiBold,
+                      ),
+                    ),
+                  ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
                 if (_isAdmin)
                   GestureDetector(
                     onTap: () => _deleteTrade(trade),
