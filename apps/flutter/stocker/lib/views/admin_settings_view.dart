@@ -5,6 +5,7 @@ import 'trade_margin_settings_view.dart';
 import 'brokerage_settings_view.dart';
 import 'group_quantity_view.dart';
 import 'script_quantity_settings_view.dart';
+import 'fresh_stoploss_limit_view.dart';
 import '../utils/contants.dart';
 
 class AdminSettingsView extends StatelessWidget {
@@ -91,7 +92,10 @@ class AdminSettingsView extends StatelessWidget {
                         () => _push(context, const BrokerageSettingsView())),
                     _divider(),
                     _settingRow(context, Icons.trending_up_outlined, 'Trade Margin',
-                        () => _push(context, const TradeMarginSettingsView()), isLast: true),
+                        () => _push(context, const TradeMarginSettingsView())),
+                    _divider(),
+                    _settingRow(context, Icons.shield_outlined, 'Fresh Stop-Loss Limits',
+                        () => _push(context, const FreshStoplossLimitView()), isLast: true),
                   ],
                 ),
               ),

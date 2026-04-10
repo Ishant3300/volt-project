@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-// final String backendUrl = "http://localhost:3000";
+final String backendUrl = "http://10.0.2.2:3000";
 // final String backendUrl = "http://127.0.0.1:3000";
 // final String backendUrl = "http://192.168.29.3:3000";
-final String backendUrl = "http://13.204.61.199";  // Production server
+// final String backendUrl = "http://13.204.61.199";  // Production server
 
 const bool kLogLivePrices = false;
 const bool kLogWebSockets = false;

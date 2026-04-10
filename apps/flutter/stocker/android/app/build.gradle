@@ -51,7 +51,17 @@ android {
             signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
             minifyEnabled false
             shrinkResources false
+            ndk {
+                debugSymbolLevel 'none'
+            }
         }
+    }
+
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging true
+        }
+        doNotStrip "**/*.so"
     }
 }
 

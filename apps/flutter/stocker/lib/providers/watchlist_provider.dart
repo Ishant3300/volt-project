@@ -18,6 +18,7 @@ class WatchlistProvider with ChangeNotifier {
   WatchlistService? _watchlistService;
   final Map<String, String> _backendIdMap = {};
   TradeMetricsProvider? tradeMetricsProvider;
+  String? _authenticatedUserId;
 
   WatchlistProvider({this.tradeMetricsProvider});
 
@@ -98,6 +99,12 @@ class WatchlistProvider with ChangeNotifier {
 
     // Server-pushed metrics (single source of truth from metricsEngine)
     _livePriceService.onMetricsUpdate = (data) {
+      // Only apply metrics for the currently logged-in user (not other users'
+      // metrics that admins/masters receive via the broadcast)
+      final metricsUserId = data['user_id']?.toString() ?? '';
+      if (metricsUserId.isNotEmpty && _authenticatedUserId != null && metricsUserId != _authenticatedUserId) {
+        return; // Ignore metrics for other users
+      }
       tradeMetricsProvider?.applyServerMetrics(data);
     };
 
@@ -140,6 +147,7 @@ class WatchlistProvider with ChangeNotifier {
         final userId = payload['id'] as String?;
         final role = payload['role'] as String?;
         if (userId != null) {
+          _authenticatedUserId = userId;
           log('🔐 Authenticating WebSocket as userId: "$userId" role: "$role"');
           _livePriceService.authenticate(userId, role: role);
         } else {

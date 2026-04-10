@@ -76,6 +76,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
 
   void _onSearchChanged(String query) {
     _debounceTimer?.cancel();
+    _isBrowseMode = false;
     _debounceTimer = Timer(const Duration(milliseconds: 400), () {
       _performSearch(query);
     });
@@ -83,6 +84,11 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
 
   Future<void> _performSearch(String query) async {
     if (query.isEmpty) {
+      // If a specific tab is selected (not ALL), browse all instruments in that category
+      if (_activeTab != 'ALL') {
+        _browseCategoryInstruments();
+        return;
+      }
       setState(() {
         _groupedResults = [];
         _allItems = [];
@@ -136,7 +142,93 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
     }
   }
 
+  /// Browse all instruments in the selected category (when search is empty).
+  bool _isBrowseMode = false;
+
+  Future<void> _browseCategoryInstruments() async {
+    setState(() {
+      _isSearching = true;
+      _currentPage = 1;
+      _allItems = [];
+      _lastQuery = '';
+      _isBrowseMode = true;
+    });
+
+    try {
+      final kiteService = Provider.of<KiteService>(context, listen: false);
+      final result = await kiteService.browseInstruments(
+        category: _activeTab,
+        limit: 100,
+        page: 1,
+      );
+
+      if (!mounted) return;
+
+      final groups = result['groups'] as List<dynamic>? ?? [];
+      final total = result['total'] as int? ?? 0;
+      final hasMore = result['hasMore'] as bool? ?? false;
+
+      final items = <dynamic>[];
+      for (final g in groups) {
+        final gItems = (g as Map)['items'] as List<dynamic>? ?? [];
+        items.addAll(gItems);
+      }
+
+      setState(() {
+        _allItems = items;
+        _totalResults = total;
+        _hasMore = hasMore;
+        _groupedResults = _buildGroupsFromItems(items);
+        _isSearching = false;
+      });
+    } catch (e) {
+      log('   ❌ Browse error: $e');
+      setState(() => _isSearching = false);
+    }
+  }
+
+  Future<void> _loadMoreBrowse() async {
+    if (_isLoadingMore || !_hasMore) return;
+
+    setState(() => _isLoadingMore = true);
+
+    try {
+      final kiteService = Provider.of<KiteService>(context, listen: false);
+      final nextPage = _currentPage + 1;
+      final result = await kiteService.browseInstruments(
+        category: _activeTab,
+        limit: 100,
+        page: nextPage,
+      );
+
+      if (!mounted) return;
+
+      final groups = result['groups'] as List<dynamic>? ?? [];
+      final hasMore = result['hasMore'] as bool? ?? false;
+
+      final newItems = <dynamic>[];
+      for (final g in groups) {
+        final gItems = (g as Map)['items'] as List<dynamic>? ?? [];
+        newItems.addAll(gItems);
+      }
+
+      setState(() {
+        _currentPage = nextPage;
+        _hasMore = hasMore;
+        _allItems.addAll(newItems);
+        _groupedResults = _buildGroupsFromItems(_allItems);
+        _isLoadingMore = false;
+      });
+    } catch (e) {
+      log('   ❌ Load more browse error: $e');
+      setState(() => _isLoadingMore = false);
+    }
+  }
+
   Future<void> _loadMore() async {
+    if (_isBrowseMode) {
+      return _loadMoreBrowse();
+    }
     if (_isLoadingMore || !_hasMore || _lastQuery.isEmpty) return;
 
     setState(() => _isLoadingMore = true);
@@ -363,9 +455,19 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
       onTap: () {
         setState(() {
           _activeTab = key;
+          _isBrowseMode = false;
         });
         if (_searchController.text.isNotEmpty) {
           _performSearch(_searchController.text);
+        } else if (key != 'ALL') {
+          _browseCategoryInstruments();
+        } else {
+          setState(() {
+            _groupedResults = [];
+            _allItems = [];
+            _totalResults = 0;
+            _hasMore = false;
+          });
         }
       },
       child: Container(

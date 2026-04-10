@@ -143,7 +143,7 @@ class _OrdersPageState extends State<OrdersPage> {
       if (!mounted) return;
       setState(() {
         // Invert sign: user profit = master loss
-        _masterPositionPnl = -((data['total_pnl'] as num?)?.toDouble() ?? _masterPositionPnl);
+        _masterPositionPnl = (data['total_pnl'] as num?)?.toDouble() ?? _masterPositionPnl;
         final List users = data['users'] ?? [];
         for (final u in users) {
           final uid = u['user_id']?.toString() ?? '';
@@ -168,7 +168,7 @@ class _OrdersPageState extends State<OrdersPage> {
         for (final item in data) {
           final mid = item['master_id']?.toString() ?? '';
           // Invert sign: user profit = admin loss
-          final pnl = -((item['total_pnl'] as num?)?.toDouble() ?? 0);
+          final pnl = (item['total_pnl'] as num?)?.toDouble() ?? 0;
           if (mid.isNotEmpty) _adminMasterPnl[mid] = pnl;
         }
       });
@@ -269,7 +269,7 @@ class _OrdersPageState extends State<OrdersPage> {
       totalPnl += realised + floating;
     }
     // Invert sign: user profit = master loss
-    _masterPositionPnl = -((totalPnl * 100).roundToDouble() / 100);
+    _masterPositionPnl = (totalPnl * 100).roundToDouble() / 100;
   }
 
   // ============================================
@@ -346,7 +346,7 @@ class _OrdersPageState extends State<OrdersPage> {
       }
       // Invert sign: user profit = admin loss
       _adminMasterPnl[masterId] =
-          -(((realised + floating) * 100).roundToDouble() / 100);
+          ((realised + floating) * 100).roundToDouble() / 100;
     }
   }
 

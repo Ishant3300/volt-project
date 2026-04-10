@@ -177,4 +177,28 @@ class KiteService {
       return [];
     }
   }
+
+  /// Browse all instruments in a category (no search query).
+  Future<Map<String, dynamic>> browseInstruments({
+    required String category,
+    int limit = 100,
+    int page = 1,
+  }) async {
+    try {
+      final token = await _getToken();
+      final endpoint =
+          '/kite/instruments/browse?category=$category&limit=$limit&page=$page';
+      final response = await api.get(endpoint, token: token);
+      final decoded = jsonDecode(response.body);
+
+      if (decoded['success'] == true && decoded['data'] != null) {
+        return Map<String, dynamic>.from(decoded['data']);
+      }
+
+      return {'groups': [], 'total': 0, 'page': page, 'hasMore': false};
+    } catch (e) {
+      log('   ❌ Error browsing instruments: $e');
+      return {'groups': [], 'total': 0, 'page': page, 'hasMore': false};
+    }
+  }
 }

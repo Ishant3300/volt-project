@@ -38,27 +38,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
   int _quantity = 100;
   int _selectedQuickQty = 100;
   List<int> _quickQuantities = [100, 200, 500, 1000, 2000, 5000];
-  String _orderType = 'Market Execution';
 
-  /// Returns the available order types, filtering out Sell Limit for options
-  /// when the user has no position. Adds Custom Price for admin only.
-  List<String> get _availableOrderTypes {
-    final profile = Provider.of<UserProfileProvider>(context, listen: false);
-    final base = <String>['Market Execution', 'Buy Limit', 'Sell Limit'];
-
-    if (_isOption) {
-      final netQty = _getNetPosition(context);
-      if (netQty <= 0) {
-        base.remove('Sell Limit');
-      }
-    }
-
-    if (profile.isAdmin) {
-      base.add('Custom Price');
-    }
-
-    return base;
-  }
+  // Tab-based order type: 0=Market, 1=Limit, 2=Stop, 3=Custom (admin only)
+  int _selectedTab = 0;
 
   final TextEditingController _qtyController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
@@ -121,16 +103,50 @@ class _TradeCardPageState extends State<TradeCardPage> {
     return 0;
   }
 
+  /// Maps initialOrderType string to tab index.
+  int _mapInitialOrderTypeToTab(String orderType) {
+    switch (orderType) {
+      case 'Market Execution':
+        return 0;
+      case 'Buy Limit':
+      case 'Sell Limit':
+        return 1;
+      case 'Buy Stop':
+      case 'Sell Stop':
+        return 2;
+      case 'Custom Price':
+        return 3;
+      default:
+        return 0;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _loadQuickQuantities();
+
+    // Pre-fill quantity from initialQuantity or from current position
     if (widget.initialQuantity != null) {
       _quantity = widget.initialQuantity!;
       _selectedQuickQty = _quickQuantities.contains(_quantity) ? _quantity : -1;
+    } else {
+      // If opened from watchlist (no initialQuantity), check for open position
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final netQty = _getNetPosition(context);
+        if (netQty != 0 && mounted) {
+          setState(() {
+            _quantity = netQty.abs();
+            _selectedQuickQty =
+                _quickQuantities.contains(_quantity) ? _quantity : -1;
+            _qtyController.text = _quantity.toString();
+          });
+        }
+      });
     }
+
     if (widget.initialOrderType != null) {
-      _orderType = widget.initialOrderType!;
+      _selectedTab = _mapInitialOrderTypeToTab(widget.initialOrderType!);
     }
     _qtyController.text = _quantity.toString();
     _fetchLotLimit();
@@ -415,9 +431,25 @@ class _TradeCardPageState extends State<TradeCardPage> {
             .getByToken(widget.item.instrument.instrumentToken) ??
         widget.item;
 
-    final isLimit = _orderType == 'Buy Limit' || _orderType == 'Sell Limit';
-    final isCustomPrice = _orderType == 'Custom Price';
-    final tradePrice = (isLimit || isCustomPrice)
+    // Determine orderType string from selected tab
+    // 0=Market, 1=Limit, 2=Stop (SL), 3=Custom (MARKET with custom price)
+    final String orderType;
+    switch (_selectedTab) {
+      case 1:
+        orderType = 'LIMIT';
+        break;
+      case 2:
+        orderType = 'SL';
+        break;
+      case 0:
+      case 3:
+      default:
+        orderType = 'MARKET';
+        break;
+    }
+
+    final bool usesCustomPrice = _selectedTab == 1 || _selectedTab == 2 || _selectedTab == 3;
+    final tradePrice = usesCustomPrice
         ? (double.tryParse(_priceController.text) ?? currentPrice)
         : currentPrice;
 
@@ -458,7 +490,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
       quantity:
           _actualQuantity, // Use actual quantity (lots * lot_size for MCX)
       price: tradePrice,
-      orderType: isLimit ? 'LIMIT' : 'MARKET',
+      orderType: orderType,
       userId: _selectedUser != null
           ? (_selectedUser!['id'] ?? _selectedUser!['_id'])?.toString()
           : null,
@@ -492,8 +524,56 @@ class _TradeCardPageState extends State<TradeCardPage> {
     }
   }
 
+  /// Builds a single tab button for the order type selector.
+  Widget _buildTabButton(String label, int tabIndex) {
+    final isSelected = _selectedTab == tabIndex;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _selectedTab = tabIndex;
+            // Pre-fill price for Limit/Stop tabs
+            if (tabIndex == 1 || tabIndex == 2) {
+              final currentItem =
+                  Provider.of<WatchlistProvider>(context, listen: false)
+                          .getByToken(
+                              widget.item.instrument.instrumentToken) ??
+                      widget.item;
+              final ltp = currentItem.currentPrice ?? 0.0;
+              final spread = ltp * 0.0005;
+              final askPrice =
+                  currentItem.askPrice ?? (ltp > 0 ? ltp + spread : ltp);
+              _priceController.text = askPrice.toStringAsFixed(2);
+            }
+          });
+        },
+        child: Container(
+          height: 40,
+          decoration: BoxDecoration(
+            color: isSelected
+                ? const Color(0xFF3F45C7)
+                : const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? Colors.white : const Color(0xFF64748B),
+              fontSize: kFontSizeBody,
+              fontFamily: 'Inter',
+              fontWeight: kFontWeightSemiBold,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final profile = Provider.of<UserProfileProvider>(context, listen: false);
+
     Widget content = SafeArea(
       child: SingleChildScrollView(
         child: Column(
@@ -605,7 +685,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
               },
             ),
 
-            // Order Type dropdown
+            // Order Type tabs
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
@@ -621,70 +701,18 @@ class _TradeCardPageState extends State<TradeCardPage> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Container(
-                    height: 48,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: ShapeDecoration(
-                      color: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        side: const BorderSide(
-                            width: 1, color: Color(0xFFD1D1D6)),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _orderType,
-                        isExpanded: true,
-                        icon: const Icon(Icons.keyboard_arrow_down,
-                            color: Color(0xFF8E8E93)),
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: kFontSizeSectionHeader,
-                          fontFamily: 'Inter',
-                          fontWeight: kFontWeightRegular,
-                        ),
-                        dropdownColor: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        onChanged: (String? newValue) {
-                          if (newValue != null) {
-                            setState(() {
-                              _orderType = newValue;
-                              if (newValue != 'Market Execution') {
-                                final currentItem =
-                                    Provider.of<WatchlistProvider>(context,
-                                                listen: false)
-                                            .getByToken(widget.item.instrument
-                                                .instrumentToken) ??
-                                        widget.item;
-
-                                // Set appropriate price based on order type
-                                final ltp = currentItem.currentPrice ?? 0.0;
-                                final spread = ltp * 0.0005;
-
-                                double defaultPrice;
-                                if (newValue == 'Buy Limit') {
-                                  defaultPrice = currentItem.askPrice ??
-                                      (ltp > 0 ? ltp + spread : ltp);
-                                } else {
-                                  defaultPrice = currentItem.bidPrice ??
-                                      (ltp > 0 ? ltp - spread : ltp);
-                                }
-                                _priceController.text =
-                                    defaultPrice.toStringAsFixed(2);
-                              }
-                            });
-                          }
-                        },
-                        items: _availableOrderTypes
-                            .map<DropdownMenuItem<String>>((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(value),
-                          );
-                        }).toList(),
-                      ),
-                    ),
+                  Row(
+                    children: [
+                      _buildTabButton('Market', 0),
+                      const SizedBox(width: 6),
+                      _buildTabButton('Limit', 1),
+                      const SizedBox(width: 6),
+                      _buildTabButton('Stop', 2),
+                      if (profile.isAdmin) ...[
+                        const SizedBox(width: 6),
+                        _buildTabButton('Custom', 3),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -1416,13 +1444,11 @@ class _TradeCardPageState extends State<TradeCardPage> {
                       final buyPrice = currentItem.askPrice ??
                           (ltp > 0 ? ltp + spread : ltp);
 
-                      final sellPriceStr = sellPrice.toStringAsFixed(2);
-                      final buyPriceStr = buyPrice.toStringAsFixed(2);
-
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (_orderType == 'Market Execution') ...[
+                      if (_selectedTab == 0) {
+                        // ── Market tab: SELL and BUY with bid/ask prices ──
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             // Sell side
                             Builder(builder: (context) {
                               final sellDisabled =
@@ -1483,12 +1509,10 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                             ),
                                             borderRadius: BorderRadius.circular(8),
                                           ),
-                                          child: Text(
-                                            sellDisabled
-                                                ? 'SELL'
-                                                : 'SELL',
+                                          child: const Text(
+                                            'SELL',
                                             textAlign: TextAlign.center,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               color: Colors.white,
                                               fontSize: kFontSizeSectionHeader,
                                               fontFamily: 'Inter',
@@ -1571,214 +1595,279 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                 ],
                               ),
                             ),
-                          ] else if (_orderType == 'Custom Price') ...[
-                            // Custom Price: price input + SELL/BUY buttons
-                            Expanded(
-                              child: Column(
-                                children: [
-                                  Container(
-                                    width: double.infinity,
-                                    height: 46,
-                                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                                    decoration: ShapeDecoration(
-                                      color: const Color(0xFFF2F2F7),
-                                      shape: RoundedRectangleBorder(
-                                        side: const BorderSide(width: 1, color: Color(0xFFC7C7CC)),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                    ),
-                                    child: Center(
-                                      child: TextField(
-                                        controller: _priceController,
-                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                        inputFormatters: [
-                                          FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
-                                        ],
-                                        textAlign: TextAlign.center,
-                                        style: const TextStyle(
-                                          color: Colors.black,
-                                          fontSize: kFontSizeSectionHeader,
-                                          fontFamily: 'Inter',
-                                          fontWeight: kFontWeightMedium,
-                                        ),
-                                        decoration: const InputDecoration(
-                                          border: InputBorder.none,
-                                          isDense: true,
-                                          contentPadding: EdgeInsets.zero,
-                                          hintText: 'Enter price',
-                                          hintStyle: TextStyle(
-                                            color: Color(0xFFC7C7CC),
-                                            fontSize: kFontSizeSectionHeader,
-                                            fontFamily: 'Inter',
-                                            fontWeight: kFontWeightMedium,
-                                          ),
-                                        ),
-                                      ),
+                          ],
+                        );
+                      } else if (_selectedTab == 1 || _selectedTab == 2) {
+                        // ── Limit / Stop tab: price input + SELL and BUY side by side ──
+                        final sellDisabled =
+                            _isOption && _getNetPosition(context) <= 0;
+                        return Column(
+                          children: [
+                            // Price input field
+                            Container(
+                              width: double.infinity,
+                              height: 46,
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              decoration: ShapeDecoration(
+                                color: const Color(0xFFF2F2F7),
+                                shape: RoundedRectangleBorder(
+                                  side: const BorderSide(
+                                      width: 1, color: Color(0xFFC7C7CC)),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ),
+                              child: Center(
+                                child: TextField(
+                                  controller: _priceController,
+                                  keyboardType: const TextInputType
+                                      .numberWithOptions(decimal: true),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(
+                                        RegExp(r'^\d+\.?\d{0,2}')),
+                                  ],
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: kFontSizeSectionHeader,
+                                    fontFamily: 'Inter',
+                                    fontWeight: kFontWeightMedium,
+                                  ),
+                                  decoration: InputDecoration(
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                    hintText: buyPrice.toStringAsFixed(2),
+                                    hintStyle: const TextStyle(
+                                      color: Color(0xFFC7C7CC),
+                                      fontSize: kFontSizeSectionHeader,
+                                      fontFamily: 'Inter',
+                                      fontWeight: kFontWeightMedium,
                                     ),
                                   ),
-                                  const SizedBox(height: 14),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: GestureDetector(
-                                          onTap: () {
-                                            final customPrice = double.tryParse(_priceController.text);
-                                            if (customPrice == null || customPrice <= 0) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                const SnackBar(content: Text('Enter a valid price'), backgroundColor: Color(0xFFEF4444)),
-                                              );
-                                              return;
-                                            }
-                                            _handleTrade('SELL', customPrice);
-                                          },
-                                          child: Container(
-                                            height: 56,
-                                            decoration: BoxDecoration(
-                                              gradient: const LinearGradient(
-                                                begin: Alignment.centerLeft,
-                                                end: Alignment.centerRight,
-                                                colors: [Color(0xFFFF3C00), Color(0xFF7A0F37)],
-                                              ),
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                            child: const Center(
-                                              child: Text('SELL', style: TextStyle(color: Colors.white, fontSize: kFontSizeSectionHeader, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 14),
-                                      Expanded(
-                                        child: GestureDetector(
-                                          onTap: () {
-                                            final customPrice = double.tryParse(_priceController.text);
-                                            if (customPrice == null || customPrice <= 0) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                const SnackBar(content: Text('Enter a valid price'), backgroundColor: Color(0xFFEF4444)),
-                                              );
-                                              return;
-                                            }
-                                            _handleTrade('BUY', customPrice);
-                                          },
-                                          child: Container(
-                                            height: 56,
-                                            decoration: BoxDecoration(
-                                              gradient: const LinearGradient(
-                                                begin: Alignment.centerLeft,
-                                                end: Alignment.centerRight,
-                                                colors: [Color(0xFFC6529E), Color(0xFF3B43C9)],
-                                              ),
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                            child: const Center(
-                                              child: Text('BUY', style: TextStyle(color: Colors.white, fontSize: kFontSizeSectionHeader, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
-                          ] else ...[
-                            // Place button for limits
-                            Expanded(
-                              child: Column(
-                                children: [
-                                  Container(
-                                    width: double.infinity,
-                                    height: 46,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16),
-                                    decoration: ShapeDecoration(
-                                      color: const Color(0xFFF2F2F7),
-                                      shape: RoundedRectangleBorder(
-                                        side: const BorderSide(
-                                            width: 1, color: Color(0xFFC7C7CC)),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                    ),
-                                    child: Center(
-                                      child: TextField(
-                                        controller: _priceController,
-                                        keyboardType: const TextInputType
-                                            .numberWithOptions(decimal: true),
-                                        inputFormatters: [
-                                          FilteringTextInputFormatter.allow(
-                                              RegExp(r'^\d+\.?\d{0,2}')),
-                                        ],
-                                        textAlign: TextAlign.center,
-                                        style: const TextStyle(
-                                          color: Colors.black,
-                                          fontSize: kFontSizeSectionHeader,
-                                          fontFamily: 'Inter',
-                                          fontWeight: kFontWeightMedium,
+                            const SizedBox(height: 14),
+                            // SELL and BUY buttons side by side
+                            Row(
+                              children: [
+                                // SELL button
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: sellDisabled
+                                        ? null
+                                        : () {
+                                            final price = double.tryParse(
+                                                _priceController.text);
+                                            if (price == null || price <= 0) {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                const SnackBar(
+                                                    content: Text(
+                                                        'Enter a valid price'),
+                                                    backgroundColor:
+                                                        Color(0xFFEF4444)),
+                                              );
+                                              return;
+                                            }
+                                            _handleTrade('SELL', price);
+                                          },
+                                    child: Opacity(
+                                      opacity: sellDisabled ? 0.4 : 1.0,
+                                      child: Container(
+                                        height: 56,
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            begin: Alignment.centerLeft,
+                                            end: Alignment.centerRight,
+                                            colors: [
+                                              Color(0xFFFF3C00),
+                                              Color(0xFF7A0F37),
+                                            ],
+                                          ),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
                                         ),
-                                        decoration: InputDecoration(
-                                          border: InputBorder.none,
-                                          isDense: true,
-                                          contentPadding: EdgeInsets.zero,
-                                          hintText: _orderType == 'Buy Limit'
-                                              ? buyPriceStr
-                                              : sellPriceStr,
-                                          hintStyle: const TextStyle(
-                                            color: Color(0xFFC7C7CC),
-                                            fontSize: kFontSizeSectionHeader,
-                                            fontFamily: 'Inter',
-                                            fontWeight: kFontWeightMedium,
+                                        child: const Center(
+                                          child: Text(
+                                            'SELL',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize:
+                                                  kFontSizeSectionHeader,
+                                              fontFamily: 'Inter',
+                                              fontWeight:
+                                                  kFontWeightSemiBold,
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 14),
-                                  GestureDetector(
+                                ),
+                                const SizedBox(width: 14),
+                                // BUY button
+                                Expanded(
+                                  child: GestureDetector(
                                     onTap: () {
-                                      final isBuy = _orderType == 'Buy Limit';
-                                      _handleTrade(isBuy ? 'BUY' : 'SELL',
-                                          isBuy ? buyPrice : sellPrice);
+                                      final price = double.tryParse(
+                                          _priceController.text);
+                                      if (price == null || price <= 0) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                              content: Text(
+                                                  'Enter a valid price'),
+                                              backgroundColor:
+                                                  Color(0xFFEF4444)),
+                                        );
+                                        return;
+                                      }
+                                      _handleTrade('BUY', price);
                                     },
                                     child: Container(
-                                      width: double.infinity,
                                       height: 56,
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 32, vertical: 18),
                                       decoration: BoxDecoration(
-                                        gradient: LinearGradient(
+                                        gradient: const LinearGradient(
                                           begin: Alignment.centerLeft,
                                           end: Alignment.centerRight,
-                                          colors: _orderType == 'Buy Limit'
-                                              ? [
-                                                  const Color(0xFFC6529E),
-                                                  const Color(0xFF3B43C9),
-                                                ]
-                                              : [
-                                                  const Color(0xFFFF3C00),
-                                                  const Color(0xFF7A0F37),
-                                                ],
+                                          colors: [
+                                            Color(0xFFC6529E),
+                                            Color(0xFF3B43C9),
+                                          ],
+                                        ),
+                                        borderRadius:
+                                            BorderRadius.circular(8),
+                                      ),
+                                      child: const Center(
+                                        child: Text(
+                                          'BUY',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize:
+                                                kFontSizeSectionHeader,
+                                            fontFamily: 'Inter',
+                                            fontWeight:
+                                                kFontWeightSemiBold,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        );
+                      } else {
+                        // ── Custom tab (admin only): price input + SELL/BUY buttons ──
+                        return Column(
+                          children: [
+                            Container(
+                              width: double.infinity,
+                              height: 46,
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              decoration: ShapeDecoration(
+                                color: const Color(0xFFF2F2F7),
+                                shape: RoundedRectangleBorder(
+                                  side: const BorderSide(width: 1, color: Color(0xFFC7C7CC)),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                              ),
+                              child: Center(
+                                child: TextField(
+                                  controller: _priceController,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                                  ],
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Colors.black,
+                                    fontSize: kFontSizeSectionHeader,
+                                    fontFamily: 'Inter',
+                                    fontWeight: kFontWeightMedium,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                    hintText: 'Enter price',
+                                    hintStyle: TextStyle(
+                                      color: Color(0xFFC7C7CC),
+                                      fontSize: kFontSizeSectionHeader,
+                                      fontFamily: 'Inter',
+                                      fontWeight: kFontWeightMedium,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      final customPrice = double.tryParse(_priceController.text);
+                                      if (customPrice == null || customPrice <= 0) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Enter a valid price'), backgroundColor: Color(0xFFEF4444)),
+                                        );
+                                        return;
+                                      }
+                                      _handleTrade('SELL', customPrice);
+                                    },
+                                    child: Container(
+                                      height: 56,
+                                      decoration: BoxDecoration(
+                                        gradient: const LinearGradient(
+                                          begin: Alignment.centerLeft,
+                                          end: Alignment.centerRight,
+                                          colors: [Color(0xFFFF3C00), Color(0xFF7A0F37)],
                                         ),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
-                                      child: const Text(
-                                        'PLACE',
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: kFontSizeSectionHeader,
-                                          fontFamily: 'Inter',
-                                          fontWeight: kFontWeightSemiBold,
-                                          height: 1.25,
-                                        ),
+                                      child: const Center(
+                                        child: Text('SELL', style: TextStyle(color: Colors.white, fontSize: kFontSizeSectionHeader, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
                                       ),
                                     ),
                                   ),
-                                ],
-                              ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      final customPrice = double.tryParse(_priceController.text);
+                                      if (customPrice == null || customPrice <= 0) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('Enter a valid price'), backgroundColor: Color(0xFFEF4444)),
+                                        );
+                                        return;
+                                      }
+                                      _handleTrade('BUY', customPrice);
+                                    },
+                                    child: Container(
+                                      height: 56,
+                                      decoration: BoxDecoration(
+                                        gradient: const LinearGradient(
+                                          begin: Alignment.centerLeft,
+                                          end: Alignment.centerRight,
+                                          colors: [Color(0xFFC6529E), Color(0xFF3B43C9)],
+                                        ),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Center(
+                                        child: Text('BUY', style: TextStyle(color: Colors.white, fontSize: kFontSizeSectionHeader, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
-                        ],
-                      );
+                        );
+                      }
                     },
                   ),
                 ],
