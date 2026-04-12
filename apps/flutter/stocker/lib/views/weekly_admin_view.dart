@@ -61,7 +61,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
   @override
   Widget build(BuildContext context) {
     final profile = Provider.of<UserProfileProvider>(context, listen: false);
-    final label = profile.isAdmin ? 'Masters' : 'Users';
+    final label = profile.isAdmin ? 'Masters' : 'Children';
     final filtered = _filtered;
 
     return Scaffold(

@@ -83,7 +83,7 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
   @override
   Widget build(BuildContext context) {
     final profile = Provider.of<UserProfileProvider>(context, listen: false);
-    final label = profile.isAdmin ? 'Masters' : 'Users';
+    final label = profile.isAdmin ? 'Masters' : 'Children';
     final filtered = _filtered;
 
     return Scaffold(
@@ -221,7 +221,7 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
 
   Widget _buildRow(Map<String, dynamic> row, int index) {
     final username = row['username'] ?? '';
-    // Invert signs: user profit = admin/master loss
+    final type = row['type'] ?? '';
     final realised = -((row['realised_pnl'] as num?)?.toDouble() ?? 0);
     final position = -((row['position_pnl'] as num?)?.toDouble() ?? 0);
     final m2m = -((row['m2m_pnl'] as num?)?.toDouble() ?? 0);
@@ -234,8 +234,14 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
         border: const Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 0.5)),
       ),
       child: Row(children: [
-        Expanded(child: Text(username, textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.black, fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold))),
+        Expanded(child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          if (type == 'master')
+            const Padding(padding: EdgeInsets.only(right: 4),
+              child: Icon(Icons.supervisor_account, size: 12, color: Color(0xFF3F45C7))),
+          Flexible(child: Text(username, textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.black, fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold),
+            maxLines: 1, overflow: TextOverflow.ellipsis)),
+        ])),
         Expanded(child: Text(_pnlStr(realised), textAlign: TextAlign.center,
           style: TextStyle(color: _pnlColor(realised), fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightMedium))),
         Expanded(child: Text(_pnlStr(position), textAlign: TextAlign.center,

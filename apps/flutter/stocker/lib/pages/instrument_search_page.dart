@@ -501,7 +501,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
       );
     }
 
-    if (_searchController.text.isEmpty) {
+    if (_searchController.text.isEmpty && !_isBrowseMode) {
       return _buildEmptyState();
     }
 

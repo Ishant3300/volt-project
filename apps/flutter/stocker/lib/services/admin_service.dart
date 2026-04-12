@@ -919,7 +919,7 @@ class AdminService {
     required double percentage,
   }) async {
     final token = await _storage.getToken();
-    return await _apiService.put('/master-flow/users/$userId/margin-squareoff-percentage', {
+    return await _apiService.put('/master/users/$userId/margin-squareoff-percentage', {
       'margin_square_off_percentage': percentage,
     }, token: token);
   }

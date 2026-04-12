@@ -118,8 +118,16 @@ class _CreateUserViewState extends State<CreateUserView> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true && data['data'] != null) {
+          final names = List<String>.from(data['data']);
           setState(() {
-            _exchangeLotNames[exchange] = List<String>.from(data['data']);
+            _exchangeLotNames[exchange] = names;
+            // Auto-select 'Default' group when creating a new user (not editing)
+            if (widget.user == null &&
+                _exchangeSettings[exchange] != null &&
+                _exchangeSettings[exchange]!['group'] == null &&
+                names.contains('Default')) {
+              _exchangeSettings[exchange]!['group'] = 'Default';
+            }
           });
         }
       }

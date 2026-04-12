@@ -453,6 +453,35 @@ class _TradeCardPageState extends State<TradeCardPage> {
         ? (double.tryParse(_priceController.text) ?? currentPrice)
         : currentPrice;
 
+    // For Limit and Stop orders: validate price against CMP
+    // BUY: price must be below or equal to CMP (you buy at a discount, not above market)
+    // SELL: price must be above or equal to CMP (you sell at a premium, not below market)
+    if (_selectedTab == 1 || _selectedTab == 2) {
+      final cmp = currentItem.currentPrice ?? 0.0;
+      if (cmp > 0) {
+        if (transactionType == 'BUY' && tradePrice > cmp) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Buy price ₹${tradePrice.toStringAsFixed(2)} cannot be above CMP ₹${cmp.toStringAsFixed(2)}'),
+              backgroundColor: const Color(0xFFEF4444),
+            ),
+          );
+          return;
+        }
+        if (transactionType == 'SELL' && tradePrice < cmp) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Sell price ₹${tradePrice.toStringAsFixed(2)} cannot be below CMP ₹${cmp.toStringAsFixed(2)}'),
+              backgroundColor: const Color(0xFFEF4444),
+            ),
+          );
+          return;
+        }
+      }
+    }
+
     // Circuit limit validation
     final upper = currentItem.upperCircuitLimit;
     final lower = currentItem.lowerCircuitLimit;

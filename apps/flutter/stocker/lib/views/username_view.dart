@@ -61,6 +61,11 @@ class _UsernameViewState extends State<UsernameView> {
   bool _isLoadingUsers = false;
   String? _usersError;
 
+  // Sub-master list state (for Master view)
+  List<Master> _subMasterList = [];
+  bool _isLoadingSubMasters = false;
+  String? _subMastersError;
+
   // Live position state (for User and Master view)
   final LivePriceService _livePriceService = LivePriceService();
   final SecureStorageService _storage = SecureStorageService();
@@ -97,6 +102,7 @@ class _UsernameViewState extends State<UsernameView> {
       _fetchLivePositions();
       _setupLivePrices();
       _fetchUserList();
+      _fetchSubMasterList();
     }
   }
 
@@ -408,6 +414,45 @@ class _UsernameViewState extends State<UsernameView> {
     }
   }
 
+  Future<void> _fetchSubMasterList() async {
+    if (_currentMaster == null) return;
+    setState(() {
+      _isLoadingSubMasters = true;
+      _subMastersError = null;
+    });
+    try {
+      final token = await _storage.getToken();
+      final apiService = ApiService(backendUrl);
+      final url = '/master/masters?parent_id=${_currentMaster!.id}&limit=100';
+      final response = await apiService.get(url, token: token);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          final List<dynamic> mastersJson = data['data']['masters'] ?? data['data'] ?? [];
+          setState(() {
+            _subMasterList = mastersJson.map((j) => Master.fromJson(j)).toList();
+            _isLoadingSubMasters = false;
+          });
+        } else {
+          setState(() {
+            _subMastersError = data['message'] ?? 'Failed';
+            _isLoadingSubMasters = false;
+          });
+        }
+      } else {
+        setState(() {
+          _subMastersError = 'Failed to load sub-masters';
+          _isLoadingSubMasters = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _subMastersError = 'Error: $e';
+        _isLoadingSubMasters = false;
+      });
+    }
+  }
+
   Future<void> _refreshData() async {
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
@@ -553,7 +598,8 @@ class _UsernameViewState extends State<UsernameView> {
                   _buildTab('Overview', 0),
                   _buildTab('Trades', 1),
                   _buildTab('Position', 2),
-                  if (_currentMaster != null) _buildTab('Users', 3),
+                  if (_currentMaster != null) _buildTab('Masters', 3),
+                  if (_currentMaster != null) _buildTab('Users', 4),
                 ],
               ),
             ),
@@ -568,7 +614,9 @@ class _UsernameViewState extends State<UsernameView> {
                       ? _buildTradelistTab()
                       : _selectedTabIndex == 2
                           ? _buildPositionTab()
-                          : _buildUserListTab(),
+                          : _selectedTabIndex == 3
+                              ? _buildSubMasterListTab()
+                              : _buildUserListTab(),
             ),
           ],
         ),
@@ -1308,9 +1356,13 @@ class _UsernameViewState extends State<UsernameView> {
                 const Divider(height: 1, color: Color(0xFFF1F5F9)),
                 _liveMetricGridRow('M2M P&L', m2mPnl, 'Credit', credit),
                 const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                _liveMetricGridRow('Margin Used', marginUsed, 'Equity', equity),
-                const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                _liveMetricGridRow('Free Margin', freeMargin, '', 0, hideSecond: true),
+                if (_currentUser != null) ...[
+                  _liveMetricGridRow('Margin Used', marginUsed, 'Equity', equity),
+                  const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                  _liveMetricGridRow('Free Margin', freeMargin, '', 0, hideSecond: true),
+                ] else ...[
+                  _liveMetricGridRow('Margin Used', marginUsed, '', 0, hideSecond: true),
+                ],
               ],
             ),
           ),
@@ -1797,6 +1849,147 @@ class _UsernameViewState extends State<UsernameView> {
         if (_currentMaster != null) _showAccountLimitSheet();
         break;
     }
+  }
+
+  // ── Sub-Master List Tab ──
+  Widget _buildSubMasterListTab() {
+    if (_isLoadingSubMasters) {
+      return const Center(
+          child: CircularProgressIndicator(
+              color: Color(0xFF3F45C7), strokeWidth: 2.5));
+    }
+    if (_subMastersError != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 40, color: Color(0xFFEF4444)),
+            const SizedBox(height: 12),
+            Text(_subMastersError!,
+                style: const TextStyle(
+                    color: Color(0xFFEF4444), fontSize: 13, fontFamily: 'Inter')),
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: _fetchSubMasterList,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                    color: const Color(0xFF3F45C7),
+                    borderRadius: BorderRadius.circular(10)),
+                child: const Text('Retry',
+                    style: TextStyle(
+                        color: Colors.white, fontSize: 13, fontFamily: 'Inter',
+                        fontWeight: kFontWeightSemiBold)),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    if (_subMasterList.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _fetchSubMasterList,
+        child: ListView(children: [
+          const SizedBox(height: 200),
+          Center(
+            child: Column(children: [
+              Container(
+                width: 72, height: 72,
+                decoration: BoxDecoration(
+                    color: Colors.white, shape: BoxShape.circle,
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))]),
+                child: const Icon(Icons.supervisor_account, size: 32, color: Color(0xFFCBD5E1)),
+              ),
+              const SizedBox(height: 20),
+              const Text('No sub-masters found',
+                  style: TextStyle(color: Color(0xFF475569), fontSize: 16, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+            ]),
+          ),
+        ]),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _fetchSubMasterList,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _subMasterList.length,
+        itemBuilder: (context, index) {
+          final master = _subMasterList[index];
+          return GestureDetector(
+            onTap: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => UsernameView(master: master)),
+              );
+              if (result == true && mounted) {
+                _fetchSubMasterList();
+                _refreshData();
+              }
+            },
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white, borderRadius: BorderRadius.circular(20),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
+              ),
+              child: Row(children: [
+                Container(
+                  width: 40, height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12)),
+                  child: Center(
+                    child: Text(
+                      master.name.isNotEmpty ? master.name[0].toUpperCase() : 'M',
+                      style: const TextStyle(color: Color(0xFF8B5CF6), fontSize: 16, fontFamily: 'Inter', fontWeight: kFontWeightBold)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(master.name,
+                        style: const TextStyle(color: Colors.black, fontSize: 14, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                    const SizedBox(height: 2),
+                    Row(children: [
+                      Text(master.username,
+                          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(color: const Color(0xFF8B5CF6).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                        child: const Text('MASTER', style: TextStyle(color: Color(0xFF8B5CF6), fontSize: 9, fontFamily: 'Inter', fontWeight: kFontWeightBold, letterSpacing: 0.3)),
+                      ),
+                    ]),
+                  ]),
+                ),
+                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  Text(master.credits.toStringAsFixed(2),
+                      style: const TextStyle(color: Colors.black, fontSize: 13, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: master.activeStatus
+                          ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                          : const Color(0xFFEF4444).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6)),
+                    child: Text(
+                      master.activeStatus ? 'Active' : 'Inactive',
+                      style: TextStyle(
+                        color: master.activeStatus ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                        fontSize: 10, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                  ),
+                ]),
+                const SizedBox(width: 4),
+                const Icon(Icons.chevron_right, size: kIconSizeMedium, color: Color(0xFF94A3B8)),
+              ]),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   // ── User List Tab ──

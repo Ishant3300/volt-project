@@ -40,11 +40,12 @@ class _TransactionPageState extends State<TransactionPage> {
   String get _targetId => widget.master?.id ?? widget.user!.id;
   String get _targetModel => widget.master != null ? 'Master' : 'User';
   String get _targetName => widget.master?.username ?? widget.user!.username;
-  double get _currentCredits => widget.master?.credits ?? widget.user!.credits;
+  double _currentCredits = 0;
 
   @override
   void initState() {
     super.initState();
+    _currentCredits = widget.master?.credits ?? widget.user!.credits;
     _amountController.addListener(() => setState(() {}));
     _fetchHistory();
   }
@@ -130,6 +131,26 @@ class _TransactionPageState extends State<TransactionPage> {
 
       if (response.statusCode == 200) {
         if (mounted) {
+          // Update local credits from response
+          try {
+            final body = jsonDecode(response.body);
+            final newCredits = (body['data']?['credits'] as num?)?.toDouble();
+            if (newCredits != null) {
+              setState(() => _currentCredits = newCredits);
+            } else {
+              // Fallback: manually adjust
+              final amt = double.tryParse(_amountController.text) ?? 0;
+              setState(() {
+                _currentCredits += _txnType == 0 ? amt : -amt;
+              });
+            }
+          } catch (_) {
+            final amt = double.tryParse(_amountController.text) ?? 0;
+            setState(() {
+              _currentCredits += _txnType == 0 ? amt : -amt;
+            });
+          }
+
           final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
           await profileProvider.fetchProfile();
           ScaffoldMessenger.of(context).showSnackBar(
