@@ -89,6 +89,8 @@ class _OrdersPageState extends State<OrdersPage> {
   final Map<String, double> _ltpMap = {};
   Set<String> _allTokens = {};
   double _masterPositionPnl = 0;
+  double _masterRealisedPnl = 0;
+  double _masterM2mPnl = 0;
 
   // Admin-specific state
   bool _adminLoading = false;
@@ -142,11 +144,23 @@ class _OrdersPageState extends State<OrdersPage> {
     _livePriceService.onMasterMetricsUpdate = (data) {
       if (!mounted) return;
       setState(() {
-        // Invert sign: user profit = master loss
-        _masterPositionPnl = (data['total_pnl'] as num?)?.toDouble() ?? _masterPositionPnl;
+        // Use server-computed values directly (single source of truth)
+        double totalRealised = 0;
+        double totalPositionPnl = 0;
+        bool hasOpenPositions = false;
+
         final List users = data['users'] ?? [];
         for (final u in users) {
           final uid = u['user_id']?.toString() ?? '';
+          totalRealised += (u['realised_pnl'] as num?)?.toDouble() ?? 0;
+          totalPositionPnl += (u['position_pnl'] as num?)?.toDouble() ?? 0;
+
+          // Check if any user has open positions
+          final List positions = u['positions'] ?? [];
+          if (positions.any((p) => ((p['net_qty'] as num?)?.toInt() ?? 0) != 0)) {
+            hasOpenPositions = true;
+          }
+
           if (uid.isEmpty) continue;
           for (final um in _userMetrics) {
             if (um['user_id']?.toString() == uid) {
@@ -154,10 +168,17 @@ class _OrdersPageState extends State<OrdersPage> {
               um['m2m_pnl'] = u['m2m_pnl'];
               um['position_pnl'] = u['position_pnl'];
               um['realised_pnl'] = u['realised_pnl'];
+              um['positions'] = u['positions'];
               break;
             }
           }
         }
+
+        _masterRealisedPnl = (totalRealised * 100).roundToDouble() / 100;
+        _masterPositionPnl = (totalPositionPnl * 100).roundToDouble() / 100;
+        _masterM2mPnl = hasOpenPositions
+            ? ((totalRealised + totalPositionPnl) * 100).roundToDouble() / 100
+            : 0;
       });
     };
 
@@ -240,36 +261,27 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   void _recalcMasterMetrics() {
-    double totalPnl = 0;
+    // Use server-computed values from metricsEngine (single source of truth)
+    // Don't compute locally — just sum the per-user metrics
+    double totalRealised = 0;
+    double totalPositionPnl = 0;
 
     for (final user in _userMetrics) {
-      final double realised = (user['realised_pnl'] as num?)?.toDouble() ?? 0;
-      double floating = 0;
-      final List positions = user['positions'] ?? [];
-
-      for (final pos in positions) {
-        final String iToken = pos['instrument_token']?.toString() ?? '';
-        final int buyQty = (pos['total_buy_qty'] as num?)?.toInt() ?? 0;
-        final int sellQty = (pos['total_sell_qty'] as num?)?.toInt() ?? 0;
-        final double buyVal = (pos['total_buy_value'] as num?)?.toDouble() ?? 0;
-        final double sellVal =
-            (pos['total_sell_value'] as num?)?.toDouble() ?? 0;
-        final int netQty = buyQty - sellQty;
-
-        final double avgBuy = buyQty > 0 ? buyVal / buyQty : 0;
-        final double avgSell = sellQty > 0 ? sellVal / sellQty : 0;
-        final double ltp = _ltpMap[iToken] ??
-            (pos['avg_buy_price'] as num?)?.toDouble() ??
-            (netQty > 0 ? avgBuy : avgSell);
-
-        if (netQty > 0)
-          floating += (ltp - avgBuy) * netQty;
-        else if (netQty < 0) floating += (avgSell - ltp) * netQty.abs();
-      }
-      totalPnl += realised + floating;
+      totalRealised += (user['realised_pnl'] as num?)?.toDouble() ?? 0;
+      totalPositionPnl += (user['position_pnl'] as num?)?.toDouble() ?? 0;
     }
-    // Invert sign: user profit = master loss
-    _masterPositionPnl = (totalPnl * 100).roundToDouble() / 100;
+
+    _masterRealisedPnl = (totalRealised * 100).roundToDouble() / 100;
+    _masterPositionPnl = (totalPositionPnl * 100).roundToDouble() / 100;
+
+    // M2M = 0 when no open positions across all users
+    final bool hasOpenPositions = _userMetrics.any((user) {
+      final List positions = user['positions'] ?? [];
+      return positions.any((p) => ((p['net_qty'] as num?)?.toInt() ?? 0) != 0);
+    });
+    _masterM2mPnl = hasOpenPositions
+        ? ((totalRealised + totalPositionPnl) * 100).roundToDouble() / 100
+        : 0;
   }
 
   // ============================================
@@ -317,36 +329,13 @@ class _OrdersPageState extends State<OrdersPage> {
     }
   }
 
-  /// Recalculate per-master P&L using live LTP prices.
+  /// Use server-computed per-master P&L from metricsEngine (no local recalculation).
   void _recalcAdminMasterPnl() {
     for (final master in _adminMasterMetrics) {
       final String masterId = master['master_id'] ?? '';
       final double realised = (master['realised_pnl'] as num?)?.toDouble() ?? 0;
-      double floating = 0;
-      final List positions = master['positions'] ?? [];
-
-      for (final pos in positions) {
-        final String iToken = pos['instrument_token']?.toString() ?? '';
-        final int buyQty = (pos['total_buy_qty'] as num?)?.toInt() ?? 0;
-        final int sellQty = (pos['total_sell_qty'] as num?)?.toInt() ?? 0;
-        final double buyVal = (pos['total_buy_value'] as num?)?.toDouble() ?? 0;
-        final double sellVal =
-            (pos['total_sell_value'] as num?)?.toDouble() ?? 0;
-        final int netQty = buyQty - sellQty;
-
-        final double avgBuy = buyQty > 0 ? buyVal / buyQty : 0;
-        final double avgSell = sellQty > 0 ? sellVal / sellQty : 0;
-        final double ltp = _ltpMap[iToken] ??
-            (pos['avg_buy_price'] as num?)?.toDouble() ??
-            (netQty > 0 ? avgBuy : avgSell);
-
-        if (netQty > 0)
-          floating += (ltp - avgBuy) * netQty;
-        else if (netQty < 0) floating += (avgSell - ltp) * netQty.abs();
-      }
-      // Invert sign: user profit = admin loss
-      _adminMasterPnl[masterId] =
-          ((realised + floating) * 100).roundToDouble() / 100;
+      final double positionPnl = (master['position_pnl'] as num?)?.toDouble() ?? 0;
+      _adminMasterPnl[masterId] = ((realised + positionPnl) * 100).roundToDouble() / 100;
     }
   }
 
@@ -682,6 +671,8 @@ class _OrdersPageState extends State<OrdersPage> {
 
   Widget _buildMasterView() {
     final bool isPnlPositive = _masterPositionPnl >= 0;
+    final bool isRealisedPositive = _masterRealisedPnl >= 0;
+    final bool isM2mPositive = _masterM2mPnl >= 0;
 
     // Filter positions by search query
     final filteredPositions = _masterSearchQuery.isEmpty
@@ -725,6 +716,50 @@ class _OrdersPageState extends State<OrdersPage> {
                         fontWeight: kFontWeightBold,
                           ),
                     ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Realised P&L and M2M P&L rows
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Realised P&L',
+                                style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
+                            Text(_masterRealisedPnl.toStringAsFixed(2),
+                                style: TextStyle(
+                                    color: isRealisedPositive ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
+                                    fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('TOTAL P&L',
+                                style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
+                            Text(_masterM2mPnl.toStringAsFixed(2),
+                                style: TextStyle(
+                                    color: isM2mPositive ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
+                                    fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 12),

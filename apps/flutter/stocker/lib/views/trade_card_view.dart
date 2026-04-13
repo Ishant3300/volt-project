@@ -453,10 +453,11 @@ class _TradeCardPageState extends State<TradeCardPage> {
         ? (double.tryParse(_priceController.text) ?? currentPrice)
         : currentPrice;
 
-    // For Limit and Stop orders: validate price against CMP
-    // BUY: price must be below or equal to CMP (you buy at a discount, not above market)
-    // SELL: price must be above or equal to CMP (you sell at a premium, not below market)
-    if (_selectedTab == 1 || _selectedTab == 2) {
+    // For Limit orders only: validate price against CMP
+    // BUY: price must be below or equal to CMP
+    // SELL: price must be above or equal to CMP
+    // Stop orders skip this — backend handles offset restriction for SL orders
+    if (_selectedTab == 1) {
       final cmp = currentItem.currentPrice ?? 0.0;
       if (cmp > 0) {
         if (transactionType == 'BUY' && tradePrice > cmp) {
