@@ -2146,7 +2146,7 @@ class _UsernameViewState extends State<UsernameView> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text('${user.equity.toStringAsFixed(2)}',
+                      Text('${user.credits.toStringAsFixed(2)}',
                           style: const TextStyle(
                               color: Colors.black,
                               fontSize: 13,

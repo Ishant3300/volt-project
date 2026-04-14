@@ -23,29 +23,36 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _serverSearchController = TextEditingController();
 
   String _selectedServer = 'Select Server';
   bool _isLoading = false;
   List<Map<String, dynamic>> _servers = [];
   bool _isLoadingServers = false;
+  bool _showServerResults = false;
 
   @override
   void initState() {
     super.initState();
-    _fetchServers();
   }
 
-  Future<void> _fetchServers() async {
+  Future<void> _searchServers(String query) async {
+    if (query.trim().isEmpty) {
+      setState(() {
+        _servers = [];
+        _showServerResults = false;
+      });
+      return;
+    }
     setState(() => _isLoadingServers = true);
     try {
-      final res = await ApiService(backendUrl).get('/servers');
+      final res = await ApiService(backendUrl).get('/servers/search?q=${Uri.encodeComponent(query.trim())}');
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         if (body['success'] == true) {
-          final data = body['data'];
-          final List serverList = data is Map ? (data['servers'] ?? []) : (data ?? []);
           setState(() {
-            _servers = serverList.cast<Map<String, dynamic>>();
+            _servers = List<Map<String, dynamic>>.from(body['data'] ?? []);
+            _showServerResults = _servers.isNotEmpty;
           });
         }
       }
@@ -312,33 +319,7 @@ class _LoginPageState extends State<LoginPage> {
                       // Server field
                       _buildFieldLabel('Server'),
                       const SizedBox(height: 6),
-                      Container(
-                        width: double.infinity,
-                        height: 48,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0xFFE2E8F0)),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _selectedServer == 'Select Server' ? null : _selectedServer,
-                            hint: Text(
-                              _isLoadingServers ? 'Loading...' : 'Select Server',
-                              style: TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeButtonText, fontFamily: 'Inter'),
-                            ),
-                            isExpanded: true,
-                            items: _servers.map((s) {
-                              final name = s['name']?.toString() ?? '';
-                              return DropdownMenuItem<String>(value: name, child: Text(name));
-                            }).toList(),
-                            onChanged: (String? newValue) {
-                              if (newValue != null) setState(() => _selectedServer = newValue);
-                            },
-                          ),
-                        ),
-                      ),
+                      _buildServerSearchField(),
                       const SizedBox(height: 14),
 
                       // Username field
@@ -351,12 +332,6 @@ class _LoginPageState extends State<LoginPage> {
                       _buildFieldLabel('Password'),
                       const SizedBox(height: 6),
                       _buildTextField(_passwordController, 'Enter Password', true),
-                      const SizedBox(height: 12),
-
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text('Forgot password?', style: TextStyle(color: Color(0xFF3F45C7), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
-                      ),
                       const SizedBox(height: 16),
 
                       // Continue button
@@ -408,6 +383,110 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildServerSearchField() {
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          height: 48,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: _selectedServer != 'Select Server'
+                  ? const Color(0xFF10B981)
+                  : const Color(0xFFE2E8F0),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _serverSearchController,
+                  onChanged: (v) => _searchServers(v),
+                  style: const TextStyle(fontSize: kFontSizeButtonText, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
+                  decoration: const InputDecoration(
+                    hintText: 'Search server by name...',
+                    hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeButtonText, fontFamily: 'Inter'),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    border: InputBorder.none,
+                    isDense: true,
+                  ),
+                ),
+              ),
+              if (_isLoadingServers)
+                const Padding(
+                  padding: EdgeInsets.only(right: 12),
+                  child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF3F45C7))),
+                )
+              else if (_selectedServer != 'Select Server')
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedServer = 'Select Server';
+                      _serverSearchController.clear();
+                      _servers = [];
+                      _showServerResults = false;
+                    });
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.only(right: 12),
+                    child: Icon(Icons.close, size: 18, color: Color(0xFF94A3B8)),
+                  ),
+                )
+              else
+                const Padding(
+                  padding: EdgeInsets.only(right: 12),
+                  child: Icon(Icons.search, size: 18, color: Color(0xFF94A3B8)),
+                ),
+            ],
+          ),
+        ),
+        if (_showServerResults && _servers.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(top: 4),
+            constraints: const BoxConstraints(maxHeight: 150),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 4))],
+            ),
+            child: ListView.builder(
+              padding: EdgeInsets.zero,
+              shrinkWrap: true,
+              itemCount: _servers.length,
+              itemBuilder: (_, i) {
+                final name = _servers[i]['name']?.toString() ?? '';
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedServer = name;
+                      _serverSearchController.text = name;
+                      _showServerResults = false;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      border: Border(bottom: BorderSide(color: const Color(0xFFF1F5F9), width: i < _servers.length - 1 ? 1 : 0)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.dns_outlined, size: 16, color: Color(0xFF94A3B8)),
+                        const SizedBox(width: 10),
+                        Text(name, style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+      ],
     );
   }
 

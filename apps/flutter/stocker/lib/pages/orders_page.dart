@@ -147,19 +147,12 @@ class _OrdersPageState extends State<OrdersPage> {
         // Use server-computed values directly (single source of truth)
         double totalRealised = 0;
         double totalPositionPnl = 0;
-        bool hasOpenPositions = false;
 
         final List users = data['users'] ?? [];
         for (final u in users) {
           final uid = u['user_id']?.toString() ?? '';
           totalRealised += (u['realised_pnl'] as num?)?.toDouble() ?? 0;
           totalPositionPnl += (u['position_pnl'] as num?)?.toDouble() ?? 0;
-
-          // Check if any user has open positions
-          final List positions = u['positions'] ?? [];
-          if (positions.any((p) => ((p['net_qty'] as num?)?.toInt() ?? 0) != 0)) {
-            hasOpenPositions = true;
-          }
 
           if (uid.isEmpty) continue;
           for (final um in _userMetrics) {
@@ -176,9 +169,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
         _masterRealisedPnl = (totalRealised * 100).roundToDouble() / 100;
         _masterPositionPnl = (totalPositionPnl * 100).roundToDouble() / 100;
-        _masterM2mPnl = hasOpenPositions
-            ? ((totalRealised + totalPositionPnl) * 100).roundToDouble() / 100
-            : 0;
+        _masterM2mPnl = ((totalRealised + totalPositionPnl) * 100).roundToDouble() / 100;
       });
     };
 
@@ -188,7 +179,6 @@ class _OrdersPageState extends State<OrdersPage> {
       setState(() {
         for (final item in data) {
           final mid = item['master_id']?.toString() ?? '';
-          // Invert sign: user profit = admin loss
           final pnl = (item['total_pnl'] as num?)?.toDouble() ?? 0;
           if (mid.isNotEmpty) _adminMasterPnl[mid] = pnl;
         }
@@ -273,15 +263,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
     _masterRealisedPnl = (totalRealised * 100).roundToDouble() / 100;
     _masterPositionPnl = (totalPositionPnl * 100).roundToDouble() / 100;
-
-    // M2M = 0 when no open positions across all users
-    final bool hasOpenPositions = _userMetrics.any((user) {
-      final List positions = user['positions'] ?? [];
-      return positions.any((p) => ((p['net_qty'] as num?)?.toInt() ?? 0) != 0);
-    });
-    _masterM2mPnl = hasOpenPositions
-        ? ((totalRealised + totalPositionPnl) * 100).roundToDouble() / 100
-        : 0;
+    _masterM2mPnl = ((totalRealised + totalPositionPnl) * 100).roundToDouble() / 100;
   }
 
   // ============================================

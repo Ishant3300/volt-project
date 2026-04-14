@@ -107,7 +107,7 @@ class TradeMetricsProvider with ChangeNotifier {
     try {
       final token = await _storage.getToken();
 
-      // 1. Fetch base account values (credit, equity, free_margin from DB)
+      // 1. Fetch account metrics from metricsEngine (single source of truth)
       final metricsRes =
           await _apiService.get('/trade/metrics', token: token);
       if (metricsRes.statusCode == 200) {
@@ -116,9 +116,12 @@ class TradeMetricsProvider with ChangeNotifier {
         if (data != null) {
           _credit = (data['credit'] as num?)?.toDouble() ?? 0;
           _balance = (data['balance'] as num?)?.toDouble() ?? 0;
-          // Seed equity/free_margin from DB snapshot (will be overwritten by local calc)
           _equity = (data['equity'] as num?)?.toDouble() ?? _credit;
           _freeMargin = (data['free_margin'] as num?)?.toDouble() ?? _credit;
+          _realisedPnl = (data['realised_pnl'] as num?)?.toDouble() ?? 0;
+          _positionPnl = (data['position_pnl'] as num?)?.toDouble() ?? 0;
+          _m2mPnl = (data['m2m_pnl'] as num?)?.toDouble() ?? 0;
+          _marginUsed = (data['margin_used'] as num?)?.toDouble() ?? 0;
         }
       }
 
@@ -130,7 +133,7 @@ class TradeMetricsProvider with ChangeNotifier {
         _trades = data.map((e) => Trade.fromJson(e)).toList();
       }
 
-      // 3. Seed initial metrics from DB snapshot (server will push live values via WebSocket)
+      // 3. Server will push live values via WebSocket for ongoing updates
     } catch (e) {
       debugPrint('Error fetching base trade data: $e');
     } finally {
