@@ -27,10 +27,17 @@ class ApiService {
       return;
     }
 
-    // If there's no token stored, we're already logged out — skip
+    // If there's no token stored, redirect to login (session was invalidated)
     final existingToken = await _storage.getToken();
     if (existingToken == null) {
-      log('⚠️  401 but no token stored - already logged out, ignoring');
+      log('⚠️  401 with no token — redirecting to login');
+      if (_isHandling401) return;
+      _isHandling401 = true;
+      try {
+        await NavigationService.navigateToLogin();
+      } finally {
+        _isHandling401 = false;
+      }
       return;
     }
 

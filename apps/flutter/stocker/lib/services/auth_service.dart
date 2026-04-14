@@ -68,6 +68,11 @@ class AuthService {
 
         // Save token and role to secure storage
         if (authResponse.success && authResponse.data != null) {
+          // If OTP is required, don't save token yet (no token in response)
+          if (authResponse.data['requires_otp'] == true) {
+            return authResponse;
+          }
+
           final token = authResponse.data['token'];
           await storage.saveToken(token: token);
           log('💾 Saved new token to secure storage');
