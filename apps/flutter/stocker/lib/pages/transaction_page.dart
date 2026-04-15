@@ -59,12 +59,16 @@ class _TransactionPageState extends State<TransactionPage> {
 
   Future<void> _fetchHistory({bool refresh = false}) async {
     if (refresh) {
-      _page = 1;
-      _hasMore = true;
-      _transactions = [];
+      setState(() {
+        _page = 1;
+        _hasMore = true;
+        _transactions = [];
+        _isLoadingHistory = true;
+      });
+    } else {
+      if (!_hasMore || _isLoadingHistory) return;
+      setState(() => _isLoadingHistory = true);
     }
-    if (!_hasMore || _isLoadingHistory) return;
-    setState(() => _isLoadingHistory = true);
     try {
       final storage = SecureStorageService();
       final token = await storage.getToken();
@@ -82,11 +86,13 @@ class _TransactionPageState extends State<TransactionPage> {
           final type = (txn['type'] ?? '').toString().toUpperCase();
           return type == 'CREDIT' || type == 'DEBIT';
         }).toList();
-        setState(() {
-          _transactions.addAll(filteredTxns.cast<Map<String, dynamic>>());
-          _hasMore = _transactions.length < total;
-          _page++;
-        });
+        if (mounted) {
+          setState(() {
+            _transactions.addAll(filteredTxns.cast<Map<String, dynamic>>());
+            _page++;
+            _hasMore = txns.length >= 30; // If we got a full page, there might be more
+          });
+        }
       }
     } catch (e) {
       debugPrint('Error fetching transactions: $e');

@@ -701,7 +701,8 @@ class _UsernameViewState extends State<UsernameView> {
                 _settingRow(
                     kIconCreditDebit, 'Credit/Debit'),
                 _settingRow(kIconGroupQuantity, 'Group Quantity Settings'),
-                _settingRow(kIconMarginSquareoff, 'Margin SquareOff Settings'),
+                if (_currentUser != null)
+                  _settingRow(kIconMarginSquareoff, 'Margin SquareOff Settings'),
                 _settingRow(kIconBrokerageSettings, 'Brk Settings'),
                 _settingRow(kIconIntradaySquareoff, 'Intraday SquareOff'),
                 _settingRow(kIconTradeMargin, 'Trade Margin'),

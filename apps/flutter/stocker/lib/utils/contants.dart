@@ -55,7 +55,7 @@ const double kFontSizeTradeSymbol = 12.0;    // Instrument name in trade/positio
 const double kFontSizeTradePrice = 14.0;     // Price on right side of trade cards
 const double kFontSizeTradeBadge = 10.0;     // BUY/SELL/PENDING badges
 const double kFontSizeTradeMetadata = 10.0;  // Volume, time, username metadata
-const double kFontSizePositionSymbol = 14.0; // Symbol in position cards
+const double kFontSizePositionSymbol = 11.5; // Symbol in position cards // user's view in orders page
 const double kFontSizePositionDetail = 11.0; // Exchange, avg price, side badge text
 const double kFontSizePositionPnl = 14.0;    // Floating P&L value
 

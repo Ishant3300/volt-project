@@ -1393,18 +1393,21 @@ class _OrdersPageState extends State<OrdersPage> {
                             final idx = entry.key;
                             final pos = entry.value;
                             final isBuy = pos.netQty > 0;
-                            final isNegative = pos.floating < 0;
                             final watchlist = Provider.of<WatchlistProvider>(context, listen: false);
                             final wItem = watchlist.getByToken(pos.instrumentToken);
                             final displayName = wItem?.instrument.userFriendlyName ?? pos.tradingsymbol;
-                            // CMP: show bid price for BUY positions (exit = sell at bid),
-                            // ask price for SELL positions (exit = buy at ask).
-                            // Fall back to LTP ± spread if bid/ask not available.
+                            // CMP from server (metricsEngine uses bid for BUY, ask for SELL)
+                            // Fall back to watchlist bid/ask, then LTP
                             final ltp = pos.ltp;
                             final fallbackSpread = ltp * 0.0005;
-                            final cmp = isBuy
-                                ? (wItem?.bidPrice ?? (ltp > 0 ? ltp - fallbackSpread : ltp))
-                                : (wItem?.askPrice ?? (ltp > 0 ? ltp + fallbackSpread : ltp));
+                            final cmp = pos.cmp > 0
+                                ? pos.cmp
+                                : isBuy
+                                    ? (wItem?.bidPrice ?? (ltp > 0 ? ltp - fallbackSpread : ltp))
+                                    : (wItem?.askPrice ?? (ltp > 0 ? ltp + fallbackSpread : ltp));
+                            // P&L from server (computed using bid/ask by metricsEngine)
+                            final floating = pos.floating;
+                            final isNegative = floating < 0;
                             return Column(
                               children: [
                                 _buildOrderItem(
@@ -1415,7 +1418,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                   '${isBuy ? "BUY" : "SELL"}: ${_positionVolumeLabel(pos.exchange, pos.tradingsymbol, pos.netQty, segment: pos.segment, lotSize: pos.lotSize)}',
                                   isBuy ? pos.avgBuyPrice : pos.avgSellPrice,
                                   cmp,
-                                  pos.floating,
+                                  floating,
                                   isNegative,
                                 ),
                                 if (idx != openPositions.length - 1)

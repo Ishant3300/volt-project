@@ -461,14 +461,6 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                         children: [
                           _buildToggleRow('Add Master', _addMaster,
                               (v) => setState(() => _addMaster = v)),
-                          if (widget.master == null) ...[
-                            _divider(),
-                            _buildToggleRow(
-                                'Change password on first login',
-                                _changePasswordOnFirstLogin,
-                                (v) => setState(
-                                    () => _changePasswordOnFirstLogin = v)),
-                          ],
                         ],
                       ),
                     ),

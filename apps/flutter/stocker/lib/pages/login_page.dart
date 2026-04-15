@@ -12,8 +12,10 @@ import 'package:stocker/providers/trade_metrics_provider.dart';
 import 'package:stocker/services/firebase_service.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/services/multi_account_service.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../home_page.dart';
 import '../utils/contants.dart';
+import '../views/webview_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -87,9 +89,17 @@ class _LoginPageState extends State<LoginPage> {
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
       final apiService = Provider.of<ApiService>(context, listen: false);
+
+      // Get FCM token so OTP is sent to THIS device
+      String? fcmToken;
+      try {
+        fcmToken = await FirebaseMessaging.instance.getToken();
+      } catch (_) {}
+
       final authData = AuthenticateData(
         username: _usernameController.text.trim(),
         password: _passwordController.text,
+        fcmToken: fcmToken,
       );
 
       apiService.setInitializing(true);
@@ -539,7 +549,31 @@ class _LoginPageState extends State<LoginPage> {
                   child: Text.rich(
                     TextSpan(children: [
                       const TextSpan(text: 'By clicking "Continue", I have read and agree\nwith the ', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: 'Inter')),
-                      TextSpan(text: 'Term & Privacy Policy', style: TextStyle(color: Colors.black.withValues(alpha: 0.7), fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightMedium, decoration: TextDecoration.underline)),
+                      WidgetSpan(
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const WebViewPage(
+                                  url: 'https://apexlive.framer.website/privacy',
+                                  title: 'Privacy Policy',
+                                ),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            'Term & Privacy Policy',
+                            style: TextStyle(
+                              color: Colors.black.withValues(alpha: 0.7),
+                              fontSize: kFontSizeSubtitle,
+                              fontFamily: 'Inter',
+                              fontWeight: kFontWeightMedium,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ),
                     ]),
                     textAlign: TextAlign.center,
                   ),

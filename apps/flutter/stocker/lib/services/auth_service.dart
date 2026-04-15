@@ -8,17 +8,21 @@ import 'package:stocker/services/multi_account_service.dart';
 class AuthenticateData {
   final String username;
   final String password;
+  final String? fcmToken;
 
   AuthenticateData({
     required this.username,
     required this.password,
+    this.fcmToken,
   });
 
   Map<String, dynamic> toJson() {
-    return {
+    final map = <String, dynamic>{
       "username": username,
       "password": password,
     };
+    if (fcmToken != null) map["fcm_token"] = fcmToken;
+    return map;
   }
 }
 

@@ -53,24 +53,19 @@ class _UserManagementViewState extends State<UserManagementView> {
 
       if (profileProvider.isAdmin) {
         final mastersResponse = await adminService.getAllMasters(limit: 100);
-        final usersResponse = await adminService.getAllUsers(limit: 100);
 
-        if (mastersResponse.statusCode == 200 &&
-            usersResponse.statusCode == 200) {
+        if (mastersResponse.statusCode == 200) {
           final mastersData = jsonDecode(mastersResponse.body);
-          final usersData = jsonDecode(usersResponse.body);
 
-          if (mastersData['success'] == true && usersData['success'] == true) {
+          if (mastersData['success'] == true) {
             setState(() {
               _masters = (mastersData['data']['masters'] as List)
                   .map((json) => Master.fromJson(json))
                   .toList();
-              _users = (usersData['data']['users'] as List)
-                  .map((json) => User.fromJson(json))
-                  .toList();
+              _users = [];
               _isLoading = false;
             });
-            log('✅ Admin loaded ${_masters.length} masters and ${_users.length} users');
+            log('✅ Admin loaded ${_masters.length} top-level masters');
           } else {
             setState(() {
               _error = 'Failed to load data';

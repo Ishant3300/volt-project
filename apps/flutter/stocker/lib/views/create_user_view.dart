@@ -592,14 +592,6 @@ class _CreateUserViewState extends State<CreateUserView> {
                         children: [
                           _buildToggleRow('Margin Square Off', _marginSquareOff,
                               (v) => setState(() => _marginSquareOff = v)),
-                          if (widget.user == null) ...[
-                            _divider(),
-                            _buildToggleRow(
-                                'Change password on first login',
-                                _changePasswordOnFirstLogin,
-                                (v) => setState(
-                                    () => _changePasswordOnFirstLogin = v)),
-                          ],
                         ],
                       ),
                     ),

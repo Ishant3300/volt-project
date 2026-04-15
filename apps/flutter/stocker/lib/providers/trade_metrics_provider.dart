@@ -22,6 +22,7 @@ class PositionAgg {
   double avgBuyPrice = 0;
   double avgSellPrice = 0;
   double ltp = 0;
+  double cmp = 0;
   double realised = 0;
   double floating = 0;
   double positionMargin = 0;
@@ -172,6 +173,7 @@ class TradeMetricsProvider with ChangeNotifier {
       agg.avgBuyPrice = (p['avg_buy_price'] as num?)?.toDouble() ?? 0;
       agg.avgSellPrice = (p['avg_sell_price'] as num?)?.toDouble() ?? 0;
       agg.ltp = (p['ltp'] as num?)?.toDouble() ?? 0;
+      agg.cmp = (p['cmp'] as num?)?.toDouble() ?? 0;
       agg.floating = (p['floating_pnl'] as num?)?.toDouble() ?? 0;
       agg.positionMargin = (p['margin'] as num?)?.toDouble() ?? 0;
       agg.segment = p['segment'] ?? '';
