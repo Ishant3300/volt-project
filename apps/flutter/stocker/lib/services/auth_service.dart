@@ -72,8 +72,8 @@ class AuthService {
 
         // Save token and role to secure storage
         if (authResponse.success && authResponse.data != null) {
-          // If OTP is required, don't save token yet (no token in response)
-          if (authResponse.data['requires_otp'] == true) {
+          // If TOTP or OTP is required, don't save token yet (no token in response)
+          if (authResponse.data['requires_otp'] == true || authResponse.data['requires_totp'] == true) {
             return authResponse;
           }
 

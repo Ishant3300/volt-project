@@ -1726,6 +1726,7 @@ class _PortfolioPageState extends State<PortfolioPage>
           item: itemToUse,
           initialOrderType: closeOrderType,
           initialQuantity: closeQuantity,
+          forceSide: trade.status.toLowerCase() == 'pending' ? trade.transactionType.toUpperCase() : null,
         ),
       ),
     );

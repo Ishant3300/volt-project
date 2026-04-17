@@ -22,12 +22,14 @@ class TradeCardPage extends StatefulWidget {
   final String?
       initialOrderType; // 'Buy Limit', 'Sell Limit', or null for default
   final int? initialQuantity;
+  final String? forceSide; // 'BUY' or 'SELL' — only show this button (for pending orders)
 
   const TradeCardPage({
     super.key,
     required this.item,
     this.initialOrderType,
     this.initialQuantity,
+    this.forceSide,
   });
 
   @override
@@ -172,13 +174,34 @@ class _TradeCardPageState extends State<TradeCardPage> {
         _isLoadingLotLimit = false;
 
         if (info != null && info.lotSize > 0) {
-          if (info.isTurnoverMode) {
-            // Turnover mode: default to 1 quantity
-            _quantity = 1;
-            _selectedQuickQty = _quickQuantities.contains(1) ? 1 : -1;
-            _qtyController.text = '1';
+          // Check if user has an open position for this instrument
+          final netQty = _getNetPosition(context);
+          if (netQty != 0 && widget.initialQuantity == null) {
+            // Pre-fill from open position
+            final absQty = netQty.abs();
+            if (info.isTurnoverMode) {
+              _quantity = absQty;
+              _selectedQuickQty = _quickQuantities.contains(absQty) ? absQty : -1;
+              _qtyController.text = absQty.toString();
+            } else {
+              // Convert raw quantity to lots
+              final lots = info.lotSize > 0 ? (absQty / info.lotSize).round() : absQty;
+              _lotCount = lots > 0 ? lots : 1;
+              _selectedQuickLot = _quickLots.contains(_lotCount) ? _lotCount : -1;
+              _qtyController.text = _lotCount.toString();
+            }
+          } else if (widget.initialQuantity != null && !info.isTurnoverMode) {
+            // initialQuantity was passed (e.g. from orders page square-off) — convert to lots
+            final lots = info.lotSize > 0 ? (widget.initialQuantity! / info.lotSize).round() : widget.initialQuantity!;
+            _lotCount = lots > 0 ? lots : 1;
+            _selectedQuickLot = _quickLots.contains(_lotCount) ? _lotCount : -1;
+            _qtyController.text = _lotCount.toString();
+          } else if (info.isTurnoverMode) {
+            _quantity = widget.initialQuantity ?? 1;
+            _selectedQuickQty = _quickQuantities.contains(_quantity) ? _quantity : -1;
+            _qtyController.text = _quantity.toString();
           } else {
-            // Lot mode: default to 1 lot
+            // No position, no initialQuantity — default to 1 lot
             _lotCount = 1;
             _selectedQuickLot = 1;
             _qtyController.text = '1';
@@ -535,6 +558,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
         SnackBar(
           content: Text(result.$2),
           backgroundColor: result.$1 ? Colors.green : Colors.red,
+          duration: const Duration(seconds: 1),
         ),
       );
 
@@ -1476,10 +1500,13 @@ class _TradeCardPageState extends State<TradeCardPage> {
 
                       if (_selectedTab == 0) {
                         // ── Market tab: SELL and BUY with bid/ask prices ──
+                        final showSell = widget.forceSide == null || widget.forceSide == 'SELL';
+                        final showBuy = widget.forceSide == null || widget.forceSide == 'BUY';
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Sell side
+                            if (showSell)
                             Builder(builder: (context) {
                               final sellDisabled =
                                   _isOption && _getNetPosition(context) <= 0;
@@ -1557,8 +1584,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                 ),
                               );
                             }),
-                            const SizedBox(width: 14),
+                            if (showSell && showBuy) const SizedBox(width: 14),
                             // Buy side
+                            if (showBuy)
                             Expanded(
                               child: Column(
                                 children: [
@@ -1631,6 +1659,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                         // ── Limit / Stop tab: price input + SELL and BUY side by side ──
                         final sellDisabled =
                             _isOption && _getNetPosition(context) <= 0;
+                        final showSell = widget.forceSide == null || widget.forceSide == 'SELL';
+                        final showBuy = widget.forceSide == null || widget.forceSide == 'BUY';
                         return Column(
                           children: [
                             // Price input field
@@ -1682,6 +1712,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                             Row(
                               children: [
                                 // SELL button
+                                if (showSell)
                                 Expanded(
                                   child: GestureDetector(
                                     onTap: sellDisabled
@@ -1735,8 +1766,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 14),
+                                if (showSell && showBuy) const SizedBox(width: 14),
                                 // BUY button
+                                if (showBuy)
                                 Expanded(
                                   child: GestureDetector(
                                     onTap: () {

@@ -68,7 +68,7 @@ const double kFontSizeSheetHint = 13.0;
 // Icon Sizes
 const double kIconSizeSmall = 14.0;
 const double kIconSizeDefault = 16.0;
-const double kIconSizeMedium = 20.0;
+const double kIconSizeMedium = 24.0;
 const double kIconSizeLarge = 24.0;
 const double kIconSizeXLarge = 32.0;
 const double kIconSizeProfileMenu = 28.0;

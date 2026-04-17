@@ -19,6 +19,7 @@ import 'dart:convert';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/utils/contants.dart';
+import 'package:stocker/utils/market_hours.dart';
 
 class _NumberFormat {
   final double value;
@@ -1653,13 +1654,13 @@ class _OrdersPageState extends State<OrdersPage> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (_isSelectionMode)
+            if (_isSelectionMode && !isSelected)
               const Icon(
                 Icons.check_box_outline_blank,
                 size: kIconSizeMedium,
                 color: Color(0xFF8E8E93),
               ),
-            if (isSelected)
+            if (_isSelectionMode && isSelected)
               const Icon(
                 Icons.check_box,
                 size: kIconSizeMedium,
@@ -1670,23 +1671,33 @@ class _OrdersPageState extends State<OrdersPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      color: Color(0xFF0F172A),
+                      fontSize: kFontSizePositionSymbol,
+                      fontFamily: 'Inter',
+                      fontWeight: kFontWeightSemiBold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
                       Text(
-                        name,
+                        qtyInfo,
                         style: const TextStyle(
-                          color: Color(0xFF0F172A),
-                          fontSize: kFontSizePositionSymbol,
+                          color: Color(0xFF64748B),
+                          fontSize: kFontSizePositionDetail,
                           fontFamily: 'Inter',
-                          fontWeight: kFontWeightSemiBold,
+                          fontWeight: kFontWeightRegular,
                         ),
                       ),
                       const SizedBox(width: 8),
                       Container(
-                        width: 6,
-                        height: 6,
+                        width: 4,
+                        height: 4,
                         decoration: const BoxDecoration(
-                          color: Color(0xFFE2E8F0),
+                          color: Color(0xFFCBD5E1),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -1694,23 +1705,13 @@ class _OrdersPageState extends State<OrdersPage> {
                       Text(
                         exchange,
                         style: const TextStyle(
-                          color: Color(0xFF0F172A),
-                          fontSize: kFontSizePositionSymbol,
+                          color: Color(0xFF94A3B8),
+                          fontSize: kFontSizePositionDetail,
                           fontFamily: 'Inter',
                           fontWeight: kFontWeightMedium,
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    qtyInfo,
-                    style: const TextStyle(
-                      color: Color(0xFF64748B),
-                      fontSize: kFontSizePositionDetail,
-                      fontFamily: 'Inter',
-                      fontWeight: kFontWeightRegular,
-                    ),
                   ),
                   const SizedBox(height: 4),
                   Row(
@@ -1895,6 +1896,15 @@ class _OrdersPageState extends State<OrdersPage> {
       // Place opposite orders for each selected position
       for (final position in selectedPositions) {
         try {
+          // Check market hours for this instrument
+          final ex = position.exchange;
+          final sym = position.tradingsymbol;
+          if (!MarketHours.isMarketOpen(exchange: ex, tradingsymbol: sym)) {
+            failCount++;
+            errors.add('${position.tradingsymbol}: ${MarketHours.getMarketStatusMessage(exchange: ex, tradingsymbol: sym)}');
+            continue;
+          }
+
           // Determine opposite side based on net quantity
           final oppositeType = position.netQty > 0 ? 'SELL' : 'BUY';
 
@@ -1905,6 +1915,7 @@ class _OrdersPageState extends State<OrdersPage> {
               'instrument_token': position.instrumentToken,
               'tradingsymbol': position.tradingsymbol,
               'exchange': position.exchange,
+              'segment': position.segment,
               'transaction_type': oppositeType,
               'quantity': position.netQty.abs(),
               'order_type': 'MARKET',

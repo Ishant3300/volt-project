@@ -1781,7 +1781,10 @@ class _UsernameViewState extends State<UsernameView> {
               builder: (_) =>
                   TransactionPage(master: _currentMaster, user: _currentUser)),
         );
-        if (result == true && mounted) await _refreshData();
+        if (result == true && mounted) {
+          await _refreshData();
+          _fetchLivePositions(); // Refresh position tab metrics after credit/debit
+        }
         break;
       case 'Group Quantity Settings':
         Navigator.push(context,

@@ -32,6 +32,7 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
   List<Map<String, dynamic>> _items = [];
   Map<String, bool> _selected = {};
   bool _isLoading = false;
+  bool _isApplying = false;
   bool _isAdmin = false;
 
   @override
@@ -92,7 +93,7 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
   }
 
   Future<void> _apply() async {
-    if (_selectedExchange == null) return;
+    if (_selectedExchange == null || _isApplying) return;
     final value = double.tryParse(_amountCtrl.text);
     if (value == null || value <= 0) {
       ScaffoldMessenger.of(context)
@@ -106,27 +107,34 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
           const SnackBar(content: Text('Select at least one script')));
       return;
     }
+    setState(() => _isApplying = true);
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
-      final admin = AdminService(apiService);
-      int ok = 0, fail = 0;
+      final token = await SecureStorageService().getToken();
+      // Collect IDs of selected items
+      final ids = <String>[];
       for (var item in _items) {
         if (scripts.contains(item['script_name'])) {
-          final effectiveExchange =
-              _selectedExchange == 'GLOBAL' ? 'INDICES' : _selectedExchange;
-          final r = await admin.updateBrokerageSettings(
-              id: item['id'],
-              type: _selectedType,
-              exchangeName: effectiveExchange,
-              scriptName: item['script_name'],
-              brkValue: value);
-          r.statusCode == 200 ? ok++ : fail++;
+          ids.add(item['id']);
         }
       }
+      final res = await apiService.put('/admin/brokerage-settings/bulk-update', {
+        'ids': ids,
+        'brk_value': value,
+        'type': _selectedType,
+      }, token: token);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Updated $ok${fail > 0 ? ", $fail failed" : ""}'),
-            backgroundColor: const Color(0xFF10B981)));
+        final body = jsonDecode(res.body);
+        if (res.statusCode == 200 && body['success'] == true) {
+          final modified = body['data']?['modified'] ?? ids.length;
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('Updated $modified script(s)'),
+              backgroundColor: const Color(0xFF10B981)));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(body['message'] ?? 'Update failed'),
+              backgroundColor: const Color(0xFFEF4444)));
+        }
         _amountCtrl.clear();
         _selected.clear();
         _fetch();
@@ -135,6 +143,8 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
       if (mounted)
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      if (mounted) setState(() => _isApplying = false);
     }
   }
 
@@ -276,17 +286,19 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                         border: InputBorder.none)),
               )),
               GestureDetector(
-                  onTap: _apply,
+                  onTap: _isApplying ? null : _apply,
                   child: Container(
                       height: 42,
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       alignment: Alignment.center,
-                      decoration: const BoxDecoration(
-                          color: Color(0xFF3F45C7),
-                          borderRadius: BorderRadius.only(
+                      decoration: BoxDecoration(
+                          color: _isApplying ? const Color(0xFF94A3B8) : const Color(0xFF3F45C7),
+                          borderRadius: const BorderRadius.only(
                               topRight: Radius.circular(12),
                               bottomRight: Radius.circular(12))),
-                      child: const Text('Apply',
+                      child: _isApplying
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Text('Apply',
                           style: TextStyle(
                               color: Colors.white,
                               fontSize: kFontSizeBodySmall,

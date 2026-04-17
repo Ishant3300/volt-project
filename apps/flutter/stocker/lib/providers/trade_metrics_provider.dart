@@ -67,6 +67,7 @@ class TradeMetricsProvider with ChangeNotifier {
   double _freeMargin = 0;
   double _credit = 0;
   double _balance = 0;
+  String? _currentUserId;
 
   double get realisedPnl => _realisedPnl;
   double get positionPnl => _positionPnl;
@@ -92,6 +93,7 @@ class TradeMetricsProvider with ChangeNotifier {
     _freeMargin = 0;
     _credit = 0;
     _balance = 0;
+    _currentUserId = null;
     _isLoading = false;
     notifyListeners();
   }
@@ -115,6 +117,7 @@ class TradeMetricsProvider with ChangeNotifier {
         final Map<String, dynamic> body = jsonDecode(metricsRes.body);
         final data = body['data'];
         if (data != null) {
+          _currentUserId = data['user_id']?.toString();
           _credit = (data['credit'] as num?)?.toDouble() ?? 0;
           _balance = (data['balance'] as num?)?.toDouble() ?? 0;
           _equity = (data['equity'] as num?)?.toDouble() ?? _credit;
@@ -153,6 +156,12 @@ class TradeMetricsProvider with ChangeNotifier {
 
   /// Apply server-pushed metrics from metricsEngine (single source of truth).
   void applyServerMetrics(Map<String, dynamic> data) {
+    // Ignore metrics for a different user (stale WebSocket push after account switch)
+    final incomingUserId = data['user_id']?.toString();
+    if (_currentUserId != null && incomingUserId != null && incomingUserId != _currentUserId) {
+      return;
+    }
+
     _credit = (data['credit'] as num?)?.toDouble() ?? _credit;
     _realisedPnl = (data['realised_pnl'] as num?)?.toDouble() ?? _realisedPnl;
     _positionPnl = (data['position_pnl'] as num?)?.toDouble() ?? _positionPnl;

@@ -32,6 +32,7 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
   List<Map<String, dynamic>> _items = [];
   Map<String, bool> _selected = {};
   bool _isLoading = false;
+  bool _isApplying = false;
   bool _hasInitialized = false;
   bool _isAdmin = false;
 
@@ -111,7 +112,7 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
   }
 
   Future<void> _apply() async {
-    if (_selectedExchange == null) return;
+    if (_selectedExchange == null || _isApplying) return;
     final value = double.tryParse(_amountCtrl.text);
     if (value == null || value <= 0) {
       ScaffoldMessenger.of(context)
@@ -125,27 +126,34 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
           const SnackBar(content: Text('Select at least one script')));
       return;
     }
+    setState(() => _isApplying = true);
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
-      final admin = AdminService(apiService);
-      int ok = 0, fail = 0;
+      final token = await SecureStorageService().getToken();
+      // Collect IDs of selected items
+      final ids = <String>[];
       for (var item in _items) {
         if (scripts.contains(item['script_name'])) {
-          final effectiveExchange =
-              _selectedExchange == 'GLOBAL' ? 'INDICES' : _selectedExchange;
-          final r = await admin.updateTradeMargin(
-              id: item['id'],
-              amountType: _selectedAmountType,
-              exchangeName: effectiveExchange,
-              scriptName: item['script_name'],
-              tradeMargin: value);
-          r.statusCode == 200 ? ok++ : fail++;
+          ids.add(item['id']);
         }
       }
+      final res = await apiService.put('/admin/trade-margins/bulk-update', {
+        'ids': ids,
+        'trade_margin': value,
+        'amount_type': _selectedAmountType,
+      }, token: token);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Updated $ok${fail > 0 ? ", $fail failed" : ""}'),
-            backgroundColor: const Color(0xFF10B981)));
+        final body = jsonDecode(res.body);
+        if (res.statusCode == 200 && body['success'] == true) {
+          final modified = body['data']?['modified'] ?? ids.length;
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('Updated $modified script(s)'),
+              backgroundColor: const Color(0xFF10B981)));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(body['message'] ?? 'Update failed'),
+              backgroundColor: const Color(0xFFEF4444)));
+        }
         _amountCtrl.clear();
         _selected.clear();
         _fetch();
@@ -154,6 +162,8 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
       if (mounted)
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      if (mounted) setState(() => _isApplying = false);
     }
   }
 
@@ -311,17 +321,19 @@ class _TradeMarginSettingsViewState extends State<TradeMarginSettingsView> {
                         border: InputBorder.none)),
               )),
               GestureDetector(
-                  onTap: _apply,
+                  onTap: _isApplying ? null : _apply,
                   child: Container(
                       height: 42,
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       alignment: Alignment.center,
-                      decoration: const BoxDecoration(
-                          color: Color(0xFF3F45C7),
-                          borderRadius: BorderRadius.only(
+                      decoration: BoxDecoration(
+                          color: _isApplying ? const Color(0xFF94A3B8) : const Color(0xFF3F45C7),
+                          borderRadius: const BorderRadius.only(
                               topRight: Radius.circular(12),
                               bottomRight: Radius.circular(12))),
-                      child: const Text('Apply',
+                      child: _isApplying
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Text('Apply',
                           style: TextStyle(
                               color: Colors.white,
                               fontSize: kFontSizeBodySmall,

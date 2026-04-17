@@ -156,7 +156,7 @@ class _MarketDepthSheetState extends State<MarketDepthSheet> {
           SizedBox(height: 16),
           // Close button
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            padding: EdgeInsets.fromLTRB(16, 0, 16, MediaQuery.of(context).padding.bottom + 16),
             child: GestureDetector(
               onTap: () => Navigator.pop(context),
               child: Container(

@@ -108,13 +108,10 @@ class _LoginPageState extends State<LoginPage> {
       if (mounted) {
         if (response.success) {
           // Check if OTP is required (admin login)
-          if (response.data != null && response.data!['requires_otp'] == true) {
+          if (response.data != null && response.data!['requires_totp'] == true) {
             apiService.setInitializing(false);
             setState(() => _isLoading = false);
-            _showOtpDialog(
-              otpToken: response.data!['otp_token'] ?? '',
-              maskedPhone: response.data!['masked_phone'] ?? '',
-            );
+            _showTotpDialog();
             return;
           }
 
@@ -170,156 +167,203 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  void _showOtpDialog({required String otpToken, required String maskedPhone}) {
-    final otpController = TextEditingController();
+  void _showTotpDialog() {
+    final totpController = TextEditingController();
     bool isVerifying = false;
-    final parentContext = context; // capture parent context for navigation
+    bool isLoadingApp = false;
+    String loadingMessage = '';
+    final parentContext = context;
 
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.security, size: 48, color: Color(0xFF3F45C7)),
-                const SizedBox(height: 12),
-                const Text('Admin Verification',
-                    style: TextStyle(fontSize: kFontSizeSectionHeader, fontFamily: 'Inter', fontWeight: kFontWeightBold, color: Color(0xFF0F172A))),
-                const SizedBox(height: 8),
-                Text('OTP sent to $maskedPhone',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: kFontSizeBodySmall, fontFamily: 'Inter', color: Color(0xFF64748B))),
-                const SizedBox(height: 20),
-                TextField(
-                  controller: otpController,
-                  keyboardType: TextInputType.number,
-                  maxLength: 6,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 24, fontFamily: 'Inter', fontWeight: kFontWeightBold, letterSpacing: 8),
-                  decoration: InputDecoration(
-                    counterText: '',
-                    hintText: '------',
-                    hintStyle: const TextStyle(color: Color(0xFFCBD5E1), letterSpacing: 8),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF3F45C7), width: 1.5)),
-                  ),
+        builder: (dialogContext, setDialogState) {
+          // Loading state — full dialog becomes a loader
+          if (isLoadingApp) {
+            return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 64, height: 64,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [Color(0xFFC6529E), Color(0xFF3B43C9)]),
+                        shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(color: const Color(0xFF3F45C7).withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 8))],
+                      ),
+                      child: const Center(
+                        child: SizedBox(width: 28, height: 28, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text('Verified ✓', style: TextStyle(fontSize: kFontSizeSectionHeader, fontFamily: 'Inter', fontWeight: kFontWeightBold, color: Color(0xFF10B981))),
+                    const SizedBox(height: 8),
+                    Text(loadingMessage, textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: kFontSizeBodySmall, fontFamily: 'Inter', color: Color(0xFF94A3B8))),
+                  ],
                 ),
-                const SizedBox(height: 20),
-                GestureDetector(
-                  onTap: isVerifying ? null : () async {
-                    final otp = otpController.text.trim();
-                    if (otp.length != 6) {
-                      ScaffoldMessenger.of(ctx).showSnackBar(
-                        const SnackBar(content: Text('Enter 6-digit OTP'), backgroundColor: Colors.red),
-                      );
-                      return;
-                    }
-                    setDialogState(() => isVerifying = true);
+              ),
+            );
+          }
 
-                    try {
-                      final apiService = Provider.of<ApiService>(parentContext, listen: false);
-                      apiService.setInitializing(true);
+          // Normal TOTP input state
+          return Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.security, size: 48, color: Color(0xFF3F45C7)),
+                  const SizedBox(height: 12),
+                  const Text('Two-Factor Authentication',
+                      style: TextStyle(fontSize: kFontSizeSectionHeader, fontFamily: 'Inter', fontWeight: kFontWeightBold, color: Color(0xFF0F172A))),
+                  const SizedBox(height: 8),
+                  const Text('Enter the 6-digit code from your authenticator app',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: kFontSizeBodySmall, fontFamily: 'Inter', color: Color(0xFF64748B))),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: totpController,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    textAlign: TextAlign.center,
+                    autofocus: true,
+                    style: const TextStyle(fontSize: 24, fontFamily: 'Inter', fontWeight: kFontWeightBold, letterSpacing: 8),
+                    decoration: InputDecoration(
+                      counterText: '',
+                      hintText: '------',
+                      hintStyle: const TextStyle(color: Color(0xFFCBD5E1), letterSpacing: 8),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF3F45C7), width: 1.5)),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  GestureDetector(
+                    onTap: isVerifying ? null : () async {
+                      final code = totpController.text.trim();
+                      if (code.length != 6) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          const SnackBar(content: Text('Enter 6-digit code'), backgroundColor: Colors.red),
+                        );
+                        return;
+                      }
+                      setDialogState(() => isVerifying = true);
 
-                      // Re-send login with OTP
-                      final res = await apiService.post('/auth/login', {
-                        'username': _usernameController.text.trim(),
-                        'password': _passwordController.text,
-                        'otp': otp,
-                        'otp_token': otpToken,
-                      });
+                      try {
+                        final apiService = Provider.of<ApiService>(parentContext, listen: false);
+                        apiService.setInitializing(true);
 
-                      final body = jsonDecode(res.body);
+                        final res = await apiService.post('/auth/login', {
+                          'username': _usernameController.text.trim(),
+                          'password': _passwordController.text,
+                          'totp_code': code,
+                        });
 
-                      if (res.statusCode == 200 && body['success'] == true && body['data']?['requires_otp'] != true) {
-                        // OTP verified, login successful — save token and account
-                        final token = body['data']?['token'];
-                        final role = body['data']?['role'] ?? 'ADMIN';
-                        if (token != null) {
-                          final secStorage = SecureStorageService();
-                          await secStorage.saveToken(token: token);
-                          await secStorage.saveRole(role: role.toString().toUpperCase());
+                        final body = jsonDecode(res.body);
 
-                          // Save to multi-account list
-                          final multiAccount = MultiAccountService();
-                          final adminData = body['data']?['admin'];
-                          final savedAccount = SavedAccount(
-                            username: _usernameController.text.trim(),
-                            role: role.toString().toUpperCase(),
-                            token: token,
-                            name: adminData?['username'] ?? _usernameController.text.trim(),
-                          );
-                          await multiAccount.saveAccount(savedAccount);
-                          await multiAccount.setActiveKey('${savedAccount.username}_${savedAccount.role}');
-                        }
+                        if (res.statusCode == 200 && body['success'] == true && body['data']?['requires_totp'] != true) {
+                          // TOTP verified — switch to loading state
+                          setDialogState(() {
+                            isLoadingApp = true;
+                            loadingMessage = 'Setting up your account...';
+                          });
 
-                        Navigator.of(ctx).pop(); // close OTP dialog
+                          final token = body['data']?['token'];
+                          if (token != null) {
+                            final secStorage = SecureStorageService();
+                            await secStorage.saveToken(token: token);
+                            await secStorage.saveRole(role: 'ADMIN');
 
-                        final profileProvider = Provider.of<UserProfileProvider>(parentContext, listen: false);
-                        await profileProvider.fetchProfile();
-                        if (!mounted) return;
+                            final multiAccount = MultiAccountService();
+                            final adminData = body['data']?['admin'];
+                            final savedAccount = SavedAccount(
+                              username: _usernameController.text.trim(),
+                              role: 'ADMIN',
+                              token: token,
+                              name: adminData?['username'] ?? _usernameController.text.trim(),
+                            );
+                            await multiAccount.saveAccount(savedAccount);
+                            await multiAccount.setActiveKey('${savedAccount.username}_${savedAccount.role}');
+                          }
 
-                        final watchlistProvider = Provider.of<WatchlistProvider>(parentContext, listen: false);
-                        await watchlistProvider.loadWatchlist();
-                        final tradeMetricsProvider = Provider.of<TradeMetricsProvider>(parentContext, listen: false);
-                        await tradeMetricsProvider.fetchBaseData();
-                        await FirebaseService().registerToken();
-                        apiService.setInitializing(false);
+                          setDialogState(() => loadingMessage = 'Loading profile...');
+                          final profileProvider = Provider.of<UserProfileProvider>(parentContext, listen: false);
+                          await profileProvider.fetchProfile();
+                          if (!mounted) return;
 
-                        if (!mounted) return;
-                        const flutterStorage = FlutterSecureStorage();
-                        final accepted = await flutterStorage.read(key: 'disclaimer_accepted');
-                        if (!mounted) return;
+                          setDialogState(() => loadingMessage = 'Loading watchlist...');
+                          final watchlistProvider = Provider.of<WatchlistProvider>(parentContext, listen: false);
+                          await watchlistProvider.loadWatchlist();
 
-                        if (accepted == 'true') {
-                          Navigator.pushReplacement(parentContext, MaterialPageRoute(builder: (_) => const MyHomePage(title: 'Stocker App')));
+                          setDialogState(() => loadingMessage = 'Loading trade data...');
+                          final tradeMetricsProvider = Provider.of<TradeMetricsProvider>(parentContext, listen: false);
+                          await tradeMetricsProvider.fetchBaseData();
+
+                          setDialogState(() => loadingMessage = 'Almost ready...');
+                          await FirebaseService().registerToken();
+                          apiService.setInitializing(false);
+
+                          if (!mounted) return;
+                          Navigator.of(ctx).pop();
+
+                          const flutterStorage = FlutterSecureStorage();
+                          final accepted = await flutterStorage.read(key: 'disclaimer_accepted');
+                          if (!mounted) return;
+
+                          if (accepted == 'true') {
+                            Navigator.pushReplacement(parentContext, MaterialPageRoute(builder: (_) => const MyHomePage(title: 'Stocker App')));
+                          } else {
+                            _showDisclaimerDialog();
+                          }
                         } else {
-                          _showDisclaimerDialog();
+                          apiService.setInitializing(false);
+                          setDialogState(() => isVerifying = false);
+                          ScaffoldMessenger.of(parentContext).showSnackBar(
+                            SnackBar(content: Text(body['message'] ?? 'Invalid code'), backgroundColor: Colors.red),
+                          );
                         }
-                      } else {
-                        apiService.setInitializing(false);
+                      } catch (e) {
+                        Provider.of<ApiService>(parentContext, listen: false).setInitializing(false);
+                        setDialogState(() {
+                          isVerifying = false;
+                          isLoadingApp = false;
+                        });
                         ScaffoldMessenger.of(parentContext).showSnackBar(
-                          SnackBar(content: Text(body['message'] ?? 'Invalid OTP'), backgroundColor: Colors.red),
+                          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
                         );
                       }
-                    } catch (e) {
-                      Provider.of<ApiService>(parentContext, listen: false).setInitializing(false);
-                      ScaffoldMessenger.of(parentContext).showSnackBar(
-                        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
-                      );
-                    } finally {
-                      if (mounted) setDialogState(() => isVerifying = false);
-                    }
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      gradient: isVerifying ? null : const LinearGradient(colors: [Color(0xFFC6529E), Color(0xFF3B43C9)]),
-                      color: isVerifying ? const Color(0xFF94A3B8) : null,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Center(
-                      child: isVerifying
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Text('VERIFY OTP', style: TextStyle(color: Colors.white, fontSize: kFontSizeButtonText, fontFamily: 'Inter', fontWeight: kFontWeightBold)),
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        gradient: isVerifying ? null : const LinearGradient(colors: [Color(0xFFC6529E), Color(0xFF3B43C9)]),
+                        color: isVerifying ? const Color(0xFF94A3B8) : null,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Center(
+                        child: isVerifying
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : const Text('VERIFY', style: TextStyle(color: Colors.white, fontSize: kFontSizeButtonText, fontFamily: 'Inter', fontWeight: kFontWeightBold)),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                GestureDetector(
-                  onTap: () => Navigator.of(ctx).pop(),
-                  child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: () => Navigator.of(ctx).pop(),
+                    child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

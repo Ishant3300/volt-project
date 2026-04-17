@@ -140,9 +140,14 @@ class _TransactionPageState extends State<TransactionPage> {
           // Update local credits from response
           try {
             final body = jsonDecode(response.body);
-            final newCredits = (body['data']?['credits'] as num?)?.toDouble();
+            final data = body['data'];
+            double? newCredits;
+            // Master credit/debit returns current_credits directly
+            newCredits = (data?['current_credits'] as num?)?.toDouble();
+            // User credit/debit returns user.current_credits
+            newCredits ??= (data?['user']?['current_credits'] as num?)?.toDouble();
             if (newCredits != null) {
-              setState(() => _currentCredits = newCredits);
+              setState(() => _currentCredits = newCredits!);
             } else {
               // Fallback: manually adjust
               final amt = double.tryParse(_amountController.text) ?? 0;
