@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'send_message_view.dart';
 import 'manage_reports_view.dart';
+import 'manage_instruments_view.dart';
 import 'trade_margin_settings_view.dart';
 import 'brokerage_settings_view.dart';
 import 'group_quantity_view.dart';
@@ -290,6 +291,9 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
               _card(
                 child: Column(
                   children: [
+                    _settingRow(context, Icons.inventory_2_outlined, 'Manage Instruments',
+                        () => _push(context, const ManageInstrumentsView())),
+                    _divider(),
                     _settingRow(context, Icons.mail_outline, 'Send Message',
                         () => _push(context, const SendMessageView())),
                     _divider(),
