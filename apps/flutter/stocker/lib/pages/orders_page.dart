@@ -1126,11 +1126,14 @@ class _OrdersPageState extends State<OrdersPage> {
         return Scaffold(
           backgroundColor: const Color(0xFFF8FAFC),
           body: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            child: Column(
+              children: [
+                // Fixed metrics section (not scrollable)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                   // Position P&L value
                   Center(
                     child: Padding(
@@ -1361,24 +1364,15 @@ class _OrdersPageState extends State<OrdersPage> {
                     ],
                   ),
                   const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
 
-                  // Orders List
-                  Container(
-                    width: double.infinity,
-                    decoration: ShapeDecoration(
-                      color: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        side: const BorderSide(
-                            width: 1, color: Color(0xFFE2E8F0)),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (openPositions.isEmpty)
-                          const Padding(
+                // Scrollable positions list
+                Expanded(
+                  child: openPositions.isEmpty
+                      ? const Center(
+                          child: Padding(
                             padding: EdgeInsets.all(32.0),
                             child: Text(
                               'No open positions',
@@ -1388,17 +1382,29 @@ class _OrdersPageState extends State<OrdersPage> {
                                 fontFamily: 'Inter',
                               ),
                             ),
-                          )
-                        else
-                          ...openPositions.asMap().entries.map((entry) {
-                            final idx = entry.key;
-                            final pos = entry.value;
+                          ),
+                        )
+                      : Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: ShapeDecoration(
+                            color: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              side: const BorderSide(
+                                  width: 1, color: Color(0xFFE2E8F0)),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: ListView.separated(
+                            padding: EdgeInsets.zero,
+                            itemCount: openPositions.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                            itemBuilder: (context, idx) {
+                            final pos = openPositions[idx];
                             final isBuy = pos.netQty > 0;
                             final watchlist = Provider.of<WatchlistProvider>(context, listen: false);
                             final wItem = watchlist.getByToken(pos.instrumentToken);
                             final displayName = wItem?.instrument.userFriendlyName ?? pos.tradingsymbol;
-                            // CMP from server (metricsEngine uses bid for BUY, ask for SELL)
-                            // Fall back to watchlist bid/ask, then LTP
                             final ltp = pos.ltp;
                             final fallbackSpread = ltp * 0.0005;
                             final cmp = pos.cmp > 0
@@ -1406,12 +1412,9 @@ class _OrdersPageState extends State<OrdersPage> {
                                 : isBuy
                                     ? (wItem?.bidPrice ?? (ltp > 0 ? ltp - fallbackSpread : ltp))
                                     : (wItem?.askPrice ?? (ltp > 0 ? ltp + fallbackSpread : ltp));
-                            // P&L from server (computed using bid/ask by metricsEngine)
                             final floating = pos.floating;
                             final isNegative = floating < 0;
-                            return Column(
-                              children: [
-                                _buildOrderItem(
+                              return _buildOrderItem(
                                   context,
                                   pos,
                                   displayName,
@@ -1421,18 +1424,13 @@ class _OrdersPageState extends State<OrdersPage> {
                                   cmp,
                                   floating,
                                   isNegative,
-                                ),
-                                if (idx != openPositions.length - 1)
-                                  const Divider(
-                                      height: 1, color: Color(0xFFE2E8F0)),
-                              ],
-                            );
-                          }),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                              );
+                            },
+                          ),
+                        ),
+                ),
+                const SizedBox(height: 8),
+              ],
             ),
           ),
         );
