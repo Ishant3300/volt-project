@@ -897,7 +897,7 @@ class AdminService {
     required List<Map<String, dynamic>> intradaySquareoff,
   }) async {
     final token = await _storage.getToken();
-    return await _apiService.put('/master-flow/users/$userId/intraday-squareoff', {
+    return await _apiService.put('/master/users/$userId/intraday-squareoff', {
       'intraday_squareoff': intradaySquareoff,
     }, token: token);
   }
