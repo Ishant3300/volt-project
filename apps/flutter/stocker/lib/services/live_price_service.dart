@@ -16,6 +16,7 @@ class LivePriceService {
   Function(Map<String, dynamic>)? onMetricsUpdate;
   Function(Map<String, dynamic>)? onMasterMetricsUpdate;
   Function(List<dynamic>)? onAdminMetricsUpdate;
+  Function(Map<String, dynamic>)? onSettlementProgress;
 
   bool get isConnected => _isConnected;
 
@@ -110,6 +111,10 @@ class LivePriceService {
 
         case 'admin_metrics_update':
           onAdminMetricsUpdate?.call(data['data'] as List<dynamic>);
+          break;
+
+        case 'settlement_progress':
+          onSettlementProgress?.call(data['data'] as Map<String, dynamic>);
           break;
 
         default:

@@ -7,6 +7,11 @@ class KiteInstrument {
   final String rawName; // Original name from CSV
   final String displayName; // User-friendly mapped/generated name
   final double lastPrice;
+  // OHLC from last trading day (populated after settlement)
+  final double ohlcOpen;
+  final double ohlcHigh;
+  final double ohlcLow;
+  final double ohlcClose;
   final DateTime? expiry;
   final double strike;
   final double tickSize;
@@ -26,6 +31,10 @@ class KiteInstrument {
     required this.rawName,
     required this.displayName,
     required this.lastPrice,
+    this.ohlcOpen = 0,
+    this.ohlcHigh = 0,
+    this.ohlcLow = 0,
+    this.ohlcClose = 0,
     this.expiry,
     required this.strike,
     required this.tickSize,
@@ -48,6 +57,10 @@ class KiteInstrument {
       rawName: json['raw_name'] ?? name,
       displayName: json['display_name'] ?? name,
       lastPrice: (json['last_price'] ?? 0).toDouble(),
+      ohlcOpen: (json['ohlc_open'] ?? 0).toDouble(),
+      ohlcHigh: (json['ohlc_high'] ?? 0).toDouble(),
+      ohlcLow: (json['ohlc_low'] ?? 0).toDouble(),
+      ohlcClose: (json['ohlc_close'] ?? 0).toDouble(),
       expiry: json['expiry'] != null
           ? DateTime.tryParse(json['expiry'].toString())
           : null,
@@ -74,6 +87,10 @@ class KiteInstrument {
       'raw_name': rawName,
       'display_name': displayName,
       'last_price': lastPrice,
+      'ohlc_open': ohlcOpen,
+      'ohlc_high': ohlcHigh,
+      'ohlc_low': ohlcLow,
+      'ohlc_close': ohlcClose,
       'expiry': expiry?.toIso8601String(),
       'strike': strike,
       'tick_size': tickSize,

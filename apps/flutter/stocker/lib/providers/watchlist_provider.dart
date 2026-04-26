@@ -241,6 +241,18 @@ class WatchlistProvider with ChangeNotifier {
           id: localId,
           instrument: instrument,
           currentPrice: instrument.lastPrice,
+          // Seed OHLC from DB so trade card shows correct values before live ticks arrive
+          open: instrument.ohlcOpen > 0 ? instrument.ohlcOpen : null,
+          high: instrument.ohlcHigh > 0 ? instrument.ohlcHigh : null,
+          low: instrument.ohlcLow > 0 ? instrument.ohlcLow : null,
+          close: instrument.ohlcClose > 0 ? instrument.ohlcClose : null,
+          // After settlement, show close price as bid/ask until market opens
+          bidPrice: instrument.ohlcClose > 0
+              ? instrument.ohlcClose - instrument.ohlcClose * 0.0005
+              : null,
+          askPrice: instrument.ohlcClose > 0
+              ? instrument.ohlcClose + instrument.ohlcClose * 0.0005
+              : null,
           lastUpdated: DateTime.now(),
         ));
 
@@ -283,6 +295,16 @@ class WatchlistProvider with ChangeNotifier {
       id: localId,
       instrument: instrument,
       currentPrice: instrument.lastPrice,
+      open: instrument.ohlcOpen > 0 ? instrument.ohlcOpen : null,
+      high: instrument.ohlcHigh > 0 ? instrument.ohlcHigh : null,
+      low: instrument.ohlcLow > 0 ? instrument.ohlcLow : null,
+      close: instrument.ohlcClose > 0 ? instrument.ohlcClose : null,
+      bidPrice: instrument.ohlcClose > 0
+          ? instrument.ohlcClose - instrument.ohlcClose * 0.0005
+          : null,
+      askPrice: instrument.ohlcClose > 0
+          ? instrument.ohlcClose + instrument.ohlcClose * 0.0005
+          : null,
       lastUpdated: DateTime.now(),
     ));
     notifyListeners();

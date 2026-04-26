@@ -10,6 +10,7 @@ import 'brokerage_settings_view.dart';
 import 'group_quantity_view.dart';
 import 'script_quantity_settings_view.dart';
 import 'fresh_stoploss_limit_view.dart';
+import 'settlement_view.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
@@ -298,7 +299,10 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                         () => _push(context, const SendMessageView())),
                     _divider(),
                     _settingRow(context, Icons.description_outlined, 'Manage Reports',
-                        () => _push(context, const ManageReportsView()), isLast: true),
+                        () => _push(context, const ManageReportsView())),
+                    _divider(),
+                    _settingRow(context, Icons.account_balance_outlined, 'Settlement',
+                        () => _push(context, const SettlementView()), isLast: true),
                   ],
                 ),
               ),
