@@ -59,12 +59,24 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
       final apiService = Provider.of<ApiService>(context, listen: false);
       final adminService = AdminService(apiService);
       
-      final response = await adminService.getAllScriptQuantities(limit: 100);
+      final effectiveExchange = _selectedExchange == 'GLOBAL' ? 'INDICES' : _selectedExchange!;
+      final response = _selectedExchange != null
+          ? await adminService.getScriptQuantityByExchange(exchangeName: effectiveExchange, limit: 500)
+          : await adminService.getAllScriptQuantities(limit: 100);
       
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
-          final List<dynamic> items = data['data']['script_quantities'] ?? [];
+          // The exchange endpoint returns data directly as a list, not nested
+          final dynamic rawData = data['data'];
+          final List<dynamic> items;
+          if (rawData is List) {
+            items = rawData;
+          } else if (rawData is Map) {
+            items = rawData['items'] ?? rawData['script_quantities'] ?? [];
+          } else {
+            items = [];
+          }
           setState(() {
             _scriptItems = items.map((json) => ScriptQuantity.fromJson(json)).toList();
             _filteredItems = _scriptItems;

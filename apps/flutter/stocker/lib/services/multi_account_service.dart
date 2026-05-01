@@ -38,7 +38,9 @@ class SavedAccount {
 class MultiAccountService {
   static const _accountsKey = 'saved_accounts';
   static const _activeKey = 'active_account_key';
-  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
 
   /// Get all saved accounts.
   Future<List<SavedAccount>> getSavedAccounts() async {
@@ -49,6 +51,8 @@ class MultiAccountService {
       return decoded.map((e) => SavedAccount.fromJson(e)).toList();
     } catch (e) {
       log('⚠️ MultiAccountService: Error reading accounts: $e');
+      // If storage is corrupted, clear it
+      try { await _storage.delete(key: _accountsKey); } catch (_) {}
       return [];
     }
   }

@@ -4,18 +4,36 @@ import 'dart:developer';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SecureStorageService {
-  final FlutterSecureStorage storage = FlutterSecureStorage();
+  final FlutterSecureStorage storage = const FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
 
   static const tokenKey = "auth_token";
   static const roleKey = "user_role";
   static const addMasterKey = "add_master_permission";
+
+  /// Safe read that handles corrupted keystore (BadPaddingException).
+  /// Returns null and clears storage if decryption fails.
+  Future<String?> _safeRead(String key) async {
+    try {
+      return await storage.read(key: key);
+    } catch (e) {
+      log('⚠️ SecureStorage: Error reading "$key": $e');
+      // Corrupted keystore — clear everything so user can re-login
+      try {
+        await storage.deleteAll();
+        log('🗑️ SecureStorage: Cleared all data due to corruption');
+      } catch (_) {}
+      return null;
+    }
+  }
 
   Future<void> saveToken({required String token}) async {
     await storage.write(key: tokenKey, value: token);
   }
 
   Future<String?> getToken() async {
-    return await storage.read(key: tokenKey);
+    return await _safeRead(tokenKey);
   }
 
   Future<void> deleteToken() async {
@@ -28,7 +46,7 @@ class SecureStorageService {
   }
 
   Future<String?> getRole() async {
-    final role = await storage.read(key: roleKey);
+    final role = await _safeRead(roleKey);
     log('📖 SecureStorage: Retrieved role: "$role"');
     return role;
   }
@@ -48,7 +66,7 @@ class SecureStorageService {
   }
 
   Future<bool> getAddMasterPermission() async {
-    final value = await storage.read(key: addMasterKey);
+    final value = await _safeRead(addMasterKey);
     return value == 'true';
   }
 
@@ -64,7 +82,7 @@ class SecureStorageService {
   }
 
   Future<List<int>> getQuickQuantities() async {
-    final raw = await storage.read(key: quickQtyKey);
+    final raw = await _safeRead(quickQtyKey);
     if (raw == null || raw.isEmpty) return [100, 200, 500, 1000, 2000, 5000];
     return raw.split(',').map((s) => int.tryParse(s) ?? 0).where((v) => v > 0).toList();
   }

@@ -77,7 +77,30 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
         if (token == widget.instrumentToken) {
           _ltp = price;
         }
-        _recalcMetricsWithLtp();
+      });
+    };
+
+    // Server-pushed metrics from metricsEngine — use for accurate P&L
+    _livePriceService.onMetricsUpdate = (data) {
+      if (!mounted) return;
+      final userId = data['user_id']?.toString() ?? '';
+      if (userId.isEmpty) return;
+      setState(() {
+        _userMetrics[userId] = Map<String, dynamic>.from(data);
+      });
+    };
+
+    // Server-pushed master metrics — update all users at once
+    _livePriceService.onMasterMetricsUpdate = (data) {
+      if (!mounted) return;
+      final List users = data['users'] ?? [];
+      setState(() {
+        for (final u in users) {
+          final uid = u['user_id']?.toString() ?? '';
+          if (uid.isNotEmpty) {
+            _userMetrics[uid] = Map<String, dynamic>.from(u);
+          }
+        }
       });
     };
 
@@ -170,82 +193,6 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
     }
   }
 
-  /// Recalculate per-user metrics using live LTP values.
-  /// Mirrors the exact logic from TradeMetricsProvider._calculateMetrics()
-  void _recalcMetricsWithLtp() {
-    for (final entry in _userMetrics.entries) {
-      final user = entry.value;
-      final List positions = user['positions'] ?? [];
-      if (positions.isEmpty) continue;
-
-      final double balance = (user['balance'] as num?)?.toDouble() ?? 0;
-
-      double totalRealised = 0;
-      double totalFloating = 0;
-
-      for (final pos in positions) {
-        final String iToken = pos['instrument_token']?.toString() ?? '';
-        final int totalBuyQty = _getIntFromPos(pos, 'total_buy_qty');
-        final int totalSellQty = _getIntFromPos(pos, 'total_sell_qty');
-        final double totalBuyValue = _getDoubleFromPos(pos, 'total_buy_value');
-        final double totalSellValue = _getDoubleFromPos(pos, 'total_sell_value');
-        final int netQty = totalBuyQty - totalSellQty;
-
-        final double avgBuyPrice =
-            totalBuyQty > 0 ? totalBuyValue / totalBuyQty : 0;
-        final double avgSellPrice =
-            totalSellQty > 0 ? totalSellValue / totalSellQty : 0;
-
-        // Use live LTP if available, else fall back to avg price
-        final double ltp = _ltpMap[iToken] ??
-            (pos['avg_buy_price'] as num?)?.toDouble() ??
-            avgBuyPrice;
-
-        double realised = 0;
-        double floating = 0;
-
-        if (netQty > 0) {
-          realised = totalSellValue - (totalSellQty * avgBuyPrice);
-          floating = (ltp - avgBuyPrice) * netQty;
-        } else if (netQty < 0) {
-          realised = (totalBuyQty * avgSellPrice) - totalBuyValue;
-          floating = (avgSellPrice - ltp) * netQty.abs();
-        } else {
-          realised = totalSellValue - totalBuyValue;
-          floating = 0;
-        }
-
-        totalRealised += realised;
-        totalFloating += floating;
-
-        // Margin — we don't have margin rules on frontend here,
-        // so keep the server-computed value as base
-      }
-
-      final double m2m = totalRealised + totalFloating;
-      final double marginUsed =
-          (user['margin_used'] as num?)?.toDouble() ?? 0;
-      final double equity = balance + m2m;
-      final double freeMargin = equity - marginUsed;
-
-      user['realised_pnl'] = _round2(totalRealised);
-      user['position_pnl'] = _round2(totalFloating);
-      user['m2m_pnl'] = _round2(m2m);
-      user['equity'] = _round2(equity);
-      user['free_margin'] = _round2(freeMargin);
-    }
-  }
-
-  int _getIntFromPos(dynamic pos, String key) {
-    return (pos[key] as num?)?.toInt() ?? 0;
-  }
-
-  double _getDoubleFromPos(dynamic pos, String key) {
-    return (pos[key] as num?)?.toDouble() ?? 0;
-  }
-
-  double _round2(double v) => (v * 100).roundToDouble() / 100;
-
   Future<void> _openUserProfile(String userId) async {
     // Show loading indicator
     showDialog(
@@ -256,7 +203,13 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
 
     try {
       final token = await _storage.getToken();
-      final res = await _apiService.get('/master/users/$userId', token: token);
+      // Try master flow first, then admin endpoint as fallback
+      var res = await _apiService.get('/master/users/$userId', token: token);
+
+      if (res.statusCode != 200) {
+        // Fallback to admin endpoint
+        res = await _apiService.get('/admin/users/$userId', token: token);
+      }
 
       if (!mounted) return;
       Navigator.pop(context); // dismiss loading
@@ -275,9 +228,11 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
         }
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to load user details')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to load user details')),
+        );
+      }
     } catch (e) {
       if (mounted) {
         Navigator.pop(context); // dismiss loading
@@ -506,9 +461,20 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
             : (user['avg_sell_price'] as num?))
         ?.toDouble() ?? 0.0;
 
-    // Floating P&L for THIS instrument using live LTP
+    // Floating P&L for THIS instrument from metricsEngine (single source of truth)
     double? instrumentPnl;
-    if (_ltp != null) {
+    final userMetrics = _userMetrics[userId];
+    if (userMetrics != null) {
+      final List positions = userMetrics['positions'] ?? [];
+      for (final pos in positions) {
+        if (pos['instrument_token']?.toString() == widget.instrumentToken) {
+          instrumentPnl = (pos['floating_pnl'] as num?)?.toDouble();
+          break;
+        }
+      }
+    }
+    // Fallback to local LTP calculation if metricsEngine data not available yet
+    if (instrumentPnl == null && _ltp != null) {
       if (isBuy) {
         instrumentPnl =
             (_ltp! - ((user['avg_buy_price'] as num?)?.toDouble() ?? 0)) *

@@ -96,6 +96,16 @@ class LivePriceService {
           onTradeExecuted?.call(data);
           break;
 
+        case 'trade_rejected':
+          log('⚠️ Trade rejected: ${data['tradingsymbol']} — ${data['message']}');
+          onTradeExecuted?.call(data);
+          break;
+
+        case 'margin_square_off':
+          log('🛡️ Margin square-off: ${data['message']}');
+          onTradeExecuted?.call(data);
+          break;
+
         case 'trade_placed':
           log('📝 Trade placed event: ${data['tradingsymbol']} ${data['transaction_type']} ${data['quantity']} @ ${data['price']}');
           onTradePlaced?.call(data);

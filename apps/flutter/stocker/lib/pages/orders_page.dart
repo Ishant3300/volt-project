@@ -1946,15 +1946,21 @@ class _OrdersPageState extends State<OrdersPage> {
       }
 
       // Refresh data
-      final metricsProvider =
-          Provider.of<TradeMetricsProvider>(context, listen: false);
-      await metricsProvider.fetchBaseData();
+      if (mounted) {
+        try {
+          final metricsProvider =
+              Provider.of<TradeMetricsProvider>(context, listen: false);
+          await metricsProvider.fetchBaseData();
+        } catch (_) {}
+      }
 
       // Exit selection mode
-      setState(() {
-        _isSelectionMode = false;
-        _selectedPositionTokens.clear();
-      });
+      if (mounted) {
+        setState(() {
+          _isSelectionMode = false;
+          _selectedPositionTokens.clear();
+        });
+      }
 
       // Show result
       if (mounted) {

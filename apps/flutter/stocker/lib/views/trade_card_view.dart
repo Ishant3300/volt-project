@@ -234,21 +234,24 @@ class _TradeCardPageState extends State<TradeCardPage> {
 
   Future<void> _searchUsers(String query) async {
     if (query.length < 2) {
-      setState(() {
-        _userResults = [];
-        _showUserDropdown = false;
-      });
+      if (mounted) {
+        setState(() {
+          _userResults = [];
+          _showUserDropdown = false;
+        });
+      }
       return;
     }
-    setState(() => _isSearchingUsers = true);
+    if (mounted) setState(() => _isSearchingUsers = true);
     try {
       final token = await SecureStorageService().getToken();
+      if (!mounted) return;
       final profile = Provider.of<UserProfileProvider>(context, listen: false);
       final endpoint = profile.isAdmin
           ? '/admin/users?limit=20&search=$query'
           : '/master/users?limit=20&search=$query';
       final res = await ApiService(backendUrl).get(endpoint, token: token);
-      if (res.statusCode == 200) {
+      if (res.statusCode == 200 && mounted) {
         final body = jsonDecode(res.body);
         final nested = body['data'];
         final List list =
@@ -364,6 +367,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
 
   Future<void> _handleTrade(String transactionType, double currentPrice) async {
     if (_isLoading) return;
+    if (!mounted) return;
 
     // Check market hours for this instrument's exchange
     final ex = widget.item.instrument.exchange;
@@ -549,31 +553,36 @@ class _TradeCardPageState extends State<TradeCardPage> {
           : null,
     );
 
+    if (!mounted) return;
+
     setState(() {
       _isLoading = false;
     });
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result.$2),
-          backgroundColor: result.$1 ? Colors.green : Colors.red,
-          duration: const Duration(seconds: 1),
-        ),
-      );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result.$2),
+        backgroundColor: result.$1 ? Colors.green : Colors.red,
+        duration: const Duration(seconds: 1),
+      ),
+    );
 
-      if (result.$1) {
-        // Play trade bell sound if enabled
-        TradeSoundService().playIfEnabled();
-        // Refresh positions and wait for data before navigating back
-        await Provider.of<TradeMetricsProvider>(context, listen: false)
-            .fetchBaseData();
-        // Refresh balance
-        await Provider.of<UserProfileProvider>(context, listen: false)
-            .refreshProfile();
+    if (result.$1) {
+      // Play trade bell sound if enabled
+      TradeSoundService().playIfEnabled();
+      // Refresh positions and wait for data before navigating back
+      try {
         if (mounted) {
-          Navigator.pop(context);
+          await Provider.of<TradeMetricsProvider>(context, listen: false)
+              .fetchBaseData();
         }
+        if (mounted) {
+          await Provider.of<UserProfileProvider>(context, listen: false)
+              .refreshProfile();
+        }
+      } catch (_) {}
+      if (mounted) {
+        Navigator.pop(context);
       }
     }
   }

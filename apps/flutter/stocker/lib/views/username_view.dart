@@ -154,6 +154,13 @@ class _UsernameViewState extends State<UsernameView> {
       }
     };
 
+    // Listen for trade_executed / margin_square_off events to trigger re-fetch
+    _livePriceService.onTradeExecuted = (data) {
+      if (!mounted) return;
+      // Re-fetch positions when any trade event occurs for the viewed user
+      _fetchLivePositions();
+    };
+
     // Server-pushed master metrics — update aggregated position tab for master view
     _livePriceService.onMasterMetricsUpdate = (data) {
       if (!mounted || _currentMaster == null) return;
@@ -228,9 +235,17 @@ class _UsernameViewState extends State<UsernameView> {
       final token = await _storage.getToken();
       if (token != null) {
         final payload = Jwt.parseJwt(token);
-        final userId = payload['id'] as String?;
-        final role = payload['role'] as String?;
-        if (userId != null) _livePriceService.authenticate(userId, role: role);
+        final callerRole = payload['role'] as String?;
+
+        // Authenticate as the VIEWED user/master so the server pushes their metrics to this connection
+        if (_currentUser != null) {
+          _livePriceService.authenticate(_currentUser!.id, role: 'user');
+        } else if (_currentMaster != null) {
+          _livePriceService.authenticate(_currentMaster!.id, role: 'master');
+        } else {
+          final userId = payload['id'] as String?;
+          if (userId != null) _livePriceService.authenticate(userId, role: callerRole);
+        }
       }
     } catch (e) {
       log('⚠️ Failed to authenticate WebSocket: $e');
