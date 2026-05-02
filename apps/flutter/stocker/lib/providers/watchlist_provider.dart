@@ -237,6 +237,13 @@ class WatchlistProvider with ChangeNotifier {
 
         _backendIdMap[localId] = backendId;
 
+        // Use last_price (= settlement price from bhavcopy) for bid/ask seeding.
+        // No fake spread — show the exact settlement price on both sides
+        // until live ticks from Kite arrive and override.
+        final seedPrice = instrument.lastPrice > 0
+            ? instrument.lastPrice
+            : (instrument.ohlcClose > 0 ? instrument.ohlcClose : null);
+
         _items.add(WatchlistItem(
           id: localId,
           instrument: instrument,
@@ -246,13 +253,9 @@ class WatchlistProvider with ChangeNotifier {
           high: instrument.ohlcHigh > 0 ? instrument.ohlcHigh : null,
           low: instrument.ohlcLow > 0 ? instrument.ohlcLow : null,
           close: instrument.ohlcClose > 0 ? instrument.ohlcClose : null,
-          // After settlement, show close price as bid/ask until market opens
-          bidPrice: instrument.ohlcClose > 0
-              ? instrument.ohlcClose - instrument.ohlcClose * 0.0005
-              : null,
-          askPrice: instrument.ohlcClose > 0
-              ? instrument.ohlcClose + instrument.ohlcClose * 0.0005
-              : null,
+          // Seed bid/ask from settlement price (last_price from DB)
+          bidPrice: seedPrice,
+          askPrice: seedPrice,
           lastUpdated: DateTime.now(),
         ));
 
@@ -260,6 +263,10 @@ class WatchlistProvider with ChangeNotifier {
       }
 
       log('📋 Loaded ${_items.length} watchlist items from backend');
+
+      // Disconnect old WebSocket so we get a fresh connection with current settlement prices.
+      // This ensures account switches and reloads always get the latest data from the server.
+      _livePriceService.disconnect();
 
       _setupLivePriceCallbacks();
 
@@ -291,6 +298,10 @@ class WatchlistProvider with ChangeNotifier {
 
     log('➕ Adding instrument: ${instrument.tradingsymbol} (Token: $localId)');
 
+    final seedPrice = instrument.lastPrice > 0
+        ? instrument.lastPrice
+        : (instrument.ohlcClose > 0 ? instrument.ohlcClose : null);
+
     _items.add(WatchlistItem(
       id: localId,
       instrument: instrument,
@@ -299,12 +310,8 @@ class WatchlistProvider with ChangeNotifier {
       high: instrument.ohlcHigh > 0 ? instrument.ohlcHigh : null,
       low: instrument.ohlcLow > 0 ? instrument.ohlcLow : null,
       close: instrument.ohlcClose > 0 ? instrument.ohlcClose : null,
-      bidPrice: instrument.ohlcClose > 0
-          ? instrument.ohlcClose - instrument.ohlcClose * 0.0005
-          : null,
-      askPrice: instrument.ohlcClose > 0
-          ? instrument.ohlcClose + instrument.ohlcClose * 0.0005
-          : null,
+      bidPrice: seedPrice,
+      askPrice: seedPrice,
       lastUpdated: DateTime.now(),
     ));
     notifyListeners();

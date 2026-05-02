@@ -205,6 +205,17 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
     }
   }
 
+  String _formatExpiry(dynamic expiry) {
+    if (expiry == null) return '';
+    try {
+      final d = DateTime.parse(expiry.toString());
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      return '${d.day} ${months[d.month - 1]}';
+    } catch (_) {
+      return '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -370,6 +381,11 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
                 if ((inst['lot_size'] ?? 1) > 0) ...[
                   const Padding(padding: EdgeInsets.symmetric(horizontal: 4), child: Text('·', style: TextStyle(color: Color(0xFFCBD5E1)))),
                   Text('LOT ${inst['lot_size'] ?? 1}', style: TextStyle(fontSize: kFontSizeCaption,
+                    color: isDeleted ? const Color(0xFFCBD5E1) : const Color(0xFF94A3B8), fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
+                ],
+                if (inst['expiry'] != null) ...[
+                  const Padding(padding: EdgeInsets.symmetric(horizontal: 4), child: Text('·', style: TextStyle(color: Color(0xFFCBD5E1)))),
+                  Text(_formatExpiry(inst['expiry']), style: TextStyle(fontSize: kFontSizeCaption,
                     color: isDeleted ? const Color(0xFFCBD5E1) : const Color(0xFF94A3B8), fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
                 ],
               ]),

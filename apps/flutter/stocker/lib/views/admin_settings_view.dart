@@ -2,6 +2,7 @@
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'send_message_view.dart';
 import 'manage_reports_view.dart';
 import 'manage_instruments_view.dart';
@@ -302,7 +303,10 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                         () => _push(context, const ManageReportsView())),
                     _divider(),
                     _settingRow(context, Icons.account_balance_outlined, 'Settlement',
-                        () => _push(context, const SettlementView()), isLast: true),
+                        () => _push(context, const SettlementView())),
+                    _divider(),
+                    _settingRow(context, Icons.download_outlined, 'Fetch Settlement Prices',
+                        _fetchSettlementPrices, isLast: true),
                   ],
                 ),
               ),
@@ -339,6 +343,57 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
         ),
       ),
     );
+  }
+
+  Future<void> _fetchSettlementPrices() async {
+    final confirmed = await _showConfirmDialog(
+      'Fetch Settlement Prices?',
+      'This will fetch the latest close prices from NSE, MCX, and BSE bhavcopy and broadcast them to all connected clients.',
+    );
+    if (confirmed != true) return;
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5)),
+    );
+
+    try {
+      final token = await SecureStorageService().getToken();
+      // Use longer timeout — bhavcopy downloads CSVs from external sources
+      final url = Uri.parse('$backendUrl/api/admin/bhavcopy/fetch');
+      final res = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json', if (token != null) 'Authorization': 'Bearer $token'},
+        body: jsonEncode({}),
+      ).timeout(const Duration(seconds: 120));
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      final body = jsonDecode(res.body);
+      if (res.statusCode == 200 && body['success'] == true) {
+        final data = body['data'];
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Fetched ${data['total']} prices (NSE: ${data['nse']}, MCX: ${data['mcx']}, BSE: ${data['bse']})'),
+            backgroundColor: const Color(0xFF10B981),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(body['message'] ?? 'Failed'), backgroundColor: Colors.red),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   void _push(BuildContext context, Widget page) {

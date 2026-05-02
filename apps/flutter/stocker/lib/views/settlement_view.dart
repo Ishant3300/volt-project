@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:jwt_decode/jwt_decode.dart';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/live_price_service.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
@@ -24,9 +25,9 @@ class _SettlementViewState extends State<SettlementView> {
     super.initState();
     _fetchStatus();
     _setupWebSocket();
-    // Poll every 2 seconds as backup (in case WS events are missed)
-    _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      if (_status?['running'] == true) _fetchStatus();
+    // Poll every 3 seconds as backup
+    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (_status?['running'] == true || _isLoading) _fetchStatus();
     });
   }
 
@@ -34,6 +35,7 @@ class _SettlementViewState extends State<SettlementView> {
   void dispose() {
     _pollTimer?.cancel();
     _livePriceService.onSettlementProgress = null;
+    _livePriceService.disconnect();
     super.dispose();
   }
 
@@ -41,6 +43,26 @@ class _SettlementViewState extends State<SettlementView> {
     _livePriceService.onSettlementProgress = (data) {
       if (mounted) setState(() => _status = data);
     };
+
+    _livePriceService.onConnectionChanged = (connected) {
+      if (connected) _authenticateWebSocket();
+    };
+
+    _livePriceService.connect();
+  }
+
+  Future<void> _authenticateWebSocket() async {
+    try {
+      final token = await SecureStorageService().getToken();
+      if (token != null) {
+        final payload = Jwt.parseJwt(token);
+        final userId = payload['id'] as String?;
+        final role = payload['role'] as String?;
+        if (userId != null) {
+          _livePriceService.authenticate(userId, role: role);
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _fetchStatus() async {
@@ -62,7 +84,7 @@ class _SettlementViewState extends State<SettlementView> {
       builder: (ctx) => AlertDialog(
         title: const Text('Start Settlement?', style: TextStyle(fontFamily: 'Inter', fontSize: kFontSizeViewTitle, fontWeight: kFontWeightSemiBold)),
         content: const Text(
-          'This will close all open positions at Friday\'s close price and re-open them for the new week. This action cannot be undone.',
+          'This will close all open positions at settlement price and re-open them for the new week. This action cannot be undone.',
           style: TextStyle(fontFamily: 'Inter', fontSize: kFontSizeBody, fontWeight: kFontWeightRegular),
         ),
         actions: [
@@ -183,7 +205,32 @@ class _SettlementViewState extends State<SettlementView> {
 
                           if (isRunning || isDone) ...[
                             const SizedBox(height: 16),
-                            // Progress bar
+                            // Show phase-specific info during fetching (before positions are counted)
+                            if (phase == 'fetching_prices') ...[
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 16, height: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF3F45C7)),
+                                    ),
+                                    SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        'Loading settlement prices from database...',
+                                        style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightMedium, height: 1.4),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ] else ...[
                             ClipRRect(
                               borderRadius: BorderRadius.circular(6),
                               child: LinearProgressIndicator(
@@ -204,6 +251,7 @@ class _SettlementViewState extends State<SettlementView> {
                             if (currentInst.isNotEmpty) ...[
                               const SizedBox(height: 8),
                               Text(currentInst, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightRegular), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ],
                             ],
                           ],
 
