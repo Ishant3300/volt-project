@@ -836,16 +836,23 @@ class _PortfolioPageState extends State<PortfolioPage>
           openedAt = t.createdAt;
           netQty = isBuy ? t.quantity : -t.quantity;
         } else if ((netQty > 0 && isBuy) || (netQty < 0 && !isBuy)) {
+          // Same direction — adding to position
           netQty += isBuy ? t.quantity : -t.quantity;
         } else {
-          // Closing trade
+          // Opposite direction — closing (fully or partially)
+          final prevNetQty = netQty;
           result[t.id] =
               _PerTradePnl(pnl: t.pnl, isClosing: true, openedAt: openedAt);
           netQty += isBuy ? t.quantity : -t.quantity;
-          if (netQty == 0)
+          if (netQty == 0) {
+            // Fully closed — reset
             openedAt = null;
-          else if ((netQty > 0 && !isBuy) || (netQty < 0 && isBuy))
+          } else if ((prevNetQty > 0 && netQty < 0) || (prevNetQty < 0 && netQty > 0)) {
+            // Position flipped direction (e.g., long 3 → sold 5 → short 2)
+            // The new position started at this trade
             openedAt = t.createdAt;
+          }
+          // Otherwise: partial close, same direction remains — keep original openedAt
         }
       }
     }

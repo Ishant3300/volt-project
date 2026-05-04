@@ -49,6 +49,7 @@ class MarketHours {
     if (mins <= 150) return true;
     if (mins >= 450) return true;
     return false;
+    // return true;
   }
 
   /// User-friendly message about market status for the given exchange.

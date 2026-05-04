@@ -8,7 +8,9 @@ import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
 
 class RejectionLogHistoryView extends StatefulWidget {
-  const RejectionLogHistoryView({super.key});
+  final String? userId; // If provided, filter logs to this user only
+
+  const RejectionLogHistoryView({super.key, this.userId});
 
   @override
   State<RejectionLogHistoryView> createState() =>
@@ -47,6 +49,7 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
       final token = await SecureStorageService().getToken();
       final api = ApiService(backendUrl);
       String url = '/trade/rejection-log?page=$_page&limit=30';
+      if (widget.userId != null) url += '&user_id=${widget.userId}';
       if (_searchQuery.isNotEmpty) url += '&search=$_searchQuery';
       final res = await api.get(url, token: token);
       if (res.statusCode == 200) {

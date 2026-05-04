@@ -138,24 +138,21 @@ class _TransactionPageState extends State<TransactionPage> {
       if (response.statusCode == 200) {
         if (mounted) {
           // Update local credits from response
-          try {
-            final body = jsonDecode(response.body);
-            final data = body['data'];
-            double? newCredits;
-            // Master credit/debit returns current_credits directly
-            newCredits = (data?['current_credits'] as num?)?.toDouble();
-            // User credit/debit returns user.current_credits
-            newCredits ??= (data?['user']?['current_credits'] as num?)?.toDouble();
-            if (newCredits != null) {
-              setState(() => _currentCredits = newCredits!);
-            } else {
-              // Fallback: manually adjust
-              final amt = double.tryParse(_amountController.text) ?? 0;
-              setState(() {
-                _currentCredits += _txnType == 0 ? amt : -amt;
-              });
-            }
-          } catch (_) {
+          final body = jsonDecode(response.body);
+          final data = body['data'];
+          
+          // Try all possible response paths for updated balance
+          // For debit: credits don't change, but balance (equity) does
+          // Show the actual balance (equity) as "Available Credit" since that's what changes
+          final num? rawCredits = data?['current_balance']
+              ?? data?['current_credits'] 
+              ?? data?['user']?['current_credits']
+              ?? data?['master']?['current_credits'];
+          
+          if (rawCredits != null) {
+            setState(() => _currentCredits = rawCredits.toDouble());
+          } else {
+            // Fallback: manually adjust
             final amt = double.tryParse(_amountController.text) ?? 0;
             setState(() {
               _currentCredits += _txnType == 0 ? amt : -amt;

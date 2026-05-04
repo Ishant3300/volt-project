@@ -1843,8 +1843,11 @@ class _UsernameViewState extends State<UsernameView> {
                     master: _currentMaster, user: _currentUser)));
         break;
       case 'Rejection Log':
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const RejectionLogHistoryView()));
+        Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => RejectionLogHistoryView(
+                    userId: _currentUser?.id ?? _currentMaster?.id)));
         break;
       case 'Generate PDF':
         showModalBottomSheet(

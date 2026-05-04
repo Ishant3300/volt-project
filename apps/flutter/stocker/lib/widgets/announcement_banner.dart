@@ -21,7 +21,7 @@ class _AnnouncementBannerState extends State<AnnouncementBanner>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 60),
+      duration: const Duration(seconds: 20),
     )..repeat();
     _fetch();
   }
