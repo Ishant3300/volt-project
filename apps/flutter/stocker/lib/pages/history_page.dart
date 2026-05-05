@@ -819,10 +819,12 @@ class _PortfolioPageState extends State<PortfolioPage>
     final Map<String, _PerTradePnl> result = {};
 
     // We still need to track openedAt for duration display using simple FIFO logic locally
+    // Group by instrument + user to avoid mixing different users' trades (master/admin view)
     final Map<String, List<Trade>> byInstrument = {};
     for (final t in completedTrades) {
       if (t.status.toLowerCase() != 'completed') continue;
-      byInstrument.putIfAbsent(t.instrumentToken, () => []).add(t);
+      final key = '${t.instrumentToken}_${t.userId}';
+      byInstrument.putIfAbsent(key, () => []).add(t);
     }
 
     for (final trades in byInstrument.values) {
