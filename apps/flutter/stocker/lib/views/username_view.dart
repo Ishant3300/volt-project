@@ -1418,12 +1418,9 @@ class _UsernameViewState extends State<UsernameView> {
     final double avgPrice = isBuy ? avgBuyPrice : avgSellPrice;
     final double ltp = _ltpMap[iToken] ?? (pos['ltp'] as num?)?.toDouble() ?? avgPrice;
 
-    // CMP: bid for BUY (exit = sell at bid), ask for SELL (exit = buy at ask)
-    // Fall back to LTP ± 0.05% spread if bid/ask not available
-    final fallbackSpread = ltp * 0.0005;
-    final double cmp = isBuy
-        ? (_ltpMap['${iToken}_bid'] ?? (ltp > 0 ? ltp - fallbackSpread : ltp))
-        : (_ltpMap['${iToken}_ask'] ?? (ltp > 0 ? ltp + fallbackSpread : ltp));
+    // CMP: use server-pushed value from metricsEngine (bid for BUY, ask for SELL)
+    // Falls back to LTP if cmp not available
+    final double cmp = (pos['cmp'] as num?)?.toDouble() ?? ltp;
 
     // Use server-pushed floating P&L if available, else compute from LTP
     double floating = (pos['floating_pnl'] as num?)?.toDouble() ?? 0;
