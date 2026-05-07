@@ -869,8 +869,10 @@ class AdminService {
     required String exchangeName,
     int page = 1,
     int limit = 500,
+    String? ownerId,
   }) async {
     final queryParams = <String>['page=$page', 'limit=$limit'];
+    if (ownerId != null) queryParams.add('owner_id=$ownerId');
     final queryString = '?${queryParams.join('&')}';
     final token = await _storage.getToken();
     return await _apiService.get('/admin/script-quantities/exchange/$exchangeName$queryString', token: token);

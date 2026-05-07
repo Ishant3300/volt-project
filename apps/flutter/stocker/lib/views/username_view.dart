@@ -157,8 +157,10 @@ class _UsernameViewState extends State<UsernameView> {
     // Listen for trade_executed / margin_square_off events to trigger re-fetch
     _livePriceService.onTradeExecuted = (data) {
       if (!mounted) return;
-      // Re-fetch positions when any trade event occurs for the viewed user
-      _fetchLivePositions();
+      // Small delay to let metricsEngine finish rebuilding before re-fetching
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) _fetchLivePositions();
+      });
     };
 
     // Server-pushed master metrics — update aggregated position tab for master view
@@ -1725,6 +1727,8 @@ class _UsernameViewState extends State<UsernameView> {
             if (label == 'Margin Square Off') _marginSquare = newValue;
             if (label == 'Fresh Stop-Loss') _freshStoploss = newValue;
           });
+          // Refresh the user object so Edit page gets the latest state
+          await _refreshData();
         }
         return;
       }
@@ -1833,7 +1837,9 @@ class _UsernameViewState extends State<UsernameView> {
         Navigator.push(
             context,
             MaterialPageRoute(
-                builder: (_) => const ScriptQuantitySettingsView()));
+                builder: (_) => ScriptQuantitySettingsView(
+                    ownerId: _currentUser?.id ?? _currentMaster?.id,
+                    ownerType: _currentUser != null ? 'User' : 'Master')));
         break;
       case 'Sharing Details':
         Navigator.push(

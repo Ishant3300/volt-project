@@ -10,7 +10,10 @@ import 'add_script_qty_to_exchange_view.dart';
 import '../utils/contants.dart';
 
 class ScriptQuantitySettingsView extends StatefulWidget {
-  const ScriptQuantitySettingsView({super.key});
+  final String? ownerId;
+  final String? ownerType; // 'Master' or 'User'
+
+  const ScriptQuantitySettingsView({super.key, this.ownerId, this.ownerType});
 
   @override
   State<ScriptQuantitySettingsView> createState() => _ScriptQuantitySettingsViewState();
@@ -61,7 +64,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
       
       final effectiveExchange = _selectedExchange == 'GLOBAL' ? 'INDICES' : _selectedExchange!;
       final response = _selectedExchange != null
-          ? await adminService.getScriptQuantityByExchange(exchangeName: effectiveExchange, limit: 500)
+          ? await adminService.getScriptQuantityByExchange(exchangeName: effectiveExchange, limit: 500, ownerId: widget.ownerId)
           : await adminService.getAllScriptQuantities(limit: 100);
       
       if (response.statusCode == 200) {
