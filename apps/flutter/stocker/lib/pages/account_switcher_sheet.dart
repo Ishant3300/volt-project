@@ -53,24 +53,23 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
 
       if (!mounted) return;
 
-      // Refresh all providers with new account data
+      // Clear all providers first
       final profileProvider =
           Provider.of<UserProfileProvider>(context, listen: false);
-      profileProvider.clearProfile();
-      await profileProvider.fetchProfile();
-
-      if (!mounted) return;
-
       final tradeMetrics =
           Provider.of<TradeMetricsProvider>(context, listen: false);
-      tradeMetrics.clear();
-      await tradeMetrics.fetchBaseData();
-
-      if (!mounted) return;
-
       final watchlist =
           Provider.of<WatchlistProvider>(context, listen: false);
-      await watchlist.loadWatchlist();
+
+      profileProvider.clearProfile();
+      tradeMetrics.clear();
+
+      // Fetch all data in parallel for faster switch
+      await Future.wait([
+        profileProvider.fetchProfile(),
+        tradeMetrics.fetchBaseData(),
+        watchlist.loadWatchlist(),
+      ]);
 
       if (!mounted) return;
 
