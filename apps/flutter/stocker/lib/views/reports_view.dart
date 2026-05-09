@@ -3,8 +3,12 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:printing/printing.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../services/api_service.dart';
 import '../services/kite_service.dart';
@@ -341,6 +345,102 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
     }
   }
 
+  Future<void> _showPdfOptionsSheet(BuildContext context, Uint8List bytes, {required String userName}) async {
+    final dateFmt = DateFormat('ddMMyyyy');
+    final fileName = '${userName.replaceAll(' ', '_')}_${dateFmt.format(_fromDate!)}_${dateFmt.format(_toDate!)}.pdf';
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: EdgeInsets.only(
+          top: 24, left: 24, right: 24,
+          bottom: 24 + MediaQuery.of(ctx).viewPadding.bottom,
+        ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('PDF Generated',
+                style: TextStyle(fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightBold, color: Color(0xFF0F172A))),
+            const SizedBox(height: 8),
+            Text(fileName,
+                style: const TextStyle(fontSize: kFontSizeSubtitle, fontFamily: 'Inter', color: Color(0xFF94A3B8))),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                // Download/Print button
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      await Printing.layoutPdf(onLayout: (_) => bytes);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Column(
+                        children: [
+                          Icon(Icons.download_rounded, size: 28, color: Color(0xFF3F45C7)),
+                          SizedBox(height: 6),
+                          Text('Download', style: TextStyle(fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, color: Color(0xFF3F45C7))),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Share button
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () async {
+                      Navigator.pop(ctx);
+                      try {
+                        final dir = await getTemporaryDirectory();
+                        final file = File('${dir.path}/$fileName');
+                        await file.writeAsBytes(bytes);
+                        await Share.shareXFiles(
+                          [XFile(file.path)],
+                          text: 'Trade Report - $userName',
+                        );
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Share failed: $e'), backgroundColor: Colors.red),
+                          );
+                        }
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Column(
+                        children: [
+                          Icon(Icons.share_rounded, size: 28, color: Color(0xFF10B981)),
+                          SizedBox(height: 6),
+                          Text('Share', style: TextStyle(fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, color: Color(0xFF10B981))),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _generatePdf() async {
     if (_fromDate == null || _toDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -379,9 +479,10 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
           final bytes = await pdf.save();
 
           if (!mounted) return;
-          Navigator.pop(context);
+          Navigator.pop(context); // dismiss loading
 
-          await Printing.layoutPdf(onLayout: (_) => bytes);
+          // Show options: Download or Share
+          await _showPdfOptionsSheet(context, bytes, userName: reportData['user_name'] ?? 'Report');
         } else {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(

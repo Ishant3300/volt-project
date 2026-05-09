@@ -834,6 +834,16 @@ class _PortfolioPageState extends State<PortfolioPage>
 
       for (final t in trades) {
         final isBuy = t.transactionType.toUpperCase() == 'BUY';
+
+        // Settlement closing trades are always "closing" regardless of FIFO state
+        // (original opening trade was soft-deleted, so FIFO can't track it)
+        if (t.remarks.contains('position closed at settlement price')) {
+          result[t.id] =
+              _PerTradePnl(pnl: t.pnl, isClosing: true, openedAt: openedAt);
+          // Don't update netQty — the reopening trade will handle that
+          continue;
+        }
+
         if (netQty == 0) {
           openedAt = t.createdAt;
           netQty = isBuy ? t.quantity : -t.quantity;
@@ -847,14 +857,10 @@ class _PortfolioPageState extends State<PortfolioPage>
               _PerTradePnl(pnl: t.pnl, isClosing: true, openedAt: openedAt);
           netQty += isBuy ? t.quantity : -t.quantity;
           if (netQty == 0) {
-            // Fully closed — reset
             openedAt = null;
           } else if ((prevNetQty > 0 && netQty < 0) || (prevNetQty < 0 && netQty > 0)) {
-            // Position flipped direction (e.g., long 3 → sold 5 → short 2)
-            // The new position started at this trade
             openedAt = t.createdAt;
           }
-          // Otherwise: partial close, same direction remains — keep original openedAt
         }
       }
     }

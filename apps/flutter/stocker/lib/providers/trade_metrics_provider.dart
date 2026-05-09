@@ -126,6 +126,26 @@ class TradeMetricsProvider with ChangeNotifier {
           _positionPnl = (data['position_pnl'] as num?)?.toDouble() ?? 0;
           _m2mPnl = (data['m2m_pnl'] as num?)?.toDouble() ?? 0;
           _marginUsed = (data['margin_used'] as num?)?.toDouble() ?? 0;
+
+          // Populate positions from metrics response
+          final List serverPositions = data['positions'] ?? [];
+          _positions = serverPositions.map((p) {
+            final agg = PositionAgg(
+              instrumentToken: p['instrument_token']?.toString() ?? '',
+              exchange: p['exchange'] ?? '',
+              tradingsymbol: p['tradingsymbol'] ?? '',
+            );
+            agg.netQty = (p['net_qty'] as num?)?.toInt() ?? 0;
+            agg.avgBuyPrice = (p['avg_buy_price'] as num?)?.toDouble() ?? 0;
+            agg.avgSellPrice = (p['avg_sell_price'] as num?)?.toDouble() ?? 0;
+            agg.ltp = (p['ltp'] as num?)?.toDouble() ?? 0;
+            agg.cmp = (p['cmp'] as num?)?.toDouble() ?? 0;
+            agg.floating = (p['floating_pnl'] as num?)?.toDouble() ?? 0;
+            agg.positionMargin = (p['margin'] as num?)?.toDouble() ?? 0;
+            agg.segment = p['segment'] ?? '';
+            agg.lotSize = (p['lot_size'] as num?)?.toInt() ?? 1;
+            return agg;
+          }).toList();
         }
       }
 

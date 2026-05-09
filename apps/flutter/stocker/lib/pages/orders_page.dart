@@ -1370,19 +1370,25 @@ class _OrdersPageState extends State<OrdersPage> {
 
                 // Scrollable positions list
                 Expanded(
-                  child: openPositions.isEmpty
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(32.0),
-                            child: Text(
-                              'No open positions',
-                              style: TextStyle(
-                                color: Color(0xFF64748B),
-                                fontSize: kFontSizeSectionHeader,
-                                fontFamily: 'Inter',
+                  child: RefreshIndicator(
+                    onRefresh: () => Provider.of<TradeMetricsProvider>(context, listen: false).fetchBaseData(),
+                    child: openPositions.isEmpty
+                      ? ListView(
+                          children: const [
+                            Padding(
+                              padding: EdgeInsets.all(32.0),
+                              child: Center(
+                                child: Text(
+                                  'No open positions',
+                                  style: TextStyle(
+                                    color: Color(0xFF64748B),
+                                    fontSize: kFontSizeSectionHeader,
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                         )
                       : Container(
                           margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -1428,6 +1434,7 @@ class _OrdersPageState extends State<OrdersPage> {
                             },
                           ),
                         ),
+                  ),
                 ),
                 const SizedBox(height: 8),
               ],
