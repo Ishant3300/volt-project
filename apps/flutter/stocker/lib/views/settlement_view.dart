@@ -261,6 +261,7 @@ class _SettlementViewState extends State<SettlementView> {
                             _statRow('Positions re-opened', '${_status?['reopenedTrades'] ?? 0}'),
                             _statRow('Users affected', '${_status?['usersAffected'] ?? 0}'),
                             _statRow('Prices fetched', '${_status?['pricesFetched'] ?? 0}'),
+                            _statRow('Active trades in DB', '${_status?['activeTradesInDb'] ?? '?'}'),
                           ],
 
                           if (isError) ...[
