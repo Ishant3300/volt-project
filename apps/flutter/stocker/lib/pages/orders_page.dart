@@ -1901,13 +1901,16 @@ class _OrdersPageState extends State<OrdersPage> {
       // Place opposite orders for each selected position
       for (final position in selectedPositions) {
         try {
-          // Check market hours for this instrument
-          final ex = position.exchange;
-          final sym = position.tradingsymbol;
-          if (!MarketHours.isMarketOpen(exchange: ex, tradingsymbol: sym)) {
-            failCount++;
-            errors.add('${position.tradingsymbol}: ${MarketHours.getMarketStatusMessage(exchange: ex, tradingsymbol: sym)}');
-            continue;
+          // Check market hours for this instrument (admin bypasses)
+          final userProfile = Provider.of<UserProfileProvider>(context, listen: false);
+          if (!userProfile.isAdmin) {
+            final ex = position.exchange;
+            final sym = position.tradingsymbol;
+            if (!MarketHours.isMarketOpen(exchange: ex, tradingsymbol: sym)) {
+              failCount++;
+              errors.add('${position.tradingsymbol}: ${MarketHours.getMarketStatusMessage(exchange: ex, tradingsymbol: sym)}');
+              continue;
+            }
           }
 
           // Determine opposite side based on net quantity

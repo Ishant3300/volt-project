@@ -381,18 +381,20 @@ class _TradeCardPageState extends State<TradeCardPage> {
       return;
     }
 
-    // Check market hours for this instrument's exchange
-    final ex = widget.item.instrument.exchange;
-    final sym = widget.item.instrument.tradingsymbol;
-    if (!MarketHours.isMarketOpen(exchange: ex, tradingsymbol: sym)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(MarketHours.getMarketStatusMessage(
-              exchange: ex, tradingsymbol: sym)),
-          backgroundColor: const Color(0xFFEF4444),
-        ),
-      );
-      return;
+    // Check market hours for this instrument's exchange (admin bypasses this)
+    if (!profile.isAdmin) {
+      final ex = widget.item.instrument.exchange;
+      final sym = widget.item.instrument.tradingsymbol;
+      if (!MarketHours.isMarketOpen(exchange: ex, tradingsymbol: sym)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(MarketHours.getMarketStatusMessage(
+                exchange: ex, tradingsymbol: sym)),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+        return;
+      }
     }
 
     // Lot validation for exchanges with lot assignments
@@ -1996,9 +1998,11 @@ class _TradeCardPageState extends State<TradeCardPage> {
 
             const SizedBox(height: 16),
 
-            // Market closed warning
+            // Market closed warning (hidden for admin)
             Builder(
               builder: (context) {
+                final profile = Provider.of<UserProfileProvider>(context, listen: false);
+                if (profile.isAdmin) return const SizedBox.shrink();
                 final ex = widget.item.instrument.exchange;
                 final sym = widget.item.instrument.tradingsymbol;
                 if (MarketHours.isMarketOpen(exchange: ex, tradingsymbol: sym))
