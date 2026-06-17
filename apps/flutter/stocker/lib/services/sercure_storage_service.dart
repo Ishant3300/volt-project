@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class SecureStorageService {
   final FlutterSecureStorage storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
   );
 
   static const tokenKey = "auth_token";
@@ -29,7 +30,14 @@ class SecureStorageService {
   }
 
   Future<void> saveToken({required String token}) async {
-    await storage.write(key: tokenKey, value: token);
+    try {
+      await storage.write(key: tokenKey, value: token);
+    } catch (e) {
+      // iOS keychain duplicate item error — delete first then write
+      log('⚠️ SecureStorage: Write failed for token, retrying: $e');
+      await storage.delete(key: tokenKey);
+      await storage.write(key: tokenKey, value: token);
+    }
   }
 
   Future<String?> getToken() async {
@@ -42,7 +50,13 @@ class SecureStorageService {
 
   Future<void> saveRole({required String role}) async {
     log('💾 SecureStorage: Saving role: "$role"');
-    await storage.write(key: roleKey, value: role);
+    try {
+      await storage.write(key: roleKey, value: role);
+    } catch (e) {
+      log('⚠️ SecureStorage: Write failed for role, retrying: $e');
+      await storage.delete(key: roleKey);
+      await storage.write(key: roleKey, value: role);
+    }
   }
 
   Future<String?> getRole() async {

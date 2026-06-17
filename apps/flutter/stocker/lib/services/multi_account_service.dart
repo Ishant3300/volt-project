@@ -40,6 +40,7 @@ class MultiAccountService {
   static const _activeKey = 'active_account_key';
   final FlutterSecureStorage _storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
   );
 
   /// Get all saved accounts.
