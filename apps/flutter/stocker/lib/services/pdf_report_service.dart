@@ -4,8 +4,31 @@ import 'package:intl/intl.dart';
 
 class PdfReportService {
   static final _fmt = NumberFormat('#,##0.00');
+  // Display times in IST (UTC+05:30)
   static final _dateFmt = DateFormat('dd-MMM hh:mm:ss a');
   static final _dayFmt = DateFormat('dd MMM yyyy');
+
+  /// Parse a date value and convert to IST (UTC+05:30).
+  /// Accepts a DateTime or a date string (ISO 8601).
+  /// Strings with Z suffix are UTC and get +05:30 added explicitly.
+  /// Strings without Z are treated as already in IST (local time).
+  static DateTime _parseToIST(dynamic dateVal) {
+    try {
+      final DateTime date;
+      if (dateVal is DateTime) {
+        date = dateVal;
+      } else {
+        date = DateTime.parse(dateVal.toString());
+      }
+      // UTC → add IST offset explicitly (device timezone independent)
+      if (date.isUtc) {
+        return date.add(const Duration(hours: 5, minutes: 30));
+      }
+      return date; // already local/IST
+    } catch (_) {
+      return DateTime.now();
+    }
+  }
 
   static pw.Document generateDefaultReport(Map<String, dynamic> data) {
     final pdf = pw.Document();
@@ -20,10 +43,8 @@ class PdfReportService {
     final cellStyle = const pw.TextStyle(fontSize: 7);
     final titleStyle = pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold);
 
-    // Build instrument sections
     final List<pw.Widget> content = [];
 
-    // Title header
     content.add(
       pw.Container(
         width: double.infinity,
@@ -41,7 +62,6 @@ class PdfReportService {
     );
     content.add(pw.SizedBox(height: 10));
 
-    // Per-instrument sections
     for (final instr in instruments) {
       final exchange = instr['exchange'] ?? '';
       final symbol = instr['display_name'] ?? instr['tradingsymbol'] ?? '';
@@ -57,23 +77,18 @@ class PdfReportService {
       final totalBuyVol = (instr['total_buy_vol'] as num?)?.toDouble() ?? 0;
       final totalSellVol = (instr['total_sell_vol'] as num?)?.toDouble() ?? 0;
 
-      // Instrument title
       content.add(pw.Text('$exchange  $symbol', style: titleStyle));
       content.add(pw.SizedBox(height: 4));
 
-      // Side-by-side buy/sell tables
       content.add(pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          // Buy table
           pw.Expanded(child: _buildSideTable('B', buys, totalBuyQty, avgBuyPrice, totalBuyVol, headerStyle, cellStyle)),
           pw.SizedBox(width: 8),
-          // Sell table
           pw.Expanded(child: _buildSideTable('S', sells, totalSellQty, avgSellPrice, totalSellVol, headerStyle, cellStyle)),
         ],
       ));
 
-      // P&L rows below
       content.add(pw.SizedBox(height: 2));
       content.add(_pnlRow('', _fmt.format(pnl.abs()), pnl < 0, cellStyle));
       content.add(_pnlRow('Br', '+ ${_fmt.format(brokerage)}', false, cellStyle));
@@ -81,13 +96,11 @@ class PdfReportService {
       content.add(pw.SizedBox(height: 12));
     }
 
-    // Summary section
     content.add(pw.SizedBox(height: 8));
     content.add(pw.Text('Summary', style: titleStyle));
     content.add(pw.SizedBox(height: 4));
     content.add(_buildSummaryTable(instruments, summary, headerStyle, cellStyle));
 
-    // Carry forward section
     if (carryForward.isNotEmpty) {
       content.add(pw.SizedBox(height: 12));
       content.add(pw.Text('Carry Forward', style: titleStyle));
@@ -119,7 +132,7 @@ class PdfReportService {
     ];
 
     for (final e in entries) {
-      final date = e['date'] is String ? DateTime.parse(e['date']) : e['date'] as DateTime;
+      final date = _parseToIST(e['date']);
       rows.add(pw.TableRow(children: [
         _cell(_dateFmt.format(date), cs),
         _cell(_fmt.format((e['qty'] as num).toDouble()), cs),
@@ -128,7 +141,6 @@ class PdfReportService {
       ]));
     }
 
-    // Total row
     rows.add(pw.TableRow(
       decoration: pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(width: 0.5))),
       children: [
@@ -271,7 +283,6 @@ class PdfReportService {
 
     final List<pw.Widget> content = [];
 
-    // Title
     content.add(pw.Center(child: pw.Text('Live M2M Report', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold))));
     content.add(pw.SizedBox(height: 4));
     content.add(pw.Row(
@@ -283,7 +294,6 @@ class PdfReportService {
     ));
     content.add(pw.SizedBox(height: 10));
 
-    // Per-instrument sections
     for (final instr in instruments) {
       final exchange = instr['exchange'] ?? '';
       final symbol = instr['display_name'] ?? instr['tradingsymbol'] ?? '';
@@ -291,14 +301,10 @@ class PdfReportService {
       final pnl = (instr['pnl'] as num?)?.toDouble() ?? 0;
       final brokerage = (instr['brokerage'] as num?)?.toDouble() ?? 0;
       final netPnl = (instr['net_pnl'] as num?)?.toDouble() ?? 0;
-      final totalBuyQty = (instr['total_buy_qty'] as num?)?.toDouble() ?? 0;
-      final totalSellQty = (instr['total_sell_qty'] as num?)?.toDouble() ?? 0;
 
-      // Instrument header
       content.add(pw.Center(child: pw.Text('$exchange  $symbol', style: titleStyle)));
       content.add(pw.SizedBox(height: 4));
 
-      // Build the unified table
       final headerBg = PdfColor.fromHex('#CCCCDD');
       final totalBg = PdfColor.fromHex('#CCCCDD');
       final netBg = PdfColor.fromHex('#FFFFCC');
@@ -308,17 +314,17 @@ class PdfReportService {
           decoration: pw.BoxDecoration(color: headerBg),
           children: [
             _cell('Date', hs), _cell('Type', hs), _cell('B Qty', hs),
-            _cell('S Qty', hs), _cell('Rate', hs), _cell('Br', hs), _cell('Net', hs),
+            _cell('S Qty', hs), _cell('Rate', hs), _cell('Br', hs), _cell('PnL', hs),
           ],
         ),
       ];
 
-      // Compute running net for each trade
-      double avgBuyPrice = 0;
-      double totalBoughtQty = 0;
+      // Track actual (non-LIVE) buy/sell totals separately for Script wise total row
+      double actualBuyQty = 0;
+      double actualSellQty = 0;
 
       for (final t in allTrades) {
-        final date = t['date'] is String ? DateTime.parse(t['date']) : t['date'];
+        final date = _parseToIST(t['date']);
         final type = t['type'] ?? '';
         final bQty = (t['buy_qty'] as num?)?.toDouble() ?? 0;
         final sQty = (t['sell_qty'] as num?)?.toDouble() ?? 0;
@@ -327,66 +333,44 @@ class PdfReportService {
 
         final isLiveRow = type == 'LIVE' || type == 'EXPIRED' || type == 'CLOSED';
 
-        double net = 0;
-        if (type == 'BUY') {
-          totalBoughtQty += bQty;
-          avgBuyPrice = ((avgBuyPrice * (totalBoughtQty - bQty)) + (rate * bQty)) / totalBoughtQty;
-          net = 0;
-        } else if (isLiveRow) {
-          // LIVE row: virtual close at market price — compute unrealized P&L
-          // If it has a pre-computed net from backend, use it; otherwise compute
-          if (t['net'] != null) {
-            net = (t['net'] as num).toDouble();
-          } else {
-            net = (rate - avgBuyPrice) * sQty;
-          }
-        } else {
-          // Regular Sell
-          net = (rate - avgBuyPrice) * sQty;
-          totalBoughtQty -= sQty;
-          if (totalBoughtQty < 0) totalBoughtQty = 0;
+        // Only count real (non-LIVE) trades in totals
+        if (!isLiveRow) {
+          actualBuyQty += bQty;
+          actualSellQty += sQty;
         }
 
-        final PdfColor typeColor;
-        final PdfColor? rowBg;
-        if (isLiveRow) {
-          typeColor = PdfColors.red;
-          rowBg = null;
-        } else if (type == 'BUY') {
-          typeColor = PdfColors.blue;
-          rowBg = null;
-        } else {
-          typeColor = PdfColors.red;
-          rowBg = null;
-        }
+        // Use pnl from backend for regular trades, 'net' for LIVE/virtual rows
+        final double net = (t['pnl'] as num?)?.toDouble() ?? (t['net'] as num?)?.toDouble() ?? 0;
 
-        final String typeLabel;
-        if (isLiveRow) {
-          typeLabel = type; // LIVE, EXPIRED, or CLOSED
-        } else {
-          typeLabel = type == 'BUY' ? 'Buy' : 'Sell';
-        }
+        final PdfColor typeColor = isLiveRow
+            ? PdfColors.red
+            : (type == 'BUY' ? PdfColors.blue : PdfColors.red);
+
+        final String typeLabel = isLiveRow ? type : (type == 'BUY' ? 'Buy' : 'Sell');
 
         rows.add(pw.TableRow(
-          decoration: rowBg != null ? pw.BoxDecoration(color: rowBg) : null,
           children: [
-          _cell(_dateFmt.format(date), cs),
-          _cell(typeLabel, cs.copyWith(color: typeColor, fontWeight: isLiveRow ? pw.FontWeight.bold : null)),
-          _cell(bQty > 0 ? _fmt.format(bQty) : '', cs),
-          _cell(sQty > 0 ? _fmt.format(sQty) : '', cs),
-          _cell(_fmt.format(rate), cs),
-          _cell(isLiveRow ? '-' : _fmt.format(br), cs),
-          _cell(_fmt.format(net), cs.copyWith(color: net < 0 ? PdfColors.red : PdfColors.black)),
-        ]));
+            _cell(_dateFmt.format(date), cs),
+            _cell(typeLabel, cs.copyWith(
+              color: typeColor,
+              fontWeight: isLiveRow ? pw.FontWeight.bold : null,
+            )),
+            _cell(bQty > 0 ? _fmt.format(bQty) : '', cs),
+            _cell(sQty > 0 ? _fmt.format(sQty) : '', cs),
+            _cell(_fmt.format(rate), cs),
+            _cell(isLiveRow ? '-' : _fmt.format(br), cs),
+            _cell(_fmt.format(net), cs.copyWith(color: net < 0 ? PdfColors.red : PdfColors.black)),
+          ],
+        ));
       }
 
-      // Script wise total row
+      // Script wise total — only real trade quantities (LIVE row excluded)
       rows.add(pw.TableRow(
         decoration: pw.BoxDecoration(color: totalBg),
         children: [
           _cell('Script wise total :', hs), _cell('', cs),
-          _cell(_fmt.format(totalBuyQty), hs),
-          _cell(_fmt.format(totalSellQty), hs),
+          _cell(_fmt.format(actualBuyQty), hs),
+          _cell(_fmt.format(actualSellQty), hs),
           _cell('', cs),
           _cell(_fmt.format(brokerage), hs),
           _cell(_fmt.format(pnl), hs.copyWith(color: pnl < 0 ? PdfColors.red : PdfColors.black)),
@@ -420,11 +404,9 @@ class PdfReportService {
       content.add(pw.SizedBox(height: 14));
     }
 
-    // Summary
     content.add(pw.SizedBox(height: 6));
     content.add(_buildAdvancedSummaryTable(instruments, summary, hs, cs));
 
-    // Carry Forward
     if (carryForward.isNotEmpty) {
       content.add(pw.SizedBox(height: 12));
       content.add(_buildAdvancedCarryForwardTable(carryForward, hs, cs));

@@ -372,12 +372,36 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
             const SizedBox(height: 24),
             Row(
               children: [
-                // Download/Print button
+                // View/Print button — uses in-app PdfPreview (avoids Android print spooler crash)
                 Expanded(
                   child: GestureDetector(
-                    onTap: () async {
+                    onTap: () {
+                      // Capture navigator from ctx BEFORE popping (ctx becomes invalid after pop)
+                      final nav = Navigator.of(ctx);
                       Navigator.pop(ctx);
-                      await Printing.layoutPdf(onLayout: (_) => bytes);
+                      nav.push(
+                        MaterialPageRoute(
+                          builder: (_) => Scaffold(
+                            appBar: AppBar(
+                              title: Text(
+                                fileName,
+                                style: const TextStyle(fontSize: 13, color: Colors.white),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              backgroundColor: const Color(0xFF3F45C7),
+                              foregroundColor: Colors.white,
+                            ),
+                            body: PdfPreview(
+                              build: (_) => bytes,
+                              allowSharing: true,
+                              allowPrinting: true,
+                              pdfFileName: fileName,
+                              canChangeOrientation: false,
+                              canChangePageFormat: false,
+                            ),
+                          ),
+                        ),
+                      );
                     },
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -387,9 +411,9 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                       ),
                       child: const Column(
                         children: [
-                          Icon(Icons.download_rounded, size: 28, color: Color(0xFF3F45C7)),
+                          Icon(Icons.picture_as_pdf_rounded, size: 28, color: Color(0xFF3F45C7)),
                           SizedBox(height: 6),
-                          Text('Download', style: TextStyle(fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, color: Color(0xFF3F45C7))),
+                          Text('View PDF', style: TextStyle(fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, color: Color(0xFF3F45C7))),
                         ],
                       ),
                     ),
@@ -503,13 +527,19 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
     }
   }
 
-  /// Walk through each instrument's all_trades to find open positions,
-  /// fetch live prices, and inject LIVE rows + carry_forward entries.
+  /// Walk through the report instruments, fetch actual current open positions
+  /// from the backend (no date filter = correct direction always), then inject
+  /// LIVE rows and carry_forward entries for any open positions.
   Future<Map<String, dynamic>> _enrichWithLivePositions(
     Map<String, dynamic> reportData,
     ApiService api,
     String? token,
   ) async {
+    // Only enrich when we have a single specific user in scope.
+    // For "All Users" mode (_selectedUser == null and admin/master), skip.
+    final bool hasSpecificUser = _isUser || _selectedUser != null;
+    if (!hasSpecificUser) return reportData;
+
     final kite = KiteService(api);
     final instruments = List<Map<String, dynamic>>.from(
       (reportData['instruments'] as List?)?.map((e) => Map<String, dynamic>.from(e)) ?? [],
@@ -517,126 +547,134 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
     final List<Map<String, dynamic>> carryForward = [];
     double totalLivePnlAdjustment = 0;
 
+    // ── Step 1: Fetch actual open positions from backend (all historical trades) ──
+    final Map<String, Map<String, dynamic>> openPosMap = {};
+    try {
+      String posUrl = '/trade/open-positions';
+      if (_selectedUser != null) {
+        final uid = _selectedUser!['id'] ?? _selectedUser!['_id'] ?? '';
+        posUrl += '?user_id=$uid';
+      }
+      // For regular users (_isUser == true), no user_id needed — backend uses auth token
+      final posRes = await api.get(posUrl, token: token);
+      if (posRes.statusCode == 200) {
+        final posBody = jsonDecode(posRes.body);
+        if (posBody['success'] == true) {
+          final posList = (posBody['data'] as List?) ?? [];
+          for (final p in posList) {
+            final key = '${p['exchange']}::${p['tradingsymbol']}';
+            openPosMap[key] = Map<String, dynamic>.from(p);
+          }
+        }
+      }
+    } catch (e) {
+      log('⚠️ Could not fetch open positions: $e');
+    }
+
+    // ── Step 2: Add LIVE rows for instruments in the report that have open positions ──
     for (int i = 0; i < instruments.length; i++) {
       final instr = Map<String, dynamic>.from(instruments[i]);
-      final allTrades = List<Map<String, dynamic>>.from(
-        (instr['all_trades'] as List?)?.map((e) => Map<String, dynamic>.from(e)) ?? [],
-      );
       final exchange = (instr['exchange'] ?? '').toString();
       final symbol = (instr['tradingsymbol'] ?? '').toString();
+      final key = '$exchange::$symbol';
 
-      // Compute net open position by walking trades chronologically
-      double netQty = 0;
-      double totalBuyQty = 0;
-      double totalBuyValue = 0;
-      double totalSellQty = 0;
-      double totalSellValue = 0;
-
-      for (final t in allTrades) {
-        final type = (t['type'] ?? '').toString().toUpperCase();
-        final bQty = (t['buy_qty'] as num?)?.toDouble() ?? 0;
-        final sQty = (t['sell_qty'] as num?)?.toDouble() ?? 0;
-        final rate = (t['rate'] as num?)?.toDouble() ?? 0;
-
-        if (type == 'BUY') {
-          netQty += bQty;
-          totalBuyQty += bQty;
-          totalBuyValue += bQty * rate;
-        } else if (type == 'SELL') {
-          netQty -= sQty;
-          totalSellQty += sQty;
-          totalSellValue += sQty * rate;
-        }
+      final openPos = openPosMap[key];
+      if (openPos == null) {
+        instruments[i] = instr;
+        continue; // No open position for this instrument
       }
 
-      // If there's an open position, fetch live price and inject LIVE row
-      if (netQty.abs() > 0.001) {
-        double? livePrice;
+      final bool isLong = (openPos['direction'] ?? '') == 'BUY';
+      final double openQty = (openPos['open_qty'] as num?)?.toDouble() ?? 0;
+      final double avgEntryPrice = (openPos['avg_price'] as num?)?.toDouble() ?? 0;
 
-        try {
-          // Search for instrument to get token
-          final searchResults = await kite.searchInstruments(
-            symbol,
-            exchange: exchange,
-            limit: 5,
-          );
-
-          String? instrumentToken;
-          for (final result in searchResults) {
-            final rSymbol = (result['tradingsymbol'] ?? '').toString();
-            final rExchange = (result['exchange'] ?? '').toString();
-            if (rSymbol == symbol && rExchange == exchange) {
-              instrumentToken = (result['instrument_token'] ?? '').toString();
-              break;
-            }
-          }
-
-          if (instrumentToken != null && instrumentToken.isNotEmpty) {
-            final depth = await kite.getMarketDepth(instrumentToken);
-            if (depth != null) {
-              livePrice = depth.lastPrice;
-            }
-          }
-        } catch (e) {
-          log('⚠️ Could not fetch live price for $symbol: $e');
-        }
-
-        if (livePrice != null) {
-          final now = DateTime.now();
-          final bool isLong = netQty > 0;
-          final double openQty = netQty.abs();
-          final double avgEntryPrice = isLong
-              ? (totalBuyQty > 0 ? totalBuyValue / totalBuyQty : 0)
-              : (totalSellQty > 0 ? totalSellValue / totalSellQty : 0);
-
-          // Unrealized P&L: for long = (livePrice - avgBuy) * qty
-          //                  for short = (avgSell - livePrice) * qty
-          final double unrealizedPnl = isLong
-              ? (livePrice - avgEntryPrice) * openQty
-              : (avgEntryPrice - livePrice) * openQty;
-
-          // Inject LIVE row into all_trades
-          final liveRow = {
-            'date': now.toIso8601String(),
-            'type': 'LIVE',
-            'buy_qty': isLong ? 0 : openQty,
-            'sell_qty': isLong ? openQty : 0,
-            'rate': livePrice,
-            'brokerage': 0,
-            'net': unrealizedPnl,
-          };
-          allTrades.add(liveRow);
-
-          // Update instrument totals to include the LIVE virtual close
-          if (isLong) {
-            instr['total_sell_qty'] = ((instr['total_sell_qty'] as num?)?.toDouble() ?? 0) + openQty;
-          } else {
-            instr['total_buy_qty'] = ((instr['total_buy_qty'] as num?)?.toDouble() ?? 0) + openQty;
-          }
-
-          // Adjust P&L to include unrealized
-          final existingPnl = (instr['pnl'] as num?)?.toDouble() ?? 0;
-          final existingBrokerage = (instr['brokerage'] as num?)?.toDouble() ?? 0;
-          instr['pnl'] = existingPnl + unrealizedPnl;
-          instr['net_pnl'] = (existingPnl + unrealizedPnl) - existingBrokerage;
-          totalLivePnlAdjustment += unrealizedPnl;
-
-          // Add carry forward entry
-          carryForward.add({
-            'exchange': exchange,
-            'tradingsymbol': symbol,
-            'type': isLong ? 'Buy' : 'Sell',
-            'quantity': openQty,
-            'price': avgEntryPrice,
-          });
-        }
+      if (openQty <= 0.001) {
+        instruments[i] = instr;
+        continue;
       }
 
-      instr['all_trades'] = allTrades;
+      // Fetch live price for this instrument
+      double? livePrice;
+      try {
+        final searchResults = await kite.searchInstruments(
+          symbol,
+          exchange: exchange,
+          limit: 5,
+        );
+        String? instrumentToken;
+        for (final result in searchResults) {
+          final rSymbol = (result['tradingsymbol'] ?? '').toString();
+          final rExchange = (result['exchange'] ?? '').toString();
+          if (rSymbol == symbol && rExchange == exchange) {
+            instrumentToken = (result['instrument_token'] ?? '').toString();
+            break;
+          }
+        }
+        if (instrumentToken != null && instrumentToken.isNotEmpty) {
+          final depth = await kite.getMarketDepth(instrumentToken);
+          if (depth != null) livePrice = depth.lastPrice;
+        }
+      } catch (e) {
+        log('⚠️ Could not fetch live price for $symbol: $e');
+      }
+
+      if (livePrice != null) {
+        final allTrades = List<Map<String, dynamic>>.from(
+          (instr['all_trades'] as List?)?.map((e) => Map<String, dynamic>.from(e)) ?? [],
+        );
+        final now = DateTime.now();
+
+        // Unrealized P&L
+        final double unrealizedPnl = isLong
+            ? (livePrice - avgEntryPrice) * openQty
+            : (avgEntryPrice - livePrice) * openQty;
+
+        // LIVE row: shows the open position direction (not the closing trade)
+        // Long position → B Qty (you hold longs); Short → S Qty (you hold shorts)
+        final liveRow = {
+          'date': now.toIso8601String(),
+          'type': 'LIVE',
+          'buy_qty': isLong ? openQty : 0,   // Long  → show in Buy column
+          'sell_qty': isLong ? 0 : openQty,  // Short → show in Sell column
+          'rate': livePrice,
+          'brokerage': 0,
+          'net': unrealizedPnl,
+        };
+        allTrades.add(liveRow);
+
+        // Adjust instrument totals to match open position direction
+        if (isLong) {
+          instr['total_buy_qty'] =
+              ((instr['total_buy_qty'] as num?)?.toDouble() ?? 0) + openQty;
+        } else {
+          instr['total_sell_qty'] =
+              ((instr['total_sell_qty'] as num?)?.toDouble() ?? 0) + openQty;
+        }
+
+        // Adjust P&L to include unrealized
+        final existingPnl = (instr['pnl'] as num?)?.toDouble() ?? 0;
+        final existingBrokerage = (instr['brokerage'] as num?)?.toDouble() ?? 0;
+        instr['pnl'] = existingPnl + unrealizedPnl;
+        instr['net_pnl'] = (existingPnl + unrealizedPnl) - existingBrokerage;
+        totalLivePnlAdjustment += unrealizedPnl;
+
+        instr['all_trades'] = allTrades;
+
+        // Add carry forward entry (open position summary at top of page)
+        carryForward.add({
+          'exchange': exchange,
+          'tradingsymbol': symbol,
+          'display_name': instr['display_name'] ?? symbol,
+          'type': isLong ? 'Buy' : 'Sell',
+          'quantity': openQty,
+          'price': avgEntryPrice,
+        });
+      }
+
       instruments[i] = instr;
     }
 
-    // Update summary totals
+    // Update summary totals to include unrealized P&L
     final summary = Map<String, dynamic>.from(reportData['summary'] ?? {});
     if (totalLivePnlAdjustment != 0) {
       final oldTotalPnl = (summary['total_pnl'] as num?)?.toDouble() ?? 0;
