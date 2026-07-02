@@ -117,7 +117,7 @@ class ApiService {
     } catch (e, stackTrace) {
       log('   ❌ Request failed: $e');
       log('   Stack trace: $stackTrace');
-      rethrow;
+      throw _sanitizeError(e);
     }
   }
 
@@ -150,7 +150,7 @@ class ApiService {
     } catch (e, stackTrace) {
       log('   ❌ Request failed: $e');
       log('   Stack trace: $stackTrace');
-      rethrow;
+      throw _sanitizeError(e);
     }
   }
 
@@ -183,7 +183,7 @@ class ApiService {
     } catch (e, stackTrace) {
       log('   ❌ Request failed: $e');
       log('   Stack trace: $stackTrace');
-      rethrow;
+      throw _sanitizeError(e);
     }
   }
 
@@ -215,7 +215,30 @@ class ApiService {
     } catch (e, stackTrace) {
       log('   ❌ Request failed: $e');
       log('   Stack trace: $stackTrace');
-      rethrow;
+      throw _sanitizeError(e);
     }
+  }
+
+  /// Sanitize network errors so raw exception details (IP, port, endpoint)
+  /// are never exposed to the end user in error messages.
+  static Exception _sanitizeError(Object e) {
+    final msg = e.toString().toLowerCase();
+    if (msg.contains('socketexception') ||
+        msg.contains('network is unreachable') ||
+        msg.contains('connection refused') ||
+        msg.contains('connection failed') ||
+        msg.contains('no route to host') ||
+        msg.contains('no internet') ||
+        msg.contains('failed host lookup')) {
+      return Exception('No internet connection. Please check your network and try again.');
+    }
+    if (msg.contains('timeout') || msg.contains('timed out')) {
+      return Exception('Server is not responding. Please try again later.');
+    }
+    if (msg.contains('handshake') || msg.contains('certificate') || msg.contains('ssl')) {
+      return Exception('Secure connection failed. Please try again.');
+    }
+    // Generic fallback — don't expose raw error
+    return Exception('Something went wrong. Please try again.');
   }
 }
