@@ -5,6 +5,8 @@ import 'dart:convert';
 import 'dart:developer';
 import '../providers/user_profile_provider.dart';
 import '../services/admin_service.dart';
+import '../services/api_service.dart';
+import '../services/sercure_storage_service.dart';
 import '../models/user.dart';
 import '../utils/contants.dart';
 
@@ -57,14 +59,53 @@ class _CreateUserViewState extends State<CreateUserView> {
         Provider.of<UserProfileProvider>(context, listen: false);
     final adminService = Provider.of<AdminService>(context, listen: false);
 
+    // Determine which master's permissions to use for the exchange list.
+    // - If logged in as master: use their own permissions.
+    // - If logged in as admin editing a user: fetch the user's parent master's permissions.
+    List<String>? masterExchanges;
+    List<String>? masterTradeLimit;
+
     if (profileProvider.master != null) {
+      masterExchanges = profileProvider.master!.exchangesAllowed
+          .map((ex) => ex == 'INDICES' ? 'GLOBAL' : ex)
+          .toList();
+      masterTradeLimit = profileProvider.master!.tradeLimit
+          .map((ex) => ex == 'INDICES' ? 'GLOBAL' : ex)
+          .toList();
+    } else if (profileProvider.isAdmin && widget.user != null) {
+      // Admin editing user: get exchanges from the user's parent master
+      try {
+        final token = await SecureStorageService().getToken();
+        final apiService = ApiService(backendUrl);
+        final masterId = widget.user!.masterId;
+        if (masterId != null && masterId.isNotEmpty) {
+          final res = await apiService.get('/master/masters/$masterId', token: token);
+          if (res.statusCode == 200) {
+            final body = jsonDecode(res.body);
+            final masterData = body['data'];
+            if (masterData != null) {
+              final List exList = masterData['exchanges_allowed'] ?? [];
+              masterExchanges = exList.map<String>((e) => (e is String ? e : e.toString()) == 'INDICES' ? 'GLOBAL' : (e is String ? e : e.toString())).toList();
+              final List tlList = masterData['trade_limit'] ?? [];
+              masterTradeLimit = tlList.map<String>((e) => (e is String ? e : e.toString()) == 'INDICES' ? 'GLOBAL' : (e is String ? e : e.toString())).toList();
+            }
+          }
+        }
+      } catch (e) {
+        log('⚠️ Error fetching parent master permissions: $e');
+      }
+
+      // Fallback for admin: if we couldn't get master data, show all standard exchanges
+      if (masterExchanges == null || masterExchanges!.isEmpty) {
+        masterExchanges = ['NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'SGX', 'GLOBAL'];
+        masterTradeLimit = ['NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'SGX', 'GLOBAL'];
+      }
+    }
+
+    if (masterExchanges != null && masterExchanges!.isNotEmpty) {
       setState(() {
-        _allowedExchanges = profileProvider.master!.exchangesAllowed
-            .map((ex) => ex == 'INDICES' ? 'GLOBAL' : ex)
-            .toList();
-        _allowedTradeLimit = profileProvider.master!.tradeLimit
-            .map((ex) => ex == 'INDICES' ? 'GLOBAL' : ex)
-            .toList();
+        _allowedExchanges = masterExchanges!;
+        _allowedTradeLimit = masterTradeLimit ?? masterExchanges!;
 
         _exchangeSettings = {};
         for (var exchange in _allowedExchanges) {
@@ -217,6 +258,17 @@ class _CreateUserViewState extends State<CreateUserView> {
     if (exchangesAllowed.isEmpty) {
       _showSnack('Please select at least one exchange', isError: true);
       return;
+    }
+
+    // Validate: each enabled exchange must have either Turnover or Lot selected
+    for (final ex in exchangesAllowed) {
+      final name = ex['exchange_name'] as String;
+      final hasTurnover = ex['turnover'] == true;
+      final hasLot = ex['lot'] == true;
+      if (!hasTurnover && !hasLot) {
+        _showSnack('Select either T/O or Lot for $name', isError: true);
+        return;
+      }
     }
 
     List<String> tradeLimitList = [];
