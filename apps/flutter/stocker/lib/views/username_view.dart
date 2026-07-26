@@ -1422,12 +1422,9 @@ class _UsernameViewState extends State<UsernameView> {
     // Falls back to LTP if cmp not available
     final double cmp = (pos['cmp'] as num?)?.toDouble() ?? ltp;
 
-    // Use server-pushed floating P&L if available, else compute from LTP
+    // Use server-pushed floating P&L directly — no local recomputation.
+    // metricsEngine is the single source of truth for all metrics.
     double floating = (pos['floating_pnl'] as num?)?.toDouble() ?? 0;
-    if (floating == 0 && netQty != 0) {
-      if (netQty > 0) floating = (ltp - avgBuyPrice) * netQty;
-      else floating = (avgSellPrice - ltp) * netQty.abs();
-    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
