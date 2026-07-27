@@ -493,8 +493,16 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
           Map<String, dynamic> reportData = body['data'];
 
           // For Live M2M mode, enrich with live positions client-side
+          // ONLY when the date range includes today (live prices are relevant).
+          // For past date ranges, the backend already provides carry_forward data
+          // with settlement prices — no live enrichment needed.
           if (_selectedMode == 1) {
-            reportData = await _enrichWithLivePositions(reportData, api, token);
+            final today = DateTime.now();
+            final todayStart = DateTime(today.year, today.month, today.day);
+            final isCurrentPeriod = !_toDate!.isBefore(todayStart);
+            if (isCurrentPeriod) {
+              reportData = await _enrichWithLivePositions(reportData, api, token);
+            }
           }
 
           final pdf = _selectedMode == 0

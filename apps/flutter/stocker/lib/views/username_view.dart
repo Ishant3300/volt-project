@@ -953,10 +953,13 @@ class _UsernameViewState extends State<UsernameView> {
     );
   }
 
-  /// Map trade.pnl from backend instead of recalculating (FIFO is handled by server)
+  /// Determine which trades are "closing" trades and their P&L.
+  /// Uses the backend-provided pnl field as the primary source of truth.
+  /// If trade.pnl != 0, the backend already computed it (handles carry-forward
+  /// positions correctly since the server sees all trades including hidden ones).
+  /// Falls back to local FIFO pairing only for openedAt duration display.
   Map<String, _PerTradePnl> _computePerTradePnl(List<Trade> completedTrades) {
     final Map<String, _PerTradePnl> result = {};
-    // We still need to track openedAt for duration display using simple FIFO logic locally
     final Map<String, List<Trade>> byInstrument = {};
     for (final t in completedTrades) {
       byInstrument.putIfAbsent(t.instrumentToken, () => []).add(t);
@@ -967,20 +970,32 @@ class _UsernameViewState extends State<UsernameView> {
       String? openedAt;
       for (final t in trades) {
         final isBuy = t.transactionType.toUpperCase() == 'BUY';
+
+        // Backend marks closing trades with non-zero pnl — trust it directly.
+        // This correctly handles carry-forward positions where the opening trade
+        // is hidden (trade_type='carry_forward') but pnl was computed server-side.
+        if (t.pnl != 0) {
+          result[t.id] =
+              _PerTradePnl(pnl: t.pnl, isClosing: true, openedAt: openedAt);
+          // Update local net qty tracking for duration purposes
+          netQty += isBuy ? t.quantity : -t.quantity;
+          if (netQty == 0) openedAt = null;
+          continue;
+        }
+
+        // Track net position locally for openedAt timestamp (duration display)
         if (netQty == 0) {
           openedAt = t.createdAt;
           netQty = isBuy ? t.quantity : -t.quantity;
         } else if ((netQty > 0 && isBuy) || (netQty < 0 && !isBuy)) {
+          // Adding to position
           netQty += isBuy ? t.quantity : -t.quantity;
         } else {
-          // Closing trade
+          // Closing trade detected by local FIFO (pnl was 0 but it's still closing)
           result[t.id] =
               _PerTradePnl(pnl: t.pnl, isClosing: true, openedAt: openedAt);
           netQty += isBuy ? t.quantity : -t.quantity;
-          if (netQty == 0)
-            openedAt = null;
-          else if ((netQty > 0 && !isBuy) || (netQty < 0 && isBuy))
-            openedAt = t.createdAt;
+          if (netQty == 0) openedAt = null;
         }
       }
     }

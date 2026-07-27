@@ -376,8 +376,9 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
               ]),
               const SizedBox(height: 2),
               Row(children: [
-                Text(inst['tradingsymbol'] ?? '', style: TextStyle(fontSize: kFontSizeCaption,
-                  color: isDeleted ? const Color(0xFFCBD5E1) : const Color(0xFF94A3B8), fontFamily: 'Inter', fontWeight: kFontWeightMedium, letterSpacing: 0.3)),
+                Flexible(child: Text(inst['tradingsymbol'] ?? '', style: TextStyle(fontSize: kFontSizeCaption,
+                  color: isDeleted ? const Color(0xFFCBD5E1) : const Color(0xFF94A3B8), fontFamily: 'Inter', fontWeight: kFontWeightMedium, letterSpacing: 0.3),
+                  overflow: TextOverflow.ellipsis)),
                 if ((inst['lot_size'] ?? 1) > 0) ...[
                   const Padding(padding: EdgeInsets.symmetric(horizontal: 4), child: Text('·', style: TextStyle(color: Color(0xFFCBD5E1)))),
                   Text('LOT ${inst['lot_size'] ?? 1}', style: TextStyle(fontSize: kFontSizeCaption,

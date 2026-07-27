@@ -634,129 +634,132 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
 
   Widget _buildInstrumentRow(dynamic item) {
     final instrument = KiteInstrument.fromJson(Map<String, dynamic>.from(item));
-    final watchlistProvider =
-        Provider.of<WatchlistProvider>(context, listen: false);
-    final isAdded = watchlistProvider.contains(instrument.instrumentToken);
     final typeColor = _getTypeColor(instrument.instrumentType);
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      color: Colors.transparent,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Type badge
-          Container(
-            width: 38,
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            decoration: BoxDecoration(
-              color: typeColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              instrument.instrumentType.isNotEmpty
-                  ? instrument.instrumentType
-                  : (instrument.isIndex ? 'IDX' : instrument.exchange),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: kFontSizeCaption,
-                fontWeight: kFontWeightSemiBold,
-                color: typeColor,
-                fontFamily: 'Inter',
-                letterSpacing: 0.3,
+    return Consumer<WatchlistProvider>(
+      builder: (context, watchlistProvider, _) {
+        final isAdded = watchlistProvider.contains(instrument.instrumentToken);
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          color: Colors.transparent,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Type badge
+              Container(
+                width: 38,
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                decoration: BoxDecoration(
+                  color: typeColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  instrument.instrumentType.isNotEmpty
+                      ? instrument.instrumentType
+                      : (instrument.isIndex ? 'IDX' : instrument.exchange),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: kFontSizeCaption,
+                    fontWeight: kFontWeightSemiBold,
+                    color: typeColor,
+                    fontFamily: 'Inter',
+                    letterSpacing: 0.3,
+                  ),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Content
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+              const SizedBox(width: 12),
+              // Content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Flexible(
-                      child: _buildHighlightedText(
-                        instrument.userFriendlyName,
-                        _searchController.text,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: _buildHighlightedText(
+                            instrument.userFriendlyName,
+                            _searchController.text,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          instrument.tradingsymbol,
+                          style: const TextStyle(
+                            fontSize: kFontSizeCaption,
+                            fontWeight: kFontWeightMedium,
+                            color: Color(0xFF94A3B8),
+                            fontFamily: 'Inter',
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                        if (instrument.lotSize > 0) ...[
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 6),
+                            child: Text('·',
+                                style: TextStyle(
+                                    fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1))),
+                          ),
+                          Text(
+                            'LOT ${instrument.lotSize}',
+                            style: const TextStyle(
+                              fontSize: kFontSizeCaption,
+                              color: Color(0xFF94A3B8),
+                              fontFamily: 'Inter',
+                              fontWeight: kFontWeightMedium,
+                            ),
+                          ),
+                        ],
+                        if (instrument.strike > 0) ...[
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 6),
+                            child: Text('·',
+                                style: TextStyle(
+                                    fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1))),
+                          ),
+                          Text(
+                            '${instrument.strike.toInt()}',
+                            style: const TextStyle(
+                              fontSize: kFontSizeCaption,
+                              color: Color(0xFF94A3B8),
+                              fontFamily: 'Inter',
+                              fontWeight: kFontWeightMedium,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
-                Row(
-                  children: [
-                    Text(
-                      instrument.tradingsymbol,
-                      style: const TextStyle(
-                        fontSize: kFontSizeCaption,
-                        fontWeight: kFontWeightMedium,
-                        color: Color(0xFF94A3B8),
-                        fontFamily: 'Inter',
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                    if (instrument.lotSize > 0) ...[
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 6),
-                        child: Text('·',
-                            style: TextStyle(
-                                fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1))),
-                      ),
-                      Text(
-                        'LOT ${instrument.lotSize}',
-                        style: const TextStyle(
-                          fontSize: kFontSizeCaption,
-                          color: Color(0xFF94A3B8),
-                          fontFamily: 'Inter',
-                          fontWeight: kFontWeightMedium,
-                        ),
-                      ),
-                    ],
-                    if (instrument.strike > 0) ...[
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 6),
-                        child: Text('·',
-                            style: TextStyle(
-                                fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1))),
-                      ),
-                      Text(
-                        '${instrument.strike.toInt()}',
-                        style: const TextStyle(
-                          fontSize: kFontSizeCaption,
-                          color: Color(0xFF94A3B8),
-                          fontFamily: 'Inter',
-                          fontWeight: kFontWeightMedium,
-                        ),
-                      ),
-                    ],
-                  ],
+              ),
+              // Add / Added indicator
+              GestureDetector(
+                onTap: isAdded ? null : () => _addToWatchlist(instrument),
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isAdded
+                        ? const Color(0xFF10B981).withOpacity(0.1)
+                        : const Color(0xFF3F45C7).withOpacity(0.1),
+                  ),
+                  child: Icon(
+                    isAdded ? Icons.check : Icons.add,
+                    size: kIconSizeDefault,
+                    color: isAdded
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFF3F45C7),
+                  ),
                 ),
-              ],
-            ),
-          ),
-          // Add / Added indicator
-          GestureDetector(
-            onTap: isAdded ? null : () => _addToWatchlist(instrument),
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isAdded
-                    ? const Color(0xFF10B981).withOpacity(0.1)
-                    : const Color(0xFF3F45C7).withOpacity(0.1),
               ),
-              child: Icon(
-                isAdded ? Icons.check : Icons.add,
-                size: kIconSizeDefault,
-                color: isAdded
-                    ? const Color(0xFF10B981)
-                    : const Color(0xFF3F45C7),
-              ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
