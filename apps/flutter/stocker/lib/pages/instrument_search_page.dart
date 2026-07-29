@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -321,7 +321,8 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
       watchlistProvider.addInstrument(instrument);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${instrument.name.isNotEmpty ? instrument.name : instrument.tradingsymbol} added'),
+          content: Text(
+              '${instrument.name.isNotEmpty ? instrument.name : instrument.tradingsymbol} added'),
           backgroundColor: const Color(0xFF10B981),
           duration: const Duration(seconds: 1),
         ),
@@ -528,8 +529,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
           child: ListView.builder(
             controller: _scrollController,
             padding: const EdgeInsets.only(bottom: 80),
-            itemCount: _groupedResults.length +
-                (_isLoadingMore ? 1 : 0),
+            itemCount: _groupedResults.length + (_isLoadingMore ? 1 : 0),
             itemBuilder: (context, groupIndex) {
               // Load more indicator at the end
               if (groupIndex == _groupedResults.length) {
@@ -701,7 +701,8 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                             padding: EdgeInsets.symmetric(horizontal: 6),
                             child: Text('·',
                                 style: TextStyle(
-                                    fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1))),
+                                    fontSize: kFontSizeCaption,
+                                    color: Color(0xFFCBD5E1))),
                           ),
                           Text(
                             'LOT ${instrument.lotSize}',
@@ -718,7 +719,8 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                             padding: EdgeInsets.symmetric(horizontal: 6),
                             child: Text('·',
                                 style: TextStyle(
-                                    fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1))),
+                                    fontSize: kFontSizeCaption,
+                                    color: Color(0xFFCBD5E1))),
                           ),
                           Text(
                             '${instrument.strike.toInt()}',
@@ -881,7 +883,8 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                 ),
               ],
             ),
-            child: const Icon(Icons.search, size: kIconSizeXLarge, color: Color(0xFFCBD5E1)),
+            child: const Icon(Icons.search,
+                size: kIconSizeXLarge, color: Color(0xFFCBD5E1)),
           ),
           const SizedBox(height: 20),
           const Text(
