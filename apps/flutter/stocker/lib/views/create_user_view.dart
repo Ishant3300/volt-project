@@ -39,6 +39,10 @@ class _CreateUserViewState extends State<CreateUserView> {
   List<String> _allowedExchanges = [];
   List<String> _allowedTradeLimit = [];
 
+  // Brokerage settings per exchange (inline during creation)
+  Map<String, Map<String, dynamic>> _brokerageSettings = {};
+  // { 'NFO-FUT': { 'type': 'TURNOVER WISE', 'value': 0.02 }, ... }
+
   @override
   void initState() {
     super.initState();
@@ -117,6 +121,17 @@ class _CreateUserViewState extends State<CreateUserView> {
           };
         }
 
+        // Initialize brokerage settings with sensible defaults per exchange
+        _brokerageSettings = {};
+        for (var exchange in _allowedExchanges) {
+          final isLotSegment = exchange == 'NFO-OPT' || exchange == 'MCX-FUT' || exchange == 'MCX-OPT';
+          _brokerageSettings[exchange] = {
+            'type': isLotSegment ? 'LOT WISE' : 'TURNOVER WISE',
+            'value': '',
+            'controller': TextEditingController(),
+          };
+        }
+
         if (widget.user != null) {
           for (var userExchange in widget.user!.exchangesAllowed) {
             // Backend stores INDICES, but UI uses GLOBAL
@@ -148,6 +163,9 @@ class _CreateUserViewState extends State<CreateUserView> {
       for (var exchange in _allowedExchanges) {
         _fetchLotNamesForExchange(exchange, adminService);
       }
+
+      // Pre-fetch current brokerage values for display
+      _fetchCurrentBrokerage();
     }
   }
 
@@ -177,6 +195,97 @@ class _CreateUserViewState extends State<CreateUserView> {
     }
   }
 
+  /// Fetch current brokerage values for each exchange to pre-fill the inline section
+  Future<void> _fetchCurrentBrokerage() async {
+    try {
+      final token = await SecureStorageService().getToken();
+      final apiService = ApiService(backendUrl);
+
+      for (final exchange in _allowedExchanges) {
+        final apiExchange = exchange == 'GLOBAL' ? 'INDICES' : exchange;
+        final brkSettings = _brokerageSettings[exchange];
+        if (brkSettings == null) continue;
+
+        final type = brkSettings['type'] as String;
+        final res = await apiService.get(
+          '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=1',
+          token: token,
+        );
+        if (res.statusCode == 200) {
+          final body = jsonDecode(res.body);
+          if (body['success'] == true) {
+            final items = body['data']['items'] as List? ?? [];
+            if (items.isNotEmpty) {
+              final firstVal = (items[0]['brk_value'] as num?)?.toDouble() ?? 0;
+              if (mounted) {
+                setState(() {
+                  brkSettings['value'] = firstVal.toString();
+                  (brkSettings['controller'] as TextEditingController).text =
+                      firstVal % 1 == 0 ? firstVal.toInt().toString() : firstVal.toString();
+                });
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      log('⚠️ Error fetching current brokerage: $e');
+    }
+  }
+
+  /// Apply brokerage settings for enabled exchanges after user creation
+  Future<void> _applyBrokerageSettings() async {
+    try {
+      final token = await SecureStorageService().getToken();
+      final apiService = ApiService(backendUrl);
+
+      for (final exchange in _allowedExchanges) {
+        // Only apply for enabled exchanges
+        if (_exchangeSettings[exchange]?['enabled'] != true) continue;
+
+        final brkSettings = _brokerageSettings[exchange];
+        if (brkSettings == null) continue;
+
+        final valueStr = (brkSettings['controller'] as TextEditingController).text.trim();
+        if (valueStr.isEmpty) continue;
+        final value = double.tryParse(valueStr);
+        if (value == null || value <= 0) continue;
+
+        final type = brkSettings['type'] as String;
+        final apiExchange = exchange == 'GLOBAL' ? 'INDICES' : exchange;
+
+        // Bulk-create ensures all instruments for this exchange have brokerage entries
+        await apiService.post('/admin/brokerage-settings/bulk-create', {
+          'exchange_name': apiExchange,
+          'type': type,
+          'default_brk_value': value,
+        }, token: token);
+
+        // Then bulk-update all existing entries to the new value
+        final fetchRes = await apiService.get(
+          '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=2000',
+          token: token,
+        );
+        if (fetchRes.statusCode == 200) {
+          final body = jsonDecode(fetchRes.body);
+          if (body['success'] == true) {
+            final items = body['data']['items'] as List? ?? [];
+            if (items.isNotEmpty) {
+              final ids = items.map<String>((i) => i['id'].toString()).toList();
+              await apiService.put('/admin/brokerage-settings/bulk-update', {
+                'ids': ids,
+                'brk_value': value,
+                'type': type,
+              }, token: token);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      log('⚠️ Error applying brokerage settings: $e');
+    }
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -185,6 +294,9 @@ class _CreateUserViewState extends State<CreateUserView> {
     _confirmPasswordController.dispose();
     _creditController.dispose();
     _noteController.dispose();
+    for (final entry in _brokerageSettings.values) {
+      (entry['controller'] as TextEditingController?)?.dispose();
+    }
     super.dispose();
   }
 
@@ -325,6 +437,9 @@ class _CreateUserViewState extends State<CreateUserView> {
 
       if ((response.statusCode == 201 || response.statusCode == 200) &&
           data['success'] == true) {
+        // Apply brokerage settings for enabled exchanges
+        await _applyBrokerageSettings();
+
         await profileProvider.refreshProfile();
         if (!mounted) return;
         _showSnack(widget.user != null
@@ -635,6 +750,61 @@ class _CreateUserViewState extends State<CreateUserView> {
                           }).toList(),
                         ),
                       ),
+
+                    const SizedBox(height: 24),
+
+                    // Brokerage Settings (inline)
+                    _sectionLabel('BROKERAGE SETTINGS'),
+                    const SizedBox(height: 12),
+                    _card(
+                      child: Column(
+                        children: [
+                          // Header row
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 12),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: Text('Exchange',
+                                      style: TextStyle(
+                                          color: Color(0xFF94A3B8),
+                                          fontSize: kFontSizeNavLabel,
+                                          fontFamily: 'Inter',
+                                          fontWeight: kFontWeightSemiBold,
+                                          letterSpacing: 0.5)),
+                                ),
+                                Expanded(
+                                  flex: 3,
+                                  child: Center(
+                                    child: Text('Type',
+                                        style: TextStyle(
+                                            color: Color(0xFF94A3B8),
+                                            fontSize: kFontSizeNavLabel,
+                                            fontFamily: 'Inter',
+                                            fontWeight: kFontWeightSemiBold,
+                                            letterSpacing: 0.5)),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Center(
+                                    child: Text('Value',
+                                        style: TextStyle(
+                                            color: Color(0xFF94A3B8),
+                                            fontSize: kFontSizeNavLabel,
+                                            fontFamily: 'Inter',
+                                            fontWeight: kFontWeightSemiBold,
+                                            letterSpacing: 0.5)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          ..._allowedExchanges.map((exchange) => _buildBrokerageRow(exchange)),
+                        ],
+                      ),
+                    ),
 
                     const SizedBox(height: 24),
 
@@ -988,6 +1158,98 @@ class _CreateUserViewState extends State<CreateUserView> {
                   height: 22,
                   decoration: const BoxDecoration(
                       color: Colors.white, shape: BoxShape.circle),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBrokerageRow(String exchange) {
+    final settings = _brokerageSettings[exchange];
+    if (settings == null) return const SizedBox.shrink();
+
+    final type = settings['type'] as String;
+    final controller = settings['controller'] as TextEditingController;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          // Exchange name
+          Expanded(
+            flex: 3,
+            child: Text(
+              exchange,
+              style: const TextStyle(
+                color: Colors.black,
+                fontSize: kFontSizeBodySmall,
+                fontFamily: 'Inter',
+                fontWeight: kFontWeightMedium,
+              ),
+            ),
+          ),
+          // Type toggle
+          Expanded(
+            flex: 3,
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  settings['type'] = type == 'LOT WISE' ? 'TURNOVER WISE' : 'LOT WISE';
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: type == 'LOT WISE'
+                      ? const Color(0xFF3F45C7).withValues(alpha: 0.08)
+                      : const Color(0xFF10B981).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  type == 'LOT WISE' ? 'LOT' : 'T/O',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: type == 'LOT WISE'
+                        ? const Color(0xFF3F45C7)
+                        : const Color(0xFF10B981),
+                    fontSize: kFontSizeCaption,
+                    fontFamily: 'Inter',
+                    fontWeight: kFontWeightSemiBold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Value input
+          Expanded(
+            flex: 2,
+            child: Container(
+              height: 36,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFF1F5F9)),
+              ),
+              child: TextField(
+                controller: controller,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: kFontSizeBodySmall,
+                  fontFamily: 'Inter',
+                  fontWeight: kFontWeightMedium,
+                ),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  hintText: '0',
+                  hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall),
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(vertical: 8),
                 ),
               ),
             ),
