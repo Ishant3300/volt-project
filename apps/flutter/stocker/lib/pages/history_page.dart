@@ -429,44 +429,6 @@ class _PortfolioPageState extends State<PortfolioPage>
       ),
     );
   }
-
-  String _timeAgo(String dateStr) {
-    try {
-      final dt = DateTime.parse(dateStr).toLocal();
-      final diff = DateTime.now().difference(dt);
-      if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
-      if (diff.inMinutes < 60) return '${diff.inMinutes}min ago';
-      if (diff.inHours < 24) return '${diff.inHours}hr ago';
-      if (diff.inDays < 7) return '${diff.inDays}d ago';
-      return DateFormat('dd MMM').format(dt);
-    } catch (_) {
-      return '';
-    }
-  }
-
-  /// Returns a human-readable duration between the opening and closing trade.
-  /// e.g. "in 2min", "in 1hr 15min", "in 3d"
-  String _tradeDuration(String? openedAt, String closedAt) {
-    if (openedAt == null) return _timeAgo(closedAt);
-    try {
-      final open = DateTime.parse(openedAt);
-      final close = DateTime.parse(closedAt);
-      final diff = close.difference(open).abs();
-      if (diff.inSeconds < 60) return 'in ${diff.inSeconds}s';
-      if (diff.inMinutes < 60) return 'in ${diff.inMinutes}min';
-      if (diff.inHours < 24) {
-        final hrs = diff.inHours;
-        final mins = diff.inMinutes % 60;
-        return mins > 0 ? 'in ${hrs}hr ${mins}min' : 'in ${hrs}hr';
-      }
-      final days = diff.inDays;
-      final hrs = diff.inHours % 24;
-      return hrs > 0 ? 'in ${days}d ${hrs}hr' : 'in ${days}d';
-    } catch (_) {
-      return _timeAgo(closedAt);
-    }
-  }
-
   String _buildFilterSummary() {
     final parts = <String>[];
     if (_activeFilters?.tradingsymbol != null)
@@ -525,12 +487,7 @@ class _PortfolioPageState extends State<PortfolioPage>
         .where((t) => t.status.toLowerCase() == statusFilter)
         .toList());
 
-    // Compute per-trade P&L for closing trades
-    final perTradePnl = statusFilter == 'completed'
-        ? _computePerTradePnl(_masterTrades
-            .where((t) => t.status.toLowerCase() == 'completed')
-            .toList())
-        : <String, _PerTradePnl>{};
+    // P&L is now provided by the backend (trade.pnl) — no client-side recalculation needed.
 
     if (filtered.isEmpty) {
       return RefreshIndicator(
@@ -631,8 +588,7 @@ class _PortfolioPageState extends State<PortfolioPage>
               }
               final trade = filtered[index];
               if (statusFilter == 'completed') {
-                return _buildCompletedTradeCard(trade,
-                    tradePnl: perTradePnl[trade.id]);
+                return _buildCompletedTradeCard(trade);
               } else {
                 return _buildTradeCard(trade);
               }
@@ -652,6 +608,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                 color: Color(0xFF3F45C7), strokeWidth: 2.5));
       }
       final completedTrades = (_filteredUserTrades ?? [])
+
           .where((t) => t.status.toLowerCase() == 'completed')
           .toList();
       return _buildTradeListView(completedTrades, 'completed',
@@ -716,13 +673,10 @@ class _PortfolioPageState extends State<PortfolioPage>
 
   Widget _buildTradeListView(List<Trade> trades, String type,
       {Future<void> Function()? onRefresh}) {
-    // Apply local search filter
-    trades = _applySearch(trades);
+    // P&L is now provided by the backend (trade.pnl) — no client-side recalculation needed.
 
-    // Compute per-trade P&L for closing trades
-    final perTradePnl = type == 'completed'
-        ? _computePerTradePnl(trades)
-        : <String, _PerTradePnl>{};
+    // Apply local search filter (after PnL computation)
+    trades = _applySearch(trades);
 
     if (trades.isEmpty) {
       final content = Center(
@@ -795,8 +749,7 @@ class _PortfolioPageState extends State<PortfolioPage>
             const Divider(height: 1, color: Color(0xFFF1F5F9)),
         itemBuilder: (context, index) {
           if (type == 'completed') {
-            return _buildCompletedTradeCard(trades[index],
-                tradePnl: perTradePnl[trades[index].id]);
+            return _buildCompletedTradeCard(trades[index]);
           } else {
             return _buildTradeCard(trades[index]);
           }
@@ -808,63 +761,6 @@ class _PortfolioPageState extends State<PortfolioPage>
       return RefreshIndicator(onRefresh: onRefresh, child: list);
     }
     return list;
-  }
-
-  /// Walk completed trades chronologically per instrument.
-  /// For every closing trade (SELL when long, BUY when short) compute
-  /// the P&L that specific trade realised against the running avg entry price.
-  /// Returns a map from trade.id → per-trade P&L info.
-  /// Map trade.pnl from backend instead of recalculating (FIFO is handled by server)
-  Map<String, _PerTradePnl> _computePerTradePnl(List<Trade> completedTrades) {
-    final Map<String, _PerTradePnl> result = {};
-
-    // We still need to track openedAt for duration display using simple FIFO logic locally
-    // Group by instrument + user to avoid mixing different users' trades (master/admin view)
-    final Map<String, List<Trade>> byInstrument = {};
-    for (final t in completedTrades) {
-      if (t.status.toLowerCase() != 'completed') continue;
-      final key = '${t.instrumentToken}_${t.userId}';
-      byInstrument.putIfAbsent(key, () => []).add(t);
-    }
-
-    for (final trades in byInstrument.values) {
-      trades.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-      int netQty = 0;
-      String? openedAt;
-
-      for (final t in trades) {
-        final isBuy = t.transactionType.toUpperCase() == 'BUY';
-
-        // Settlement closing trades are always "closing" regardless of FIFO state
-        // (original opening trade was soft-deleted, so FIFO can't track it)
-        if (t.remarks.contains('position closed at settlement price')) {
-          result[t.id] =
-              _PerTradePnl(pnl: t.pnl, isClosing: true, openedAt: openedAt);
-          // Don't update netQty — the reopening trade will handle that
-          continue;
-        }
-
-        if (netQty == 0) {
-          openedAt = t.createdAt;
-          netQty = isBuy ? t.quantity : -t.quantity;
-        } else if ((netQty > 0 && isBuy) || (netQty < 0 && !isBuy)) {
-          // Same direction — adding to position
-          netQty += isBuy ? t.quantity : -t.quantity;
-        } else {
-          // Opposite direction — closing (fully or partially)
-          final prevNetQty = netQty;
-          result[t.id] =
-              _PerTradePnl(pnl: t.pnl, isClosing: true, openedAt: openedAt);
-          netQty += isBuy ? t.quantity : -t.quantity;
-          if (netQty == 0) {
-            openedAt = null;
-          } else if ((prevNetQty > 0 && netQty < 0) || (prevNetQty < 0 && netQty > 0)) {
-            openedAt = t.createdAt;
-          }
-        }
-      }
-    }
-    return result;
   }
 
   /// Returns the formatted instrument name for history page display.
@@ -946,7 +842,7 @@ class _PortfolioPageState extends State<PortfolioPage>
     return symbol.toUpperCase();
   }
 
-  Widget _buildCompletedTradeCard(Trade trade, {_PerTradePnl? tradePnl}) {
+  Widget _buildCompletedTradeCard(Trade trade) {
     final bool isBuy = trade.transactionType.toUpperCase() == 'BUY';
     final Color sideColor =
         isBuy ? const Color(0xFF10B981) : const Color(0xFFEF4444);
@@ -958,15 +854,15 @@ class _PortfolioPageState extends State<PortfolioPage>
       formattedDate = DateFormat("dd MMM hh:mm:ss a").format(dt).toUpperCase();
     } catch (_) {}
 
-    // Deals = trade.pnl (FIFO P&L computed by backend: (sell-buy) × qty)
-    // Only meaningful for closing trades; 0 for opening trades
+    // A trade is "closing" if the backend computed a non-zero P&L for it.
+    final bool isClosing = trade.pnl != 0;
     final double deals = trade.pnl;
     final Color dealsColor = deals >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => showTradeDetailSheet(context, trade,
-          isClosing: tradePnl != null && tradePnl.isClosing),
+          isClosing: isClosing),
       child: Column(
         children: [
           // Main content area
@@ -1087,7 +983,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                         ],
                       ),
                     ),
-                    if ((_isAdmin || _isMaster) || (tradePnl != null && tradePnl.isClosing))
+                    if ((_isAdmin || _isMaster) || isClosing)
                       Row(
                         children: [
                           const Icon(Icons.access_time,
@@ -1143,7 +1039,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                         ),
                       ],
                       if (!_isAdmin && !_isMaster) ...[
-                  if (tradePnl != null && tradePnl.isClosing)
+                  if (isClosing)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
@@ -1151,7 +1047,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        'Closed ${_tradeDuration(tradePnl.openedAt, trade.createdAt)}',
+                        'Closed',
                         style: const TextStyle(
                           color: Color(0xFF64748B),
                           fontSize: kFontSizeCaption,
@@ -1174,16 +1070,16 @@ class _PortfolioPageState extends State<PortfolioPage>
                     ),
                   ],
                 ],
-                if ((_isAdmin || _isMaster) && tradePnl != null && tradePnl.isClosing)
+                if ((_isAdmin || _isMaster) && isClosing)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: const Color(0xFFF1F5F9),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(
-                      'Closed ${_tradeDuration(tradePnl.openedAt, trade.createdAt)}',
-                      style: const TextStyle(
+                    child: const Text(
+                      'Closed',
+                      style: TextStyle(
                         color: Color(0xFF64748B),
                         fontSize: kFontSizeCaption,
                         fontFamily: 'Inter',
@@ -1226,7 +1122,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                       ),
                     ),
                   )
-                else if (tradePnl != null && tradePnl.isClosing)
+                else if (isClosing)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
@@ -1922,9 +1818,4 @@ class _PortfolioPageState extends State<PortfolioPage>
   }
 }
 
-class _PerTradePnl {
-  final double pnl;
-  final bool isClosing;
-  final String? openedAt; // timestamp of the opening trade
-  _PerTradePnl({required this.pnl, required this.isClosing, this.openedAt});
-}
+
