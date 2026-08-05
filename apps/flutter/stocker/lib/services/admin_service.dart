@@ -586,6 +586,8 @@ class AdminService {
     required int lotSize,
     required int maxQty,
     required int brkQty,
+    String? ownerId,
+    String? ownerType,
   }) async {
     final data = {
       'exchange_name': exchangeName,
@@ -593,6 +595,8 @@ class AdminService {
       'lot_size': lotSize,
       'max_qty': maxQty,
       'brk_qty': brkQty,
+      if (ownerId != null) 'owner_id': ownerId,
+      if (ownerType != null) 'owner_type': ownerType,
     };
 
     final token = await _storage.getToken();
@@ -854,11 +858,15 @@ class AdminService {
     required String exchangeName,
     required double defaultMaxQty,
     required double defaultBrkQty,
+    String? ownerId,
+    String? ownerType,
   }) async {
     final data = {
       'exchange_name': exchangeName,
       'default_max_qty': defaultMaxQty,
       'default_brk_qty': defaultBrkQty,
+      if (ownerId != null) 'owner_id': ownerId,
+      if (ownerType != null) 'owner_type': ownerType,
     };
     final token = await _storage.getToken();
     return await _apiService.post('/admin/script-quantities/bulk-create', data, token: token);

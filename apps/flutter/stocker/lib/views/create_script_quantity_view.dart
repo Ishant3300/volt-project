@@ -10,7 +10,10 @@ import '../models/kite_instrument.dart';
 import '../utils/contants.dart';
 
 class CreateScriptQuantityView extends StatefulWidget {
-  const CreateScriptQuantityView({super.key});
+  final String? ownerId;
+  final String? ownerType;
+
+  const CreateScriptQuantityView({super.key, this.ownerId, this.ownerType});
   @override
   State<CreateScriptQuantityView> createState() =>
       _CreateScriptQuantityViewState();
@@ -209,6 +212,8 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
         lotSize: _selected!.lotSize.toInt(),
         maxQty: maxQty,
         brkQty: brkQty,
+        ownerId: widget.ownerId,
+        ownerType: widget.ownerType,
       );
       if (r.statusCode == 201) {
         if (mounted) {

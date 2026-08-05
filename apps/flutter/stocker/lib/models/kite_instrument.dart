@@ -50,7 +50,7 @@ class KiteInstrument {
     final name = json['name'] ?? '';
     return KiteInstrument(
       id: json['_id'] ?? json['id'] ?? '',
-      instrumentToken: json['instrument_token'] ?? '',
+      instrumentToken: (json['instrument_token'] ?? '').toString(),
       exchangeToken: json['exchange_token'] ?? '',
       tradingsymbol: json['tradingsymbol'] ?? '',
       name: name,

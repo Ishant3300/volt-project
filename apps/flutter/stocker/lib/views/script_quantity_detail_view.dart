@@ -40,6 +40,7 @@ class _ScriptQuantityDetailViewState extends State<ScriptQuantityDetailView> {
     setState(() => _isLoading = true);
     try {
       final token = await SecureStorageService().getToken();
+      if (!mounted) return;
       final profile = context.read<UserProfileProvider>();
       if (profile.isUser) {
         await _fetchUserData(token);

@@ -97,8 +97,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
   int _getNetPosition(BuildContext context) {
     final positions =
         Provider.of<TradeMetricsProvider>(context, listen: false).positions;
+    final targetToken = widget.item.instrument.instrumentToken.toString();
     for (final pos in positions) {
-      if (pos.instrumentToken == widget.item.instrument.instrumentToken) {
+      if (pos.instrumentToken.toString() == targetToken) {
         return pos.netQty;
       }
     }

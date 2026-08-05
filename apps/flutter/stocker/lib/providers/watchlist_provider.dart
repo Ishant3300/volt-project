@@ -440,8 +440,9 @@ class WatchlistProvider with ChangeNotifier {
 
   WatchlistItem? getByToken(String instrumentToken) {
     try {
+      final targetToken = instrumentToken.toString();
       return _items.firstWhere(
-        (item) => item.instrument.instrumentToken == instrumentToken,
+        (item) => item.instrument.instrumentToken.toString() == targetToken,
       );
     } catch (e) {
       return null;

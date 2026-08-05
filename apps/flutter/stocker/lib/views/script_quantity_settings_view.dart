@@ -108,6 +108,41 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
     });
   }
 
+  Future<void> _deleteScript(ScriptQuantity item) async {
+    try {
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      final response = await AdminService(apiService).deleteScriptQuantity(item.id);
+      if (!mounted) return;
+      if (response.statusCode == 200) {
+        setState(() {
+          _scriptItems.removeWhere((s) => s.id == item.id);
+          _filteredItems.removeWhere((s) => s.id == item.id);
+          _selectedIds.remove(item.id);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('"${item.scriptName}" deleted'),
+            backgroundColor: const Color(0xFF10B981),
+          ),
+        );
+      } else {
+        final d = jsonDecode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(d['message'] ?? 'Delete failed'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: const Color(0xFFEF4444)),
+        );
+      }
+    }
+  }
+
   Future<void> _applyUpdates() async {
     if (_selectedIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -224,6 +259,8 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                           builder: (_) => AddScriptQtyToExchangeView(
                             exchange: _selectedExchange!,
                             isExistingGroup: _filteredItems.isNotEmpty,
+                            ownerId: widget.ownerId,
+                            ownerType: widget.ownerType,
                           ),
                         )).then((_) => _loadScriptQuantities());
                       },
@@ -484,191 +521,238 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                           itemBuilder: (context, index) {
                             final item = _filteredItems[index];
                             final isSelected = _selectedIds.contains(item.id);
-                            
-                            return GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  if (isSelected) {
-                                    _selectedIds.remove(item.id);
-                                  } else {
-                                    _selectedIds.add(item.id);
-                                  }
-                                });
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                                decoration: const BoxDecoration(
-                                  color: Colors.white,
-                                  border: Border(
-                                    bottom: BorderSide(width: 1, color: Color(0xFFC7C7CC)),
+
+                            return Dismissible(
+                              key: Key(item.id),
+                              direction: _isAdmin ? DismissDirection.endToStart : DismissDirection.none,
+                              background: Container(
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.only(right: 20),
+                                color: const Color(0xFFEF4444),
+                                child: const Icon(Icons.delete_outline, color: Colors.white, size: 22),
+                              ),
+                              confirmDismiss: (_) async {
+                                return await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Delete Script', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                                    content: Text('Delete "${item.scriptName}"? This will also remove it from all Masters and Users.', style: const TextStyle(fontFamily: 'Inter')),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(ctx, true),
+                                        child: const Text('Delete', style: TextStyle(color: Color(0xFFEF4444))),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 20,
-                                      height: 20,
-                                      decoration: BoxDecoration(
-                                        color: isSelected ? const Color(0xFF3F45C7) : Colors.white,
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(
-                                          color: isSelected ? const Color(0xFF3F45C7) : const Color(0xFFCBD5E1),
-                                          width: 1.5,
+                                ) ?? false;
+                              },
+                              onDismissed: (_) => _deleteScript(item),
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    if (isSelected) {
+                                      _selectedIds.remove(item.id);
+                                    } else {
+                                      _selectedIds.add(item.id);
+                                    }
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    border: Border(
+                                      bottom: BorderSide(width: 1, color: Color(0xFFC7C7CC)),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 20,
+                                        height: 20,
+                                        decoration: BoxDecoration(
+                                          color: isSelected ? const Color(0xFF3F45C7) : Colors.white,
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(
+                                            color: isSelected ? const Color(0xFF3F45C7) : const Color(0xFFCBD5E1),
+                                            width: 1.5,
+                                          ),
+                                        ),
+                                        child: isSelected
+                                            ? const Icon(Icons.check, color: Colors.white, size: 12)
+                                            : null,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              item.scriptName,
+                                              style: const TextStyle(
+                                                color: Color(0xFF334155),
+                                                fontSize: kFontSizeBodySmall,
+                                                fontFamily: 'Inter',
+                                                fontWeight: kFontWeightMedium,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Opacity(
+                                                    opacity: 0.80,
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                      decoration: ShapeDecoration(
+                                                        color: const Color(0xFFE5E5EA),
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                      ),
+                                                      child: Row(
+                                                        children: [
+                                                          const Text(
+                                                            'Lot ',
+                                                            style: TextStyle(
+                                                              color: Colors.black,
+                                                              fontSize: kFontSizeCaption,
+                                                              fontFamily: 'Inter',
+                                                              fontWeight: kFontWeightRegular,
+                                                            ),
+                                                          ),
+                                                          Flexible(
+                                                            child: Text(
+                                                              item.lotSize.toStringAsFixed(0),
+                                                              style: const TextStyle(
+                                                                color: Colors.black,
+                                                                fontSize: kFontSizeSubtitle,
+                                                                fontFamily: 'Inter',
+                                                                fontWeight: kFontWeightMedium,
+                                                              ),
+                                                              overflow: TextOverflow.ellipsis,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Expanded(
+                                                  child: Opacity(
+                                                    opacity: 0.80,
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                      decoration: ShapeDecoration(
+                                                        color: const Color(0xFFE5E5EA),
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                      ),
+                                                      child: Row(
+                                                        children: [
+                                                          const Text(
+                                                            'Brk ',
+                                                            style: TextStyle(
+                                                              color: Colors.black,
+                                                              fontSize: kFontSizeCaption,
+                                                              fontFamily: 'Inter',
+                                                              fontWeight: kFontWeightRegular,
+                                                            ),
+                                                          ),
+                                                          Flexible(
+                                                            child: Text(
+                                                              item.brkQty.toStringAsFixed(0),
+                                                              style: const TextStyle(
+                                                                color: Colors.black,
+                                                                fontSize: kFontSizeSubtitle,
+                                                                fontFamily: 'Inter',
+                                                                fontWeight: kFontWeightMedium,
+                                                              ),
+                                                              overflow: TextOverflow.ellipsis,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Expanded(
+                                                  child: Opacity(
+                                                    opacity: 0.80,
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                      decoration: ShapeDecoration(
+                                                        color: const Color(0xFFE5E5EA),
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius: BorderRadius.circular(4),
+                                                        ),
+                                                      ),
+                                                      child: Row(
+                                                        children: [
+                                                          const Text(
+                                                            'Max ',
+                                                            style: TextStyle(
+                                                              color: Colors.black,
+                                                              fontSize: kFontSizeCaption,
+                                                              fontFamily: 'Inter',
+                                                              fontWeight: kFontWeightRegular,
+                                                            ),
+                                                          ),
+                                                          Flexible(
+                                                            child: Text(
+                                                              item.maxQty.toStringAsFixed(0),
+                                                              style: const TextStyle(
+                                                                color: Colors.black,
+                                                                fontSize: kFontSizeSubtitle,
+                                                                fontFamily: 'Inter',
+                                                                fontWeight: kFontWeightMedium,
+                                                              ),
+                                                              overflow: TextOverflow.ellipsis,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                      child: isSelected
-                                          ? const Icon(Icons.check, color: Colors.white, size: 12)
-                                          : null,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                item.scriptName,
-                                                style: const TextStyle(
-                                                  color: Color(0xFF334155),
-                                                  fontSize: kFontSizeBodySmall,
-                                                  fontFamily: 'Inter',
-                                                  fontWeight: kFontWeightMedium,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
+                                      // Delete icon button (admin only, alternative to swipe)
+                                      if (_isAdmin)
+                                        GestureDetector(
+                                          onTap: () async {
+                                            final confirm = await showDialog<bool>(
+                                              context: context,
+                                              builder: (ctx) => AlertDialog(
+                                                title: const Text('Delete Script', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
+                                                content: Text('Delete "${item.scriptName}"? This will also remove it from all Masters and Users.', style: const TextStyle(fontFamily: 'Inter')),
+                                                actions: [
+                                                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                                  TextButton(
+                                                    onPressed: () => Navigator.pop(ctx, true),
+                                                    child: const Text('Delete', style: TextStyle(color: Color(0xFFEF4444))),
+                                                  ),
+                                                ],
                                               ),
-                                            ],
+                                            );
+                                            if (confirm == true) _deleteScript(item);
+                                          },
+                                          child: const Padding(
+                                            padding: EdgeInsets.only(left: 8),
+                                            child: Icon(Icons.delete_outline, size: 18, color: Color(0xFFEF4444)),
                                           ),
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: Opacity(
-                                                  opacity: 0.80,
-                                                  child: Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                    decoration: ShapeDecoration(
-                                                      color: const Color(0xFFE5E5EA),
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius: BorderRadius.circular(4),
-                                                      ),
-                                                    ),
-                                                    child: Row(
-                                                      children: [
-                                                        const Text(
-                                                          'Lot ',
-                                                          style: TextStyle(
-                                                            color: Colors.black,
-                                                            fontSize: kFontSizeCaption,
-                                                            fontFamily: 'Inter',
-                                                            fontWeight: kFontWeightRegular,
-                                                          ),
-                                                        ),
-                                                        Flexible(
-                                                          child: Text(
-                                                            item.lotSize.toStringAsFixed(0),
-                                                            style: const TextStyle(
-                                                              color: Colors.black,
-                                                              fontSize: kFontSizeSubtitle,
-                                                              fontFamily: 'Inter',
-                                                              fontWeight: kFontWeightMedium,
-                                                            ),
-                                                            overflow: TextOverflow.ellipsis,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Expanded(
-                                                child: Opacity(
-                                                  opacity: 0.80,
-                                                  child: Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                    decoration: ShapeDecoration(
-                                                      color: const Color(0xFFE5E5EA),
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius: BorderRadius.circular(4),
-                                                      ),
-                                                    ),
-                                                    child: Row(
-                                                      children: [
-                                                        const Text(
-                                                          'Brk ',
-                                                          style: TextStyle(
-                                                            color: Colors.black,
-                                                            fontSize: kFontSizeCaption,
-                                                            fontFamily: 'Inter',
-                                                            fontWeight: kFontWeightRegular,
-                                                          ),
-                                                        ),
-                                                        Flexible(
-                                                          child: Text(
-                                                            item.brkQty.toStringAsFixed(0),
-                                                            style: const TextStyle(
-                                                              color: Colors.black,
-                                                              fontSize: kFontSizeSubtitle,
-                                                              fontFamily: 'Inter',
-                                                              fontWeight: kFontWeightMedium,
-                                                            ),
-                                                            overflow: TextOverflow.ellipsis,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 6),
-                                              Expanded(
-                                                child: Opacity(
-                                                  opacity: 0.80,
-                                                  child: Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                    decoration: ShapeDecoration(
-                                                      color: const Color(0xFFE5E5EA),
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius: BorderRadius.circular(4),
-                                                      ),
-                                                    ),
-                                                    child: Row(
-                                                      children: [
-                                                        const Text(
-                                                          'Max ',
-                                                          style: TextStyle(
-                                                            color: Colors.black,
-                                                            fontSize: kFontSizeCaption,
-                                                            fontFamily: 'Inter',
-                                                            fontWeight: kFontWeightRegular,
-                                                          ),
-                                                        ),
-                                                        Flexible(
-                                                          child: Text(
-                                                            item.maxQty.toStringAsFixed(0),
-                                                            style: const TextStyle(
-                                                              color: Colors.black,
-                                                              fontSize: kFontSizeSubtitle,
-                                                              fontFamily: 'Inter',
-                                                              fontWeight: kFontWeightMedium,
-                                                            ),
-                                                            overflow: TextOverflow.ellipsis,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
+                                        ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             );

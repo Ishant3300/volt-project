@@ -380,9 +380,8 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
                 spacing: 4,
                 runSpacing: 2,
                 children: [
-                  Flexible(child: Text(inst['tradingsymbol'] ?? '', style: TextStyle(fontSize: kFontSizeCaption,
-                    color: isDeleted ? const Color(0xFFCBD5E1) : const Color(0xFF94A3B8), fontFamily: 'Inter', fontWeight: kFontWeightMedium, letterSpacing: 0.3),
-                  overflow: TextOverflow.ellipsis)),
+                  Text(inst['tradingsymbol'] ?? '', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: kFontSizeCaption,
+                    color: isDeleted ? const Color(0xFFCBD5E1) : const Color(0xFF94A3B8), fontFamily: 'Inter', fontWeight: kFontWeightMedium, letterSpacing: 0.3)),
                   if ((inst['lot_size'] ?? 1) > 0) ...[
                     Text('·', style: TextStyle(color: Color(0xFFCBD5E1))),
                     Text('LOT ${inst['lot_size'] ?? 1}', style: TextStyle(fontSize: kFontSizeCaption,
@@ -395,6 +394,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
                   ],
                 ],
               ),
+              const SizedBox(height: 2),
             ]),
           ),
           // Actions: Toggle + Delete/Restore

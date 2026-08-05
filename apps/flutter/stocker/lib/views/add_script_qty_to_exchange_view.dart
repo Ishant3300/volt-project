@@ -10,11 +10,15 @@ import '../utils/contants.dart';
 class AddScriptQtyToExchangeView extends StatefulWidget {
   final String exchange;
   final bool isExistingGroup;
+  final String? ownerId;
+  final String? ownerType;
 
   const AddScriptQtyToExchangeView({
     super.key,
     required this.exchange,
     this.isExistingGroup = false,
+    this.ownerId,
+    this.ownerType,
   });
 
   @override
@@ -64,6 +68,8 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
           exchangeName: _effectiveExchange,
           defaultMaxQty: _isLotBased ? 5 : 100,
           defaultBrkQty: _isLotBased ? 2 : 50,
+          ownerId: widget.ownerId,
+          ownerType: widget.ownerType,
         );
         if (bulkResponse.statusCode != 201) {
           final data = jsonDecode(bulkResponse.body);
@@ -78,6 +84,7 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
 
       final response = await adminService.getScriptQuantityByExchange(
         exchangeName: _effectiveExchange,
+        ownerId: widget.ownerId,
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
