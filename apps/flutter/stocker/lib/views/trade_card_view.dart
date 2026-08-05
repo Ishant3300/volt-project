@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -17,12 +17,32 @@ import 'info_sheet.dart';
 import 'chart_view.dart';
 import 'package:stocker/services/trade_sound_service.dart';
 
+/// Client-side option validation is intentionally advisory. A missing local
+/// position can mean the admin selected another user or metrics have not synced;
+/// the backend performs the authoritative exact-token ownership check inside
+/// the trade transaction.
+String? validateLocalOptionSell({
+  required bool isAdmin,
+  required bool isOption,
+  required String transactionType,
+  required int requestedQuantity,
+  required int? knownNetQuantity,
+}) {
+  if (isAdmin || !isOption || transactionType != 'SELL') return null;
+  if (knownNetQuantity == null || knownNetQuantity <= 0) return null;
+  if (requestedQuantity > knownNetQuantity) {
+    return 'You can only sell up to $knownNetQuantity units (your current holding).';
+  }
+  return null;
+}
+
 class TradeCardPage extends StatefulWidget {
   final WatchlistItem item;
   final String?
       initialOrderType; // 'Buy Limit', 'Sell Limit', or null for default
   final int? initialQuantity;
-  final String? forceSide; // 'BUY' or 'SELL' — only show this button (for pending orders)
+  final String?
+      forceSide; // 'BUY' or 'SELL' — only show this button (for pending orders)
 
   const TradeCardPage({
     super.key,
@@ -92,9 +112,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
     return type == 'CE' || type == 'PE';
   }
 
-  /// Returns the user's net quantity for this exact instrument token.
-  /// Positive = long position, 0 or negative = no sellable position.
-  int _getNetPosition(BuildContext context) {
+  /// Returns the locally known net quantity for this exact instrument token.
+  /// Null means metrics do not contain the position and the backend must decide.
+  int? _getKnownNetPosition(BuildContext context) {
     final positions =
         Provider.of<TradeMetricsProvider>(context, listen: false).positions;
     final targetToken = widget.item.instrument.instrumentToken.toString();
@@ -103,7 +123,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
         return pos.netQty;
       }
     }
-    return 0;
+    return null;
   }
 
   /// Maps initialOrderType string to tab index.
@@ -136,7 +156,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
     } else {
       // If opened from watchlist (no initialQuantity), check for open position
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        final netQty = _getNetPosition(context);
+        final netQty = _getKnownNetPosition(context) ?? 0;
         if (netQty != 0 && mounted) {
           setState(() {
             _quantity = netQty.abs();
@@ -176,30 +196,36 @@ class _TradeCardPageState extends State<TradeCardPage> {
 
         if (info != null && info.lotSize > 0) {
           // Check if user has an open position for this instrument
-          final netQty = _getNetPosition(context);
+          final netQty = _getKnownNetPosition(context) ?? 0;
           if (netQty != 0 && widget.initialQuantity == null) {
             // Pre-fill from open position
             final absQty = netQty.abs();
             if (info.isTurnoverMode) {
               _quantity = absQty;
-              _selectedQuickQty = _quickQuantities.contains(absQty) ? absQty : -1;
+              _selectedQuickQty =
+                  _quickQuantities.contains(absQty) ? absQty : -1;
               _qtyController.text = absQty.toString();
             } else {
               // Convert raw quantity to lots
-              final lots = info.lotSize > 0 ? (absQty / info.lotSize).round() : absQty;
+              final lots =
+                  info.lotSize > 0 ? (absQty / info.lotSize).round() : absQty;
               _lotCount = lots > 0 ? lots : 1;
-              _selectedQuickLot = _quickLots.contains(_lotCount) ? _lotCount : -1;
+              _selectedQuickLot =
+                  _quickLots.contains(_lotCount) ? _lotCount : -1;
               _qtyController.text = _lotCount.toString();
             }
           } else if (widget.initialQuantity != null && !info.isTurnoverMode) {
             // initialQuantity was passed (e.g. from orders page square-off) — convert to lots
-            final lots = info.lotSize > 0 ? (widget.initialQuantity! / info.lotSize).round() : widget.initialQuantity!;
+            final lots = info.lotSize > 0
+                ? (widget.initialQuantity! / info.lotSize).round()
+                : widget.initialQuantity!;
             _lotCount = lots > 0 ? lots : 1;
             _selectedQuickLot = _quickLots.contains(_lotCount) ? _lotCount : -1;
             _qtyController.text = _lotCount.toString();
           } else if (info.isTurnoverMode) {
             _quantity = widget.initialQuantity ?? 1;
-            _selectedQuickQty = _quickQuantities.contains(_quantity) ? _quantity : -1;
+            _selectedQuickQty =
+                _quickQuantities.contains(_quantity) ? _quantity : -1;
             _qtyController.text = _quantity.toString();
           } else {
             // No position, no initialQuantity — default to 1 lot
@@ -444,29 +470,24 @@ class _TradeCardPageState extends State<TradeCardPage> {
       }
     }
 
-    // Block option sell if user doesn't hold this option
-    if (transactionType == 'SELL' && _isOption) {
-      final netQty = _getNetPosition(context);
-      if (netQty <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Option selling is not allowed. You must own this option before you can sell it.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-      if (_actualQuantity > netQty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'You can only sell up to $netQty units (your current holding).'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
+    // Local metrics can be absent or belong to the logged-in admin rather than
+    // the selected user. Only reject a known oversell here; exact ownership is
+    // authoritatively validated by the backend inside the trade transaction.
+    final optionSellError = validateLocalOptionSell(
+      isAdmin: profile.isAdmin,
+      isOption: _isOption,
+      transactionType: transactionType,
+      requestedQuantity: _actualQuantity,
+      knownNetQuantity: _getKnownNetPosition(context),
+    );
+    if (optionSellError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(optionSellError),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
     }
 
     final currentItem = Provider.of<WatchlistProvider>(context, listen: false)
@@ -490,7 +511,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
         break;
     }
 
-    final bool usesCustomPrice = _selectedTab == 1 || _selectedTab == 2 || _selectedTab == 3;
+    final bool usesCustomPrice =
+        _selectedTab == 1 || _selectedTab == 2 || _selectedTab == 3;
     final tradePrice = usesCustomPrice
         ? (double.tryParse(_priceController.text) ?? currentPrice)
         : currentPrice;
@@ -614,8 +636,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
             if (tabIndex == 1 || tabIndex == 2) {
               final currentItem =
                   Provider.of<WatchlistProvider>(context, listen: false)
-                          .getByToken(
-                              widget.item.instrument.instrumentToken) ??
+                          .getByToken(widget.item.instrument.instrumentToken) ??
                       widget.item;
               final ltp = currentItem.currentPrice ?? 0.0;
               final spread = ltp * 0.0005;
@@ -628,9 +649,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
         child: Container(
           height: 40,
           decoration: BoxDecoration(
-            color: isSelected
-                ? const Color(0xFF3F45C7)
-                : const Color(0xFFF1F5F9),
+            color:
+                isSelected ? const Color(0xFF3F45C7) : const Color(0xFFF1F5F9),
             borderRadius: BorderRadius.circular(10),
           ),
           alignment: Alignment.center,
@@ -803,17 +823,20 @@ class _TradeCardPageState extends State<TradeCardPage> {
             Consumer<UserProfileProvider>(
               builder: (context, userProfile, child) {
                 if (!userProfile.isUser && !userProfile.isMaster) {
-                  return const SizedBox.shrink(); // Admin has info in user section
+                  return const SizedBox
+                      .shrink(); // Admin has info in user section
                 }
                 return Padding(
-                  padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12),
+                  padding:
+                      const EdgeInsets.only(left: 16, right: 16, bottom: 12),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       GestureDetector(
                         onTap: () => showInfoSheet(
                           context,
-                          instrumentToken: widget.item.instrument.instrumentToken,
+                          instrumentToken:
+                              widget.item.instrument.instrumentToken,
                           tradingsymbol: widget.item.instrument.tradingsymbol,
                           lotSize: _lotLimitInfo?.lotSize,
                           maxQty: _lotLimitInfo?.maxQty,
@@ -823,7 +846,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                         child: const Row(
                           children: [
                             Icon(Icons.info_outline,
-                                size: kIconSizeMedium, color: Color(0xFF3F45C7)),
+                                size: kIconSizeMedium,
+                                color: Color(0xFF3F45C7)),
                             SizedBox(width: 4),
                             Text(
                               'Info',
@@ -871,8 +895,10 @@ class _TradeCardPageState extends State<TradeCardPage> {
                               GestureDetector(
                                 onTap: () => showInfoSheet(
                                   context,
-                                  instrumentToken: widget.item.instrument.instrumentToken,
-                                  tradingsymbol: widget.item.instrument.tradingsymbol,
+                                  instrumentToken:
+                                      widget.item.instrument.instrumentToken,
+                                  tradingsymbol:
+                                      widget.item.instrument.tradingsymbol,
                                   lotSize: _lotLimitInfo?.lotSize,
                                   maxQty: _lotLimitInfo?.maxQty,
                                   breakQty: _lotLimitInfo?.breakQty,
@@ -881,7 +907,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                 child: const Row(
                                   children: [
                                     Icon(Icons.info_outline,
-                                        size: kIconSizeMedium, color: Color(0xFF3F45C7)),
+                                        size: kIconSizeMedium,
+                                        color: Color(0xFF3F45C7)),
                                     SizedBox(width: 4),
                                     Text(
                                       'Info',
@@ -957,11 +984,13 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                       });
                                     },
                                     child: const Icon(Icons.close,
-                                        size: kIconSizeDefault, color: Color(0xFF8E8E93)),
+                                        size: kIconSizeDefault,
+                                        color: Color(0xFF8E8E93)),
                                   )
                                 else
                                   const Icon(Icons.search,
-                                      size: kIconSizeMedium, color: Color(0xFF8E8E93)),
+                                      size: kIconSizeMedium,
+                                      color: Color(0xFF8E8E93)),
                               ],
                             ),
                           ),
@@ -1147,7 +1176,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                   shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(4)),
                                 ),
-                                child: const Icon(Icons.remove, size: kIconSizeDefault),
+                                child: const Icon(Icons.remove,
+                                    size: kIconSizeDefault),
                               ),
                             ),
                             const SizedBox(width: 11),
@@ -1161,7 +1191,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                   shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(4)),
                                 ),
-                                child: const Icon(Icons.add, size: kIconSizeDefault),
+                                child: const Icon(Icons.add,
+                                    size: kIconSizeDefault),
                               ),
                             ),
                           ],
@@ -1273,7 +1304,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                           Row(
                             children: [
                               const Icon(Icons.info_outline,
-                                  size: kIconSizeDefault, color: Color(0xFF3F45C7)),
+                                  size: kIconSizeDefault,
+                                  color: Color(0xFF3F45C7)),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text.rich(
@@ -1334,7 +1366,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 const Icon(Icons.check_circle_outline,
-                                    size: kIconSizeSmall, color: Color(0xFF10B981)),
+                                    size: kIconSizeSmall,
+                                    color: Color(0xFF10B981)),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Order: $_quantity qty',
@@ -1405,7 +1438,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                             Row(
                               children: [
                                 const Icon(Icons.folder_outlined,
-                                    size: kIconSizeSmall, color: Color(0xFF94A3B8)),
+                                    size: kIconSizeSmall,
+                                    color: Color(0xFF94A3B8)),
                                 const SizedBox(width: 6),
                                 Text(
                                   _lotLimitInfo!.groupName!,
@@ -1424,7 +1458,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                           Row(
                             children: [
                               const Icon(Icons.info_outline,
-                                  size: kIconSizeDefault, color: Color(0xFF3F45C7)),
+                                  size: kIconSizeDefault,
+                                  color: Color(0xFF3F45C7)),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text.rich(
@@ -1484,7 +1519,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 const Icon(Icons.check_circle_outline,
-                                    size: kIconSizeSmall, color: Color(0xFF10B981)),
+                                    size: kIconSizeSmall,
+                                    color: Color(0xFF10B981)),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Order: $_lotCount Lot${_lotCount > 1 ? 's' : ''} = $_actualQuantity qty',
@@ -1525,17 +1561,101 @@ class _TradeCardPageState extends State<TradeCardPage> {
 
                       if (_selectedTab == 0) {
                         // ── Market tab: SELL and BUY with bid/ask prices ──
-                        final showSell = widget.forceSide == null || widget.forceSide == 'SELL';
-                        final showBuy = widget.forceSide == null || widget.forceSide == 'BUY';
+                        final showSell = widget.forceSide == null ||
+                            widget.forceSide == 'SELL';
+                        final showBuy = widget.forceSide == null ||
+                            widget.forceSide == 'BUY';
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Sell side
                             if (showSell)
-                            Builder(builder: (context) {
-                              final sellDisabled = isMasterBlocked ||
-                                  (_isOption && _getNetPosition(context) <= 0);
-                              return Expanded(
+                              Builder(builder: (context) {
+                                final sellDisabled = isMasterBlocked ||
+                                    (_isOption &&
+                                        !profile.isAdmin &&
+                                        _getKnownNetPosition(context) != null &&
+                                        _getKnownNetPosition(context)! <= 0);
+                                return Expanded(
+                                  child: Column(
+                                    children: [
+                                      Container(
+                                        width: double.infinity,
+                                        height: 46,
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 16, vertical: 13),
+                                        decoration: ShapeDecoration(
+                                          color: const Color(0xFFF2F2F7),
+                                          shape: RoundedRectangleBorder(
+                                            side: const BorderSide(
+                                                width: 1,
+                                                color: Color(0xFFC7C7CC)),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
+                                          ),
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            sellPrice.toStringAsFixed(2),
+                                            style: const TextStyle(
+                                              color: Colors.black,
+                                              fontSize: kFontSizeSectionHeader,
+                                              fontFamily: 'Inter',
+                                              fontWeight: kFontWeightMedium,
+                                              height: 1.25,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 14),
+                                      GestureDetector(
+                                        onTap: sellDisabled
+                                            ? null
+                                            : () {
+                                                _handleTrade('SELL', sellPrice);
+                                              },
+                                        child: Opacity(
+                                          opacity: sellDisabled ? 0.4 : 1.0,
+                                          child: Container(
+                                            width: double.infinity,
+                                            height: 56,
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 32, vertical: 18),
+                                            decoration: BoxDecoration(
+                                              gradient: const LinearGradient(
+                                                begin: Alignment.centerLeft,
+                                                end: Alignment.centerRight,
+                                                colors: [
+                                                  Color(0xFFFF3C00),
+                                                  Color(0xFF7A0F37),
+                                                ],
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: const Text(
+                                              'SELL',
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize:
+                                                    kFontSizeSectionHeader,
+                                                fontFamily: 'Inter',
+                                                fontWeight: kFontWeightSemiBold,
+                                                height: 1.25,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            if (showSell && showBuy) const SizedBox(width: 14),
+                            // Buy side
+                            if (showBuy)
+                              Expanded(
                                 child: Column(
                                   children: [
                                     Container(
@@ -1555,7 +1675,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                       ),
                                       child: Center(
                                         child: Text(
-                                          sellPrice.toStringAsFixed(2),
+                                          buyPrice.toStringAsFixed(2),
                                           style: const TextStyle(
                                             color: Colors.black,
                                             fontSize: kFontSizeSectionHeader,
@@ -1568,13 +1688,13 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                     ),
                                     const SizedBox(height: 14),
                                     GestureDetector(
-                                      onTap: sellDisabled
+                                      onTap: isMasterBlocked
                                           ? null
                                           : () {
-                                              _handleTrade('SELL', sellPrice);
+                                              _handleTrade('BUY', buyPrice);
                                             },
                                       child: Opacity(
-                                        opacity: sellDisabled ? 0.4 : 1.0,
+                                        opacity: isMasterBlocked ? 0.4 : 1.0,
                                         child: Container(
                                           width: double.infinity,
                                           height: 56,
@@ -1585,14 +1705,15 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                               begin: Alignment.centerLeft,
                                               end: Alignment.centerRight,
                                               colors: [
-                                                Color(0xFFFF3C00),
-                                                Color(0xFF7A0F37),
+                                                Color(0xFFC6529E),
+                                                Color(0xFF3B43C9),
                                               ],
                                             ),
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
                                           ),
                                           child: const Text(
-                                            'SELL',
+                                            'BUY',
                                             textAlign: TextAlign.center,
                                             style: TextStyle(
                                               color: Colors.white,
@@ -1607,95 +1728,28 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                     ),
                                   ],
                                 ),
-                              );
-                            }),
-                            if (showSell && showBuy) const SizedBox(width: 14),
-                            // Buy side
-                            if (showBuy)
-                            Expanded(
-                              child: Column(
-                                children: [
-                                  Container(
-                                    width: double.infinity,
-                                    height: 46,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16, vertical: 13),
-                                    decoration: ShapeDecoration(
-                                      color: const Color(0xFFF2F2F7),
-                                      shape: RoundedRectangleBorder(
-                                        side: const BorderSide(
-                                            width: 1, color: Color(0xFFC7C7CC)),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        buyPrice.toStringAsFixed(2),
-                                        style: const TextStyle(
-                                          color: Colors.black,
-                                          fontSize: kFontSizeSectionHeader,
-                                          fontFamily: 'Inter',
-                                          fontWeight: kFontWeightMedium,
-                                          height: 1.25,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 14),
-                                  GestureDetector(
-                                    onTap: isMasterBlocked ? null : () {
-                                      _handleTrade('BUY', buyPrice);
-                                    },
-                                    child: Opacity(
-                                      opacity: isMasterBlocked ? 0.4 : 1.0,
-                                      child: Container(
-                                        width: double.infinity,
-                                        height: 56,
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 32, vertical: 18),
-                                        decoration: BoxDecoration(
-                                          gradient: const LinearGradient(
-                                            begin: Alignment.centerLeft,
-                                            end: Alignment.centerRight,
-                                            colors: [
-                                              Color(0xFFC6529E),
-                                              Color(0xFF3B43C9),
-                                            ],
-                                          ),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: const Text(
-                                          'BUY',
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: kFontSizeSectionHeader,
-                                            fontFamily: 'Inter',
-                                            fontWeight: kFontWeightSemiBold,
-                                            height: 1.25,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
                               ),
-                            ),
                           ],
                         );
                       } else if (_selectedTab == 1 || _selectedTab == 2) {
                         // ── Limit / Stop tab: price input + SELL and BUY side by side ──
                         final sellDisabled = isMasterBlocked ||
-                            (_isOption && _getNetPosition(context) <= 0);
-                        final showSell = widget.forceSide == null || widget.forceSide == 'SELL';
-                        final showBuy = widget.forceSide == null || widget.forceSide == 'BUY';
+                            (_isOption &&
+                                !profile.isAdmin &&
+                                _getKnownNetPosition(context) != null &&
+                                _getKnownNetPosition(context)! <= 0);
+                        final showSell = widget.forceSide == null ||
+                            widget.forceSide == 'SELL';
+                        final showBuy = widget.forceSide == null ||
+                            widget.forceSide == 'BUY';
                         return Column(
                           children: [
                             // Price input field
                             Container(
                               width: double.infinity,
                               height: 46,
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
                               decoration: ShapeDecoration(
                                 color: const Color(0xFFF2F2F7),
                                 shape: RoundedRectangleBorder(
@@ -1707,8 +1761,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
                               child: Center(
                                 child: TextField(
                                   controller: _priceController,
-                                  keyboardType: const TextInputType
-                                      .numberWithOptions(decimal: true),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                          decimal: true),
                                   inputFormatters: [
                                     FilteringTextInputFormatter.allow(
                                         RegExp(r'^\d+\.?\d{0,2}')),
@@ -1741,113 +1796,114 @@ class _TradeCardPageState extends State<TradeCardPage> {
                               children: [
                                 // SELL button
                                 if (showSell)
-                                Expanded(
-                                  child: GestureDetector(
-                                    onTap: sellDisabled
-                                        ? null
-                                        : () {
-                                            final price = double.tryParse(
-                                                _priceController.text);
-                                            if (price == null || price <= 0) {
-                                              ScaffoldMessenger.of(context)
-                                                  .showSnackBar(
-                                                const SnackBar(
-                                                    content: Text(
-                                                        'Enter a valid price'),
-                                                    backgroundColor:
-                                                        Color(0xFFEF4444)),
-                                              );
-                                              return;
-                                            }
-                                            _handleTrade('SELL', price);
-                                          },
-                                    child: Opacity(
-                                      opacity: sellDisabled ? 0.4 : 1.0,
-                                      child: Container(
-                                        height: 56,
-                                        decoration: BoxDecoration(
-                                          gradient: const LinearGradient(
-                                            begin: Alignment.centerLeft,
-                                            end: Alignment.centerRight,
-                                            colors: [
-                                              Color(0xFFFF3C00),
-                                              Color(0xFF7A0F37),
-                                            ],
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: sellDisabled
+                                          ? null
+                                          : () {
+                                              final price = double.tryParse(
+                                                  _priceController.text);
+                                              if (price == null || price <= 0) {
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  const SnackBar(
+                                                      content: Text(
+                                                          'Enter a valid price'),
+                                                      backgroundColor:
+                                                          Color(0xFFEF4444)),
+                                                );
+                                                return;
+                                              }
+                                              _handleTrade('SELL', price);
+                                            },
+                                      child: Opacity(
+                                        opacity: sellDisabled ? 0.4 : 1.0,
+                                        child: Container(
+                                          height: 56,
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(
+                                              begin: Alignment.centerLeft,
+                                              end: Alignment.centerRight,
+                                              colors: [
+                                                Color(0xFFFF3C00),
+                                                Color(0xFF7A0F37),
+                                              ],
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
                                           ),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                        child: const Center(
-                                          child: Text(
-                                            'SELL',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize:
-                                                  kFontSizeSectionHeader,
-                                              fontFamily: 'Inter',
-                                              fontWeight:
-                                                  kFontWeightSemiBold,
+                                          child: const Center(
+                                            child: Text(
+                                              'SELL',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize:
+                                                    kFontSizeSectionHeader,
+                                                fontFamily: 'Inter',
+                                                fontWeight: kFontWeightSemiBold,
+                                              ),
                                             ),
                                           ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ),
-                                if (showSell && showBuy) const SizedBox(width: 14),
+                                if (showSell && showBuy)
+                                  const SizedBox(width: 14),
                                 // BUY button
                                 if (showBuy)
-                                Expanded(
-                                  child: GestureDetector(
-                                    onTap: isMasterBlocked ? null : () {
-                                      final price = double.tryParse(
-                                          _priceController.text);
-                                      if (price == null || price <= 0) {
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                              content: Text(
-                                                  'Enter a valid price'),
-                                              backgroundColor:
-                                                  Color(0xFFEF4444)),
-                                        );
-                                        return;
-                                      }
-                                      _handleTrade('BUY', price);
-                                    },
-                                    child: Opacity(
-                                      opacity: isMasterBlocked ? 0.4 : 1.0,
-                                      child: Container(
-                                        height: 56,
-                                        decoration: BoxDecoration(
-                                          gradient: const LinearGradient(
-                                            begin: Alignment.centerLeft,
-                                            end: Alignment.centerRight,
-                                            colors: [
-                                              Color(0xFFC6529E),
-                                              Color(0xFF3B43C9),
-                                            ],
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: isMasterBlocked
+                                          ? null
+                                          : () {
+                                              final price = double.tryParse(
+                                                  _priceController.text);
+                                              if (price == null || price <= 0) {
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  const SnackBar(
+                                                      content: Text(
+                                                          'Enter a valid price'),
+                                                      backgroundColor:
+                                                          Color(0xFFEF4444)),
+                                                );
+                                                return;
+                                              }
+                                              _handleTrade('BUY', price);
+                                            },
+                                      child: Opacity(
+                                        opacity: isMasterBlocked ? 0.4 : 1.0,
+                                        child: Container(
+                                          height: 56,
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(
+                                              begin: Alignment.centerLeft,
+                                              end: Alignment.centerRight,
+                                              colors: [
+                                                Color(0xFFC6529E),
+                                                Color(0xFF3B43C9),
+                                              ],
+                                            ),
+                                            borderRadius:
+                                                BorderRadius.circular(8),
                                           ),
-                                          borderRadius:
-                                              BorderRadius.circular(8),
-                                        ),
-                                        child: const Center(
-                                          child: Text(
-                                            'BUY',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize:
-                                                  kFontSizeSectionHeader,
-                                              fontFamily: 'Inter',
-                                              fontWeight:
-                                                  kFontWeightSemiBold,
+                                          child: const Center(
+                                            child: Text(
+                                              'BUY',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize:
+                                                    kFontSizeSectionHeader,
+                                                fontFamily: 'Inter',
+                                                fontWeight: kFontWeightSemiBold,
+                                              ),
                                             ),
                                           ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ),
                               ],
                             ),
                           ],
@@ -1859,20 +1915,25 @@ class _TradeCardPageState extends State<TradeCardPage> {
                             Container(
                               width: double.infinity,
                               height: 46,
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
                               decoration: ShapeDecoration(
                                 color: const Color(0xFFF2F2F7),
                                 shape: RoundedRectangleBorder(
-                                  side: const BorderSide(width: 1, color: Color(0xFFC7C7CC)),
+                                  side: const BorderSide(
+                                      width: 1, color: Color(0xFFC7C7CC)),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                               ),
                               child: Center(
                                 child: TextField(
                                   controller: _priceController,
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                          decimal: true),
                                   inputFormatters: [
-                                    FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                                    FilteringTextInputFormatter.allow(
+                                        RegExp(r'^\d+\.?\d{0,2}')),
                                   ],
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(
@@ -1902,10 +1963,17 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                 Expanded(
                                   child: GestureDetector(
                                     onTap: () {
-                                      final customPrice = double.tryParse(_priceController.text);
-                                      if (customPrice == null || customPrice <= 0) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Enter a valid price'), backgroundColor: Color(0xFFEF4444)),
+                                      final customPrice = double.tryParse(
+                                          _priceController.text);
+                                      if (customPrice == null ||
+                                          customPrice <= 0) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                              content:
+                                                  Text('Enter a valid price'),
+                                              backgroundColor:
+                                                  Color(0xFFEF4444)),
                                         );
                                         return;
                                       }
@@ -1917,12 +1985,22 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                         gradient: const LinearGradient(
                                           begin: Alignment.centerLeft,
                                           end: Alignment.centerRight,
-                                          colors: [Color(0xFFFF3C00), Color(0xFF7A0F37)],
+                                          colors: [
+                                            Color(0xFFFF3C00),
+                                            Color(0xFF7A0F37)
+                                          ],
                                         ),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: const Center(
-                                        child: Text('SELL', style: TextStyle(color: Colors.white, fontSize: kFontSizeSectionHeader, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                                        child: Text('SELL',
+                                            style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize:
+                                                    kFontSizeSectionHeader,
+                                                fontFamily: 'Inter',
+                                                fontWeight:
+                                                    kFontWeightSemiBold)),
                                       ),
                                     ),
                                   ),
@@ -1931,10 +2009,17 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                 Expanded(
                                   child: GestureDetector(
                                     onTap: () {
-                                      final customPrice = double.tryParse(_priceController.text);
-                                      if (customPrice == null || customPrice <= 0) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Enter a valid price'), backgroundColor: Color(0xFFEF4444)),
+                                      final customPrice = double.tryParse(
+                                          _priceController.text);
+                                      if (customPrice == null ||
+                                          customPrice <= 0) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                              content:
+                                                  Text('Enter a valid price'),
+                                              backgroundColor:
+                                                  Color(0xFFEF4444)),
                                         );
                                         return;
                                       }
@@ -1946,12 +2031,22 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                         gradient: const LinearGradient(
                                           begin: Alignment.centerLeft,
                                           end: Alignment.centerRight,
-                                          colors: [Color(0xFFC6529E), Color(0xFF3B43C9)],
+                                          colors: [
+                                            Color(0xFFC6529E),
+                                            Color(0xFF3B43C9)
+                                          ],
                                         ),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: const Center(
-                                        child: Text('BUY', style: TextStyle(color: Colors.white, fontSize: kFontSizeSectionHeader, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                                        child: Text('BUY',
+                                            style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize:
+                                                    kFontSizeSectionHeader,
+                                                fontFamily: 'Inter',
+                                                fontWeight:
+                                                    kFontWeightSemiBold)),
                                       ),
                                     ),
                                   ),
@@ -2002,7 +2097,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
             // Market closed warning (hidden for admin)
             Builder(
               builder: (context) {
-                final profile = Provider.of<UserProfileProvider>(context, listen: false);
+                final profile =
+                    Provider.of<UserProfileProvider>(context, listen: false);
                 if (profile.isAdmin) return const SizedBox.shrink();
                 final ex = widget.item.instrument.exchange;
                 final sym = widget.item.instrument.tradingsymbol;
@@ -2060,7 +2156,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                     },
                     child: const Row(
                       children: [
-                        Icon(Icons.link, size: kIconSizeDefault, color: Color(0xFF3F45C7)),
+                        Icon(Icons.link,
+                            size: kIconSizeDefault, color: Color(0xFF3F45C7)),
                         SizedBox(width: 4),
                         Text(
                           'Option Chain',
@@ -2109,7 +2206,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                     },
                     child: const Row(
                       children: [
-                        Icon(Icons.layers, size: kIconSizeDefault, color: Color(0xFF3F45C7)),
+                        Icon(Icons.layers,
+                            size: kIconSizeDefault, color: Color(0xFF3F45C7)),
                         SizedBox(width: 4),
                         Text(
                           'Market Depth',
