@@ -67,7 +67,8 @@ class _WatchlistPageState extends State<WatchlistPage> {
                         child: Row(
                           children: [
                             const Icon(Icons.search,
-                                color: Color(0xFF94A3B8), size: kIconSizeMedium),
+                                color: Color(0xFF94A3B8),
+                                size: kIconSizeMedium),
                             const SizedBox(width: 12),
                             const Text(
                               'Search & Add',
@@ -82,33 +83,6 @@ class _WatchlistPageState extends State<WatchlistPage> {
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Consumer<WatchlistProvider>(
-                    builder: (context, provider, child) {
-                      return GestureDetector(
-                        onTap: () {
-                          provider.loadWatchlist();
-                        },
-                        child: Container(
-                          height: 48,
-                          width: 48,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.02),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(Icons.tune,
-                              color: Color(0xFF475569), size: kIconSizeMedium),
-                        ),
-                      );
-                    },
                   ),
                 ],
               ),
@@ -136,7 +110,8 @@ class _WatchlistPageState extends State<WatchlistPage> {
                           Text(
                             'No instruments in watchlist',
                             style: TextStyle(
-                                fontSize: kFontSizeSectionHeader, color: Colors.grey[600]),
+                                fontSize: kFontSizeSectionHeader,
+                                color: Colors.grey[600]),
                           ),
                           const SizedBox(height: 8),
                           ElevatedButton.icon(
@@ -359,7 +334,8 @@ class _WatchlistPageState extends State<WatchlistPage> {
                 children: [
                   // Name line: "NIFTY FUT" or "ADANIENT 1680 CE"
                   Text(
-                    _buildInstrumentTitle(instrument, instType, strike, isOption, isFut),
+                    _buildInstrumentTitle(
+                        instrument, instType, strike, isOption, isFut),
                     style: const TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeTradeSymbol,
@@ -437,10 +413,14 @@ class _WatchlistPageState extends State<WatchlistPage> {
               // Determine tick color: blue if price went up, red if down
               final prevBid = item.previousBidPrice;
               final prevAsk = item.previousAskPrice;
-              final Color bidColor = (prevBid != null && effectiveBid != null && effectiveBid > prevBid)
+              final Color bidColor = (prevBid != null &&
+                      effectiveBid != null &&
+                      effectiveBid > prevBid)
                   ? const Color(0xFF3F45C7)
                   : const Color(0xFFEF4444);
-              final Color askColor = (prevAsk != null && effectiveAsk != null && effectiveAsk > prevAsk)
+              final Color askColor = (prevAsk != null &&
+                      effectiveAsk != null &&
+                      effectiveAsk > prevAsk)
                   ? const Color(0xFF3F45C7)
                   : const Color(0xFFEF4444);
 
@@ -577,8 +557,8 @@ class _WatchlistPageState extends State<WatchlistPage> {
   }
 
   /// Build title like "GOLD", "NIFTY FUT", "ADANIENT 1680 CE"
-  String _buildInstrumentTitle(
-      dynamic instrument, String instType, double strike, bool isOption, bool isFut) {
+  String _buildInstrumentTitle(dynamic instrument, String instType,
+      double strike, bool isOption, bool isFut) {
     final name = instrument.name.isNotEmpty
         ? instrument.name.toString().toUpperCase()
         : instrument.tradingsymbol.toString();
