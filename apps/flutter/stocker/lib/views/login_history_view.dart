@@ -18,19 +18,34 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
   List<Map<String, dynamic>> _entries = [];
   List<Map<String, dynamic>> _filtered = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  int _currentPage = 1;
+  int _total = 0;
+  final int _pageSize = 30;
   final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_applyFilter);
+    _scrollController.addListener(_onScroll);
     _fetchHistory();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      _loadMore();
+    }
   }
 
   void _applyFilter() {
@@ -49,31 +64,80 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
   }
 
   Future<void> _fetchHistory() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _currentPage = 1;
+      _hasMore = true;
+      _entries = [];
+      _filtered = [];
+    });
     try {
       final storage = SecureStorageService();
       final token = await storage.getToken();
       final api = ApiService(backendUrl);
 
-      final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+      final profileProvider =
+          Provider.of<UserProfileProvider>(context, listen: false);
       final isUser = profileProvider.isUser;
       final endpoint = isUser
-          ? '/my/login-history?limit=200'
-          : '/master/login-history?limit=200';
+          ? '/my/login-history?page=1&limit=$_pageSize'
+          : '/master/login-history?page=1&limit=$_pageSize';
 
       final res = await api.get(endpoint, token: token);
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         final List data = body['data'] ?? [];
+        final total = body['total'] ?? 0;
         setState(() {
           _entries = data.cast<Map<String, dynamic>>();
           _filtered = List.from(_entries);
+          _total = total;
+          _hasMore = _entries.length < total;
         });
       }
     } catch (e) {
       debugPrint('Error fetching login history: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || !_hasMore) return;
+
+    setState(() => _isLoadingMore = true);
+    try {
+      final nextPage = _currentPage + 1;
+      final storage = SecureStorageService();
+      final token = await storage.getToken();
+      final api = ApiService(backendUrl);
+
+      final profileProvider =
+          Provider.of<UserProfileProvider>(context, listen: false);
+      final isUser = profileProvider.isUser;
+      final endpoint = isUser
+          ? '/my/login-history?page=$nextPage&limit=$_pageSize'
+          : '/master/login-history?page=$nextPage&limit=$_pageSize';
+
+      final res = await api.get(endpoint, token: token);
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final List data = body['data'] ?? [];
+        if (data.isNotEmpty) {
+          setState(() {
+            _currentPage = nextPage;
+            _entries.addAll(data.cast<Map<String, dynamic>>());
+            _applyFilter();
+            _hasMore = _entries.length < _total;
+          });
+        } else {
+          setState(() => _hasMore = false);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading more login history: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingMore = false);
     }
   }
 
@@ -92,19 +156,36 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child: Container(
-                      width: 40, height: 40,
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
-                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.02),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2))
+                        ],
                       ),
-                      child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+                      child: const Icon(Icons.arrow_back,
+                          color: Colors.black, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text('Login History', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                  const Text('Login History',
+                      style: TextStyle(
+                          color: Colors.black,
+                          fontSize: kFontSizeViewTitle,
+                          fontFamily: 'Inter',
+                          fontWeight: kFontWeightSemiBold)),
                   const Spacer(),
-                  Text('${_filtered.length} entries', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
+                  Text(_isLoading ? '...' : '${_filtered.length} of $_total',
+                      style: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: kFontSizeSubtitle,
+                          fontFamily: 'Inter',
+                          fontWeight: kFontWeightMedium)),
                 ],
               ),
             ),
@@ -115,16 +196,29 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2))
+                ],
               ),
               child: TextField(
                 controller: _searchController,
-                style: const TextStyle(fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
+                style: const TextStyle(
+                    fontSize: kFontSizeBody,
+                    fontFamily: 'Inter',
+                    fontWeight: kFontWeightMedium),
                 decoration: const InputDecoration(
                   hintText: 'Search by name or username...',
-                  hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBody, fontFamily: 'Inter'),
-                  prefixIcon: Icon(Icons.search, color: Color(0xFF94A3B8), size: kIconSizeMedium),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  hintStyle: TextStyle(
+                      color: Color(0xFFCBD5E1),
+                      fontSize: kFontSizeBody,
+                      fontFamily: 'Inter'),
+                  prefixIcon: Icon(Icons.search,
+                      color: Color(0xFF94A3B8), size: kIconSizeMedium),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   border: InputBorder.none,
                 ),
               ),
@@ -134,15 +228,34 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
             // List
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5))
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                          color: Color(0xFF3F45C7), strokeWidth: 2.5))
                   : _filtered.isEmpty
                       ? _buildEmpty()
                       : RefreshIndicator(
                           onRefresh: _fetchHistory,
                           child: ListView.builder(
+                            controller: _scrollController,
                             padding: const EdgeInsets.symmetric(horizontal: 16),
-                            itemCount: _filtered.length,
-                            itemBuilder: (context, index) => _buildCard(_filtered[index]),
+                            itemCount: _filtered.length + (_hasMore ? 1 : 0),
+                            itemBuilder: (context, index) {
+                              if (index == _filtered.length) {
+                                return const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 16),
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                          color: Color(0xFF3F45C7),
+                                          strokeWidth: 2),
+                                    ),
+                                  ),
+                                );
+                              }
+                              return _buildCard(_filtered[index]);
+                            },
                           ),
                         ),
             ),
@@ -158,12 +271,27 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 64, height: 64,
-            decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))]),
-            child: const Icon(Icons.history, size: 28, color: Color(0xFFCBD5E1)),
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4))
+                ]),
+            child:
+                const Icon(Icons.history, size: 28, color: Color(0xFFCBD5E1)),
           ),
           const SizedBox(height: 16),
-          const Text('No login history', style: TextStyle(color: Color(0xFF475569), fontSize: kFontSizeButtonText, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+          const Text('No login history',
+              style: TextStyle(
+                  color: Color(0xFF475569),
+                  fontSize: kFontSizeButtonText,
+                  fontFamily: 'Inter',
+                  fontWeight: kFontWeightSemiBold)),
         ],
       ),
     );
@@ -196,7 +324,12 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 4,
+              offset: const Offset(0, 2))
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,23 +338,46 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
           Row(
             children: [
               Container(
-                width: 36, height: 36,
-                decoration: BoxDecoration(color: roleColor.withValues(alpha: 0.1), shape: BoxShape.circle),
-                child: Center(child: Text(username.isNotEmpty ? username[0].toUpperCase() : '?', style: TextStyle(color: roleColor, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightBold))),
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                    color: roleColor.withValues(alpha: 0.1),
+                    shape: BoxShape.circle),
+                child: Center(
+                    child: Text(
+                        username.isNotEmpty ? username[0].toUpperCase() : '?',
+                        style: TextStyle(
+                            color: roleColor,
+                            fontSize: kFontSizeBody,
+                            fontFamily: 'Inter',
+                            fontWeight: kFontWeightBold))),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(name, style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                child: Text(name,
+                    style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: kFontSizeBody,
+                        fontFamily: 'Inter',
+                        fontWeight: kFontWeightSemiBold)),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                decoration: BoxDecoration(color: roleColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
-                child: Text(role, style: TextStyle(color: roleColor, fontSize: kFontSizeBadge, fontFamily: 'Inter', fontWeight: kFontWeightBold, letterSpacing: 0.5)),
+                decoration: BoxDecoration(
+                    color: roleColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6)),
+                child: Text(role,
+                    style: TextStyle(
+                        color: roleColor,
+                        fontSize: kFontSizeBadge,
+                        fontFamily: 'Inter',
+                        fontWeight: kFontWeightBold,
+                        letterSpacing: 0.5)),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          // Row 2: username · date · IP — all on separate labeled lines
+          // Row 2: username · date · IP
           Row(
             children: [
               _infoChip(Icons.person_outline, username),
@@ -246,7 +402,11 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
           Flexible(
             child: Text(
               text,
-              style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
+              style: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: kFontSizeNavLabel,
+                  fontFamily: 'Inter',
+                  fontWeight: kFontWeightMedium),
               overflow: TextOverflow.ellipsis,
             ),
           ),
