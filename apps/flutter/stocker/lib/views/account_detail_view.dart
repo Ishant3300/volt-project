@@ -24,6 +24,13 @@ class _AccountDetailViewState extends State<AccountDetailView> {
     super.initState();
     _loadDeviceInfo();
     _loadAppVersion();
+    // Refresh profile to ensure we show current data, not cached
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Provider.of<UserProfileProvider>(context, listen: false)
+            .refreshProfile();
+      }
+    });
   }
 
   Future<void> _loadDeviceInfo() async {
@@ -82,13 +89,20 @@ class _AccountDetailViewState extends State<AccountDetailView> {
                       GestureDetector(
                         onTap: () => Navigator.pop(context),
                         child: Container(
-                          width: 40, height: 40,
+                          width: 40,
+                          height: 40,
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
-                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
+                            boxShadow: [
+                              BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.02),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2))
+                            ],
                           ),
-                          child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+                          child: const Icon(Icons.arrow_back,
+                              color: Colors.black, size: kIconSizeMedium),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -114,16 +128,25 @@ class _AccountDetailViewState extends State<AccountDetailView> {
             Consumer<UserProfileProvider>(
               builder: (context, profileProvider, child) {
                 final role = profileProvider.role;
-                final username = profileProvider.master?.username ??
-                    profileProvider.user?.username ??
-                    'N/A';
-                final serverId = profileProvider.master?.serverId ??
-                    profileProvider.user?.serverId ??
-                    'N/A';
-                final lastLogin = profileProvider.master?.lastLogin ??
-                    profileProvider.user?.lastLogin;
-                final createdAt = profileProvider.master?.createdAt ??
-                    profileProvider.user?.createdAt;
+                final admin = profileProvider.admin;
+                final username = admin != null
+                    ? (admin['username']?.toString() ?? 'N/A')
+                    : profileProvider.master?.username ??
+                        profileProvider.user?.username ??
+                        'N/A';
+                final serverId = admin != null
+                    ? (admin['server_id']?.toString() ?? 'N/A')
+                    : profileProvider.master?.serverId ??
+                        profileProvider.user?.serverId ??
+                        'N/A';
+                final lastLogin = admin != null
+                    ? admin['last_login']?.toString()
+                    : profileProvider.master?.lastLogin ??
+                        profileProvider.user?.lastLogin;
+                final createdAt = admin != null
+                    ? admin['created_at']?.toString()
+                    : profileProvider.master?.createdAt ??
+                        profileProvider.user?.createdAt;
 
                 return Container(
                   margin:

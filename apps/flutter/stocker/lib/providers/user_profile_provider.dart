@@ -58,6 +58,11 @@ class UserProfileProvider with ChangeNotifier {
 
       _role = role;
 
+      // Clear stale profile data before fetching fresh
+      _user = null;
+      _master = null;
+      _admin = null;
+
       // Decode JWT to get user/master/admin ID
       Map<String, dynamic> payload = Jwt.parseJwt(token);
       String? id = payload['id'];
@@ -133,20 +138,27 @@ class UserProfileProvider with ChangeNotifier {
 
   Future<void> _fetchAdminProfile(String adminId, String token) async {
     try {
-      // Note: Admin profile data is returned in the login response
-      // There's no separate /api/admin/:id endpoint currently
-      // The admin data should be available from the login response
-      // For now, we'll just log that admin is authenticated
-      log('✅ Admin authenticated (profile from login response)');
-      
-      // Set a minimal admin object so the app knows admin is logged in
-      _admin = {
-        'id': adminId,
-        'username': 'admin', // This will be overridden if we add the endpoint
-      };
+      // Admin model has username and createdAt from DB
+      // Use the account-summary endpoint or decode from stored login response
+      // For now, fetch directly via admin GET endpoint
+      final response = await _apiService.get('/admin/profile', token: token);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true && data['data'] != null) {
+          _admin = data['data'];
+          log('✅ Admin profile loaded: ${_admin['username']}');
+        } else {
+          _admin = {'id': adminId};
+        }
+      } else {
+        // Fallback — at minimum store the id
+        _admin = {'id': adminId};
+        log('⚠️ Admin profile endpoint returned ${response.statusCode}, using minimal data');
+      }
     } catch (e) {
       log('❌ Error in admin profile: $e');
-      // Don't rethrow - allow the app to continue with minimal admin data
+      _admin = {'id': adminId};
     }
   }
 
