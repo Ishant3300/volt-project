@@ -6,7 +6,6 @@ import 'package:http/http.dart' as http;
 import 'send_message_view.dart';
 import 'manage_reports_view.dart';
 import 'manage_instruments_view.dart';
-import 'trade_margin_settings_view.dart';
 import 'brokerage_settings_view.dart';
 import 'group_quantity_view.dart';
 import 'script_quantity_settings_view.dart';
@@ -327,9 +326,6 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                     _divider(),
                     _settingRow(context, Icons.tune_outlined, 'Brokerage Settings',
                         () => _push(context, const BrokerageSettingsView())),
-                    _divider(),
-                    _settingRow(context, Icons.trending_up_outlined, 'Trade Margin',
-                        () => _push(context, const TradeMarginSettingsView())),
                     _divider(),
                     _settingRow(context, Icons.shield_outlined, 'Fresh Stop-Loss Limits',
                         () => _push(context, const FreshStoplossLimitView()), isLast: true),

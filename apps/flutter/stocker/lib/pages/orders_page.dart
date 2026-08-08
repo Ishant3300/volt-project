@@ -1182,7 +1182,24 @@ class _OrdersPageState extends State<OrdersPage> {
                                   children: [
                                     const Divider(
                                         height: 1, color: Color(0xFFF1F5F9)),
-                                    _buildMetricRow('Equity', equity),
+                                    _buildMetricRow(
+                                      'Equity',
+                                      equity,
+                                      trailing: GestureDetector(
+                                        onTap: () =>
+                                            _showWalletBreakdownSheet(context),
+                                        behavior: HitTestBehavior.opaque,
+                                        child: const Padding(
+                                          padding: EdgeInsets.symmetric(
+                                              horizontal: 4, vertical: 2),
+                                          child: Icon(
+                                            Icons.info_outline_rounded,
+                                            size: kIconSizeSmall,
+                                            color: Color(0xFF3F45C7),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                     const Divider(
                                         height: 1, color: Color(0xFFF1F5F9)),
                                     _buildMetricRow('Margin Used', marginUsed),
@@ -1445,7 +1462,7 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
 
-  Widget _buildMetricRow(String label, double value) {
+  Widget _buildMetricRow(String label, double value, {Widget? trailing}) {
     final bool isColored = label.contains('P&L') || label == 'Free Margin';
     final Color valueColor = isColored
         ? (value >= 0 ? const Color(0xFF22C55E) : const Color(0xFFEF4444))
@@ -1456,14 +1473,20 @@ class _OrdersPageState extends State<OrdersPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF64748B),
-              fontSize: kFontSizeBodySmall,
-              fontFamily: 'Inter',
-              fontWeight: kFontWeightMedium,
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: kFontSizeBodySmall,
+                  fontFamily: 'Inter',
+                  fontWeight: kFontWeightMedium,
+                ),
+              ),
+              if (trailing != null) trailing,
+            ],
           ),
           Text(
                             value.toStringAsFixed(2),
@@ -1473,6 +1496,108 @@ class _OrdersPageState extends State<OrdersPage> {
               fontFamily: 'Inter',
               fontWeight: kFontWeightSemiBold,
                           ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Bottom sheet showing the per-category AVAILABLE wallet balances that make
+  /// up equity. Wrapped in a Consumer so it live-updates while open whenever a
+  /// metrics push mutates the wallet (Requirement 6.4). Categories with no
+  /// allowed exchange are already excluded by the backend filter.
+  void _showWalletBreakdownSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      backgroundColor: Colors.white,
+      builder: (context) {
+        return SafeArea(
+          child: Consumer<TradeMetricsProvider>(
+            builder: (context, provider, _) {
+              // Order NSE, MCX, GLOBAL first; append any other keys after.
+              const order = ['NSE', 'MCX', 'GLOBAL'];
+              final entries = provider.wallet.entries.toList()
+                ..sort((a, b) {
+                  final ia = order.indexOf(a.key);
+                  final ib = order.indexOf(b.key);
+                  return (ia == -1 ? order.length : ia)
+                      .compareTo(ib == -1 ? order.length : ib);
+                });
+              final double total =
+                  entries.fold(0.0, (sum, e) => sum + e.value);
+
+              return Padding(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Available Balance',
+                      style: TextStyle(
+                        color: Color(0xFF0F172A),
+                        fontSize: kFontSizeViewTitle,
+                        fontFamily: 'Inter',
+                        fontWeight: kFontWeightBold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (entries.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Text(
+                          'No wallet balances',
+                          style: TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: kFontSizeBody,
+                            fontFamily: 'Inter',
+                            fontWeight: kFontWeightMedium,
+                          ),
+                        ),
+                      )
+                    else ...[
+                      for (final e in entries)
+                        _buildWalletCategoryRow(e.key, e.value),
+                      const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                      _buildWalletCategoryRow('Total', total, isTotal: true),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWalletCategoryRow(String label, double value,
+      {bool isTotal = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: const Color(0xFF64748B),
+              fontSize: kFontSizeBody,
+              fontFamily: 'Inter',
+              fontWeight: isTotal ? kFontWeightBold : kFontWeightMedium,
+            ),
+          ),
+          Text(
+            value.toStringAsFixed(2),
+            style: TextStyle(
+              color: const Color(0xFF0F172A),
+              fontSize: kFontSizeBody,
+              fontFamily: 'Inter',
+              fontWeight: isTotal ? kFontWeightBold : kFontWeightSemiBold,
+            ),
           ),
         ],
       ),

@@ -64,14 +64,6 @@ class _InfoSheetState extends State<InfoSheet> {
     }
   }
 
-  String _formatMargin(Map<String, dynamic>? margin) {
-    if (margin == null) return 'N/A';
-    final value = margin['value'];
-    final type = margin['type'] ?? '';
-    if (type == 'percentage') return '${value}%';
-    return '$value (${type})';
-  }
-
   String _formatBrokerage(Map<String, dynamic>? brk) {
     if (brk == null) return 'N/A';
     final value = brk['value'];
@@ -134,8 +126,7 @@ class _InfoSheetState extends State<InfoSheet> {
                       _buildInfoRow('Break Qty', '${widget.breakQty}', false),
                     if (widget.groupName != null && widget.groupName!.isNotEmpty)
                       _buildInfoRow('Group', widget.groupName!, true),
-                    _buildInfoRow('Trade Margin', _formatMargin(_data?['trade_margin']), false),
-                    _buildInfoRow('Brokerage', _formatBrokerage(_data?['brokerage']), true),
+                    _buildInfoRow('Brokerage', _formatBrokerage(_data?['brokerage']), false),
                   ],
                 ),
               ),

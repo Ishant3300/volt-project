@@ -69,6 +69,11 @@ class TradeMetricsProvider with ChangeNotifier {
   double _balance = 0;
   String? _currentUserId;
 
+  // Per-category available wallet balances (filtered to the account's allowed
+  // categories by the backend), e.g. { "NSE": 75000.0, "MCX": 30000.0 }.
+  // Equity == sum of these values. Used for the orders-page "i" breakdown.
+  Map<String, double> _wallet = {};
+
   double get realisedPnl => _realisedPnl;
   double get positionPnl => _positionPnl;
   double get m2mPnl => _m2mPnl;
@@ -77,6 +82,7 @@ class TradeMetricsProvider with ChangeNotifier {
   double get freeMargin => _freeMargin;
   double get credit => _credit;
   double get balance => _balance;
+  Map<String, double> get wallet => _wallet;
 
   TradeMetricsProvider({required this.userProfileProvider});
 
@@ -93,6 +99,7 @@ class TradeMetricsProvider with ChangeNotifier {
     _freeMargin = 0;
     _credit = 0;
     _balance = 0;
+    _wallet = {};
     _currentUserId = null;
     _isLoading = false;
     notifyListeners();
@@ -126,6 +133,13 @@ class TradeMetricsProvider with ChangeNotifier {
           _positionPnl = (data['position_pnl'] as num?)?.toDouble() ?? 0;
           _m2mPnl = (data['m2m_pnl'] as num?)?.toDouble() ?? 0;
           _marginUsed = (data['margin_used'] as num?)?.toDouble() ?? 0;
+
+          // Per-category available balances for the equity "i" breakdown.
+          // Default to {} on the base fetch when the key is absent.
+          _wallet = data['wallet'] is Map
+              ? (data['wallet'] as Map).map(
+                  (k, v) => MapEntry(k.toString(), (v as num?)?.toDouble() ?? 0.0))
+              : {};
 
           // Populate positions from metrics response
           final List serverPositions = data['positions'] ?? [];
@@ -189,6 +203,13 @@ class TradeMetricsProvider with ChangeNotifier {
     _marginUsed = (data['margin_used'] as num?)?.toDouble() ?? _marginUsed;
     _equity = (data['equity'] as num?)?.toDouble() ?? _equity;
     _freeMargin = (data['free_margin'] as num?)?.toDouble() ?? _freeMargin;
+
+    // Per-category available balances for the equity "i" breakdown. Keep the
+    // previous value when the push omits the key (so the breakdown never blanks).
+    _wallet = data['wallet'] is Map
+        ? (data['wallet'] as Map).map(
+            (k, v) => MapEntry(k.toString(), (v as num?)?.toDouble() ?? 0.0))
+        : _wallet;
 
     // Update positions from server data (always replace, even if empty — positions may have been closed)
     final List serverPositions = data['positions'] ?? [];

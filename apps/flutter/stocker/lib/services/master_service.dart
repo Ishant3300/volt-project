@@ -32,6 +32,7 @@ class MasterService {
     String? lastDueBill,
     List<String>? exchanges,
     Map<String, bool>? permissions,
+    Map<String, double>? wallet,
   }) async {
     final data = {
       'name': name,
@@ -52,6 +53,7 @@ class MasterService {
       if (lastDueBill != null) 'last_due_bill': lastDueBill,
       if (exchanges != null) 'exchanges': exchanges,
       if (permissions != null) 'permissions': permissions,
+      if (wallet != null && wallet.isNotEmpty) 'wallet': wallet,
     };
 
     final token = await _storage.getToken();
@@ -186,6 +188,7 @@ class MasterService {
     required bool changePassOnFirstLogin,
     required String serverId,
     String? status,
+    Map<String, double>? wallet,
   }) async {
     final data = {
       'name': name,
@@ -201,6 +204,7 @@ class MasterService {
       'change_pass_on_first_login': changePassOnFirstLogin,
       'server_id': serverId,
       if (status != null) 'status': status,
+      if (wallet != null && wallet.isNotEmpty) 'wallet': wallet,
     };
 
     final token = await _storage.getToken();
@@ -331,5 +335,53 @@ class MasterService {
     final queryString = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
     final token = await _storage.getToken();
     return await _apiService.get('/master/trades$queryString', token: token);
+  }
+
+  // ============================================
+  // Trade Wallet Funding (category pools)
+  // ============================================
+
+  /// Assign category funds to a direct child (debits master's same-category pool)
+  Future<http.Response> walletAssign({
+    required String targetId,
+    required String targetType,
+    required String category,
+    required double amount,
+  }) async {
+    final token = await _storage.getToken();
+    return await _apiService.post('/master/wallet/assign', {
+      'target_id': targetId,
+      'target_type': targetType,
+      'category': category,
+      'amount': amount,
+    }, token: token);
+  }
+
+  /// Withdraw category funds from a direct child (credits master's same-category pool)
+  Future<http.Response> walletWithdraw({
+    required String targetId,
+    required String targetType,
+    required String category,
+    required double amount,
+  }) async {
+    final token = await _storage.getToken();
+    return await _apiService.post('/master/wallet/withdraw', {
+      'target_id': targetId,
+      'target_type': targetType,
+      'category': category,
+      'amount': amount,
+    }, token: token);
+  }
+
+  /// Get an owner's per-category wallet balances
+  Future<http.Response> getWallet({
+    required String ownerId,
+    required String ownerType,
+  }) async {
+    final token = await _storage.getToken();
+    return await _apiService.get(
+      '/master/wallet?owner_id=$ownerId&owner_type=$ownerType',
+      token: token,
+    );
   }
 }

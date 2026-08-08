@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -18,9 +18,9 @@ import 'create_user_view.dart';
 import 'create_master_view.dart';
 import 'group_quantity_view.dart';
 import 'margin_squareoff_bottom_sheet.dart';
+import 'trade_wallet_bottom_sheet.dart';
 import 'brokerage_settings_view.dart';
 import 'intraday_squareoff_bottom_sheet.dart';
-import 'trade_margin_settings_view.dart';
 import 'script_quantity_settings_view.dart';
 import 'sharing_details_view.dart';
 import 'rejection_log_history_view.dart';
@@ -190,6 +190,7 @@ class _UsernameViewState extends State<UsernameView> {
 
     // Re-aggregate from all cached user metrics
     double totalRealised = 0, totalFloating = 0, totalMargin = 0, totalCredit = 0;
+    double totalEquity = 0, totalFreeMargin = 0;
     final Map<String, Map<String, dynamic>> instrMap = {};
 
     for (final userMetrics in _perUserMetricsCache.values) {
@@ -197,6 +198,8 @@ class _UsernameViewState extends State<UsernameView> {
       totalFloating += (userMetrics['position_pnl'] as num?)?.toDouble() ?? 0;
       totalMargin += (userMetrics['margin_used'] as num?)?.toDouble() ?? 0;
       totalCredit += (userMetrics['credit'] as num?)?.toDouble() ?? 0;
+      totalEquity += (userMetrics['equity'] as num?)?.toDouble() ?? 0;
+      totalFreeMargin += (userMetrics['free_margin'] as num?)?.toDouble() ?? 0;
 
       final List positions = userMetrics['positions'] ?? [];
       for (final pos in positions) {
@@ -214,8 +217,8 @@ class _UsernameViewState extends State<UsernameView> {
 
     final livePositions = instrMap.values.where((p) => (p['net_qty'] as int) != 0).toList();
     final m2m = totalRealised + totalFloating;
-    final equity = totalCredit + m2m;
-    final freeMargin = equity - totalMargin;
+    final equity = totalEquity;
+    final freeMargin = totalFreeMargin;
 
     setState(() {
       _livePositions = livePositions;
@@ -289,6 +292,7 @@ class _UsernameViewState extends State<UsernameView> {
         } else if (_currentMaster != null && data.isNotEmpty) {
           // Master view: aggregate all users' metrics and seed per-user cache
           double totalRealised = 0, totalFloating = 0, totalMargin = 0, totalCredit = 0;
+          double totalEquity = 0, totalFreeMargin = 0;
           final Map<String, Map<String, dynamic>> instrMap = {};
 
           for (final userMetrics in data) {
@@ -301,6 +305,8 @@ class _UsernameViewState extends State<UsernameView> {
             totalFloating += (userMetrics['position_pnl'] as num?)?.toDouble() ?? 0;
             totalMargin += (userMetrics['margin_used'] as num?)?.toDouble() ?? 0;
             totalCredit += (userMetrics['credit'] as num?)?.toDouble() ?? 0;
+            totalEquity += (userMetrics['equity'] as num?)?.toDouble() ?? 0;
+            totalFreeMargin += (userMetrics['free_margin'] as num?)?.toDouble() ?? 0;
 
             final List positions = userMetrics['positions'] ?? [];
             for (final pos in positions) {
@@ -319,8 +325,8 @@ class _UsernameViewState extends State<UsernameView> {
 
           _livePositions = instrMap.values.where((p) => (p['net_qty'] as int) != 0).toList();
           final m2m = totalRealised + totalFloating;
-          final equity = totalCredit + m2m;
-          final freeMargin = equity - totalMargin;
+          final equity = totalEquity;
+          final freeMargin = totalFreeMargin;
           _liveUserMetrics = {
             'credit': _round2(totalCredit),
             'realised_pnl': _round2(totalRealised),
@@ -717,12 +723,12 @@ class _UsernameViewState extends State<UsernameView> {
               children: [
                 _settingRow(
                     kIconCreditDebit, 'Credit/Debit'),
+                _settingRow(kIconTradeWallet, 'Trade Wallet'),
                 _settingRow(kIconGroupQuantity, 'Group Quantity Settings'),
                 if (_currentUser != null)
                   _settingRow(kIconMarginSquareoff, 'Margin SquareOff Settings'),
                 _settingRow(kIconBrokerageSettings, 'Brk Settings'),
                 _settingRow(kIconIntradaySquareoff, 'Intraday SquareOff'),
-                _settingRow(kIconTradeMargin, 'Trade Margin'),
                 _settingRow(kIconSharingDetails, 'Sharing Details'),
                 _settingRow(kIconScriptQuantity, 'Script Quantity Setting',
                     isLast: _currentMaster == null),
@@ -1814,6 +1820,21 @@ class _UsernameViewState extends State<UsernameView> {
           _fetchLivePositions(); // Refresh position tab metrics after credit/debit
         }
         break;
+      case 'Trade Wallet':
+        {
+          final walletResult = await showModalBottomSheet<bool>(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (_) => TradeWalletBottomSheet(
+                master: _currentMaster, user: _currentUser),
+          );
+          if (walletResult == true && mounted) {
+            await _refreshData();
+            _fetchLivePositions(); // Refresh metrics/balances after funding
+          }
+        }
+        break;
       case 'Group Quantity Settings':
         Navigator.push(context,
             MaterialPageRoute(builder: (_) => const GroupQuantityView()));
@@ -1837,10 +1858,6 @@ class _UsernameViewState extends State<UsernameView> {
             backgroundColor: Colors.transparent,
             builder: (_) => IntradaySquareoffBottomSheet(
                 master: _currentMaster, user: _currentUser));
-        break;
-      case 'Trade Margin':
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const TradeMarginSettingsView()));
         break;
       case 'Script Quantity Setting':
         Navigator.push(

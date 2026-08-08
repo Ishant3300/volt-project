@@ -51,6 +51,7 @@ class AdminService {
     String? lastDueBill,
     List<String>? exchanges,
     MasterPermissions? permissions,
+    Map<String, double>? wallet,
   }) async {
     final data = {
       'name': name,
@@ -71,6 +72,7 @@ class AdminService {
       if (lastDueBill != null) 'last_due_bill': lastDueBill,
       if (exchanges != null) 'exchanges': exchanges,
       if (permissions != null) 'permissions': permissions.toJson(),
+      if (wallet != null && wallet.isNotEmpty) 'wallet': wallet,
     };
 
     final token = await _storage.getToken();
@@ -316,6 +318,7 @@ class AdminService {
     required bool changePassOnFirstLogin,
     required String serverId,
     String? status,
+    Map<String, double>? wallet,
   }) async {
     final data = {
       'name': name,
@@ -331,6 +334,7 @@ class AdminService {
       'change_pass_on_first_login': changePassOnFirstLogin,
       'server_id': serverId,
       if (status != null) 'status': status,
+      if (wallet != null && wallet.isNotEmpty) 'wallet': wallet,
     };
 
     final token = await _storage.getToken();
@@ -408,6 +412,7 @@ class AdminService {
     List<String>? tradeLimit,
     bool? marginSquareOff,
     bool? changePassOnFirstLogin,
+    Map<String, double>? wallet,
   }) async {
     final data = {
       if (name != null) 'name': name,
@@ -421,6 +426,7 @@ class AdminService {
       if (tradeLimit != null) 'trade_limit': tradeLimit,
       if (marginSquareOff != null) 'margin_square_off': marginSquareOff,
       if (changePassOnFirstLogin != null) 'change_pass_on_first_login': changePassOnFirstLogin,
+      if (wallet != null) 'wallet': wallet,
     };
 
     final token = await _storage.getToken();
@@ -657,78 +663,6 @@ class AdminService {
   }
 
   // ============================================
-  // Trade Margin Management
-  // ============================================
-
-  /// Create trade margin
-  Future<http.Response> createTradeMargin({
-    required String exchangeName,
-    required String scriptName,
-    required String amountType,
-    required double tradeMargin,
-  }) async {
-    final data = {
-      'exchange_name': exchangeName,
-      'script_name': scriptName,
-      'amount_type': amountType,
-      'trade_margin': tradeMargin,
-    };
-
-    print('📤 AdminService.createTradeMargin called');
-    print('   Trade margin data: $data');
-    final token = await _storage.getToken();
-    print('   Token: ${token != null ? "Present" : "Missing"}');
-    final response = await _apiService.post('/admin/trade-margins', data, token: token);
-    print('   Response: ${response.statusCode} - ${response.body}');
-    return response;
-  }
-
-  /// Get all trade margins
-  Future<http.Response> getAllTradeMargins({
-    int page = 1,
-    int limit = 20,
-  }) async {
-    final queryParams = <String>[];
-    queryParams.add('page=$page');
-    queryParams.add('limit=$limit');
-    
-    final queryString = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
-    final token = await _storage.getToken();
-    return await _apiService.get('/admin/trade-margins$queryString', token: token);
-  }
-
-  /// Get trade margin by ID
-  Future<http.Response> getTradeMarginById(String id) async {
-    final token = await _storage.getToken();
-    return await _apiService.get('/admin/trade-margins/$id', token: token);
-  }
-
-  /// Update trade margin
-  Future<http.Response> updateTradeMargin({
-    required String id,
-    String? exchangeName,
-    String? scriptName,
-    String? amountType,
-    double? tradeMargin,
-  }) async {
-    final data = {
-      if (exchangeName != null) 'exchange_name': exchangeName,
-      if (scriptName != null) 'script_name': scriptName,
-      if (amountType != null) 'amount_type': amountType,
-      if (tradeMargin != null) 'trade_margin': tradeMargin,
-    };
-
-    final token = await _storage.getToken();
-    return await _apiService.put('/admin/trade-margins/$id', data, token: token);
-  }
-
-  /// Delete trade margin
-  Future<http.Response> deleteTradeMargin(String id) async {
-    final token = await _storage.getToken();
-    return await _apiService.delete('/admin/trade-margins/$id', token: token);
-  }
-
-  // ============================================
   // Brokerage Settings Management
   // ============================================
 
@@ -822,35 +756,6 @@ class AdminService {
     final queryString = '?${queryParams.join('&')}';
     final token = await _storage.getToken();
     return await _apiService.get('/admin/brokerage-settings/exchange/$exchangeName$queryString', token: token);
-  }
-
-  /// Bulk create trade margins for all raw_names in a segment
-  Future<http.Response> bulkCreateTradeMargin({
-    required String exchangeName,
-    required String amountType,
-    required double defaultTradeMargin,
-  }) async {
-    final data = {
-      'exchange_name': exchangeName,
-      'amount_type': amountType,
-      'default_trade_margin': defaultTradeMargin,
-    };
-    final token = await _storage.getToken();
-    return await _apiService.post('/admin/trade-margins/bulk-create', data, token: token);
-  }
-
-  /// Get trade margins by exchange with optional amount_type filter
-  Future<http.Response> getTradeMarginByExchange({
-    required String exchangeName,
-    String? amountType,
-    int page = 1,
-    int limit = 500,
-  }) async {
-    final queryParams = <String>['page=$page', 'limit=$limit'];
-    if (amountType != null) queryParams.add('amount_type=$amountType');
-    final queryString = '?${queryParams.join('&')}';
-    final token = await _storage.getToken();
-    return await _apiService.get('/admin/trade-margins/exchange/$exchangeName$queryString', token: token);
   }
 
   /// Bulk create script quantities for all raw_names in a segment
@@ -955,5 +860,53 @@ class AdminService {
       'max_masters': maxMasters,
       'max_users': maxUsers,
     }, token: token);
+  }
+
+  // ============================================
+  // Trade Wallet Funding (admin grant/remove)
+  // ============================================
+
+  /// Assign category funds to any account (admin grant, no admin debit)
+  Future<http.Response> walletAssign({
+    required String targetId,
+    required String targetType,
+    required String category,
+    required double amount,
+  }) async {
+    final token = await _storage.getToken();
+    return await _apiService.post('/admin/wallet/assign', {
+      'target_id': targetId,
+      'target_type': targetType,
+      'category': category,
+      'amount': amount,
+    }, token: token);
+  }
+
+  /// Withdraw category funds from any account (admin remove)
+  Future<http.Response> walletWithdraw({
+    required String targetId,
+    required String targetType,
+    required String category,
+    required double amount,
+  }) async {
+    final token = await _storage.getToken();
+    return await _apiService.post('/admin/wallet/withdraw', {
+      'target_id': targetId,
+      'target_type': targetType,
+      'category': category,
+      'amount': amount,
+    }, token: token);
+  }
+
+  /// Get an owner's per-category wallet balances
+  Future<http.Response> getWallet({
+    required String ownerId,
+    required String ownerType,
+  }) async {
+    final token = await _storage.getToken();
+    return await _apiService.get(
+      '/admin/wallet?owner_id=$ownerId&owner_type=$ownerType',
+      token: token,
+    );
   }
 }

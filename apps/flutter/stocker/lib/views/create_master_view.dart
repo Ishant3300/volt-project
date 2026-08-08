@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../providers/user_profile_provider.dart';
 import '../utils/contants.dart';
+import '../utils/wallet_category.dart';
 
 class CreateMasterView extends StatefulWidget {
   final Master? master;
@@ -53,6 +54,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     'GLOBAL': false,
   };
 
+  // Trade Wallet inputs per allowed category (NSE/MCX/GLOBAL)
+  final Map<String, TextEditingController> _walletControllers = {};
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -63,7 +67,32 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     _noteController.dispose();
     _profitLossController.dispose();
     _brkSharingController.dispose();
+    for (final controller in _walletControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
+  }
+
+  /// Exchange/segment names currently selected in the form (for exchanges_allowed).
+  List<String> get _selectedExchangeNames => _exchangeAllow.entries
+      .where((e) => e.value)
+      .map((e) => e.key)
+      .toList();
+
+  /// Reuse (or lazily create) a controller for a wallet category.
+  TextEditingController _walletControllerFor(String category) =>
+      _walletControllers.putIfAbsent(category, () => TextEditingController());
+
+  /// Build the wallet funding map from parsed inputs (> 0) for allowed categories.
+  Map<String, double> _buildWalletMap(List<String> allowedCats) {
+    final Map<String, double> wallet = {};
+    for (final cat in allowedCats) {
+      final controller = _walletControllers[cat];
+      if (controller == null) continue;
+      final amount = double.tryParse(controller.text.trim());
+      if (amount != null && amount > 0) wallet[cat] = amount;
+    }
+    return wallet;
   }
 
   @override
@@ -235,6 +264,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           }
         }
 
+        // Initial Trade Wallet funding (optional; only for allowed categories).
+        final walletMap = _buildWalletMap(allowedCategories(selectedExchanges));
         final response = await adminService.createMaster(
           name: _nameController.text.trim(),
           username: _usernameController.text.trim(),
@@ -251,6 +282,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           addMaster: _addMaster,
           changePassOnFirstLogin: _changePasswordOnFirstLogin,
           serverId: serverId,
+          wallet: walletMap.isEmpty ? null : walletMap,
         );
 
         if (response.statusCode == 201) {
@@ -452,6 +484,11 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                         });
                       },
                     ),
+
+                    const SizedBox(height: 24),
+
+                    // Trade Wallet
+                    _buildWalletSection(),
 
                     const SizedBox(height: 24),
 
@@ -868,6 +905,85 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           ),
         ),
       ],
+    );
+  }
+
+  // ── Trade Wallet section ──
+
+  Widget _buildWalletSection() {
+    final cats = allowedCategories(_selectedExchangeNames);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionLabel('TRADE WALLET'),
+        const SizedBox(height: 12),
+        _card(
+          child: cats.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'Select exchanges to fund wallet',
+                    style: TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: kFontSizeBodySmall,
+                        fontFamily: 'Inter',
+                        fontWeight: kFontWeightMedium),
+                  ),
+                )
+              : Column(
+                  children: [
+                    for (int i = 0; i < cats.length; i++) ...[
+                      _buildWalletRow(cats[i]),
+                      if (i != cats.length - 1) _divider(),
+                    ],
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWalletRow(String category) {
+    final controller = _walletControllerFor(category);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              category,
+              style: const TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: kFontSizeBodySmall,
+                  fontFamily: 'Inter',
+                  fontWeight: kFontWeightMedium),
+            ),
+          ),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: kFontSizeBody,
+                  fontFamily: 'Inter',
+                  fontWeight: kFontWeightMedium),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                hintText: '0',
+                hintStyle: TextStyle(
+                    color: Color(0xFFCBD5E1),
+                    fontSize: kFontSizeBody,
+                    fontFamily: 'Inter'),
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

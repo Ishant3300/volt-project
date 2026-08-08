@@ -6,6 +6,7 @@ class User {
   final String username;
   final double credits;
   final double equity;
+  final Map<String, double> wallet;
   final String note;
   final double pnlSharing;
   final double brokerageSharing;
@@ -33,6 +34,7 @@ class User {
     required this.username,
     required this.credits,
     required this.equity,
+    this.wallet = const {},
     required this.note,
     required this.pnlSharing,
     required this.brokerageSharing,
@@ -88,6 +90,10 @@ class User {
           json['credits'] != null ? (json['credits'] as num).toDouble() : 0.0,
       equity:
           json['equity'] != null ? (json['equity'] as num).toDouble() : 0.0,
+      wallet: json['wallet'] is Map
+          ? (json['wallet'] as Map).map((k, v) =>
+              MapEntry(k.toString(), (v as num?)?.toDouble() ?? 0.0))
+          : <String, double>{},
       note: json['note']?.toString() ?? '',
       pnlSharing: json['pnl_sharing'] != null
           ? (json['pnl_sharing'] as num).toDouble()
@@ -136,6 +142,7 @@ class User {
       'username': username,
       'credits': credits,
       'equity': equity,
+      'wallet': wallet,
       'note': note,
       'pnl_sharing': pnlSharing,
       'brokerage_sharing': brokerageSharing,
