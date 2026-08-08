@@ -170,3 +170,5 @@ const String kIconSharingDetails =
     'lib/icons/username_view_icons/sharing_details.svg';
 const String kIconTradeMargin =
     'lib/icons/username_view_icons/trade_margin_settings.svg';
+const String kIconTradeWallet =
+    'lib/icons/username_view_icons/trade_margin_settings.svg';
