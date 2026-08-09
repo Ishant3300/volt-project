@@ -230,6 +230,22 @@ class MasterService {
   }
 
   /// Get user by ID
+  /// Generate a unique 6-digit username (reserved for 5 minutes)
+  Future<http.Response> generateUsername() async {
+    final token = await _storage.getToken();
+    return await _apiService.get('/master/username/generate', token: token);
+  }
+
+  /// Release a reserved username if the flow is cancelled
+  Future<http.Response> releaseUsername(String username) async {
+    final token = await _storage.getToken();
+    return await _apiService.post(
+      '/master/username/release',
+      {'username': username},
+      token: token,
+    );
+  }
+
   Future<http.Response> getUserById(String userId) async {
     final token = await _storage.getToken();
     return await _apiService.get('/master/users/$userId', token: token);

@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -35,6 +35,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   String? _selectedServerId;
   List<Map<String, dynamic>> _servers = [];
   bool _isLoadingServers = false;
+  String? _generatedUsername;
+  bool _isSuccess = false;
 
   Map<String, bool> _exchangeAllow = {
     'NFO-FUT': false,
@@ -59,6 +61,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
 
   @override
   void dispose() {
+    if (!_isSuccess) _releaseUsername();
     _nameController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
@@ -95,10 +98,42 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     return wallet;
   }
 
+  void _generateUsername() async {
+    try {
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      final adminService = AdminService(apiService);
+      final res = await adminService.generateUsername();
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body)['data'];
+        setState(() {
+          _generatedUsername = data['username'];
+          _usernameController.text = _generatedUsername!;
+        });
+      }
+    } catch (e) {
+      log('Error generating username: $e');
+    }
+  }
+
+  void _releaseUsername() async {
+    if (_generatedUsername != null) {
+      try {
+        final apiService = Provider.of<ApiService>(context, listen: false);
+        final adminService = AdminService(apiService);
+        await adminService.releaseUsername(_generatedUsername!);
+      } catch (e) {
+        log('Error releasing username: $e');
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _fetchServers();
+    if (widget.master == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _generateUsername());
+    }
 
     _profitLossController.addListener(() => setState(() {}));
     _brkSharingController.addListener(() => setState(() {}));
@@ -287,6 +322,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
 
         if (response.statusCode == 201) {
           if (mounted) {
+            _isSuccess = true;
             await profileProvider.fetchProfile();
             _showSnack('Master created successfully');
             Navigator.pop(context, true);
@@ -379,7 +415,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                           _divider(),
                           _buildTextField(
                               label: 'Username',
-                              controller: _usernameController),
+                              controller: _usernameController,
+                              readOnly: widget.master == null),
                           // Server dropdown for admin
                           Consumer<UserProfileProvider>(
                             builder: (context, profile, _) {
@@ -606,6 +643,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     bool obscureText = false,
     TextInputType keyboardType = TextInputType.text,
     String? hint,
+    bool readOnly = false,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -628,7 +666,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               controller: controller,
               obscureText: obscureText,
               keyboardType: keyboardType,
-              style: const TextStyle(
+              readOnly: readOnly,
+              style: readOnly ? const TextStyle(color: Colors.grey) : const TextStyle(
                 color: Colors.black,
                 fontSize: kFontSizeBody,
                 fontFamily: 'Inter',

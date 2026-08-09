@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:developer';
 import '../providers/user_profile_provider.dart';
 import '../services/admin_service.dart';
+import '../services/master_service.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../models/user.dart';
@@ -32,6 +33,8 @@ class _CreateUserViewState extends State<CreateUserView> {
   bool _marginSquareOff = false;
   bool _changePasswordOnFirstLogin = true;
   bool _isSubmitting = false;
+  String? _generatedUsername;
+  bool _isSuccess = false;
 
   Map<String, Map<String, dynamic>> _exchangeSettings = {};
   Map<String, bool> _tradeLimit = {};
@@ -47,6 +50,42 @@ class _CreateUserViewState extends State<CreateUserView> {
   // Trade Wallet inputs per allowed category (NSE/MCX/GLOBAL)
   final Map<String, TextEditingController> _walletControllers = {};
 
+  void _generateUsername() async {
+    try {
+      final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      final res = profileProvider.isAdmin
+          ? await AdminService(apiService).generateUsername()
+          : await MasterService(apiService).generateUsername();
+          
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body)['data'];
+        setState(() {
+          _generatedUsername = data['username'];
+          _usernameController.text = _generatedUsername!;
+        });
+      }
+    } catch (e) {
+      log('Error generating username: $e');
+    }
+  }
+
+  void _releaseUsername() async {
+    if (_generatedUsername != null) {
+      try {
+        final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+        final apiService = Provider.of<ApiService>(context, listen: false);
+        if (profileProvider.isAdmin) {
+          await AdminService(apiService).releaseUsername(_generatedUsername!);
+        } else {
+          await MasterService(apiService).releaseUsername(_generatedUsername!);
+        }
+      } catch (e) {
+        log('Error releasing username: $e');
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -59,6 +98,8 @@ class _CreateUserViewState extends State<CreateUserView> {
       _noteController.text = widget.user!.note;
       _marginSquareOff = widget.user!.marginSquareOff;
       _changePasswordOnFirstLogin = widget.user!.changePassOnFirstLogin;
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _generateUsername());
     }
   }
 
@@ -292,6 +333,7 @@ class _CreateUserViewState extends State<CreateUserView> {
 
   @override
   void dispose() {
+    if (!_isSuccess) _releaseUsername();
     _nameController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
@@ -473,6 +515,7 @@ class _CreateUserViewState extends State<CreateUserView> {
 
       if ((response.statusCode == 201 || response.statusCode == 200) &&
           data['success'] == true) {
+        _isSuccess = true;
         // Apply brokerage settings for enabled exchanges
         await _applyBrokerageSettings();
 
@@ -555,7 +598,8 @@ class _CreateUserViewState extends State<CreateUserView> {
                           _divider(),
                           _buildTextField(
                               label: 'Username',
-                              controller: _usernameController),
+                              controller: _usernameController,
+                              readOnly: widget.user != null || _generatedUsername != null),
                           _divider(),
                           _buildTextField(
                               label: 'Password',
@@ -960,6 +1004,7 @@ class _CreateUserViewState extends State<CreateUserView> {
     required TextEditingController controller,
     bool obscureText = false,
     TextInputType keyboardType = TextInputType.text,
+    bool readOnly = false,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -981,11 +1026,13 @@ class _CreateUserViewState extends State<CreateUserView> {
               controller: controller,
               obscureText: obscureText,
               keyboardType: keyboardType,
-              style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: kFontSizeBody,
-                  fontFamily: 'Inter',
-                  fontWeight: kFontWeightMedium),
+              readOnly: readOnly,
+              style: readOnly ? const TextStyle(color: Colors.grey) : const TextStyle(
+                color: Colors.black,
+                fontSize: kFontSizeBody,
+                fontFamily: 'Inter',
+                fontWeight: kFontWeightMedium,
+              ),
               decoration: InputDecoration(
                 border: InputBorder.none,
                 hintText: label,
