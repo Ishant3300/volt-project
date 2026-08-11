@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -128,6 +128,100 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
         });
       }
     }
+  }
+
+  void _showWalletBreakdownSheet(BuildContext context, Map<String, double> wallet) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      backgroundColor: Colors.white,
+      builder: (context) {
+        return SafeArea(
+          child: Builder(
+            builder: (context) {
+              const order = ['NSE', 'MCX', 'GLOBAL'];
+              final entries = wallet.entries.toList()
+                ..sort((a, b) {
+                  final ia = order.indexOf(a.key);
+                  final ib = order.indexOf(b.key);
+                  return (ia == -1 ? order.length : ia)
+                      .compareTo(ib == -1 ? order.length : ib);
+                });
+              final double total = entries.fold(0.0, (sum, e) => sum + e.value);
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Available Balance',
+                      style: TextStyle(
+                        color: Color(0xFF0F172A),
+                        fontSize: kFontSizeViewTitle,
+                        fontFamily: 'Inter',
+                        fontWeight: kFontWeightBold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (entries.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Text(
+                          'No wallet balances',
+                          style: TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: kFontSizeBody,
+                            fontFamily: 'Inter',
+                            fontWeight: kFontWeightMedium,
+                          ),
+                        ),
+                      )
+                    else ...[
+                      for (final e in entries)
+                        _buildWalletCategoryRow(e.key, e.value),
+                      const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                      _buildWalletCategoryRow('Total', total, isTotal: true),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWalletCategoryRow(String category, double amount, {bool isTotal = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            category,
+            style: TextStyle(
+              color: isTotal ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+              fontSize: kFontSizeSubtitle,
+              fontFamily: 'Inter',
+              fontWeight: isTotal ? kFontWeightBold : kFontWeightMedium,
+            ),
+          ),
+          Text(
+            amount.toStringAsFixed(2),
+            style: TextStyle(
+              color: const Color(0xFF0F172A),
+              fontSize: kFontSizeSubtitle,
+              fontFamily: 'Inter',
+              fontWeight: isTotal ? kFontWeightBold : kFontWeightMedium,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -721,18 +815,31 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                                         .spaceBetween,
                                                 children: [
                                                   Flexible(
-                                                    child: Text(
-                                                      'BAL: ${user.equity.toStringAsFixed(2)}',
-                                                      style: TextStyle(
-                                                        color: const Color(
-                                                            0xFF007AFF),
-                                                        fontSize: kFontSizeNavLabel,
-                                                        fontFamily: 'Inter',
-                                                        fontWeight:
-                                                            kFontWeightMedium,
-                                                      ),
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Flexible(
+                                                          child: Text(
+                                                            'BAL: ${user.equity.toStringAsFixed(2)}',
+                                                            style: TextStyle(
+                                                              color: const Color(0xFF007AFF),
+                                                              fontSize: kFontSizeNavLabel,
+                                                              fontFamily: 'Inter',
+                                                              fontWeight: kFontWeightMedium,
+                                                            ),
+                                                            overflow: TextOverflow.ellipsis,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(width: 4),
+                                                        GestureDetector(
+                                                          onTap: () => _showWalletBreakdownSheet(context, user.wallet),
+                                                          child: const Icon(
+                                                            Icons.info_outline,
+                                                            size: 14,
+                                                            color: Color(0xFF007AFF),
+                                                          ),
+                                                        ),
+                                                      ],
                                                     ),
                                                   ),
                                                   SizedBox(width: 4),

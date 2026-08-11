@@ -111,6 +111,11 @@ class LivePriceService {
           onTradePlaced?.call(data);
           break;
 
+        case 'trade_deleted':
+          log('🗑️ Trade deleted event: ${data['tradingsymbol']}');
+          onTradeExecuted?.call(data);
+          break;
+
         case 'metrics_update':
           onMetricsUpdate?.call(data['data'] as Map<String, dynamic>);
           break;
