@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -84,6 +85,12 @@ class _TradeCardPageState extends State<TradeCardPage> {
   Map<String, dynamic>? _selectedUser;
   bool _showUserDropdown = false;
   bool _isSearchingUsers = false;
+  Timer? _userSearchDebounce;
+  int _userSearchPage = 1;
+  bool _hasMoreUsers = true;
+  bool _isLoadingMoreUsers = false;
+  String _lastUserQuery = '';
+  final ScrollController _userDropdownScrollCtrl = ScrollController();
 
   /// Returns true if this instrument has **lot-based** limits (e.g. MCX-FUT).
   /// Lot mode: user enters number of lots; actual qty = lots × lot_size.
@@ -256,40 +263,97 @@ class _TradeCardPageState extends State<TradeCardPage> {
     _qtyController.dispose();
     _priceController.dispose();
     _userSearchCtrl.dispose();
+    _userSearchDebounce?.cancel();
+    _userDropdownScrollCtrl.dispose();
     super.dispose();
   }
 
+  void _onUserFieldTap() {
+    if (_userResults.isEmpty && !_showUserDropdown) {
+      _fetchUsers('');
+    } else {
+      setState(() => _showUserDropdown = _userResults.isNotEmpty);
+    }
+  }
+
   Future<void> _searchUsers(String query) async {
-    if (query.length < 2) {
-      if (mounted) {
-        setState(() {
-          _userResults = [];
-          _showUserDropdown = false;
-        });
-      }
+    _userSearchDebounce?.cancel();
+
+    if (query.isEmpty) {
+      // Immediately show all users
+      _fetchUsers('');
       return;
     }
+
+    _userSearchDebounce = Timer(const Duration(milliseconds: 400), () {
+      _fetchUsers(query);
+    });
+  }
+
+  Future<void> _fetchUsers(String query) async {
     if (mounted) setState(() => _isSearchingUsers = true);
+    _lastUserQuery = query;
+    _userSearchPage = 1;
+    _hasMoreUsers = true;
+
     try {
       final token = await SecureStorageService().getToken();
       if (!mounted) return;
       final profile = Provider.of<UserProfileProvider>(context, listen: false);
+      final searchParam = query.isNotEmpty ? '&search=$query' : '';
       final endpoint = profile.isAdmin
-          ? '/admin/users?limit=20&search=$query'
-          : '/master/users?limit=20&search=$query';
+          ? '/admin/users?limit=20&page=1$searchParam'
+          : '/master/users?limit=20&page=1$searchParam';
       final res = await ApiService(backendUrl).get(endpoint, token: token);
       if (res.statusCode == 200 && mounted) {
         final body = jsonDecode(res.body);
         final nested = body['data'];
         final List list =
             nested is Map ? (nested['users'] ?? []) : (nested ?? []);
+        final total = nested is Map ? (nested['total'] ?? 0) : list.length;
         setState(() {
           _userResults = list.cast<Map<String, dynamic>>();
           _showUserDropdown = _userResults.isNotEmpty;
+          _hasMoreUsers = _userResults.length < total;
         });
       }
     } catch (_) {}
     if (mounted) setState(() => _isSearchingUsers = false);
+  }
+
+  Future<void> _loadMoreUsers() async {
+    if (_isLoadingMoreUsers || !_hasMoreUsers) return;
+    setState(() => _isLoadingMoreUsers = true);
+
+    try {
+      final nextPage = _userSearchPage + 1;
+      final token = await SecureStorageService().getToken();
+      if (!mounted) return;
+      final profile = Provider.of<UserProfileProvider>(context, listen: false);
+      final searchParam =
+          _lastUserQuery.isNotEmpty ? '&search=$_lastUserQuery' : '';
+      final endpoint = profile.isAdmin
+          ? '/admin/users?limit=20&page=$nextPage$searchParam'
+          : '/master/users?limit=20&page=$nextPage$searchParam';
+      final res = await ApiService(backendUrl).get(endpoint, token: token);
+      if (res.statusCode == 200 && mounted) {
+        final body = jsonDecode(res.body);
+        final nested = body['data'];
+        final List list =
+            nested is Map ? (nested['users'] ?? []) : (nested ?? []);
+        final total = nested is Map ? (nested['total'] ?? 0) : list.length;
+        if (list.isNotEmpty) {
+          setState(() {
+            _userSearchPage = nextPage;
+            _userResults.addAll(list.cast<Map<String, dynamic>>());
+            _hasMoreUsers = _userResults.length < total;
+          });
+        } else {
+          setState(() => _hasMoreUsers = false);
+        }
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _isLoadingMoreUsers = false);
   }
 
   void _selectUser(Map<String, dynamic> user) {
@@ -945,6 +1009,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                   child: TextField(
                                     controller: _userSearchCtrl,
                                     onChanged: _searchUsers,
+                                    onTap: _onUserFieldTap,
                                     style: const TextStyle(
                                       color: Colors.black,
                                       fontSize: kFontSizeButtonText,
@@ -1014,53 +1079,82 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                   ),
                                 ],
                               ),
-                              child: ListView.builder(
-                                padding: EdgeInsets.zero,
-                                shrinkWrap: true,
-                                itemCount: _userResults.length,
-                                itemBuilder: (_, i) {
-                                  final u = _userResults[i];
-                                  final name = u['name'] ?? '';
-                                  final uname = u['username'] ?? '';
-                                  return GestureDetector(
-                                    onTap: () => _selectUser(u),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 14, vertical: 10),
-                                      decoration: BoxDecoration(
-                                        border: Border(
-                                          bottom: BorderSide(
-                                            color: const Color(0xFFF1F5F9),
-                                            width: i < _userResults.length - 1
-                                                ? 1
-                                                : 0,
+                              child: NotificationListener<ScrollNotification>(
+                                onNotification: (notification) {
+                                  if (notification is ScrollEndNotification &&
+                                      notification.metrics.pixels >=
+                                          notification.metrics.maxScrollExtent -
+                                              50) {
+                                    _loadMoreUsers();
+                                  }
+                                  return false;
+                                },
+                                child: ListView.builder(
+                                  controller: _userDropdownScrollCtrl,
+                                  padding: EdgeInsets.zero,
+                                  shrinkWrap: true,
+                                  itemCount: _userResults.length +
+                                      (_hasMoreUsers ? 1 : 0),
+                                  itemBuilder: (_, i) {
+                                    if (i == _userResults.length) {
+                                      return const Padding(
+                                        padding:
+                                            EdgeInsets.symmetric(vertical: 8),
+                                        child: Center(
+                                          child: SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Color(0xFF3F45C7)),
                                           ),
                                         ),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          const Icon(Icons.person_outline,
-                                              size: kIconSizeDefault,
-                                              color: Color(0xFF94A3B8)),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              '$name (@$uname)',
-                                              style: const TextStyle(
-                                                color: Colors.black,
-                                                fontSize: kFontSizeBody,
-                                                fontFamily: 'Inter',
-                                                fontWeight: kFontWeightRegular,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
+                                      );
+                                    }
+                                    final u = _userResults[i];
+                                    final name = u['name'] ?? '';
+                                    final uname = u['username'] ?? '';
+                                    return GestureDetector(
+                                      onTap: () => _selectUser(u),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 14, vertical: 10),
+                                        decoration: BoxDecoration(
+                                          border: Border(
+                                            bottom: BorderSide(
+                                              color: const Color(0xFFF1F5F9),
+                                              width: i < _userResults.length - 1
+                                                  ? 1
+                                                  : 0,
                                             ),
                                           ),
-                                        ],
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.person_outline,
+                                                size: kIconSizeDefault,
+                                                color: Color(0xFF94A3B8)),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                '$name (@$uname)',
+                                                style: const TextStyle(
+                                                  color: Colors.black,
+                                                  fontSize: kFontSizeBody,
+                                                  fontFamily: 'Inter',
+                                                  fontWeight:
+                                                      kFontWeightRegular,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  );
-                                },
+                                    );
+                                  },
+                                ),
                               ),
                             ),
                         ],
