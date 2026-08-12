@@ -178,7 +178,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
   Future<void> _fetchLotLimit() async {
     // For admin/master, wait until they select a user
     final profile = Provider.of<UserProfileProvider>(context, listen: false);
-    if (!profile.isUser && !profile.isMaster) return;
+    if (!profile.isUser) return;
 
     setState(() => _isLoadingLotLimit = true);
 
@@ -396,20 +396,20 @@ class _TradeCardPageState extends State<TradeCardPage> {
     if (_isLoading) return;
     if (!mounted) return;
 
-    // Masters cannot trade directly — they must select a user (admin flow)
+    // Admin and Master must select a user before placing a trade
     final profile = Provider.of<UserProfileProvider>(context, listen: false);
-    if (profile.isMaster) {
+    if ((profile.isAdmin || profile.isMaster) && _selectedUser == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Masters cannot place trades directly'),
+          content: Text('Please select a user to trade on behalf of'),
           backgroundColor: Color(0xFFEF4444),
         ),
       );
       return;
     }
 
-    // Check market hours for this instrument's exchange (admin bypasses this)
-    if (!profile.isAdmin) {
+    // Check market hours for this instrument's exchange (admin/master bypass this)
+    if (!profile.isAdmin && !profile.isMaster) {
       final ex = widget.item.instrument.exchange;
       final sym = widget.item.instrument.tradingsymbol;
       if (!MarketHours.isMarketOpen(exchange: ex, tradingsymbol: sym)) {
@@ -474,7 +474,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
     // the selected user. Only reject a known oversell here; exact ownership is
     // authoritatively validated by the backend inside the trade transaction.
     final optionSellError = validateLocalOptionSell(
-      isAdmin: profile.isAdmin,
+      isAdmin: profile.isAdmin || profile.isMaster,
       isOption: _isOption,
       transactionType: transactionType,
       requestedQuantity: _actualQuantity,
@@ -671,7 +671,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
   @override
   Widget build(BuildContext context) {
     final profile = Provider.of<UserProfileProvider>(context, listen: false);
-    final bool isMasterBlocked = profile.isMaster;
+    // Masters and admins must select a user before trading
+    final bool isMasterBlocked =
+        (profile.isMaster || profile.isAdmin) && _selectedUser == null;
 
     Widget content = SafeArea(
       child: SingleChildScrollView(
@@ -819,12 +821,12 @@ class _TradeCardPageState extends State<TradeCardPage> {
 
             const SizedBox(height: 16),
 
-            // Info button (visible to all roles — admin sees it in user section, user/master see it here)
+            // Info button (visible to regular users only — admin/master see it in user section)
             Consumer<UserProfileProvider>(
               builder: (context, userProfile, child) {
-                if (!userProfile.isUser && !userProfile.isMaster) {
+                if (!userProfile.isUser) {
                   return const SizedBox
-                      .shrink(); // Admin has info in user section
+                      .shrink(); // Admin/Master has info in user section
                 }
                 return Padding(
                   padding:
@@ -870,7 +872,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
             // User selection dropdown
             Consumer<UserProfileProvider>(
               builder: (context, userProfile, child) {
-                if (userProfile.isUser || userProfile.isMaster) {
+                if (userProfile.isUser) {
                   return const SizedBox.shrink();
                 }
                 return Column(
@@ -1574,6 +1576,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                 final sellDisabled = isMasterBlocked ||
                                     (_isOption &&
                                         !profile.isAdmin &&
+                                        !profile.isMaster &&
                                         _getKnownNetPosition(context) != null &&
                                         _getKnownNetPosition(context)! <= 0);
                                 return Expanded(
@@ -1736,6 +1739,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                         final sellDisabled = isMasterBlocked ||
                             (_isOption &&
                                 !profile.isAdmin &&
+                                !profile.isMaster &&
                                 _getKnownNetPosition(context) != null &&
                                 _getKnownNetPosition(context)! <= 0);
                         final showSell = widget.forceSide == null ||
