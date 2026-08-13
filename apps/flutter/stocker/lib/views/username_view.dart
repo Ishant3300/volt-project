@@ -1,3 +1,5 @@
+import "../providers/user_profile_provider.dart";
+import "../services/master_service.dart";
 import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
@@ -479,9 +481,14 @@ class _UsernameViewState extends State<UsernameView> {
   Future<void> _refreshData() async {
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
-      final adminService = AdminService(apiService);
+      final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+      final isMaster = profileProvider.isMaster;
+      
       if (_currentMaster != null) {
-        final response = await adminService.getMasterById(_currentMaster!.id);
+        final response = isMaster 
+            ? await MasterService(apiService).getChildMasterById(_currentMaster!.id)
+            : await AdminService(apiService).getMasterById(_currentMaster!.id);
+            
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
           if (data['success'] == true) {
@@ -498,7 +505,10 @@ class _UsernameViewState extends State<UsernameView> {
           }
         }
       } else if (_currentUser != null) {
-        final response = await adminService.getUserById(_currentUser!.id);
+        final response = isMaster 
+            ? await MasterService(apiService).getUserById(_currentUser!.id)
+            : await AdminService(apiService).getUserById(_currentUser!.id);
+            
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
           if (data['success'] == true) {
@@ -1093,6 +1103,24 @@ class _UsernameViewState extends State<UsernameView> {
                               fontWeight: kFontWeightSemiBold,
                               letterSpacing: 0.3)),
                     ),
+                    if (trade.tradeType == 'margin_square_off' ||
+                        trade.placedBy == 'SYSTEM') ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                            color: Colors.orange.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8)),
+                        child: const Text('AUTO SQOFF',
+                            style: TextStyle(
+                                color: Colors.orange,
+                                fontSize: 10,
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.3)),
+                      ),
+                    ],
                   ],
                 ),
                 if (isClosing) ...[
