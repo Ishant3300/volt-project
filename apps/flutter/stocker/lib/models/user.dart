@@ -27,6 +27,7 @@ class User {
   final String? ipAddress;
   final String createdAt;
   final String updatedAt;
+  final Map<String, bool>? reportPermissions;
 
   User({
     required this.id,
@@ -55,6 +56,7 @@ class User {
     this.ipAddress,
     required this.createdAt,
     required this.updatedAt,
+    this.reportPermissions,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -132,6 +134,10 @@ class User {
       ipAddress: json['ip_address']?.toString(),
       createdAt: json['created_at']?.toString() ?? '',
       updatedAt: json['updated_at']?.toString() ?? '',
+      reportPermissions: json['report_permissions'] is Map
+          ? (json['report_permissions'] as Map).map(
+              (k, v) => MapEntry(k.toString(), v as bool? ?? true))
+          : null,
     );
   }
 

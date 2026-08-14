@@ -86,12 +86,14 @@ class AdminService {
     int limit = 20,
     String? status,
     String? serverId,
+    bool includeSubmasters = false,
   }) async {
     final queryParams = <String>[];
     queryParams.add('page=$page');
     queryParams.add('limit=$limit');
     if (status != null) queryParams.add('status=$status');
     if (serverId != null) queryParams.add('server_id=$serverId');
+    if (includeSubmasters) queryParams.add('include_submasters=true');
     
     final queryString = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
     final token = await _storage.getToken();

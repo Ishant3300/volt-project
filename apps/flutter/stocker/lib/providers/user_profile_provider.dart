@@ -39,6 +39,66 @@ class UserProfileProvider with ChangeNotifier {
     return false;
   }
 
+  /// Get report permissions for the current user/master.
+  /// Admin always gets all permissions (true).
+  /// Master gets their own permissions object.
+  /// User gets the report_permissions from their parent Master (returned by the API).
+  Map<String, bool> get reportPermissions {
+    if (isAdmin) {
+      return {
+        'account_summary': true,
+        'pnl_summary': true,
+        'client_summary': true,
+        'settlement_report': true,
+        'generate_pdf': true,
+        'weekly_admin': true,
+        'intraday_history': true,
+        'userwise_open_position': true,
+        'script_quantity': true,
+        'deleted_trade': true,
+        'trade_account': true,
+      };
+    }
+    if (isMaster && _master?.permissions != null) {
+      final p = _master!.permissions!;
+      return {
+        'account_summary': p.accountSummary,
+        'pnl_summary': p.pnlSummary,
+        'client_summary': p.clientSummary,
+        'settlement_report': p.settlementReport,
+        'generate_pdf': p.generatePdf,
+        'weekly_admin': p.weeklyAdmin,
+        'intraday_history': p.intradayHistory,
+        'userwise_open_position': p.userwiseOpenPosition,
+        'script_quantity': p.scriptQuantity,
+        'deleted_trade': p.deletedTrade,
+        'trade_account': p.tradeAccount,
+      };
+    }
+    if (isUser && _user?.reportPermissions != null) {
+      return _user!.reportPermissions!;
+    }
+    // Default: all reports visible
+    return {
+      'account_summary': true,
+      'pnl_summary': true,
+      'client_summary': true,
+      'settlement_report': true,
+      'generate_pdf': true,
+      'weekly_admin': true,
+      'intraday_history': true,
+      'userwise_open_position': true,
+      'script_quantity': true,
+      'deleted_trade': true,
+      'trade_account': true,
+    };
+  }
+
+  /// Whether any report is accessible (used to show/hide the Reports menu item)
+  bool get hasAnyReportPermission {
+    return reportPermissions.values.any((v) => v);
+  }
+
   /// Fetch current user/master/admin profile based on role
   Future<void> fetchProfile() async {
     _isLoading = true;

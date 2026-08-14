@@ -29,8 +29,46 @@ class ReportsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isUser =
-        Provider.of<UserProfileProvider>(context, listen: false).isUser;
+    final profile = Provider.of<UserProfileProvider>(context, listen: false);
+    final isUser = profile.isUser;
+    final perms = profile.reportPermissions;
+
+    // Build the list of report items based on permissions
+    final reportItems = <_ReportItemData>[];
+
+    if (perms['account_summary'] == true) {
+      reportItems.add(_ReportItemData('Account Summary', kIconAccountSummary));
+    }
+    if (perms['pnl_summary'] == true && !isUser) {
+      reportItems.add(_ReportItemData('Profit & Loss', kIconProfitAndLoss));
+    }
+    if (perms['client_summary'] == true && !isUser) {
+      reportItems.add(_ReportItemData('Client Summary', kIconProfitAndLoss));
+    }
+    if (perms['generate_pdf'] == true) {
+      reportItems.add(_ReportItemData('Generate PDF', kIconGeneratePdf));
+    }
+    if (perms['weekly_admin'] == true && !isUser) {
+      reportItems.add(_ReportItemData('Weekly Admin Report', kIconWeeklyAdminReport));
+    }
+    if (perms['settlement_report'] == true && !isUser) {
+      reportItems.add(_ReportItemData('Settlement Report', kIconWeeklyAdminReport));
+    }
+    if (perms['intraday_history'] == true) {
+      reportItems.add(_ReportItemData('Intraday History', kIconIntradayHistory));
+    }
+    if (perms['userwise_open_position'] == true) {
+      reportItems.add(_ReportItemData('Userwise Open Position', kIconUserwisePosition));
+    }
+    if (perms['script_quantity'] == true) {
+      reportItems.add(_ReportItemData('Script Qty Details', kIconScriptQtyDetails));
+    }
+    if (perms['deleted_trade'] == true) {
+      reportItems.add(_ReportItemData('Deleted Trades', kIconDeletedTrades));
+    }
+    if (perms['trade_account'] == true) {
+      reportItems.add(_ReportItemData('Rejection Log History', kIconRejectionLogHistory));
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FC),
@@ -73,7 +111,18 @@ class ReportsView extends StatelessWidget {
 
             // Reports List
             Expanded(
-              child: Container(
+              child: reportItems.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'No reports available',
+                        style: TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: kFontSizeBody,
+                          fontFamily: 'Inter',
+                        ),
+                      ),
+                    )
+                  : Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 decoration: ShapeDecoration(
                   color: Colors.white,
@@ -86,34 +135,13 @@ class ReportsView extends StatelessWidget {
                 child: ListView(
                   padding: EdgeInsets.zero,
                   children: [
-                    _buildReportItem(
-                        context, 'Account Summary', kIconAccountSummary,
-                        showBorder: true),
-                    if (!isUser)
+                    for (int i = 0; i < reportItems.length; i++)
                       _buildReportItem(
-                          context, 'Profit & Loss', kIconProfitAndLoss,
-                          showBorder: true),
-                    _buildReportItem(
-                        context, 'Generate PDF', kIconGeneratePdf,
-                        showBorder: true),
-                    if (!isUser)
-                      _buildReportItem(
-                          context, 'Weekly Admin Report', kIconWeeklyAdminReport,
-                          showBorder: true),
-                    _buildReportItem(context, 'Intraday History', kIconIntradayHistory,
-                        showBorder: true),
-                    _buildReportItem(
-                        context, 'Userwise Open Position', kIconUserwisePosition,
-                        showBorder: true),
-                    _buildReportItem(
-                        context, 'Script Qty Details', kIconScriptQtyDetails,
-                        showBorder: true),
-                    _buildReportItem(
-                        context, 'Deleted Trades', kIconDeletedTrades,
-                        showBorder: true),
-                    _buildReportItem(
-                        context, 'Rejection Log History', kIconRejectionLogHistory,
-                        showBorder: false),
+                        context,
+                        reportItems[i].title,
+                        reportItems[i].iconPath,
+                        showBorder: i < reportItems.length - 1,
+                      ),
                   ],
                 ),
               ),
@@ -233,6 +261,12 @@ class ReportsView extends StatelessWidget {
       builder: (context) => const GeneratePdfBottomSheet(),
     );
   }
+}
+
+class _ReportItemData {
+  final String title;
+  final String iconPath;
+  const _ReportItemData(this.title, this.iconPath);
 }
 
 class GeneratePdfBottomSheet extends StatefulWidget {

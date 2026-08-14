@@ -29,6 +29,7 @@ import 'rejection_log_history_view.dart';
 import 'settlement_report_view.dart';
 import '../pages/transaction_page.dart';
 import 'reports_view.dart';
+import 'manage_reports_view.dart';
 
 class UsernameView extends StatefulWidget {
   final Master? master;
@@ -1969,6 +1970,39 @@ class _UsernameViewState extends State<UsernameView> {
     }
   }
 
+  // ── Manage User Report Permissions Sheet ──
+  void _showManageUserReportsSheet() {
+    final user = _currentUser!;
+    final profile = Provider.of<UserProfileProvider>(context, listen: false);
+    final parentPerms = profile.reportPermissions;
+
+    // Current user's report_permissions (from model or default to true)
+    final currentPerms = <String, bool>{
+      'account_summary': user.reportPermissions?['account_summary'] ?? true,
+      'pnl_summary': user.reportPermissions?['pnl_summary'] ?? true,
+      'client_summary': user.reportPermissions?['client_summary'] ?? true,
+      'settlement_report': user.reportPermissions?['settlement_report'] ?? true,
+      'generate_pdf': user.reportPermissions?['generate_pdf'] ?? true,
+      'weekly_admin': user.reportPermissions?['weekly_admin'] ?? true,
+      'intraday_history': user.reportPermissions?['intraday_history'] ?? true,
+      'userwise_open_position': user.reportPermissions?['userwise_open_position'] ?? true,
+      'script_quantity': user.reportPermissions?['script_quantity'] ?? true,
+      'deleted_trade': user.reportPermissions?['deleted_trade'] ?? true,
+      'trade_account': user.reportPermissions?['trade_account'] ?? true,
+    };
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ManageUserReportsSheet(
+        userId: user.id,
+        currentPerms: currentPerms,
+        parentPerms: parentPerms,
+      ),
+    );
+  }
+
   // ── Sub-Master List Tab ──
   Widget _buildSubMasterListTab() {
     if (_isLoadingSubMasters) {
@@ -2794,4 +2828,196 @@ class _PerTradePnl {
   final bool isClosing;
   final String? openedAt;
   _PerTradePnl({required this.pnl, required this.isClosing, this.openedAt});
+}
+
+// ── Bottom sheet for managing a User's report permissions ──
+class _ManageUserReportsSheet extends StatefulWidget {
+  final String userId;
+  final Map<String, bool> currentPerms;
+  final Map<String, bool> parentPerms;
+
+  const _ManageUserReportsSheet({
+    required this.userId,
+    required this.currentPerms,
+    required this.parentPerms,
+  });
+
+  @override
+  State<_ManageUserReportsSheet> createState() => _ManageUserReportsSheetState();
+}
+
+class _ManageUserReportsSheetState extends State<_ManageUserReportsSheet> {
+  late Map<String, bool> _perms;
+  bool _isUpdating = false;
+  bool _hasChanges = false;
+
+  // Only the report permissions relevant to Users
+  static const _labels = {
+    'account_summary': 'Account Summary',
+    'generate_pdf': 'Generate PDF',
+    'intraday_history': 'Intraday History',
+    'userwise_open_position': 'Userwise Position',
+    'script_quantity': 'Script Quantity',
+    'deleted_trade': 'Deleted Trade',
+    'trade_account': 'Rejection Log',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _perms = Map.from(widget.currentPerms);
+  }
+
+  Future<void> _save() async {
+    setState(() => _isUpdating = true);
+    try {
+      final api = Provider.of<ApiService>(context, listen: false);
+      final storage = SecureStorageService();
+      final token = await storage.getToken();
+      final res = await api.put(
+        '/master/users/${widget.userId}/report-permissions',
+        {'report_permissions': _perms},
+        token: token,
+      );
+      if (res.statusCode == 200) {
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Report permissions updated'),
+            backgroundColor: Color(0xFF10B981),
+          ));
+        }
+      } else {
+        final body = jsonDecode(res.body);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(body['message'] ?? 'Failed to update'),
+            backgroundColor: const Color(0xFFEF4444),
+          ));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: const Color(0xFFEF4444),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _isUpdating = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 16),
+          const Text('Manage Reports', style: TextStyle(
+            color: Colors.black, fontSize: kFontSizeSectionHeader,
+            fontFamily: 'Inter', fontWeight: kFontWeightBold,
+          )),
+          const SizedBox(height: 16),
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: _labels.entries.map((e) {
+                final parentHas = widget.parentPerms[e.key] ?? true;
+                return _buildToggle(e.key, e.value, parentHas);
+              }).toList(),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.only(
+              left: 16, right: 16, top: 12,
+              bottom: 16 + MediaQuery.of(context).viewPadding.bottom,
+            ),
+            child: GestureDetector(
+              onTap: _isUpdating || !_hasChanges ? null : _save,
+              child: Container(
+                width: double.infinity, height: 50,
+                decoration: BoxDecoration(
+                  color: _isUpdating || !_hasChanges
+                      ? const Color(0xFF94A3B8)
+                      : const Color(0xFF3F45C7),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Center(
+                  child: _isUpdating
+                      ? const SizedBox(width: 20, height: 20,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text('UPDATE', style: TextStyle(
+                          color: Colors.white, fontSize: kFontSizeButtonText,
+                          fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToggle(String key, String label, bool parentHas) {
+    final value = _perms[key] ?? true;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(
+                  color: parentHas ? Colors.black : const Color(0xFF94A3B8),
+                  fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightMedium,
+                )),
+                if (!parentHas)
+                  const Text('Disabled by parent', style: TextStyle(
+                    color: Color(0xFFEF4444), fontSize: 11, fontFamily: 'Inter',
+                  )),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: parentHas ? () {
+              setState(() {
+                _perms[key] = !value;
+                _hasChanges = true;
+              });
+            } : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 44, height: 26, padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: !parentHas
+                    ? const Color(0xFFE2E8F0)
+                    : value
+                        ? const Color(0xFF3F45C7)
+                        : const Color(0xFFCBD5E1),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: AnimatedAlign(
+                duration: const Duration(milliseconds: 200),
+                alignment: value && parentHas ? Alignment.centerRight : Alignment.centerLeft,
+                child: Container(width: 22, height: 22, decoration: BoxDecoration(
+                  color: parentHas ? Colors.white : const Color(0xFFF1F5F9),
+                  shape: BoxShape.circle,
+                )),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
