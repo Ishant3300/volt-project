@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:developer';
+import '../utils/number_to_words.dart';
 import '../providers/user_profile_provider.dart';
 import '../services/admin_service.dart';
 import '../services/master_service.dart';
@@ -1360,41 +1361,64 @@ class _CreateUserViewState extends State<CreateUserView> {
     final controller = _walletControllerFor(category);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              category,
-              style: const TextStyle(
-                  color: Color(0xFF94A3B8),
-                  fontSize: kFontSizeBodySmall,
-                  fontFamily: 'Inter',
-                  fontWeight: kFontWeightMedium),
-            ),
-          ),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: kFontSizeBody,
-                  fontFamily: 'Inter',
-                  fontWeight: kFontWeightMedium),
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                hintText: '0',
-                hintStyle: TextStyle(
-                    color: Color(0xFFCBD5E1),
-                    fontSize: kFontSizeBody,
-                    fontFamily: 'Inter'),
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
+          Row(
+            children: [
+              SizedBox(
+                width: 100,
+                child: Text(
+                  category,
+                  style: const TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: kFontSizeBodySmall,
+                      fontFamily: 'Inter',
+                      fontWeight: kFontWeightMedium),
+                ),
               ),
-            ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
+                  style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: kFontSizeBody,
+                      fontFamily: 'Inter',
+                      fontWeight: kFontWeightMedium),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: '0',
+                    hintStyle: TextStyle(
+                        color: Color(0xFFCBD5E1),
+                        fontSize: kFontSizeBody,
+                        fontFamily: 'Inter'),
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+            ],
           ),
+          Builder(builder: (_) {
+            final parsed = double.tryParse(controller.text.trim());
+            final words = numberToIndianWords(parsed);
+            if (words.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(left: 100, top: 2),
+              child: Text(
+                '₹ $words',
+                style: const TextStyle(
+                  color: Color(0xFF3F45C7),
+                  fontSize: 11,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            );
+          }),
         ],
       ),
     );

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../utils/number_to_words.dart';
 import '../models/master.dart';
 import '../services/api_service.dart';
 import '../services/admin_service.dart';
@@ -77,10 +78,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   }
 
   /// Exchange/segment names currently selected in the form (for exchanges_allowed).
-  List<String> get _selectedExchangeNames => _exchangeAllow.entries
-      .where((e) => e.value)
-      .map((e) => e.key)
-      .toList();
+  List<String> get _selectedExchangeNames =>
+      _exchangeAllow.entries.where((e) => e.value).map((e) => e.key).toList();
 
   /// Reuse (or lazily create) a controller for a wallet category.
   TextEditingController _walletControllerFor(String category) =>
@@ -667,12 +666,14 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               obscureText: obscureText,
               keyboardType: keyboardType,
               readOnly: readOnly,
-              style: readOnly ? const TextStyle(color: Colors.grey) : const TextStyle(
-                color: Colors.black,
-                fontSize: kFontSizeBody,
-                fontFamily: 'Inter',
-                fontWeight: kFontWeightMedium,
-              ),
+              style: readOnly
+                  ? const TextStyle(color: Colors.grey)
+                  : const TextStyle(
+                      color: Colors.black,
+                      fontSize: kFontSizeBody,
+                      fontFamily: 'Inter',
+                      fontWeight: kFontWeightMedium,
+                    ),
               decoration: InputDecoration(
                 border: InputBorder.none,
                 hintText: hint ?? label,
@@ -986,41 +987,64 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     final controller = _walletControllerFor(category);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 110,
-            child: Text(
-              category,
-              style: const TextStyle(
-                  color: Color(0xFF94A3B8),
-                  fontSize: kFontSizeBodySmall,
-                  fontFamily: 'Inter',
-                  fontWeight: kFontWeightMedium),
-            ),
-          ),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: kFontSizeBody,
-                  fontFamily: 'Inter',
-                  fontWeight: kFontWeightMedium),
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                hintText: '0',
-                hintStyle: TextStyle(
-                    color: Color(0xFFCBD5E1),
-                    fontSize: kFontSizeBody,
-                    fontFamily: 'Inter'),
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
+          Row(
+            children: [
+              SizedBox(
+                width: 110,
+                child: Text(
+                  category,
+                  style: const TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: kFontSizeBodySmall,
+                      fontFamily: 'Inter',
+                      fontWeight: kFontWeightMedium),
+                ),
               ),
-            ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
+                  style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: kFontSizeBody,
+                      fontFamily: 'Inter',
+                      fontWeight: kFontWeightMedium),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: '0',
+                    hintStyle: TextStyle(
+                        color: Color(0xFFCBD5E1),
+                        fontSize: kFontSizeBody,
+                        fontFamily: 'Inter'),
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+            ],
           ),
+          Builder(builder: (_) {
+            final parsed = double.tryParse(controller.text.trim());
+            final words = numberToIndianWords(parsed);
+            if (words.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(left: 110, top: 2),
+              child: Text(
+                '₹ $words',
+                style: const TextStyle(
+                  color: Color(0xFF3F45C7),
+                  fontSize: 11,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            );
+          }),
         ],
       ),
     );
