@@ -111,7 +111,6 @@ class _UserManagementViewState extends State<UserManagementView> {
           });
         }
       }
-
     } catch (e) {
       log('❌ Error fetching data: $e');
       setState(() {
@@ -136,8 +135,9 @@ class _UserManagementViewState extends State<UserManagementView> {
   @override
   Widget build(BuildContext context) {
     final profileProvider = Provider.of<UserProfileProvider>(context);
-    final title =
-        profileProvider.isAdmin ? 'Master & User Management' : 'User Management';
+    final title = profileProvider.isAdmin
+        ? 'Master & User Management'
+        : 'User Management';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -309,8 +309,8 @@ class _UserManagementViewState extends State<UserManagementView> {
                                   borderRadius: BorderRadius.circular(24),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black
-                                          .withValues(alpha: 0.02),
+                                      color:
+                                          Colors.black.withValues(alpha: 0.02),
                                       blurRadius: 4,
                                       offset: const Offset(0, 2),
                                     ),
@@ -365,7 +365,8 @@ class _UserManagementViewState extends State<UserManagementView> {
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.add, color: Colors.white, size: kIconSizeMedium),
+                      Icon(Icons.add,
+                          color: Colors.white, size: kIconSizeMedium),
                       SizedBox(width: 8),
                       Text(
                         'Create',
@@ -457,8 +458,7 @@ class _UserManagementViewState extends State<UserManagementView> {
           GestureDetector(
             onTap: _fetchData,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               decoration: BoxDecoration(
                 color: const Color(0xFF3F45C7),
                 borderRadius: BorderRadius.circular(12),
@@ -544,12 +544,10 @@ class _UserManagementViewState extends State<UserManagementView> {
                 color: const Color(0xFF3F45C7).withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Center(
+              child: const Center(
                 child: Text(
-                  master.name.isNotEmpty
-                      ? master.name[0].toUpperCase()
-                      : 'M',
-                  style: const TextStyle(
+                  'M',
+                  style: TextStyle(
                     color: Color(0xFF3F45C7),
                     fontSize: kFontSizeSectionHeader,
                     fontFamily: 'Inter',
@@ -564,20 +562,36 @@ class _UserManagementViewState extends State<UserManagementView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(
+                    master.name.toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: kFontSizeName,
+                      fontFamily: 'Inter',
+                      fontWeight: kFontWeightName,
+                      letterSpacing: -0.3,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
-                      Flexible(
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF334155),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
                         child: Text(
-                          master.username.toUpperCase(),
+                          master.username,
                           style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: kFontSizeName,
+                            color: Colors.white,
+                            fontSize: kFontSizeBadge,
                             fontFamily: 'Inter',
-                            fontWeight: kFontWeightName,
-                            letterSpacing: -0.3,
+                            fontWeight: kFontWeightSemiBold,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -628,7 +642,8 @@ class _UserManagementViewState extends State<UserManagementView> {
                         padding: EdgeInsets.symmetric(horizontal: 6),
                         child: Text('·',
                             style: TextStyle(
-                                fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1))),
+                                fontSize: kFontSizeCaption,
+                                color: Color(0xFFCBD5E1))),
                       ),
                       Text(
                         'P&L: ${master.pnlSharing.toStringAsFixed(0)}%',
@@ -678,10 +693,10 @@ class _UserManagementViewState extends State<UserManagementView> {
                 color: const Color(0xFFD97706).withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Center(
+              child: const Center(
                 child: Text(
-                  user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
-                  style: const TextStyle(
+                  'C',
+                  style: TextStyle(
                     color: Color(0xFFD97706),
                     fontSize: kFontSizeSectionHeader,
                     fontFamily: 'Inter',
@@ -696,20 +711,36 @@ class _UserManagementViewState extends State<UserManagementView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(
+                    user.name.toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: kFontSizeName,
+                      fontFamily: 'Inter',
+                      fontWeight: kFontWeightName,
+                      letterSpacing: -0.3,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
-                      Flexible(
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF334155),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
                         child: Text(
-                          user.username.toUpperCase(),
+                          user.username,
                           style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: kFontSizeName,
+                            color: Colors.white,
+                            fontSize: kFontSizeBadge,
                             fontFamily: 'Inter',
-                            fontWeight: kFontWeightName,
-                            letterSpacing: -0.3,
+                            fontWeight: kFontWeightSemiBold,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -760,7 +791,8 @@ class _UserManagementViewState extends State<UserManagementView> {
                         padding: EdgeInsets.symmetric(horizontal: 6),
                         child: Text('·',
                             style: TextStyle(
-                                fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1))),
+                                fontSize: kFontSizeCaption,
+                                color: Color(0xFFCBD5E1))),
                       ),
                       Text(
                         'P&L: ${user.pnlSharing.toStringAsFixed(0)}%',
