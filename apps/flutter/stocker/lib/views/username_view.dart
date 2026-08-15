@@ -1449,7 +1449,7 @@ class _UsernameViewState extends State<UsernameView> {
                 _liveMetricGridRow('M2M P&L', m2mPnl, 'Credit', credit),
                 const Divider(height: 1, color: Color(0xFFF1F5F9)),
                 if (_currentUser != null) ...[
-                  _liveMetricGridRow(
+                  _liveMetricGridRowWithEquityInfo(
                       'Margin Used', marginUsed, 'Equity', equity),
                   const Divider(height: 1, color: Color(0xFFF1F5F9)),
                   _liveMetricGridRow('Free Margin', freeMargin, '', 0,
@@ -1656,6 +1656,153 @@ class _UsernameViewState extends State<UsernameView> {
             Expanded(child: _liveMetricCell(l2, v2))
           else
             const Expanded(child: SizedBox()),
+        ],
+      ),
+    );
+  }
+
+  /// Same as _liveMetricGridRow but with an (i) button on the Equity cell
+  Widget _liveMetricGridRowWithEquityInfo(
+      String l1, double v1, String l2, double v2) {
+    return IntrinsicHeight(
+      child: Row(
+        children: [
+          Expanded(child: _liveMetricCell(l1, v1, showRightBorder: true)),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(l2.toUpperCase(),
+                          style: const TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 9,
+                              fontFamily: 'Inter',
+                              fontWeight: kFontWeightSemiBold,
+                              letterSpacing: 0.3)),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () => _showEquityBreakdown(),
+                        behavior: HitTestBehavior.opaque,
+                        child: const Padding(
+                          padding:
+                              EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+                          child: Icon(
+                            Icons.info_outline_rounded,
+                            size: 12,
+                            color: Color(0xFF3F45C7),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    v2.toStringAsFixed(2),
+                    style: const TextStyle(
+                        color: Color(0xFF0F172A),
+                        fontSize: 13,
+                        fontFamily: 'Inter',
+                        fontWeight: kFontWeightBold),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEquityBreakdown() {
+    final metrics = _liveUserMetrics;
+    final wallet = metrics?['wallet'] as Map<String, dynamic>? ?? {};
+    final credit = (metrics?['credit'] as num?)?.toDouble() ?? credits;
+    final m2m = (metrics?['m2m_pnl'] as num?)?.toDouble() ?? 0;
+    final equity = (metrics?['equity'] as num?)?.toDouble() ?? 0;
+    final marginUsed = (metrics?['margin_used'] as num?)?.toDouble() ?? 0;
+    final freeMargin = (metrics?['free_margin'] as num?)?.toDouble() ?? 0;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const Text('Equity Breakdown',
+                style: TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 16,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w700)),
+            const SizedBox(height: 16),
+            _equityRow('Credit', credit),
+            _equityRow('M2M P&L', m2m, isColored: true),
+            _equityRow('Equity', equity),
+            const Divider(height: 24, color: Color(0xFFF1F5F9)),
+            _equityRow('Margin Used', marginUsed),
+            _equityRow('Free Margin', freeMargin, isColored: true),
+            if (wallet.isNotEmpty) ...[
+              const Divider(height: 24, color: Color(0xFFF1F5F9)),
+              const Text('WALLET BALANCES',
+                  style: TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: 10,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5)),
+              const SizedBox(height: 8),
+              ...wallet.entries.map(
+                  (e) => _equityRow(e.key, (e.value as num?)?.toDouble() ?? 0)),
+            ],
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _equityRow(String label, double value, {bool isColored = false}) {
+    final Color valueColor = isColored
+        ? (value >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444))
+        : const Color(0xFF0F172A);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 13,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w500)),
+          Text(value.toStringAsFixed(2),
+              style: TextStyle(
+                  color: valueColor,
+                  fontSize: 13,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -1985,7 +2132,8 @@ class _UsernameViewState extends State<UsernameView> {
       'generate_pdf': user.reportPermissions?['generate_pdf'] ?? true,
       'weekly_admin': user.reportPermissions?['weekly_admin'] ?? true,
       'intraday_history': user.reportPermissions?['intraday_history'] ?? true,
-      'userwise_open_position': user.reportPermissions?['userwise_open_position'] ?? true,
+      'userwise_open_position':
+          user.reportPermissions?['userwise_open_position'] ?? true,
       'script_quantity': user.reportPermissions?['script_quantity'] ?? true,
       'deleted_trade': user.reportPermissions?['deleted_trade'] ?? true,
       'trade_account': user.reportPermissions?['trade_account'] ?? true,
@@ -2843,7 +2991,8 @@ class _ManageUserReportsSheet extends StatefulWidget {
   });
 
   @override
-  State<_ManageUserReportsSheet> createState() => _ManageUserReportsSheetState();
+  State<_ManageUserReportsSheet> createState() =>
+      _ManageUserReportsSheetState();
 }
 
 class _ManageUserReportsSheetState extends State<_ManageUserReportsSheet> {
@@ -2911,7 +3060,8 @@ class _ManageUserReportsSheetState extends State<_ManageUserReportsSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
+      constraints:
+          BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
       decoration: const BoxDecoration(
         color: Color(0xFFF8FAFC),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -2920,10 +3070,13 @@ class _ManageUserReportsSheetState extends State<_ManageUserReportsSheet> {
         mainAxisSize: MainAxisSize.min,
         children: [
           const SizedBox(height: 16),
-          const Text('Manage Reports', style: TextStyle(
-            color: Colors.black, fontSize: kFontSizeSectionHeader,
-            fontFamily: 'Inter', fontWeight: kFontWeightBold,
-          )),
+          const Text('Manage Reports',
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: kFontSizeSectionHeader,
+                fontFamily: 'Inter',
+                fontWeight: kFontWeightBold,
+              )),
           const SizedBox(height: 16),
           Flexible(
             child: ListView(
@@ -2937,13 +3090,16 @@ class _ManageUserReportsSheetState extends State<_ManageUserReportsSheet> {
           ),
           Padding(
             padding: EdgeInsets.only(
-              left: 16, right: 16, top: 12,
+              left: 16,
+              right: 16,
+              top: 12,
               bottom: 16 + MediaQuery.of(context).viewPadding.bottom,
             ),
             child: GestureDetector(
               onTap: _isUpdating || !_hasChanges ? null : _save,
               child: Container(
-                width: double.infinity, height: 50,
+                width: double.infinity,
+                height: 50,
                 decoration: BoxDecoration(
                   color: _isUpdating || !_hasChanges
                       ? const Color(0xFF94A3B8)
@@ -2952,11 +3108,17 @@ class _ManageUserReportsSheetState extends State<_ManageUserReportsSheet> {
                 ),
                 child: Center(
                   child: _isUpdating
-                      ? const SizedBox(width: 20, height: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text('UPDATE', style: TextStyle(
-                          color: Colors.white, fontSize: kFontSizeButtonText,
-                          fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2))
+                      : const Text('UPDATE',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: kFontSizeButtonText,
+                              fontFamily: 'Inter',
+                              fontWeight: kFontWeightSemiBold)),
                 ),
               ),
             ),
@@ -2977,27 +3139,37 @@ class _ManageUserReportsSheetState extends State<_ManageUserReportsSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: TextStyle(
-                  color: parentHas ? Colors.black : const Color(0xFF94A3B8),
-                  fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightMedium,
-                )),
+                Text(label,
+                    style: TextStyle(
+                      color: parentHas ? Colors.black : const Color(0xFF94A3B8),
+                      fontSize: kFontSizeBody,
+                      fontFamily: 'Inter',
+                      fontWeight: kFontWeightMedium,
+                    )),
                 if (!parentHas)
-                  const Text('Disabled by parent', style: TextStyle(
-                    color: Color(0xFFEF4444), fontSize: 11, fontFamily: 'Inter',
-                  )),
+                  const Text('Disabled by parent',
+                      style: TextStyle(
+                        color: Color(0xFFEF4444),
+                        fontSize: 11,
+                        fontFamily: 'Inter',
+                      )),
               ],
             ),
           ),
           GestureDetector(
-            onTap: parentHas ? () {
-              setState(() {
-                _perms[key] = !value;
-                _hasChanges = true;
-              });
-            } : null,
+            onTap: parentHas
+                ? () {
+                    setState(() {
+                      _perms[key] = !value;
+                      _hasChanges = true;
+                    });
+                  }
+                : null,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              width: 44, height: 26, padding: const EdgeInsets.all(2),
+              width: 44,
+              height: 26,
+              padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
                 color: !parentHas
                     ? const Color(0xFFE2E8F0)
@@ -3008,11 +3180,16 @@ class _ManageUserReportsSheetState extends State<_ManageUserReportsSheet> {
               ),
               child: AnimatedAlign(
                 duration: const Duration(milliseconds: 200),
-                alignment: value && parentHas ? Alignment.centerRight : Alignment.centerLeft,
-                child: Container(width: 22, height: 22, decoration: BoxDecoration(
-                  color: parentHas ? Colors.white : const Color(0xFFF1F5F9),
-                  shape: BoxShape.circle,
-                )),
+                alignment: value && parentHas
+                    ? Alignment.centerRight
+                    : Alignment.centerLeft,
+                child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: parentHas ? Colors.white : const Color(0xFFF1F5F9),
+                      shape: BoxShape.circle,
+                    )),
               ),
             ),
           ),
