@@ -23,6 +23,7 @@ class Trade {
   final String rawName; // raw instrument name from KiteInstrument (for margin lookup)
   final String placedBy; // USER, ADMIN, or MASTER
   final String remarks; // settlement/system trade remarks
+  final String tradeType; // regular, carry_forward, margin_square_off
 
   Trade({
     required this.id,
@@ -49,6 +50,7 @@ class Trade {
     this.rawName = '',
     this.placedBy = 'USER',
     this.remarks = '',
+    this.tradeType = 'regular',
   });
 
   /// True when this trade should be displayed in lots instead of raw quantity.
@@ -101,6 +103,7 @@ class Trade {
       rawName: json['raw_name']?.toString() ?? '',
       placedBy: json['placed_by']?.toString() ?? 'USER',
       remarks: json['remarks']?.toString() ?? '',
+      tradeType: json['trade_type']?.toString() ?? 'regular',
     );
   }
 

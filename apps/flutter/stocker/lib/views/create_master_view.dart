@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../utils/number_to_words.dart';
 import '../models/master.dart';
 import '../services/api_service.dart';
 import '../services/admin_service.dart';
+import '../services/sercure_storage_service.dart';
 import '../providers/user_profile_provider.dart';
 import '../utils/contants.dart';
 import '../utils/wallet_category.dart';
@@ -59,6 +61,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   // Trade Wallet inputs per allowed category (NSE/MCX/GLOBAL)
   final Map<String, TextEditingController> _walletControllers = {};
 
+  // Brokerage settings per exchange (inline during creation)
+  Map<String, Map<String, dynamic>> _brokerageSettings = {};
+
   @override
   void dispose() {
     if (!_isSuccess) _releaseUsername();
@@ -73,14 +78,15 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     for (final controller in _walletControllers.values) {
       controller.dispose();
     }
+    for (final entry in _brokerageSettings.values) {
+      (entry['controller'] as TextEditingController?)?.dispose();
+    }
     super.dispose();
   }
 
   /// Exchange/segment names currently selected in the form (for exchanges_allowed).
-  List<String> get _selectedExchangeNames => _exchangeAllow.entries
-      .where((e) => e.value)
-      .map((e) => e.key)
-      .toList();
+  List<String> get _selectedExchangeNames =>
+      _exchangeAllow.entries.where((e) => e.value).map((e) => e.key).toList();
 
   /// Reuse (or lazily create) a controller for a wallet category.
   TextEditingController _walletControllerFor(String category) =>
@@ -137,6 +143,19 @@ class _CreateMasterViewState extends State<CreateMasterView> {
 
     _profitLossController.addListener(() => setState(() {}));
     _brkSharingController.addListener(() => setState(() {}));
+
+    // Initialize brokerage settings for all exchanges
+    _brokerageSettings = {};
+    for (var exchange in _exchangeAllow.keys) {
+      final isLotSegment = exchange == 'NFO-OPT' ||
+          exchange == 'MCX-FUT' ||
+          exchange == 'MCX-OPT';
+      _brokerageSettings[exchange] = {
+        'type': isLotSegment ? 'LOT WISE' : 'TURNOVER WISE',
+        'value': '',
+        'controller': TextEditingController(),
+      };
+    }
 
     if (widget.master != null) {
       final master = widget.master!;
@@ -323,6 +342,13 @@ class _CreateMasterViewState extends State<CreateMasterView> {
         if (response.statusCode == 201) {
           if (mounted) {
             _isSuccess = true;
+            // Apply brokerage settings for the new master
+            final body = jsonDecode(response.body);
+            final createdId =
+                body['data']?['child_master']?['id']?.toString() ??
+                    body['data']?['id']?.toString() ??
+                    body['data']?['_id']?.toString();
+            await _applyBrokerageSettings(createdId);
             await profileProvider.fetchProfile();
             _showSnack('Master created successfully');
             Navigator.pop(context, true);
@@ -349,6 +375,67 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             isError ? const Color(0xFFEF4444) : const Color(0xFF10B981),
       ),
     );
+  }
+
+  /// Apply brokerage settings for enabled exchanges after master creation
+  Future<void> _applyBrokerageSettings(String? masterId) async {
+    if (masterId == null) return;
+    try {
+      final token = await SecureStorageService().getToken();
+      final apiService = ApiService(backendUrl);
+
+      for (final exchange in _exchangeAllow.keys) {
+        if (!_exchangeAllow[exchange]!) continue;
+
+        final brkSettings = _brokerageSettings[exchange];
+        if (brkSettings == null) continue;
+
+        final valueStr =
+            (brkSettings['controller'] as TextEditingController).text.trim();
+        if (valueStr.isEmpty) continue;
+        final value = double.tryParse(valueStr);
+        if (value == null || value <= 0) continue;
+
+        final type = brkSettings['type'] as String;
+        final apiExchange = exchange == 'GLOBAL' ? 'INDICES' : exchange;
+
+        // Bulk-create ensures all instruments for this exchange have brokerage entries
+        await apiService.post(
+            '/admin/brokerage-settings/bulk-create',
+            {
+              'exchange_name': apiExchange,
+              'type': type,
+              'default_brk_value': value,
+              'user_id': masterId,
+            },
+            token: token);
+
+        // Then bulk-update all existing entries to the new value
+        final fetchRes = await apiService.get(
+          '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=2000&user_id=$masterId',
+          token: token,
+        );
+        if (fetchRes.statusCode == 200) {
+          final body = jsonDecode(fetchRes.body);
+          if (body['success'] == true) {
+            final items = body['data']['items'] as List? ?? [];
+            if (items.isNotEmpty) {
+              final ids = items.map<String>((i) => i['id'].toString()).toList();
+              await apiService.put(
+                  '/admin/brokerage-settings/bulk-update',
+                  {
+                    'ids': ids,
+                    'brk_value': value,
+                    'type': type,
+                  },
+                  token: token);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      log('⚠️ Error applying brokerage settings: $e');
+    }
   }
 
   @override
@@ -529,6 +616,61 @@ class _CreateMasterViewState extends State<CreateMasterView> {
 
                     const SizedBox(height: 24),
 
+                    // Brokerage Settings (inline)
+                    _sectionLabel('BROKERAGE SETTINGS'),
+                    const SizedBox(height: 12),
+                    _card(
+                      child: Column(
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 12),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: Text('Exchange',
+                                      style: TextStyle(
+                                          color: Color(0xFF94A3B8),
+                                          fontSize: kFontSizeNavLabel,
+                                          fontFamily: 'Inter',
+                                          fontWeight: kFontWeightSemiBold,
+                                          letterSpacing: 0.5)),
+                                ),
+                                Expanded(
+                                  flex: 3,
+                                  child: Center(
+                                    child: Text('Type',
+                                        style: TextStyle(
+                                            color: Color(0xFF94A3B8),
+                                            fontSize: kFontSizeNavLabel,
+                                            fontFamily: 'Inter',
+                                            fontWeight: kFontWeightSemiBold,
+                                            letterSpacing: 0.5)),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Center(
+                                    child: Text('Value',
+                                        style: TextStyle(
+                                            color: Color(0xFF94A3B8),
+                                            fontSize: kFontSizeNavLabel,
+                                            fontFamily: 'Inter',
+                                            fontWeight: kFontWeightSemiBold,
+                                            letterSpacing: 0.5)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          ..._exchangeAllow.keys
+                              .map((exchange) => _buildBrokerageRow(exchange)),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
                     // Toggles
                     _card(
                       child: Column(
@@ -667,12 +809,14 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               obscureText: obscureText,
               keyboardType: keyboardType,
               readOnly: readOnly,
-              style: readOnly ? const TextStyle(color: Colors.grey) : const TextStyle(
-                color: Colors.black,
-                fontSize: kFontSizeBody,
-                fontFamily: 'Inter',
-                fontWeight: kFontWeightMedium,
-              ),
+              style: readOnly
+                  ? const TextStyle(color: Colors.grey)
+                  : const TextStyle(
+                      color: Colors.black,
+                      fontSize: kFontSizeBody,
+                      fontFamily: 'Inter',
+                      fontWeight: kFontWeightMedium,
+                    ),
               decoration: InputDecoration(
                 border: InputBorder.none,
                 hintText: hint ?? label,
@@ -947,6 +1091,100 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     );
   }
 
+  // ── Brokerage row ──
+
+  Widget _buildBrokerageRow(String exchange) {
+    final settings = _brokerageSettings[exchange];
+    if (settings == null) return const SizedBox.shrink();
+
+    final type = settings['type'] as String;
+    final controller = settings['controller'] as TextEditingController;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Text(
+              exchange,
+              style: const TextStyle(
+                color: Colors.black,
+                fontSize: kFontSizeBodySmall,
+                fontFamily: 'Inter',
+                fontWeight: kFontWeightMedium,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  settings['type'] =
+                      type == 'LOT WISE' ? 'TURNOVER WISE' : 'LOT WISE';
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: type == 'LOT WISE'
+                      ? const Color(0xFF3F45C7).withValues(alpha: 0.08)
+                      : const Color(0xFF10B981).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  type == 'LOT WISE' ? 'LOT' : 'T/O',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: type == 'LOT WISE'
+                        ? const Color(0xFF3F45C7)
+                        : const Color(0xFF10B981),
+                    fontSize: kFontSizeCaption,
+                    fontFamily: 'Inter',
+                    fontWeight: kFontWeightSemiBold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 2,
+            child: Container(
+              height: 36,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFF1F5F9)),
+              ),
+              child: TextField(
+                controller: controller,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: kFontSizeBodySmall,
+                  fontFamily: 'Inter',
+                  fontWeight: kFontWeightMedium,
+                ),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  hintText: '0',
+                  hintStyle: TextStyle(
+                      color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall),
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(vertical: 8),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── Trade Wallet section ──
 
   Widget _buildWalletSection() {
@@ -986,41 +1224,64 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     final controller = _walletControllerFor(category);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 110,
-            child: Text(
-              category,
-              style: const TextStyle(
-                  color: Color(0xFF94A3B8),
-                  fontSize: kFontSizeBodySmall,
-                  fontFamily: 'Inter',
-                  fontWeight: kFontWeightMedium),
-            ),
-          ),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: kFontSizeBody,
-                  fontFamily: 'Inter',
-                  fontWeight: kFontWeightMedium),
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                hintText: '0',
-                hintStyle: TextStyle(
-                    color: Color(0xFFCBD5E1),
-                    fontSize: kFontSizeBody,
-                    fontFamily: 'Inter'),
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
+          Row(
+            children: [
+              SizedBox(
+                width: 110,
+                child: Text(
+                  category,
+                  style: const TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: kFontSizeBodySmall,
+                      fontFamily: 'Inter',
+                      fontWeight: kFontWeightMedium),
+                ),
               ),
-            ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
+                  style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: kFontSizeBody,
+                      fontFamily: 'Inter',
+                      fontWeight: kFontWeightMedium),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: '0',
+                    hintStyle: TextStyle(
+                        color: Color(0xFFCBD5E1),
+                        fontSize: kFontSizeBody,
+                        fontFamily: 'Inter'),
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+            ],
           ),
+          Builder(builder: (_) {
+            final parsed = double.tryParse(controller.text.trim());
+            final words = numberToIndianWords(parsed);
+            if (words.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(left: 110, top: 2),
+              child: Text(
+                '₹ $words',
+                style: const TextStyle(
+                  color: Color(0xFF3F45C7),
+                  fontSize: 11,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            );
+          }),
         ],
       ),
     );

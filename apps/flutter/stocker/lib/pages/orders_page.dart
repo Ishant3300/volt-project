@@ -92,6 +92,8 @@ class _OrdersPageState extends State<OrdersPage> {
   double _masterPositionPnl = 0;
   double _masterRealisedPnl = 0;
   double _masterM2mPnl = 0;
+  double _masterEquity = 0;
+  Map<String, double> _masterWallet = {};
 
   // Admin-specific state
   bool _adminLoading = false;
@@ -148,12 +150,22 @@ class _OrdersPageState extends State<OrdersPage> {
         // Use server-computed values directly (single source of truth)
         double totalRealised = 0;
         double totalPositionPnl = 0;
+        double totalEquity = 0;
+        Map<String, double> aggregatedWallet = {};
 
         final List users = data['users'] ?? [];
         for (final u in users) {
           final uid = u['user_id']?.toString() ?? '';
           totalRealised += (u['realised_pnl'] as num?)?.toDouble() ?? 0;
           totalPositionPnl += (u['position_pnl'] as num?)?.toDouble() ?? 0;
+          totalEquity += (u['equity'] as num?)?.toDouble() ?? 0;
+          
+          final wallet = u['wallet'] as Map<String, dynamic>?;
+          if (wallet != null) {
+            wallet.forEach((key, value) {
+              aggregatedWallet[key] = (aggregatedWallet[key] ?? 0) + ((value as num?)?.toDouble() ?? 0);
+            });
+          }
 
           if (uid.isEmpty) continue;
           for (final um in _userMetrics) {
@@ -163,6 +175,7 @@ class _OrdersPageState extends State<OrdersPage> {
               um['position_pnl'] = u['position_pnl'];
               um['realised_pnl'] = u['realised_pnl'];
               um['positions'] = u['positions'];
+              um['wallet'] = u['wallet'];
               break;
             }
           }
@@ -171,6 +184,8 @@ class _OrdersPageState extends State<OrdersPage> {
         _masterRealisedPnl = (totalRealised * 100).roundToDouble() / 100;
         _masterPositionPnl = (totalPositionPnl * 100).roundToDouble() / 100;
         _masterM2mPnl = ((totalRealised + totalPositionPnl) * 100).roundToDouble() / 100;
+        _masterEquity = (totalEquity * 100).roundToDouble() / 100;
+        _masterWallet = aggregatedWallet;
       });
     };
 
@@ -256,15 +271,27 @@ class _OrdersPageState extends State<OrdersPage> {
     // Don't compute locally — just sum the per-user metrics
     double totalRealised = 0;
     double totalPositionPnl = 0;
+    double totalEquity = 0;
+    Map<String, double> aggregatedWallet = {};
 
     for (final user in _userMetrics) {
       totalRealised += (user['realised_pnl'] as num?)?.toDouble() ?? 0;
       totalPositionPnl += (user['position_pnl'] as num?)?.toDouble() ?? 0;
+      totalEquity += (user['equity'] as num?)?.toDouble() ?? 0;
+      
+      final wallet = user['wallet'] as Map<String, dynamic>?;
+      if (wallet != null) {
+        wallet.forEach((key, value) {
+          aggregatedWallet[key] = (aggregatedWallet[key] ?? 0) + ((value as num?)?.toDouble() ?? 0);
+        });
+      }
     }
 
     _masterRealisedPnl = (totalRealised * 100).roundToDouble() / 100;
     _masterPositionPnl = (totalPositionPnl * 100).roundToDouble() / 100;
     _masterM2mPnl = ((totalRealised + totalPositionPnl) * 100).roundToDouble() / 100;
+    _masterEquity = (totalEquity * 100).roundToDouble() / 100;
+    _masterWallet = aggregatedWallet;
   }
 
   // ============================================
@@ -423,8 +450,26 @@ class _OrdersPageState extends State<OrdersPage> {
   // ADMIN VIEW
   // ============================================
   Widget _buildAdminView() {
-    // Calculate total P&L across all masters
+    // Calculate total P&L, Equity, and Wallet across all masters
     double totalPnl = 0;
+    double totalEquity = 0;
+    Map<String, double> totalWallet = {};
+
+    for (final master in _adminMasterMetrics) {
+      final initialEquity = (master['equity'] as num?)?.toDouble() ?? 0;
+      final initialM2m = (master['m2m_pnl'] as num?)?.toDouble() ?? 0;
+      final mid = master['master_id']?.toString() ?? '';
+      final livePnl = _adminMasterPnl[mid] ?? initialM2m;
+      
+      // Compute live equity
+      totalEquity += initialEquity + (livePnl - initialM2m);
+
+      final wallet = master['wallet'] as Map<String, dynamic>? ?? {};
+      for (final entry in wallet.entries) {
+        totalWallet[entry.key] = (totalWallet[entry.key] ?? 0) + ((entry.value as num?)?.toDouble() ?? 0);
+      }
+    }
+
     for (final pnl in _adminMasterPnl.values) {
       totalPnl += pnl;
     }
@@ -441,24 +486,81 @@ class _OrdersPageState extends State<OrdersPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Total P&L value
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                            totalPnl.toStringAsFixed(2),
-                            style: TextStyle(
-                        color: isTotalPositive
-                            ? const Color(0xFF22C55E)
-                            : const Color(0xFFEF4444),
-                        fontSize: 20,
-                        fontFamily: 'Inter',
-                        fontWeight: kFontWeightBold,
+                // Total P&L and Equity values
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Overall P&L',
+                              style: TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: kFontSizeBodySmall,
+                                  fontFamily: 'Inter',
+                                  fontWeight: kFontWeightMedium)),
+                          Text(totalPnl.toStringAsFixed(2),
+                              style: TextStyle(
+                                  color: isTotalPositive
+                                      ? const Color(0xFF22C55E)
+                                      : const Color(0xFFEF4444),
+                                  fontSize: kFontSizeBody,
+                                  fontFamily: 'Inter',
+                                  fontWeight: kFontWeightBold)),
+                        ],
+                      ),
+                      const Divider(height: 24, color: Color(0xFFF1F5F9)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Text('Overall Equity',
+                                  style: TextStyle(
+                                      color: Color(0xFF64748B),
+                                      fontSize: kFontSizeBodySmall,
+                                      fontFamily: 'Inter',
+                                      fontWeight: kFontWeightMedium)),
+                              GestureDetector(
+                                onTap: () => _showAdminWalletBreakdownSheet(context, totalWallet),
+                                behavior: HitTestBehavior.opaque,
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                  child: Icon(
+                                    Icons.info_outline_rounded,
+                                    size: kIconSizeSmall,
+                                    color: Color(0xFF3F45C7),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                    ),
+                          Text(totalEquity.toStringAsFixed(2),
+                              style: TextStyle(
+                                  color: totalEquity >= 0
+                                      ? const Color(0xFF0F172A)
+                                      : const Color(0xFFEF4444),
+                                  fontSize: kFontSizeBody,
+                                  fontFamily: 'Inter',
+                                  fontWeight: kFontWeightBold)),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
 
                 // Masters list
                 if (_adminLoading)
@@ -738,6 +840,37 @@ class _OrdersPageState extends State<OrdersPage> {
                             Text(_masterM2mPnl.toStringAsFixed(2),
                                 style: TextStyle(
                                     color: isM2mPositive ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
+                                    fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                const Text('Equity',
+                                    style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
+                                GestureDetector(
+                                  onTap: () => _showMasterWalletBreakdownSheet(context),
+                                  behavior: HitTestBehavior.opaque,
+                                  child: const Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                    child: Icon(
+                                      Icons.info_outline_rounded,
+                                      size: kIconSizeSmall,
+                                      color: Color(0xFF3F45C7),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Text(_masterEquity.toStringAsFixed(2),
+                                style: TextStyle(
+                                    color: _masterEquity >= 0 ? const Color(0xFF0F172A) : const Color(0xFFEF4444),
                                     fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
                           ],
                         ),
@@ -1537,6 +1670,140 @@ class _OrdersPageState extends State<OrdersPage> {
                   children: [
                     const Text(
                       'Available Balance',
+                      style: TextStyle(
+                        color: Color(0xFF0F172A),
+                        fontSize: kFontSizeViewTitle,
+                        fontFamily: 'Inter',
+                        fontWeight: kFontWeightBold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (entries.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Text(
+                          'No wallet balances',
+                          style: TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: kFontSizeBody,
+                            fontFamily: 'Inter',
+                            fontWeight: kFontWeightMedium,
+                          ),
+                        ),
+                      )
+                    else ...[
+                      for (final e in entries)
+                        _buildWalletCategoryRow(e.key, e.value),
+                      const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                      _buildWalletCategoryRow('Total', total, isTotal: true),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  void _showMasterWalletBreakdownSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      backgroundColor: Colors.white,
+      builder: (context) {
+        return SafeArea(
+          child: Builder(
+            builder: (context) {
+              const order = ['NSE', 'MCX', 'GLOBAL'];
+              final entries = _masterWallet.entries.toList()
+                ..sort((a, b) {
+                  final ia = order.indexOf(a.key);
+                  final ib = order.indexOf(b.key);
+                  return (ia == -1 ? order.length : ia)
+                      .compareTo(ib == -1 ? order.length : ib);
+                });
+              final double total =
+                  entries.fold(0.0, (sum, e) => sum + e.value);
+
+              return Padding(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Available Balance',
+                      style: TextStyle(
+                        color: Color(0xFF0F172A),
+                        fontSize: kFontSizeViewTitle,
+                        fontFamily: 'Inter',
+                        fontWeight: kFontWeightBold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (entries.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Text(
+                          'No wallet balances',
+                          style: TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: kFontSizeBody,
+                            fontFamily: 'Inter',
+                            fontWeight: kFontWeightMedium,
+                          ),
+                        ),
+                      )
+                    else ...[
+                      for (final e in entries)
+                        _buildWalletCategoryRow(e.key, e.value),
+                      const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                      _buildWalletCategoryRow('Total', total, isTotal: true),
+                    ],
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  void _showAdminWalletBreakdownSheet(BuildContext context, Map<String, double> wallet) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      backgroundColor: Colors.white,
+      builder: (context) {
+        return SafeArea(
+          child: Builder(
+            builder: (context) {
+              const order = ['NSE', 'MCX', 'GLOBAL'];
+              final entries = wallet.entries.toList()
+                ..sort((a, b) {
+                  final ia = order.indexOf(a.key);
+                  final ib = order.indexOf(b.key);
+                  return (ia == -1 ? order.length : ia)
+                      .compareTo(ib == -1 ? order.length : ib);
+                });
+              final double total =
+                  entries.fold(0.0, (sum, e) => sum + e.value);
+
+              return Padding(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Platform Available Balance',
                       style: TextStyle(
                         color: Color(0xFF0F172A),
                         fontSize: kFontSizeViewTitle,

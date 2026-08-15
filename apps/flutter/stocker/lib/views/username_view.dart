@@ -1,3 +1,5 @@
+import "../providers/user_profile_provider.dart";
+import "../services/master_service.dart";
 import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
@@ -27,6 +29,7 @@ import 'rejection_log_history_view.dart';
 import 'settlement_report_view.dart';
 import '../pages/transaction_page.dart';
 import 'reports_view.dart';
+import 'manage_reports_view.dart';
 
 class UsernameView extends StatefulWidget {
   final Master? master;
@@ -187,9 +190,11 @@ class _UsernameViewState extends State<UsernameView> {
   final Map<String, Map<String, dynamic>> _perUserMetricsCache = {};
 
   void _reaggregateMasterMetrics() {
-
     // Re-aggregate from all cached user metrics
-    double totalRealised = 0, totalFloating = 0, totalMargin = 0, totalCredit = 0;
+    double totalRealised = 0,
+        totalFloating = 0,
+        totalMargin = 0,
+        totalCredit = 0;
     double totalEquity = 0, totalFreeMargin = 0;
     final Map<String, Map<String, dynamic>> instrMap = {};
 
@@ -210,12 +215,16 @@ class _UsernameViewState extends State<UsernameView> {
           instrMap[iToken]!['net_qty'] = 0;
           instrMap[iToken]!['floating_pnl'] = 0.0;
         }
-        instrMap[iToken]!['net_qty'] = (instrMap[iToken]!['net_qty'] as int) + ((pos['net_qty'] as num?)?.toInt() ?? 0);
-        instrMap[iToken]!['floating_pnl'] = (instrMap[iToken]!['floating_pnl'] as double) + ((pos['floating_pnl'] as num?)?.toDouble() ?? 0);
+        instrMap[iToken]!['net_qty'] = (instrMap[iToken]!['net_qty'] as int) +
+            ((pos['net_qty'] as num?)?.toInt() ?? 0);
+        instrMap[iToken]!['floating_pnl'] =
+            (instrMap[iToken]!['floating_pnl'] as double) +
+                ((pos['floating_pnl'] as num?)?.toDouble() ?? 0);
       }
     }
 
-    final livePositions = instrMap.values.where((p) => (p['net_qty'] as int) != 0).toList();
+    final livePositions =
+        instrMap.values.where((p) => (p['net_qty'] as int) != 0).toList();
     final m2m = totalRealised + totalFloating;
     final equity = totalEquity;
     final freeMargin = totalFreeMargin;
@@ -249,7 +258,8 @@ class _UsernameViewState extends State<UsernameView> {
           _livePriceService.authenticate(_currentMaster!.id, role: 'master');
         } else {
           final userId = payload['id'] as String?;
-          if (userId != null) _livePriceService.authenticate(userId, role: callerRole);
+          if (userId != null)
+            _livePriceService.authenticate(userId, role: callerRole);
         }
       }
     } catch (e) {
@@ -291,7 +301,10 @@ class _UsernameViewState extends State<UsernameView> {
           }
         } else if (_currentMaster != null && data.isNotEmpty) {
           // Master view: aggregate all users' metrics and seed per-user cache
-          double totalRealised = 0, totalFloating = 0, totalMargin = 0, totalCredit = 0;
+          double totalRealised = 0,
+              totalFloating = 0,
+              totalMargin = 0,
+              totalCredit = 0;
           double totalEquity = 0, totalFreeMargin = 0;
           final Map<String, Map<String, dynamic>> instrMap = {};
 
@@ -299,14 +312,19 @@ class _UsernameViewState extends State<UsernameView> {
             // Seed per-user cache for live WebSocket updates
             final uid = userMetrics['user_id']?.toString() ?? '';
             if (uid.isNotEmpty) {
-              _perUserMetricsCache[uid] = Map<String, dynamic>.from(userMetrics);
+              _perUserMetricsCache[uid] =
+                  Map<String, dynamic>.from(userMetrics);
             }
-            totalRealised += (userMetrics['realised_pnl'] as num?)?.toDouble() ?? 0;
-            totalFloating += (userMetrics['position_pnl'] as num?)?.toDouble() ?? 0;
-            totalMargin += (userMetrics['margin_used'] as num?)?.toDouble() ?? 0;
+            totalRealised +=
+                (userMetrics['realised_pnl'] as num?)?.toDouble() ?? 0;
+            totalFloating +=
+                (userMetrics['position_pnl'] as num?)?.toDouble() ?? 0;
+            totalMargin +=
+                (userMetrics['margin_used'] as num?)?.toDouble() ?? 0;
             totalCredit += (userMetrics['credit'] as num?)?.toDouble() ?? 0;
             totalEquity += (userMetrics['equity'] as num?)?.toDouble() ?? 0;
-            totalFreeMargin += (userMetrics['free_margin'] as num?)?.toDouble() ?? 0;
+            totalFreeMargin +=
+                (userMetrics['free_margin'] as num?)?.toDouble() ?? 0;
 
             final List positions = userMetrics['positions'] ?? [];
             for (final pos in positions) {
@@ -317,13 +335,18 @@ class _UsernameViewState extends State<UsernameView> {
                 instrMap[iToken]!['net_qty'] = 0;
                 instrMap[iToken]!['floating_pnl'] = 0.0;
               }
-              instrMap[iToken]!['net_qty'] = (instrMap[iToken]!['net_qty'] as int) + ((pos['net_qty'] as num?)?.toInt() ?? 0);
-              instrMap[iToken]!['floating_pnl'] = (instrMap[iToken]!['floating_pnl'] as double) + ((pos['floating_pnl'] as num?)?.toDouble() ?? 0);
+              instrMap[iToken]!['net_qty'] =
+                  (instrMap[iToken]!['net_qty'] as int) +
+                      ((pos['net_qty'] as num?)?.toInt() ?? 0);
+              instrMap[iToken]!['floating_pnl'] =
+                  (instrMap[iToken]!['floating_pnl'] as double) +
+                      ((pos['floating_pnl'] as num?)?.toDouble() ?? 0);
               tokens.add(iToken);
             }
           }
 
-          _livePositions = instrMap.values.where((p) => (p['net_qty'] as int) != 0).toList();
+          _livePositions =
+              instrMap.values.where((p) => (p['net_qty'] as int) != 0).toList();
           final m2m = totalRealised + totalFloating;
           final equity = totalEquity;
           final freeMargin = totalFreeMargin;
@@ -451,9 +474,11 @@ class _UsernameViewState extends State<UsernameView> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
-          final List<dynamic> mastersJson = data['data']['masters'] ?? data['data'] ?? [];
+          final List<dynamic> mastersJson =
+              data['data']['masters'] ?? data['data'] ?? [];
           setState(() {
-            _subMasterList = mastersJson.map((j) => Master.fromJson(j)).toList();
+            _subMasterList =
+                mastersJson.map((j) => Master.fromJson(j)).toList();
             _isLoadingSubMasters = false;
           });
         } else {
@@ -479,9 +504,16 @@ class _UsernameViewState extends State<UsernameView> {
   Future<void> _refreshData() async {
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
-      final adminService = AdminService(apiService);
+      final profileProvider =
+          Provider.of<UserProfileProvider>(context, listen: false);
+      final isMaster = profileProvider.isMaster;
+
       if (_currentMaster != null) {
-        final response = await adminService.getMasterById(_currentMaster!.id);
+        final response = isMaster
+            ? await MasterService(apiService)
+                .getChildMasterById(_currentMaster!.id)
+            : await AdminService(apiService).getMasterById(_currentMaster!.id);
+
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
           if (data['success'] == true) {
@@ -498,7 +530,10 @@ class _UsernameViewState extends State<UsernameView> {
           }
         }
       } else if (_currentUser != null) {
-        final response = await adminService.getUserById(_currentUser!.id);
+        final response = isMaster
+            ? await MasterService(apiService).getUserById(_currentUser!.id)
+            : await AdminService(apiService).getUserById(_currentUser!.id);
+
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
           if (data['success'] == true) {
@@ -721,12 +756,12 @@ class _UsernameViewState extends State<UsernameView> {
           _card(
             child: Column(
               children: [
-                _settingRow(
-                    kIconCreditDebit, 'Credit/Debit'),
+                _settingRow(kIconCreditDebit, 'Credit/Debit'),
                 _settingRow(kIconTradeWallet, 'Trade Wallet'),
                 _settingRow(kIconGroupQuantity, 'Group Quantity Settings'),
                 if (_currentUser != null)
-                  _settingRow(kIconMarginSquareoff, 'Margin SquareOff Settings'),
+                  _settingRow(
+                      kIconMarginSquareoff, 'Margin SquareOff Settings'),
                 _settingRow(kIconBrokerageSettings, 'Brk Settings'),
                 _settingRow(kIconIntradaySquareoff, 'Intraday SquareOff'),
                 _settingRow(kIconSharingDetails, 'Sharing Details'),
@@ -813,8 +848,7 @@ class _UsernameViewState extends State<UsernameView> {
                         colorFilter: const ColorFilter.mode(
                             Color(0xFF3F45C7), BlendMode.srcIn))
                     : Icon(iconOrPath as IconData,
-                        size: kIconSizeMedium,
-                        color: const Color(0xFF3F45C7)),
+                        size: kIconSizeMedium, color: const Color(0xFF3F45C7)),
                 const SizedBox(width: 12),
                 Expanded(
                     child: Text(label,
@@ -1093,6 +1127,24 @@ class _UsernameViewState extends State<UsernameView> {
                               fontWeight: kFontWeightSemiBold,
                               letterSpacing: 0.3)),
                     ),
+                    if (trade.tradeType == 'margin_square_off' ||
+                        trade.placedBy == 'SYSTEM') ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                            color: Colors.orange.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8)),
+                        child: const Text('AUTO SQOFF',
+                            style: TextStyle(
+                                color: Colors.orange,
+                                fontSize: 10,
+                                fontFamily: 'Inter',
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.3)),
+                      ),
+                    ],
                   ],
                 ),
                 if (isClosing) ...[
@@ -1126,7 +1178,8 @@ class _UsernameViewState extends State<UsernameView> {
                         padding: EdgeInsets.symmetric(horizontal: 6),
                         child: Text('·',
                             style: TextStyle(
-                                fontSize: kFontSizeTradeMetadata, color: Color(0xFFCBD5E1)))),
+                                fontSize: kFontSizeTradeMetadata,
+                                color: Color(0xFFCBD5E1)))),
                     const Icon(Icons.access_time,
                         size: 11, color: Color(0xFF94A3B8)),
                     const SizedBox(width: 3),
@@ -1396,11 +1449,14 @@ class _UsernameViewState extends State<UsernameView> {
                 _liveMetricGridRow('M2M P&L', m2mPnl, 'Credit', credit),
                 const Divider(height: 1, color: Color(0xFFF1F5F9)),
                 if (_currentUser != null) ...[
-                  _liveMetricGridRow('Margin Used', marginUsed, 'Equity', equity),
+                  _liveMetricGridRowWithEquityInfo(
+                      'Margin Used', marginUsed, 'Equity', equity),
                   const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                  _liveMetricGridRow('Free Margin', freeMargin, '', 0, hideSecond: true),
+                  _liveMetricGridRow('Free Margin', freeMargin, '', 0,
+                      hideSecond: true),
                 ] else ...[
-                  _liveMetricGridRow('Margin Used', marginUsed, '', 0, hideSecond: true),
+                  _liveMetricGridRow('Margin Used', marginUsed, '', 0,
+                      hideSecond: true),
                 ],
               ],
             ),
@@ -1435,9 +1491,11 @@ class _UsernameViewState extends State<UsernameView> {
         isBuy ? const Color(0xFF10B981) : const Color(0xFFEF4444);
 
     final double avgBuyPrice = (pos['avg_buy_price'] as num?)?.toDouble() ?? 0;
-    final double avgSellPrice = (pos['avg_sell_price'] as num?)?.toDouble() ?? 0;
+    final double avgSellPrice =
+        (pos['avg_sell_price'] as num?)?.toDouble() ?? 0;
     final double avgPrice = isBuy ? avgBuyPrice : avgSellPrice;
-    final double ltp = _ltpMap[iToken] ?? (pos['ltp'] as num?)?.toDouble() ?? avgPrice;
+    final double ltp =
+        _ltpMap[iToken] ?? (pos['ltp'] as num?)?.toDouble() ?? avgPrice;
 
     // CMP: use server-pushed value from metricsEngine (bid for BUY, ask for SELL)
     // Falls back to LTP if cmp not available
@@ -1495,7 +1553,8 @@ class _UsernameViewState extends State<UsernameView> {
                                   color: Color(0xFFCBD5E1),
                                   shape: BoxShape.circle)),
                           const SizedBox(width: 6),
-                          Text('${isBuy ? "BUY" : "SELL"}: ${_positionVolumeLabel(pos)}',
+                          Text(
+                              '${isBuy ? "BUY" : "SELL"}: ${_positionVolumeLabel(pos)}',
                               style: TextStyle(
                                   color: sideColor,
                                   fontSize: kFontSizePositionDetail,
@@ -1586,15 +1645,164 @@ class _UsernameViewState extends State<UsernameView> {
     return '${trade.quantity} QTY';
   }
 
-  Widget _liveMetricGridRow(String l1, double v1, String l2, double v2, {bool hideSecond = false}) {
+  Widget _liveMetricGridRow(String l1, double v1, String l2, double v2,
+      {bool hideSecond = false}) {
     return IntrinsicHeight(
       child: Row(
         children: [
-          Expanded(child: _liveMetricCell(l1, v1, showRightBorder: !hideSecond)),
+          Expanded(
+              child: _liveMetricCell(l1, v1, showRightBorder: !hideSecond)),
           if (!hideSecond)
             Expanded(child: _liveMetricCell(l2, v2))
           else
             const Expanded(child: SizedBox()),
+        ],
+      ),
+    );
+  }
+
+  /// Same as _liveMetricGridRow but with an (i) button on the Equity cell
+  Widget _liveMetricGridRowWithEquityInfo(
+      String l1, double v1, String l2, double v2) {
+    return IntrinsicHeight(
+      child: Row(
+        children: [
+          Expanded(child: _liveMetricCell(l1, v1, showRightBorder: true)),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(l2.toUpperCase(),
+                          style: const TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 9,
+                              fontFamily: 'Inter',
+                              fontWeight: kFontWeightSemiBold,
+                              letterSpacing: 0.3)),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () => _showEquityBreakdown(),
+                        behavior: HitTestBehavior.opaque,
+                        child: const Padding(
+                          padding:
+                              EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+                          child: Icon(
+                            Icons.info_outline_rounded,
+                            size: 12,
+                            color: Color(0xFF3F45C7),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    v2.toStringAsFixed(2),
+                    style: const TextStyle(
+                        color: Color(0xFF0F172A),
+                        fontSize: 13,
+                        fontFamily: 'Inter',
+                        fontWeight: kFontWeightBold),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEquityBreakdown() {
+    final metrics = _liveUserMetrics;
+    final wallet = metrics?['wallet'] as Map<String, dynamic>? ?? {};
+    final credit = (metrics?['credit'] as num?)?.toDouble() ?? credits;
+    final m2m = (metrics?['m2m_pnl'] as num?)?.toDouble() ?? 0;
+    final equity = (metrics?['equity'] as num?)?.toDouble() ?? 0;
+    final marginUsed = (metrics?['margin_used'] as num?)?.toDouble() ?? 0;
+    final freeMargin = (metrics?['free_margin'] as num?)?.toDouble() ?? 0;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const Text('Equity Breakdown',
+                style: TextStyle(
+                    color: Color(0xFF0F172A),
+                    fontSize: 16,
+                    fontFamily: 'Inter',
+                    fontWeight: FontWeight.w700)),
+            const SizedBox(height: 16),
+            _equityRow('Credit', credit),
+            _equityRow('M2M P&L', m2m, isColored: true),
+            _equityRow('Equity', equity),
+            const Divider(height: 24, color: Color(0xFFF1F5F9)),
+            _equityRow('Margin Used', marginUsed),
+            _equityRow('Free Margin', freeMargin, isColored: true),
+            if (wallet.isNotEmpty) ...[
+              const Divider(height: 24, color: Color(0xFFF1F5F9)),
+              const Text('WALLET BALANCES',
+                  style: TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: 10,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5)),
+              const SizedBox(height: 8),
+              ...wallet.entries.map(
+                  (e) => _equityRow(e.key, (e.value as num?)?.toDouble() ?? 0)),
+            ],
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _equityRow(String label, double value, {bool isColored = false}) {
+    final Color valueColor = isColored
+        ? (value >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444))
+        : const Color(0xFF0F172A);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: 13,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w500)),
+          Text(value.toStringAsFixed(2),
+              style: TextStyle(
+                  color: valueColor,
+                  fontSize: 13,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -1848,8 +2056,12 @@ class _UsernameViewState extends State<UsernameView> {
                 master: _currentMaster, user: _currentUser));
         break;
       case 'Brk Settings':
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const BrokerageSettingsView()));
+        Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => BrokerageSettingsView(
+                    ownerId: _currentUser?.id ?? _currentMaster?.id,
+                    ownerType: _currentUser != null ? 'User' : 'Master')));
         break;
       case 'Intraday SquareOff':
         showModalBottomSheet(
@@ -1905,6 +2117,40 @@ class _UsernameViewState extends State<UsernameView> {
     }
   }
 
+  // ── Manage User Report Permissions Sheet ──
+  void _showManageUserReportsSheet() {
+    final user = _currentUser!;
+    final profile = Provider.of<UserProfileProvider>(context, listen: false);
+    final parentPerms = profile.reportPermissions;
+
+    // Current user's report_permissions (from model or default to true)
+    final currentPerms = <String, bool>{
+      'account_summary': user.reportPermissions?['account_summary'] ?? true,
+      'pnl_summary': user.reportPermissions?['pnl_summary'] ?? true,
+      'client_summary': user.reportPermissions?['client_summary'] ?? true,
+      'settlement_report': user.reportPermissions?['settlement_report'] ?? true,
+      'generate_pdf': user.reportPermissions?['generate_pdf'] ?? true,
+      'weekly_admin': user.reportPermissions?['weekly_admin'] ?? true,
+      'intraday_history': user.reportPermissions?['intraday_history'] ?? true,
+      'userwise_open_position':
+          user.reportPermissions?['userwise_open_position'] ?? true,
+      'script_quantity': user.reportPermissions?['script_quantity'] ?? true,
+      'deleted_trade': user.reportPermissions?['deleted_trade'] ?? true,
+      'trade_account': user.reportPermissions?['trade_account'] ?? true,
+    };
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ManageUserReportsSheet(
+        userId: user.id,
+        currentPerms: currentPerms,
+        parentPerms: parentPerms,
+      ),
+    );
+  }
+
   // ── Sub-Master List Tab ──
   Widget _buildSubMasterListTab() {
     if (_isLoadingSubMasters) {
@@ -1921,18 +2167,23 @@ class _UsernameViewState extends State<UsernameView> {
             const SizedBox(height: 12),
             Text(_subMastersError!,
                 style: const TextStyle(
-                    color: Color(0xFFEF4444), fontSize: 13, fontFamily: 'Inter')),
+                    color: Color(0xFFEF4444),
+                    fontSize: 13,
+                    fontFamily: 'Inter')),
             const SizedBox(height: 12),
             GestureDetector(
               onTap: _fetchSubMasterList,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                     color: const Color(0xFF3F45C7),
                     borderRadius: BorderRadius.circular(10)),
                 child: const Text('Retry',
                     style: TextStyle(
-                        color: Colors.white, fontSize: 13, fontFamily: 'Inter',
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontFamily: 'Inter',
                         fontWeight: kFontWeightSemiBold)),
               ),
             ),
@@ -1948,15 +2199,27 @@ class _UsernameViewState extends State<UsernameView> {
           Center(
             child: Column(children: [
               Container(
-                width: 72, height: 72,
+                width: 72,
+                height: 72,
                 decoration: BoxDecoration(
-                    color: Colors.white, shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))]),
-                child: const Icon(Icons.supervisor_account, size: 32, color: Color(0xFFCBD5E1)),
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4))
+                    ]),
+                child: const Icon(Icons.supervisor_account,
+                    size: 32, color: Color(0xFFCBD5E1)),
               ),
               const SizedBox(height: 20),
               const Text('No sub-masters found',
-                  style: TextStyle(color: Color(0xFF475569), fontSize: 16, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                  style: TextStyle(
+                      color: Color(0xFF475569),
+                      fontSize: 16,
+                      fontFamily: 'Inter',
+                      fontWeight: kFontWeightSemiBold)),
             ]),
           ),
         ]),
@@ -1985,59 +2248,101 @@ class _UsernameViewState extends State<UsernameView> {
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white, borderRadius: BorderRadius.circular(20),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2))
+                ],
               ),
               child: Row(children: [
                 Container(
-                  width: 40, height: 40,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12)),
+                      color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12)),
                   child: Center(
                     child: Text(
-                      master.name.isNotEmpty ? master.name[0].toUpperCase() : 'M',
-                      style: const TextStyle(color: Color(0xFF8B5CF6), fontSize: 16, fontFamily: 'Inter', fontWeight: kFontWeightBold)),
+                        master.name.isNotEmpty
+                            ? master.name[0].toUpperCase()
+                            : 'M',
+                        style: const TextStyle(
+                            color: Color(0xFF8B5CF6),
+                            fontSize: 16,
+                            fontFamily: 'Inter',
+                            fontWeight: kFontWeightBold)),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(master.name,
-                        style: const TextStyle(color: Colors.black, fontSize: 14, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
-                    const SizedBox(height: 2),
-                    Row(children: [
-                      Text(master.username,
-                          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                        decoration: BoxDecoration(color: const Color(0xFF8B5CF6).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                        child: const Text('MASTER', style: TextStyle(color: Color(0xFF8B5CF6), fontSize: 9, fontFamily: 'Inter', fontWeight: kFontWeightBold, letterSpacing: 0.3)),
-                      ),
-                    ]),
-                  ]),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(master.name,
+                            style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 14,
+                                fontFamily: 'Inter',
+                                fontWeight: kFontWeightSemiBold)),
+                        const SizedBox(height: 2),
+                        Row(children: [
+                          Text(master.username,
+                              style: const TextStyle(
+                                  color: Color(0xFF94A3B8),
+                                  fontSize: 12,
+                                  fontFamily: 'Inter',
+                                  fontWeight: kFontWeightMedium)),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                                color: const Color(0xFF8B5CF6)
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4)),
+                            child: const Text('MASTER',
+                                style: TextStyle(
+                                    color: Color(0xFF8B5CF6),
+                                    fontSize: 9,
+                                    fontFamily: 'Inter',
+                                    fontWeight: kFontWeightBold,
+                                    letterSpacing: 0.3)),
+                          ),
+                        ]),
+                      ]),
                 ),
                 Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                   Text(master.credits.toStringAsFixed(2),
-                      style: const TextStyle(color: Colors.black, fontSize: 13, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                      style: const TextStyle(
+                          color: Colors.black,
+                          fontSize: 13,
+                          fontFamily: 'Inter',
+                          fontWeight: kFontWeightSemiBold)),
                   const SizedBox(height: 2),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: master.activeStatus
-                          ? const Color(0xFF10B981).withValues(alpha: 0.1)
-                          : const Color(0xFFEF4444).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6)),
-                    child: Text(
-                      master.activeStatus ? 'Active' : 'Inactive',
-                      style: TextStyle(
-                        color: master.activeStatus ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-                        fontSize: 10, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                        color: master.activeStatus
+                            ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                            : const Color(0xFFEF4444).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6)),
+                    child: Text(master.activeStatus ? 'Active' : 'Inactive',
+                        style: TextStyle(
+                            color: master.activeStatus
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFFEF4444),
+                            fontSize: 10,
+                            fontFamily: 'Inter',
+                            fontWeight: kFontWeightSemiBold)),
                   ),
                 ]),
                 const SizedBox(width: 4),
-                const Icon(Icons.chevron_right, size: kIconSizeMedium, color: Color(0xFF94A3B8)),
+                const Icon(Icons.chevron_right,
+                    size: kIconSizeMedium, color: Color(0xFF94A3B8)),
               ]),
             ),
           );
@@ -2671,4 +2976,225 @@ class _PerTradePnl {
   final bool isClosing;
   final String? openedAt;
   _PerTradePnl({required this.pnl, required this.isClosing, this.openedAt});
+}
+
+// ── Bottom sheet for managing a User's report permissions ──
+class _ManageUserReportsSheet extends StatefulWidget {
+  final String userId;
+  final Map<String, bool> currentPerms;
+  final Map<String, bool> parentPerms;
+
+  const _ManageUserReportsSheet({
+    required this.userId,
+    required this.currentPerms,
+    required this.parentPerms,
+  });
+
+  @override
+  State<_ManageUserReportsSheet> createState() =>
+      _ManageUserReportsSheetState();
+}
+
+class _ManageUserReportsSheetState extends State<_ManageUserReportsSheet> {
+  late Map<String, bool> _perms;
+  bool _isUpdating = false;
+  bool _hasChanges = false;
+
+  // Only the report permissions relevant to Users
+  static const _labels = {
+    'account_summary': 'Account Summary',
+    'generate_pdf': 'Generate PDF',
+    'intraday_history': 'Intraday History',
+    'userwise_open_position': 'Userwise Position',
+    'script_quantity': 'Script Quantity',
+    'deleted_trade': 'Deleted Trade',
+    'trade_account': 'Rejection Log',
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _perms = Map.from(widget.currentPerms);
+  }
+
+  Future<void> _save() async {
+    setState(() => _isUpdating = true);
+    try {
+      final api = Provider.of<ApiService>(context, listen: false);
+      final storage = SecureStorageService();
+      final token = await storage.getToken();
+      final res = await api.put(
+        '/master/users/${widget.userId}/report-permissions',
+        {'report_permissions': _perms},
+        token: token,
+      );
+      if (res.statusCode == 200) {
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Report permissions updated'),
+            backgroundColor: Color(0xFF10B981),
+          ));
+        }
+      } else {
+        final body = jsonDecode(res.body);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(body['message'] ?? 'Failed to update'),
+            backgroundColor: const Color(0xFFEF4444),
+          ));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: const Color(0xFFEF4444),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _isUpdating = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints:
+          BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 16),
+          const Text('Manage Reports',
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: kFontSizeSectionHeader,
+                fontFamily: 'Inter',
+                fontWeight: kFontWeightBold,
+              )),
+          const SizedBox(height: 16),
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              children: _labels.entries.map((e) {
+                final parentHas = widget.parentPerms[e.key] ?? true;
+                return _buildToggle(e.key, e.value, parentHas);
+              }).toList(),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 12,
+              bottom: 16 + MediaQuery.of(context).viewPadding.bottom,
+            ),
+            child: GestureDetector(
+              onTap: _isUpdating || !_hasChanges ? null : _save,
+              child: Container(
+                width: double.infinity,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: _isUpdating || !_hasChanges
+                      ? const Color(0xFF94A3B8)
+                      : const Color(0xFF3F45C7),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Center(
+                  child: _isUpdating
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2))
+                      : const Text('UPDATE',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: kFontSizeButtonText,
+                              fontFamily: 'Inter',
+                              fontWeight: kFontWeightSemiBold)),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToggle(String key, String label, bool parentHas) {
+    final value = _perms[key] ?? true;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                      color: parentHas ? Colors.black : const Color(0xFF94A3B8),
+                      fontSize: kFontSizeBody,
+                      fontFamily: 'Inter',
+                      fontWeight: kFontWeightMedium,
+                    )),
+                if (!parentHas)
+                  const Text('Disabled by parent',
+                      style: TextStyle(
+                        color: Color(0xFFEF4444),
+                        fontSize: 11,
+                        fontFamily: 'Inter',
+                      )),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: parentHas
+                ? () {
+                    setState(() {
+                      _perms[key] = !value;
+                      _hasChanges = true;
+                    });
+                  }
+                : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 44,
+              height: 26,
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: !parentHas
+                    ? const Color(0xFFE2E8F0)
+                    : value
+                        ? const Color(0xFF3F45C7)
+                        : const Color(0xFFCBD5E1),
+                borderRadius: BorderRadius.circular(13),
+              ),
+              child: AnimatedAlign(
+                duration: const Duration(milliseconds: 200),
+                alignment: value && parentHas
+                    ? Alignment.centerRight
+                    : Alignment.centerLeft,
+                child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: parentHas ? Colors.white : const Color(0xFFF1F5F9),
+                      shape: BoxShape.circle,
+                    )),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

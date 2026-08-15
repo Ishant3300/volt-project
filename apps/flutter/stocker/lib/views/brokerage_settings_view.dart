@@ -10,7 +10,10 @@ import 'add_brokerage_to_exchange_view.dart';
 import '../utils/contants.dart';
 
 class BrokerageSettingsView extends StatefulWidget {
-  const BrokerageSettingsView({super.key});
+  final String? ownerId;
+  final String? ownerType; // 'Master' or 'User'
+
+  const BrokerageSettingsView({super.key, this.ownerId, this.ownerType});
   @override
   State<BrokerageSettingsView> createState() => _BrokerageSettingsViewState();
 }
@@ -63,10 +66,12 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
       final apiService = Provider.of<ApiService>(context, listen: false);
       final effectiveExchange =
           _selectedExchange == 'GLOBAL' ? 'INDICES' : _selectedExchange!;
-      final res = await AdminService(apiService).getBrokerageByExchange(
-        exchangeName: effectiveExchange,
-        type: _selectedType,
-        limit: 2000,
+      final token = await SecureStorageService().getToken();
+      final userQuery =
+          widget.ownerId != null ? '&user_id=${widget.ownerId}' : '';
+      final res = await apiService.get(
+        '/admin/brokerage-settings/exchange/$effectiveExchange?type=${Uri.encodeComponent(_selectedType)}&limit=2000$userQuery',
+        token: token,
       );
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
@@ -111,6 +116,23 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
       final token = await SecureStorageService().getToken();
+
+      // If owner-specific and no items exist yet, create user-specific records first
+      if (widget.ownerId != null && _items.isEmpty) {
+        final effectiveExchange =
+            _selectedExchange == 'GLOBAL' ? 'INDICES' : _selectedExchange!;
+        await apiService.post(
+            '/admin/brokerage-settings/bulk-create',
+            {
+              'exchange_name': effectiveExchange,
+              'type': _selectedType,
+              'default_brk_value': value,
+              'user_id': widget.ownerId,
+            },
+            token: token);
+        await _fetch();
+      }
+
       // Collect IDs of selected items
       final ids = <String>[];
       for (var item in _items) {
@@ -118,11 +140,24 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
           ids.add(item['id']);
         }
       }
-      final res = await apiService.put('/admin/brokerage-settings/bulk-update', {
-        'ids': ids,
-        'brk_value': value,
-        'type': _selectedType,
-      }, token: token);
+
+      if (ids.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('No records to update')));
+        }
+        setState(() => _isApplying = false);
+        return;
+      }
+
+      final res = await apiService.put(
+          '/admin/brokerage-settings/bulk-update',
+          {
+            'ids': ids,
+            'brk_value': value,
+            'type': _selectedType,
+          },
+          token: token);
       if (mounted) {
         final body = jsonDecode(res.body);
         if (res.statusCode == 200 && body['success'] == true) {
@@ -196,24 +231,37 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                 GestureDetector(
                   onTap: () {
                     if (_selectedExchange == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select an exchange first')));
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Select an exchange first')));
                       return;
                     }
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => AddBrokerageToExchangeView(
-                        exchange: _selectedExchange!,
-                        type: _selectedType,
-                        isExistingGroup: _items.isNotEmpty,
-                      ),
-                    )).then((_) => _fetch());
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => AddBrokerageToExchangeView(
+                            exchange: _selectedExchange!,
+                            type: _selectedType,
+                            isExistingGroup: _items.isNotEmpty,
+                          ),
+                        )).then((_) => _fetch());
                   },
                   child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(10)),
-                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.add, color: Colors.white, size: kIconSizeDefault),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                          color: const Color(0xFF3F45C7),
+                          borderRadius: BorderRadius.circular(10)),
+                      child:
+                          const Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.add,
+                            color: Colors.white, size: kIconSizeDefault),
                         SizedBox(width: 4),
-                        Text('Create', style: TextStyle(color: Colors.white, fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold))
+                        Text('Create',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: kFontSizeSubtitle,
+                                fontFamily: 'Inter',
+                                fontWeight: kFontWeightSemiBold))
                       ])),
                 ),
               ],
@@ -292,18 +340,24 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                          color: _isApplying ? const Color(0xFF94A3B8) : const Color(0xFF3F45C7),
+                          color: _isApplying
+                              ? const Color(0xFF94A3B8)
+                              : const Color(0xFF3F45C7),
                           borderRadius: const BorderRadius.only(
                               topRight: Radius.circular(12),
                               bottomRight: Radius.circular(12))),
                       child: _isApplying
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2))
                           : const Text('Apply',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: kFontSizeBodySmall,
-                              fontFamily: 'Inter',
-                              fontWeight: kFontWeightSemiBold)))),
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: kFontSizeBodySmall,
+                                  fontFamily: 'Inter',
+                                  fontWeight: kFontWeightSemiBold)))),
             ])),
         const SizedBox(height: 10),
 
@@ -403,38 +457,38 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
     return Opacity(
       opacity: onChanged == null ? 0.6 : 1.0,
       child: Container(
-      height: 42,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 4,
-                offset: const Offset(0, 2))
-          ]),
-      child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-        value: items.contains(value) ? value : items.first,
-        isExpanded: true,
-        icon: const Icon(Icons.keyboard_arrow_down,
-            size: 18, color: Color(0xFF94A3B8)),
-        style: const TextStyle(
-            color: Colors.black,
-            fontSize: kFontSizeBodySmall,
-            fontFamily: 'Inter',
-            fontWeight: kFontWeightMedium),
-        items: items
-            .map((k) => DropdownMenuItem(
-                value: k,
-                child:
-                    Text(displayMap?[k] ?? k, overflow: TextOverflow.ellipsis)))
-            .toList(),
-        onChanged: onChanged,
-      )),
-    ),
+        height: 42,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2))
+            ]),
+        child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+          value: items.contains(value) ? value : items.first,
+          isExpanded: true,
+          icon: const Icon(Icons.keyboard_arrow_down,
+              size: 18, color: Color(0xFF94A3B8)),
+          style: const TextStyle(
+              color: Colors.black,
+              fontSize: kFontSizeBodySmall,
+              fontFamily: 'Inter',
+              fontWeight: kFontWeightMedium),
+          items: items
+              .map((k) => DropdownMenuItem(
+                  value: k,
+                  child: Text(displayMap?[k] ?? k,
+                      overflow: TextOverflow.ellipsis)))
+              .toList(),
+          onChanged: onChanged,
+        )),
+      ),
     );
   }
 

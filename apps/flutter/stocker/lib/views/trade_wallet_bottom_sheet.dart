@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
+import '../utils/number_to_words.dart';
 import '../models/master.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
@@ -183,7 +184,8 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
         _mode == 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444);
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
         width: double.infinity,
         padding:
@@ -361,7 +363,24 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              // Amount in words
+              Builder(builder: (_) {
+                final parsed = double.tryParse(_amountController.text.trim());
+                final words = numberToIndianWords(parsed);
+                if (words.isEmpty) return const SizedBox(height: 24);
+                return Padding(
+                  padding: const EdgeInsets.only(top: 6, bottom: 18),
+                  child: Text(
+                    '₹ $words',
+                    style: const TextStyle(
+                      color: Color(0xFF3F45C7),
+                      fontSize: 12,
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                );
+              }),
 
               // Actions
               Row(
@@ -418,11 +437,9 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 18),
         decoration: ShapeDecoration(
-          color: _isSubmitting
-              ? const Color(0xFFE5E5EA)
-              : const Color(0xFFD1D1D6),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8)),
+          color:
+              _isSubmitting ? const Color(0xFFE5E5EA) : const Color(0xFFD1D1D6),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: const Text(
           'CLOSE',
@@ -476,9 +493,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
           color: selected ? const Color(0xFF3F45C7) : const Color(0xFFF8FAFC),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected
-                ? const Color(0xFF3F45C7)
-                : const Color(0xFFF1F5F9),
+            color: selected ? const Color(0xFF3F45C7) : const Color(0xFFF1F5F9),
           ),
         ),
         child: Text(

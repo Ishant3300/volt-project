@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:developer';
+import '../utils/number_to_words.dart';
 import '../providers/user_profile_provider.dart';
 import '../services/admin_service.dart';
 import '../services/master_service.dart';
@@ -52,12 +53,13 @@ class _CreateUserViewState extends State<CreateUserView> {
 
   void _generateUsername() async {
     try {
-      final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+      final profileProvider =
+          Provider.of<UserProfileProvider>(context, listen: false);
       final apiService = Provider.of<ApiService>(context, listen: false);
       final res = profileProvider.isAdmin
           ? await AdminService(apiService).generateUsername()
           : await MasterService(apiService).generateUsername();
-          
+
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body)['data'];
         setState(() {
@@ -73,7 +75,8 @@ class _CreateUserViewState extends State<CreateUserView> {
   void _releaseUsername() async {
     if (_generatedUsername != null) {
       try {
-        final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);
+        final profileProvider =
+            Provider.of<UserProfileProvider>(context, listen: false);
         final apiService = Provider.of<ApiService>(context, listen: false);
         if (profileProvider.isAdmin) {
           await AdminService(apiService).releaseUsername(_generatedUsername!);
@@ -128,15 +131,26 @@ class _CreateUserViewState extends State<CreateUserView> {
         final apiService = ApiService(backendUrl);
         final masterId = widget.user!.masterId;
         if (masterId != null && masterId.isNotEmpty) {
-          final res = await apiService.get('/master/masters/$masterId', token: token);
+          final res =
+              await apiService.get('/master/masters/$masterId', token: token);
           if (res.statusCode == 200) {
             final body = jsonDecode(res.body);
             final masterData = body['data'];
             if (masterData != null) {
               final List exList = masterData['exchanges_allowed'] ?? [];
-              masterExchanges = exList.map<String>((e) => (e is String ? e : e.toString()) == 'INDICES' ? 'GLOBAL' : (e is String ? e : e.toString())).toList();
+              masterExchanges = exList
+                  .map<String>((e) =>
+                      (e is String ? e : e.toString()) == 'INDICES'
+                          ? 'GLOBAL'
+                          : (e is String ? e : e.toString()))
+                  .toList();
               final List tlList = masterData['trade_limit'] ?? [];
-              masterTradeLimit = tlList.map<String>((e) => (e is String ? e : e.toString()) == 'INDICES' ? 'GLOBAL' : (e is String ? e : e.toString())).toList();
+              masterTradeLimit = tlList
+                  .map<String>((e) =>
+                      (e is String ? e : e.toString()) == 'INDICES'
+                          ? 'GLOBAL'
+                          : (e is String ? e : e.toString()))
+                  .toList();
             }
           }
         }
@@ -146,8 +160,22 @@ class _CreateUserViewState extends State<CreateUserView> {
 
       // Fallback for admin: if we couldn't get master data, show all standard exchanges
       if (masterExchanges == null || masterExchanges!.isEmpty) {
-        masterExchanges = ['NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'SGX', 'GLOBAL'];
-        masterTradeLimit = ['NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'SGX', 'GLOBAL'];
+        masterExchanges = [
+          'NFO-FUT',
+          'NFO-OPT',
+          'MCX-FUT',
+          'MCX-OPT',
+          'SGX',
+          'GLOBAL'
+        ];
+        masterTradeLimit = [
+          'NFO-FUT',
+          'NFO-OPT',
+          'MCX-FUT',
+          'MCX-OPT',
+          'SGX',
+          'GLOBAL'
+        ];
       }
     }
 
@@ -169,7 +197,9 @@ class _CreateUserViewState extends State<CreateUserView> {
         // Initialize brokerage settings with sensible defaults per exchange
         _brokerageSettings = {};
         for (var exchange in _allowedExchanges) {
-          final isLotSegment = exchange == 'NFO-OPT' || exchange == 'MCX-FUT' || exchange == 'MCX-OPT';
+          final isLotSegment = exchange == 'NFO-OPT' ||
+              exchange == 'MCX-FUT' ||
+              exchange == 'MCX-OPT';
           _brokerageSettings[exchange] = {
             'type': isLotSegment ? 'LOT WISE' : 'TURNOVER WISE',
             'value': '',
@@ -245,6 +275,8 @@ class _CreateUserViewState extends State<CreateUserView> {
     try {
       final token = await SecureStorageService().getToken();
       final apiService = ApiService(backendUrl);
+      // When editing an existing user, scope to their user_id
+      final userId = widget.user?.id;
 
       for (final exchange in _allowedExchanges) {
         final apiExchange = exchange == 'GLOBAL' ? 'INDICES' : exchange;
@@ -252,8 +284,9 @@ class _CreateUserViewState extends State<CreateUserView> {
         if (brkSettings == null) continue;
 
         final type = brkSettings['type'] as String;
+        final userQuery = userId != null ? '&user_id=$userId' : '';
         final res = await apiService.get(
-          '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=1',
+          '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=1$userQuery',
           token: token,
         );
         if (res.statusCode == 200) {
@@ -266,7 +299,9 @@ class _CreateUserViewState extends State<CreateUserView> {
                 setState(() {
                   brkSettings['value'] = firstVal.toString();
                   (brkSettings['controller'] as TextEditingController).text =
-                      firstVal % 1 == 0 ? firstVal.toInt().toString() : firstVal.toString();
+                      firstVal % 1 == 0
+                          ? firstVal.toInt().toString()
+                          : firstVal.toString();
                 });
               }
             }
@@ -274,12 +309,12 @@ class _CreateUserViewState extends State<CreateUserView> {
         }
       }
     } catch (e) {
-      log('⚠️ Error fetching current brokerage: $e');
+      log('⚠️ Error fetching current brokerage: \$e');
     }
   }
 
   /// Apply brokerage settings for enabled exchanges after user creation
-  Future<void> _applyBrokerageSettings() async {
+  Future<void> _applyBrokerageSettings(String? userId) async {
     try {
       final token = await SecureStorageService().getToken();
       final apiService = ApiService(backendUrl);
@@ -291,7 +326,8 @@ class _CreateUserViewState extends State<CreateUserView> {
         final brkSettings = _brokerageSettings[exchange];
         if (brkSettings == null) continue;
 
-        final valueStr = (brkSettings['controller'] as TextEditingController).text.trim();
+        final valueStr =
+            (brkSettings['controller'] as TextEditingController).text.trim();
         if (valueStr.isEmpty) continue;
         final value = double.tryParse(valueStr);
         if (value == null || value <= 0) continue;
@@ -300,15 +336,21 @@ class _CreateUserViewState extends State<CreateUserView> {
         final apiExchange = exchange == 'GLOBAL' ? 'INDICES' : exchange;
 
         // Bulk-create ensures all instruments for this exchange have brokerage entries
-        await apiService.post('/admin/brokerage-settings/bulk-create', {
-          'exchange_name': apiExchange,
-          'type': type,
-          'default_brk_value': value,
-        }, token: token);
+        await apiService.post(
+          '/admin/brokerage-settings/bulk-create',
+          {
+            'exchange_name': apiExchange,
+            'type': type,
+            'default_brk_value': value,
+            'user_id': userId,
+          },
+          token: token,
+        );
 
         // Then bulk-update all existing entries to the new value
+        final userQuery = userId != null ? '&user_id=$userId' : '';
         final fetchRes = await apiService.get(
-          '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=2000',
+          '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=2000$userQuery',
           token: token,
         );
         if (fetchRes.statusCode == 200) {
@@ -317,17 +359,21 @@ class _CreateUserViewState extends State<CreateUserView> {
             final items = body['data']['items'] as List? ?? [];
             if (items.isNotEmpty) {
               final ids = items.map<String>((i) => i['id'].toString()).toList();
-              await apiService.put('/admin/brokerage-settings/bulk-update', {
-                'ids': ids,
-                'brk_value': value,
-                'type': type,
-              }, token: token);
+              await apiService.put(
+                '/admin/brokerage-settings/bulk-update',
+                {
+                  'ids': ids,
+                  'brk_value': value,
+                  'type': type,
+                },
+                token: token,
+              );
             }
           }
         }
       }
     } catch (e) {
-      log('⚠️ Error applying brokerage settings: $e');
+      log('⚠️ Error applying brokerage settings: \$e');
     }
   }
 
@@ -421,9 +467,10 @@ class _CreateUserViewState extends State<CreateUserView> {
 
     final profileProvider =
         Provider.of<UserProfileProvider>(context, listen: false);
-    
+
     // Only require master if we are NOT an admin editing a user
-    if (profileProvider.master == null && !(profileProvider.isAdmin && widget.user != null)) {
+    if (profileProvider.master == null &&
+        !(profileProvider.isAdmin && widget.user != null)) {
       _showSnack('Master profile not found', isError: true);
       return;
     }
@@ -468,7 +515,8 @@ class _CreateUserViewState extends State<CreateUserView> {
       http.Response response;
 
       if (widget.user != null) {
-        final walletMap = _buildWalletMap(allowedCategories(_selectedExchangeNames));
+        final walletMap =
+            _buildWalletMap(allowedCategories(_selectedExchangeNames));
         response = await adminService.updateUser(
           userId: widget.user!.id,
           name: _nameController.text.trim(),
@@ -480,8 +528,10 @@ class _CreateUserViewState extends State<CreateUserView> {
           note: _noteController.text.trim().isEmpty
               ? ''
               : _noteController.text.trim(),
-          pnlSharing: profileProvider.master?.pnlSharing ?? widget.user!.pnlSharing,
-          brokerageSharing: profileProvider.master?.brokerageSharing ?? widget.user!.brokerageSharing,
+          pnlSharing:
+              profileProvider.master?.pnlSharing ?? widget.user!.pnlSharing,
+          brokerageSharing: profileProvider.master?.brokerageSharing ??
+              widget.user!.brokerageSharing,
           exchangesAllowed: exchangesAllowed,
           tradeLimit: tradeLimitList,
           marginSquareOff: _marginSquareOff,
@@ -490,7 +540,8 @@ class _CreateUserViewState extends State<CreateUserView> {
         );
       } else {
         // Initial Trade Wallet funding (optional; only for allowed categories).
-        final walletMap = _buildWalletMap(allowedCategories(_selectedExchangeNames));
+        final walletMap =
+            _buildWalletMap(allowedCategories(_selectedExchangeNames));
         response = await adminService.createUser(
           name: _nameController.text.trim(),
           username: _usernameController.text.trim(),
@@ -516,8 +567,12 @@ class _CreateUserViewState extends State<CreateUserView> {
       if ((response.statusCode == 201 || response.statusCode == 200) &&
           data['success'] == true) {
         _isSuccess = true;
-        // Apply brokerage settings for enabled exchanges
-        await _applyBrokerageSettings();
+        // Extract user_id: for new users from response data, for edits from widget
+        final createdUserId = widget.user?.id ??
+            data['data']?['id']?.toString() ??
+            data['data']?['_id']?.toString();
+        // Apply brokerage settings for enabled exchanges (scoped to this user)
+        await _applyBrokerageSettings(createdUserId);
 
         await profileProvider.refreshProfile();
         if (!mounted) return;
@@ -599,7 +654,8 @@ class _CreateUserViewState extends State<CreateUserView> {
                           _buildTextField(
                               label: 'Username',
                               controller: _usernameController,
-                              readOnly: widget.user != null || _generatedUsername != null),
+                              readOnly: widget.user != null ||
+                                  _generatedUsername != null),
                           _divider(),
                           _buildTextField(
                               label: 'Password',
@@ -694,7 +750,8 @@ class _CreateUserViewState extends State<CreateUserView> {
                                                   color: Color(0xFF94A3B8),
                                                   fontSize: kFontSizeNavLabel,
                                                   fontFamily: 'Inter',
-                                                  fontWeight: kFontWeightSemiBold,
+                                                  fontWeight:
+                                                      kFontWeightSemiBold,
                                                   letterSpacing: 0.5)))),
                                   Expanded(
                                       flex: 1,
@@ -704,7 +761,8 @@ class _CreateUserViewState extends State<CreateUserView> {
                                                   color: Color(0xFF94A3B8),
                                                   fontSize: kFontSizeNavLabel,
                                                   fontFamily: 'Inter',
-                                                  fontWeight: kFontWeightSemiBold,
+                                                  fontWeight:
+                                                      kFontWeightSemiBold,
                                                   letterSpacing: 0.5)))),
                                   Expanded(
                                       flex: 1,
@@ -714,7 +772,8 @@ class _CreateUserViewState extends State<CreateUserView> {
                                                   color: Color(0xFF94A3B8),
                                                   fontSize: kFontSizeNavLabel,
                                                   fontFamily: 'Inter',
-                                                  fontWeight: kFontWeightSemiBold,
+                                                  fontWeight:
+                                                      kFontWeightSemiBold,
                                                   letterSpacing: 0.5)))),
                                   SizedBox(
                                       width: 130,
@@ -724,7 +783,8 @@ class _CreateUserViewState extends State<CreateUserView> {
                                                   color: Color(0xFF94A3B8),
                                                   fontSize: kFontSizeNavLabel,
                                                   fontFamily: 'Inter',
-                                                  fontWeight: kFontWeightSemiBold,
+                                                  fontWeight:
+                                                      kFontWeightSemiBold,
                                                   letterSpacing: 0.5)))),
                                 ],
                               ),
@@ -881,7 +941,8 @@ class _CreateUserViewState extends State<CreateUserView> {
                               ],
                             ),
                           ),
-                          ..._allowedExchanges.map((exchange) => _buildBrokerageRow(exchange)),
+                          ..._allowedExchanges
+                              .map((exchange) => _buildBrokerageRow(exchange)),
                         ],
                       ),
                     ),
@@ -1027,12 +1088,14 @@ class _CreateUserViewState extends State<CreateUserView> {
               obscureText: obscureText,
               keyboardType: keyboardType,
               readOnly: readOnly,
-              style: readOnly ? const TextStyle(color: Colors.grey) : const TextStyle(
-                color: Colors.black,
-                fontSize: kFontSizeBody,
-                fontFamily: 'Inter',
-                fontWeight: kFontWeightMedium,
-              ),
+              style: readOnly
+                  ? const TextStyle(color: Colors.grey)
+                  : const TextStyle(
+                      color: Colors.black,
+                      fontSize: kFontSizeBody,
+                      fontFamily: 'Inter',
+                      fontWeight: kFontWeightMedium,
+                    ),
               decoration: InputDecoration(
                 border: InputBorder.none,
                 hintText: label,
@@ -1057,7 +1120,8 @@ class _CreateUserViewState extends State<CreateUserView> {
     // NFO-FUT, SGX, GLOBAL → block Lot checkbox (turnover-only exchanges)
     final bool lotBlocked = ex == 'NFO-FUT' || ex == 'SGX' || ex == 'GLOBAL';
     // NFO-OPT, MCX-OPT, MCX-FUT → block T/O checkbox (lot-only exchanges)
-    final bool toBlocked = ex == 'NFO-OPT' || ex == 'MCX-OPT' || ex == 'MCX-FUT';
+    final bool toBlocked =
+        ex == 'NFO-OPT' || ex == 'MCX-OPT' || ex == 'MCX-FUT';
 
     return Row(
       children: [
@@ -1081,7 +1145,8 @@ class _CreateUserViewState extends State<CreateUserView> {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: enabled
-                      ? const Icon(Icons.check, color: Colors.white, size: kIconSizeSmall)
+                      ? const Icon(Icons.check,
+                          color: Colors.white, size: kIconSizeSmall)
                       : null,
                 ),
                 const SizedBox(width: 8),
@@ -1125,7 +1190,8 @@ class _CreateUserViewState extends State<CreateUserView> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: (settings['turnover'] as bool) && !toBlocked
-                    ? const Icon(Icons.check, color: Colors.white, size: kIconSizeSmall)
+                    ? const Icon(Icons.check,
+                        color: Colors.white, size: kIconSizeSmall)
                     : null,
               ),
             ),
@@ -1158,7 +1224,8 @@ class _CreateUserViewState extends State<CreateUserView> {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: (settings['lot'] as bool) && !lotBlocked
-                    ? const Icon(Icons.check, color: Colors.white, size: kIconSizeSmall)
+                    ? const Icon(Icons.check,
+                        color: Colors.white, size: kIconSizeSmall)
                     : null,
               ),
             ),
@@ -1294,41 +1361,64 @@ class _CreateUserViewState extends State<CreateUserView> {
     final controller = _walletControllerFor(category);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              category,
-              style: const TextStyle(
-                  color: Color(0xFF94A3B8),
-                  fontSize: kFontSizeBodySmall,
-                  fontFamily: 'Inter',
-                  fontWeight: kFontWeightMedium),
-            ),
-          ),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              style: const TextStyle(
-                  color: Colors.black,
-                  fontSize: kFontSizeBody,
-                  fontFamily: 'Inter',
-                  fontWeight: kFontWeightMedium),
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                hintText: '0',
-                hintStyle: TextStyle(
-                    color: Color(0xFFCBD5E1),
-                    fontSize: kFontSizeBody,
-                    fontFamily: 'Inter'),
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
+          Row(
+            children: [
+              SizedBox(
+                width: 100,
+                child: Text(
+                  category,
+                  style: const TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: kFontSizeBodySmall,
+                      fontFamily: 'Inter',
+                      fontWeight: kFontWeightMedium),
+                ),
               ),
-            ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  onChanged: (_) => setState(() {}),
+                  style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: kFontSizeBody,
+                      fontFamily: 'Inter',
+                      fontWeight: kFontWeightMedium),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    hintText: '0',
+                    hintStyle: TextStyle(
+                        color: Color(0xFFCBD5E1),
+                        fontSize: kFontSizeBody,
+                        fontFamily: 'Inter'),
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+            ],
           ),
+          Builder(builder: (_) {
+            final parsed = double.tryParse(controller.text.trim());
+            final words = numberToIndianWords(parsed);
+            if (words.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(left: 100, top: 2),
+              child: Text(
+                '₹ $words',
+                style: const TextStyle(
+                  color: Color(0xFF3F45C7),
+                  fontSize: 11,
+                  fontFamily: 'Inter',
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            );
+          }),
         ],
       ),
     );
@@ -1364,7 +1454,8 @@ class _CreateUserViewState extends State<CreateUserView> {
             child: GestureDetector(
               onTap: () {
                 setState(() {
-                  settings['type'] = type == 'LOT WISE' ? 'TURNOVER WISE' : 'LOT WISE';
+                  settings['type'] =
+                      type == 'LOT WISE' ? 'TURNOVER WISE' : 'LOT WISE';
                 });
               },
               child: Container(
@@ -1404,7 +1495,8 @@ class _CreateUserViewState extends State<CreateUserView> {
               ),
               child: TextField(
                 controller: controller,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 style: const TextStyle(
                   color: Colors.black,
                   fontSize: kFontSizeBodySmall,
@@ -1414,7 +1506,8 @@ class _CreateUserViewState extends State<CreateUserView> {
                 decoration: const InputDecoration(
                   border: InputBorder.none,
                   hintText: '0',
-                  hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall),
+                  hintStyle: TextStyle(
+                      color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall),
                   isDense: true,
                   contentPadding: EdgeInsets.symmetric(vertical: 8),
                 ),

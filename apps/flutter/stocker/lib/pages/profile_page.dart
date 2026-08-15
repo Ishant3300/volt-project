@@ -7,6 +7,7 @@ import '../views/account_detail_view.dart';
 import '../views/user_management_view.dart';
 import '../views/login_history_view.dart';
 import '../views/reports_view.dart';
+import '../views/manage_reports_view.dart';
 import '../views/settings_view.dart';
 import '../views/admin_settings_view.dart';
 import '../services/sercure_storage_service.dart';
@@ -497,8 +498,14 @@ class _ProfilePageState extends State<ProfilePage> {
                       Builder(builder: (context) {
                         return const SizedBox.shrink();
                       }),
-                    _buildMenuItem(context, 'Reports', svgPath: kIconReports),
-                    _buildDivider(),
+                    if (Provider.of<UserProfileProvider>(context, listen: false).hasAnyReportPermission) ...[
+                      _buildMenuItem(context, 'Reports', svgPath: kIconReports),
+                      _buildDivider(),
+                    ],
+                    if (_isMaster) ...[
+                      _buildMenuItem(context, 'Manage Reports', icon: Icons.description_outlined),
+                      _buildDivider(),
+                    ],
                     _buildMenuItem(context, 'Settings', svgPath: kIconSettings),
                     _buildDivider(),
                     // _buildMenuItem(context, 'Invite Friends',
@@ -565,6 +572,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const ReportsView()),
+                );
+              } else if (title == 'Manage Reports') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ManageReportsView()),
                 );
               } else if (title == 'Settings') {
                 Navigator.push(
