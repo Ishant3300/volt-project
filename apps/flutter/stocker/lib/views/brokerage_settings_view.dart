@@ -76,7 +76,22 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         if (data['success'] == true) {
-          final List<dynamic> items = data['data']['items'] ?? [];
+          List<dynamic> items = data['data']['items'] ?? [];
+
+          // If no user-specific records, fall back to global for display
+          if (items.isEmpty && widget.ownerId != null) {
+            final globalRes = await apiService.get(
+              '/admin/brokerage-settings/exchange/$effectiveExchange?type=${Uri.encodeComponent(_selectedType)}&limit=2000',
+              token: token,
+            );
+            if (globalRes.statusCode == 200) {
+              final gData = jsonDecode(globalRes.body);
+              if (gData['success'] == true) {
+                items = gData['data']['items'] ?? [];
+              }
+            }
+          }
+
           List<Map<String, dynamic>> filtered = [];
           for (var s in items) {
             filtered.add({
