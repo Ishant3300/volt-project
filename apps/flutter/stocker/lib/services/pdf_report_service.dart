@@ -39,9 +39,11 @@ class PdfReportService {
     final summary = data['summary'] ?? {};
     final carryForward = (data['carry_forward'] as List?) ?? [];
 
-    final headerStyle = pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold);
+    final headerStyle =
+        pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold);
     final cellStyle = const pw.TextStyle(fontSize: 7);
-    final titleStyle = pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold);
+    final titleStyle =
+        pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold);
 
     final List<pw.Widget> content = [];
 
@@ -51,7 +53,11 @@ class PdfReportService {
         padding: const pw.EdgeInsets.all(8),
         color: PdfColor.fromHex('#7B9CC0'),
         child: pw.Column(children: [
-          pw.Text(userName, style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+          pw.Text(userName,
+              style: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.white)),
           pw.SizedBox(height: 2),
           pw.Text(
             'General Summary From ${_dayFmt.format(from)} To ${_dayFmt.format(to)}',
@@ -83,29 +89,37 @@ class PdfReportService {
       content.add(pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Expanded(child: _buildSideTable('B', buys, totalBuyQty, avgBuyPrice, totalBuyVol, headerStyle, cellStyle)),
+          pw.Expanded(
+              child: _buildSideTable('B', buys, totalBuyQty, avgBuyPrice,
+                  totalBuyVol, headerStyle, cellStyle)),
           pw.SizedBox(width: 8),
-          pw.Expanded(child: _buildSideTable('S', sells, totalSellQty, avgSellPrice, totalSellVol, headerStyle, cellStyle)),
+          pw.Expanded(
+              child: _buildSideTable('S', sells, totalSellQty, avgSellPrice,
+                  totalSellVol, headerStyle, cellStyle)),
         ],
       ));
 
       content.add(pw.SizedBox(height: 2));
       content.add(_pnlRow('', _fmt.format(pnl.abs()), pnl < 0, cellStyle));
-      content.add(_pnlRow('Br', '+ ${_fmt.format(brokerage)}', false, cellStyle));
-      content.add(_pnlRow(netPnl < 0 ? '( L )' : '( P )', _fmt.format(netPnl.abs()), netPnl < 0, cellStyle));
+      content
+          .add(_pnlRow('Br', '+ ${_fmt.format(brokerage)}', false, cellStyle));
+      content.add(_pnlRow(netPnl < 0 ? '( L )' : '( P )',
+          _fmt.format(netPnl.abs()), netPnl < 0, cellStyle));
       content.add(pw.SizedBox(height: 12));
     }
 
     content.add(pw.SizedBox(height: 8));
     content.add(pw.Text('Summary', style: titleStyle));
     content.add(pw.SizedBox(height: 4));
-    content.add(_buildSummaryTable(instruments, summary, headerStyle, cellStyle));
+    content
+        .add(_buildSummaryTable(instruments, summary, headerStyle, cellStyle));
 
     if (carryForward.isNotEmpty) {
       content.add(pw.SizedBox(height: 12));
       content.add(pw.Text('Carry Forward', style: titleStyle));
       content.add(pw.SizedBox(height: 4));
-      content.add(_buildCarryForwardTable(carryForward, headerStyle, cellStyle));
+      content
+          .add(_buildCarryForwardTable(carryForward, headerStyle, cellStyle));
     }
 
     pdf.addPage(
@@ -119,14 +133,18 @@ class PdfReportService {
     return pdf;
   }
 
-  static pw.Widget _buildSideTable(String side, List entries, double totalQty, double avgPrice, double totalVol, pw.TextStyle hs, pw.TextStyle cs) {
+  static pw.Widget _buildSideTable(String side, List entries, double totalQty,
+      double avgPrice, double totalVol, pw.TextStyle hs, pw.TextStyle cs) {
     final headerBg = PdfColor.fromHex('#C0C0C0');
 
     final rows = <pw.TableRow>[
       pw.TableRow(
         decoration: pw.BoxDecoration(color: headerBg),
         children: [
-          _cell('Date', hs), _cell('${side} Qty', hs), _cell('Price', hs), _cell('${side} Vol.', hs),
+          _cell('Date', hs),
+          _cell('${side} Qty', hs),
+          _cell('Price', hs),
+          _cell('${side} Vol.', hs),
         ],
       ),
     ];
@@ -142,9 +160,13 @@ class PdfReportService {
     }
 
     rows.add(pw.TableRow(
-      decoration: pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(width: 0.5))),
+      decoration:
+          pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(width: 0.5))),
       children: [
-        _cell('Total', hs), _cell(_fmt.format(totalQty), hs), _cell(_fmt.format(avgPrice), hs), _cell(_fmt.format(totalVol), hs),
+        _cell('Total', hs),
+        _cell(_fmt.format(totalQty), hs),
+        _cell(_fmt.format(avgPrice), hs),
+        _cell(_fmt.format(totalVol), hs),
       ],
     ));
 
@@ -167,27 +189,39 @@ class PdfReportService {
     );
   }
 
-  static pw.Widget _pnlRow(String label, String value, bool isLoss, pw.TextStyle cs) {
+  static pw.Widget _pnlRow(
+      String label, String value, bool isLoss, pw.TextStyle cs) {
     final color = isLoss ? PdfColors.red : PdfColors.black;
     return pw.Padding(
       padding: const pw.EdgeInsets.only(right: 4),
       child: pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.end,
         children: [
-          if (label.isNotEmpty) pw.Text(label, style: cs.copyWith(color: isLoss ? PdfColors.red : PdfColors.black)),
+          if (label.isNotEmpty)
+            pw.Text(label,
+                style: cs.copyWith(
+                    color: isLoss ? PdfColors.red : PdfColors.black)),
           if (label.isNotEmpty) pw.SizedBox(width: 12),
-          pw.Text(isLoss ? '- $value' : value, style: cs.copyWith(color: color)),
+          pw.Text(isLoss ? '- $value' : value,
+              style: cs.copyWith(color: color)),
         ],
       ),
     );
   }
 
-  static pw.Widget _buildSummaryTable(List instruments, Map<String, dynamic> summary, pw.TextStyle hs, pw.TextStyle cs) {
+  static pw.Widget _buildSummaryTable(List instruments,
+      Map<String, dynamic> summary, pw.TextStyle hs, pw.TextStyle cs) {
     final headerBg = PdfColor.fromHex('#C0C0C0');
     final rows = <pw.TableRow>[
       pw.TableRow(
         decoration: pw.BoxDecoration(color: headerBg),
-        children: [_cell('Exchange', hs), _cell('Script', hs), _cell('Total', hs), _cell('Br', hs), _cell('Net', hs)],
+        children: [
+          _cell('Exchange', hs),
+          _cell('Script', hs),
+          _cell('Total', hs),
+          _cell('Br', hs),
+          _cell('Net', hs)
+        ],
       ),
     ];
 
@@ -209,9 +243,11 @@ class PdfReportService {
     final netPnl = (summary['net_pnl'] as num?)?.toDouble() ?? 0;
 
     rows.add(pw.TableRow(
-      decoration: pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(width: 0.5))),
+      decoration:
+          pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(width: 0.5))),
       children: [
-        _cell('Total', hs), _cell('', cs),
+        _cell('Total', hs),
+        _cell('', cs),
         _cell('${totalPnl < 0 ? '-' : ''}${_fmt.format(totalPnl.abs())}',
             hs.copyWith(color: totalPnl < 0 ? PdfColors.red : PdfColors.black)),
         _cell(_fmt.format(totalBr), hs.copyWith(color: PdfColors.red)),
@@ -233,21 +269,31 @@ class PdfReportService {
     );
   }
 
-  static pw.Widget _buildCarryForwardTable(List carryForward, pw.TextStyle hs, pw.TextStyle cs) {
+  static pw.Widget _buildCarryForwardTable(
+      List carryForward, pw.TextStyle hs, pw.TextStyle cs) {
     final headerBg = PdfColor.fromHex('#C0C0C0');
     final rows = <pw.TableRow>[
       pw.TableRow(
         decoration: pw.BoxDecoration(color: headerBg),
-        children: [_cell('Exchange', hs), _cell('Script', hs), _cell('Type', hs), _cell('Quantity', hs), _cell('Price', hs)],
+        children: [
+          _cell('Exchange', hs),
+          _cell('Script', hs),
+          _cell('Type', hs),
+          _cell('Quantity', hs),
+          _cell('Price', hs)
+        ],
       ),
     ];
 
     for (final cf in carryForward) {
       final isBuy = cf['type'] == 'Buy';
       rows.add(pw.TableRow(children: [
-        _cell(cf['exchange'] ?? '', cs.copyWith(color: isBuy ? PdfColors.blue : PdfColors.red)),
-        _cell(cf['display_name'] ?? cf['tradingsymbol'] ?? '', cs.copyWith(color: isBuy ? PdfColors.blue : PdfColors.red)),
-        _cell(cf['type'] ?? '', cs.copyWith(color: isBuy ? PdfColors.blue : PdfColors.red)),
+        _cell(cf['exchange'] ?? '',
+            cs.copyWith(color: isBuy ? PdfColors.blue : PdfColors.red)),
+        _cell(cf['display_name'] ?? cf['tradingsymbol'] ?? '',
+            cs.copyWith(color: isBuy ? PdfColors.blue : PdfColors.red)),
+        _cell(cf['type'] ?? '',
+            cs.copyWith(color: isBuy ? PdfColors.blue : PdfColors.red)),
         _cell(_fmt.format((cf['quantity'] as num).toDouble()), cs),
         _cell(_fmt.format((cf['price'] as num).toDouble()), cs),
       ]));
@@ -279,17 +325,22 @@ class PdfReportService {
 
     final hs = pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold);
     final cs = const pw.TextStyle(fontSize: 7);
-    final titleStyle = pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.black);
+    final titleStyle = pw.TextStyle(
+        fontSize: 10, fontWeight: pw.FontWeight.bold, color: PdfColors.black);
 
     final List<pw.Widget> content = [];
 
-    content.add(pw.Center(child: pw.Text('Live M2M Report', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold))));
+    content.add(pw.Center(
+        child: pw.Text('Live M2M Report',
+            style:
+                pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold))));
     content.add(pw.SizedBox(height: 4));
     content.add(pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
       children: [
         pw.Text(userName, style: const pw.TextStyle(fontSize: 9)),
-        pw.Text('From ${_dayFmt.format(from)} To ${_dayFmt.format(to)}', style: const pw.TextStyle(fontSize: 9)),
+        pw.Text('From ${_dayFmt.format(from)} To ${_dayFmt.format(to)}',
+            style: const pw.TextStyle(fontSize: 9)),
       ],
     ));
     content.add(pw.SizedBox(height: 10));
@@ -302,7 +353,8 @@ class PdfReportService {
       final brokerage = (instr['brokerage'] as num?)?.toDouble() ?? 0;
       final netPnl = (instr['net_pnl'] as num?)?.toDouble() ?? 0;
 
-      content.add(pw.Center(child: pw.Text('$exchange  $symbol', style: titleStyle)));
+      content.add(
+          pw.Center(child: pw.Text('$exchange  $symbol', style: titleStyle)));
       content.add(pw.SizedBox(height: 4));
 
       final headerBg = PdfColor.fromHex('#CCCCDD');
@@ -313,8 +365,14 @@ class PdfReportService {
         pw.TableRow(
           decoration: pw.BoxDecoration(color: headerBg),
           children: [
-            _cell('Date', hs), _cell('Type', hs), _cell('B Qty', hs),
-            _cell('S Qty', hs), _cell('Rate', hs), _cell('Br', hs), _cell('PnL', hs),
+            _cell('Date', hs),
+            _cell('Type', hs),
+            _cell('Order', hs),
+            _cell('B Qty', hs),
+            _cell('S Qty', hs),
+            _cell('Rate', hs),
+            _cell('Br', hs),
+            _cell('PnL', hs),
           ],
         ),
       ];
@@ -331,7 +389,8 @@ class PdfReportService {
         final rate = (t['rate'] as num?)?.toDouble() ?? 0;
         final br = (t['brokerage'] as num?)?.toDouble() ?? 0;
 
-        final isLiveRow = type == 'LIVE' || type == 'EXPIRED' || type == 'CLOSED';
+        final isLiveRow =
+            type == 'LIVE' || type == 'EXPIRED' || type == 'CLOSED';
 
         // Only count real (non-LIVE) trades in totals
         if (!isLiveRow) {
@@ -340,26 +399,35 @@ class PdfReportService {
         }
 
         // Use pnl from backend for regular trades, 'net' for LIVE/virtual rows
-        final double net = (t['pnl'] as num?)?.toDouble() ?? (t['net'] as num?)?.toDouble() ?? 0;
+        final double net = (t['pnl'] as num?)?.toDouble() ??
+            (t['net'] as num?)?.toDouble() ??
+            0;
 
+        // Use order_type_label from backend if available
+        final String orderTypeLabel = t['order_type_label']?.toString() ?? '';
         final PdfColor typeColor = isLiveRow
             ? PdfColors.red
             : (type == 'BUY' ? PdfColors.blue : PdfColors.red);
 
-        final String typeLabel = isLiveRow ? type : (type == 'BUY' ? 'Buy' : 'Sell');
+        final String typeLabel =
+            isLiveRow ? type : (type == 'BUY' ? 'Buy' : 'Sell');
 
         rows.add(pw.TableRow(
           children: [
             _cell(_dateFmt.format(date), cs),
-            _cell(typeLabel, cs.copyWith(
-              color: typeColor,
-              fontWeight: isLiveRow ? pw.FontWeight.bold : null,
-            )),
+            _cell(
+                typeLabel,
+                cs.copyWith(
+                  color: typeColor,
+                  fontWeight: isLiveRow ? pw.FontWeight.bold : null,
+                )),
+            _cell(orderTypeLabel, cs.copyWith(fontSize: 6)),
             _cell(bQty > 0 ? _fmt.format(bQty) : '', cs),
             _cell(sQty > 0 ? _fmt.format(sQty) : '', cs),
             _cell(_fmt.format(rate), cs),
             _cell(isLiveRow ? '-' : _fmt.format(br), cs),
-            _cell(_fmt.format(net), cs.copyWith(color: net < 0 ? PdfColors.red : PdfColors.black)),
+            _cell(_fmt.format(net),
+                cs.copyWith(color: net < 0 ? PdfColors.red : PdfColors.black)),
           ],
         ));
       }
@@ -368,12 +436,15 @@ class PdfReportService {
       rows.add(pw.TableRow(
         decoration: pw.BoxDecoration(color: totalBg),
         children: [
-          _cell('Script wise total :', hs), _cell('', cs),
+          _cell('Script wise total :', hs),
+          _cell('', cs),
+          _cell('', cs),
           _cell(_fmt.format(actualBuyQty), hs),
           _cell(_fmt.format(actualSellQty), hs),
           _cell('', cs),
           _cell(_fmt.format(brokerage), hs),
-          _cell(_fmt.format(pnl), hs.copyWith(color: pnl < 0 ? PdfColors.red : PdfColors.black)),
+          _cell(_fmt.format(pnl),
+              hs.copyWith(color: pnl < 0 ? PdfColors.red : PdfColors.black)),
         ],
       ));
 
@@ -381,10 +452,15 @@ class PdfReportService {
       rows.add(pw.TableRow(
         decoration: pw.BoxDecoration(color: netBg),
         children: [
-          _cell('', cs), _cell('', cs), _cell('', cs),
-          _cell('', cs), _cell('Total:', hs),
           _cell('', cs),
-          _cell(_fmt.format(netPnl), hs.copyWith(color: netPnl < 0 ? PdfColors.red : PdfColors.black)),
+          _cell('', cs),
+          _cell('', cs),
+          _cell('', cs),
+          _cell('', cs),
+          _cell('Total:', hs),
+          _cell('', cs),
+          _cell(_fmt.format(netPnl),
+              hs.copyWith(color: netPnl < 0 ? PdfColors.red : PdfColors.black)),
         ],
       ));
 
@@ -392,12 +468,13 @@ class PdfReportService {
         border: pw.TableBorder.all(width: 0.3, color: PdfColors.grey400),
         columnWidths: {
           0: const pw.FlexColumnWidth(2.5),
-          1: const pw.FlexColumnWidth(1),
-          2: const pw.FlexColumnWidth(1),
+          1: const pw.FlexColumnWidth(0.8),
+          2: const pw.FlexColumnWidth(1.2),
           3: const pw.FlexColumnWidth(1),
-          4: const pw.FlexColumnWidth(1.3),
-          5: const pw.FlexColumnWidth(1),
-          6: const pw.FlexColumnWidth(1.5),
+          4: const pw.FlexColumnWidth(1),
+          5: const pw.FlexColumnWidth(1.3),
+          6: const pw.FlexColumnWidth(1),
+          7: const pw.FlexColumnWidth(1.5),
         },
         children: rows,
       ));
@@ -423,7 +500,8 @@ class PdfReportService {
     return pdf;
   }
 
-  static pw.Widget _buildAdvancedSummaryTable(List instruments, Map<String, dynamic> summary, pw.TextStyle hs, pw.TextStyle cs) {
+  static pw.Widget _buildAdvancedSummaryTable(List instruments,
+      Map<String, dynamic> summary, pw.TextStyle hs, pw.TextStyle cs) {
     final headerBg = PdfColor.fromHex('#CCCCDD');
     final rows = <pw.TableRow>[
       pw.TableRow(
@@ -434,12 +512,20 @@ class PdfReportService {
             padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 2),
             child: pw.Center(child: pw.Text('Summary', style: hs)),
           ),
-          _cell('', hs), _cell('', hs), _cell('', hs),
+          _cell('', hs),
+          _cell('', hs),
+          _cell('', hs),
         ],
       ),
       pw.TableRow(
         decoration: pw.BoxDecoration(color: headerBg),
-        children: [_cell('Exchange', hs), _cell('Script', hs), _cell('Total', hs), _cell('Br', hs), _cell('Net', hs)],
+        children: [
+          _cell('Exchange', hs),
+          _cell('Script', hs),
+          _cell('Total', hs),
+          _cell('Br', hs),
+          _cell('Net', hs)
+        ],
       ),
     ];
 
@@ -450,9 +536,11 @@ class PdfReportService {
       rows.add(pw.TableRow(children: [
         _cell(i['exchange'] ?? '', cs),
         _cell(i['display_name'] ?? i['tradingsymbol'] ?? '', cs),
-        _cell('${pnl < 0 ? '-' : ''}${_fmt.format(pnl.abs())}', cs.copyWith(color: pnl < 0 ? PdfColors.red : PdfColors.black)),
+        _cell('${pnl < 0 ? '-' : ''}${_fmt.format(pnl.abs())}',
+            cs.copyWith(color: pnl < 0 ? PdfColors.red : PdfColors.black)),
         _cell(_fmt.format(br), cs),
-        _cell('${net < 0 ? '-' : ''}${_fmt.format(net.abs())}', cs.copyWith(color: net < 0 ? PdfColors.red : PdfColors.black)),
+        _cell('${net < 0 ? '-' : ''}${_fmt.format(net.abs())}',
+            cs.copyWith(color: net < 0 ? PdfColors.red : PdfColors.black)),
       ]));
     }
 
@@ -461,9 +549,11 @@ class PdfReportService {
     final netPnl = (summary['net_pnl'] as num?)?.toDouble() ?? 0;
 
     rows.add(pw.TableRow(
-      decoration: pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(width: 0.5))),
+      decoration:
+          pw.BoxDecoration(border: pw.Border(top: pw.BorderSide(width: 0.5))),
       children: [
-        _cell('Total', hs), _cell('', cs),
+        _cell('Total', hs),
+        _cell('', cs),
         _cell('${totalPnl < 0 ? '-' : ''}${_fmt.format(totalPnl.abs())}',
             hs.copyWith(color: totalPnl < 0 ? PdfColors.red : PdfColors.black)),
         _cell(_fmt.format(totalBr), hs.copyWith(color: PdfColors.red)),
@@ -485,7 +575,8 @@ class PdfReportService {
     );
   }
 
-  static pw.Widget _buildAdvancedCarryForwardTable(List carryForward, pw.TextStyle hs, pw.TextStyle cs) {
+  static pw.Widget _buildAdvancedCarryForwardTable(
+      List carryForward, pw.TextStyle hs, pw.TextStyle cs) {
     final headerBg = PdfColor.fromHex('#C0C0C0');
     final rows = <pw.TableRow>[
       pw.TableRow(
@@ -496,12 +587,20 @@ class PdfReportService {
             padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 2),
             child: pw.Center(child: pw.Text('Carry Forward', style: hs)),
           ),
-          _cell('', hs), _cell('', hs), _cell('', hs),
+          _cell('', hs),
+          _cell('', hs),
+          _cell('', hs),
         ],
       ),
       pw.TableRow(
         decoration: pw.BoxDecoration(color: headerBg),
-        children: [_cell('Exchange', hs), _cell('Script', hs), _cell('Type', hs), _cell('Qty', hs), _cell('Net', hs)],
+        children: [
+          _cell('Exchange', hs),
+          _cell('Script', hs),
+          _cell('Type', hs),
+          _cell('Qty', hs),
+          _cell('Net', hs)
+        ],
       ),
     ];
 
@@ -510,7 +609,8 @@ class PdfReportService {
       final color = isBuy ? PdfColors.blue : PdfColors.red;
       rows.add(pw.TableRow(children: [
         _cell(cf['exchange'] ?? '', cs.copyWith(color: color)),
-        _cell(cf['display_name'] ?? cf['tradingsymbol'] ?? '', cs.copyWith(color: color)),
+        _cell(cf['display_name'] ?? cf['tradingsymbol'] ?? '',
+            cs.copyWith(color: color)),
         _cell(cf['type'] ?? '', cs.copyWith(color: color)),
         _cell(_fmt.format((cf['quantity'] as num).toDouble()), cs),
         _cell(_fmt.format((cf['price'] as num).toDouble()), cs),
