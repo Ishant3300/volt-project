@@ -1119,9 +1119,10 @@ class _CreateUserViewState extends State<CreateUserView> {
 
     // NFO-FUT, SGX, GLOBAL → block Lot checkbox (turnover-only exchanges)
     final bool lotBlocked = ex == 'NFO-FUT' || ex == 'SGX' || ex == 'GLOBAL';
-    // NFO-OPT, MCX-OPT, MCX-FUT → block T/O checkbox (lot-only exchanges)
-    final bool toBlocked =
-        ex == 'NFO-OPT' || ex == 'MCX-OPT' || ex == 'MCX-FUT';
+    // NFO-OPT → block T/O checkbox (lot-only exchange)
+    final bool toBlocked = ex == 'NFO-OPT';
+    // MCX-FUT, MCX-OPT → mutually exclusive (only one can be selected)
+    final bool mutuallyExclusive = ex == 'MCX-FUT' || ex == 'MCX-OPT';
 
     return Row(
       children: [
@@ -1168,8 +1169,13 @@ class _CreateUserViewState extends State<CreateUserView> {
           child: GestureDetector(
             onTap: toBlocked
                 ? null
-                : () => setState(() =>
-                    settings['turnover'] = !(settings['turnover'] as bool)),
+                : () => setState(() {
+                      settings['turnover'] = !(settings['turnover'] as bool);
+                      // MCX: mutually exclusive — deselect Lot when T/O selected
+                      if (mutuallyExclusive && settings['turnover'] == true) {
+                        settings['lot'] = false;
+                      }
+                    }),
             child: Center(
               child: Container(
                 width: 22,
@@ -1202,8 +1208,13 @@ class _CreateUserViewState extends State<CreateUserView> {
           child: GestureDetector(
             onTap: lotBlocked
                 ? null
-                : () => setState(
-                    () => settings['lot'] = !(settings['lot'] as bool)),
+                : () => setState(() {
+                      settings['lot'] = !(settings['lot'] as bool);
+                      // MCX: mutually exclusive — deselect T/O when Lot selected
+                      if (mutuallyExclusive && settings['lot'] == true) {
+                        settings['turnover'] = false;
+                      }
+                    }),
             child: Center(
               child: Container(
                 width: 22,
