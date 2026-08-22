@@ -30,11 +30,13 @@ class AuthenticationResponse {
   final bool success;
   final String message;
   final dynamic data;
+  final bool requiresPasswordChange;
 
   AuthenticationResponse({
     required this.success,
     required this.message,
     required this.data,
+    this.requiresPasswordChange = false,
   });
 
   factory AuthenticationResponse.fromJson(Map<String, dynamic> json) {
@@ -42,6 +44,7 @@ class AuthenticationResponse {
       success: json["success"],
       message: json["message"],
       data: json["data"],
+      requiresPasswordChange: json["data"]?["requires_password_change"] == true,
     );
   }
 }
@@ -73,7 +76,8 @@ class AuthService {
         // Save token and role to secure storage
         if (authResponse.success && authResponse.data != null) {
           // If TOTP or OTP is required, don't save token yet (no token in response)
-          if (authResponse.data['requires_otp'] == true || authResponse.data['requires_totp'] == true) {
+          if (authResponse.data['requires_otp'] == true ||
+              authResponse.data['requires_totp'] == true) {
             return authResponse;
           }
 

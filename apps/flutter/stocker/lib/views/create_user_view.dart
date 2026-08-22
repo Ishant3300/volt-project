@@ -960,6 +960,12 @@ class _CreateUserViewState extends State<CreateUserView> {
                         children: [
                           _buildToggleRow('Margin Square Off', _marginSquareOff,
                               (v) => setState(() => _marginSquareOff = v)),
+                          const SizedBox(height: 12),
+                          _buildToggleRow(
+                              'Reset Password on First Login',
+                              _changePasswordOnFirstLogin,
+                              (v) => setState(
+                                  () => _changePasswordOnFirstLogin = v)),
                         ],
                       ),
                     ),

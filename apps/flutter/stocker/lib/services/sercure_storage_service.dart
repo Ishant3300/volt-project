@@ -1,5 +1,3 @@
-
-
 import 'dart:developer';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -12,6 +10,8 @@ class SecureStorageService {
   static const tokenKey = "auth_token";
   static const roleKey = "user_role";
   static const addMasterKey = "add_master_permission";
+  static const passwordResetPendingKey = "password_reset_pending";
+  static const passwordResetPasswordKey = "password_reset_current_pass";
 
   /// Safe read that handles corrupted keystore (BadPaddingException).
   /// Returns null and clears storage if decryption fails.
@@ -98,6 +98,31 @@ class SecureStorageService {
   Future<List<int>> getQuickQuantities() async {
     final raw = await _safeRead(quickQtyKey);
     if (raw == null || raw.isEmpty) return [100, 200, 500, 1000, 2000, 5000];
-    return raw.split(',').map((s) => int.tryParse(s) ?? 0).where((v) => v > 0).toList();
+    return raw
+        .split(',')
+        .map((s) => int.tryParse(s) ?? 0)
+        .where((v) => v > 0)
+        .toList();
+  }
+
+  // Password reset pending flag (survives app restart)
+  Future<void> setPasswordResetPending(
+      {required String currentPassword}) async {
+    await storage.write(key: passwordResetPendingKey, value: 'true');
+    await storage.write(key: passwordResetPasswordKey, value: currentPassword);
+  }
+
+  Future<bool> isPasswordResetPending() async {
+    final value = await _safeRead(passwordResetPendingKey);
+    return value == 'true';
+  }
+
+  Future<String?> getPasswordResetCurrentPassword() async {
+    return await _safeRead(passwordResetPasswordKey);
+  }
+
+  Future<void> clearPasswordResetPending() async {
+    await storage.delete(key: passwordResetPendingKey);
+    await storage.delete(key: passwordResetPasswordKey);
   }
 }

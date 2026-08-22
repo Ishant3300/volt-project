@@ -8,6 +8,7 @@ import 'package:stocker/services/api_service.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
 import 'pages/login_page.dart';
+import 'pages/force_password_reset_page.dart';
 import 'home_page.dart';
 import 'utils/contants.dart';
 
@@ -42,6 +43,22 @@ class _InitialScreenState extends State<InitialScreen> {
 
       if (token != null && token.isNotEmpty) {
         log('✅ Token found, fetching user profile...');
+
+        // Check if there's a pending password reset that was interrupted
+        if (await _storage.isPasswordResetPending()) {
+          log('🔐 Password reset pending — redirecting to reset screen');
+          final currentPass = await _storage.getPasswordResetCurrentPassword();
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ForcePasswordResetPage(
+                currentPassword: currentPass ?? '',
+              ),
+            ),
+          );
+          return;
+        }
 
         final apiService = Provider.of<ApiService>(context, listen: false);
         apiService.setInitializing(true);

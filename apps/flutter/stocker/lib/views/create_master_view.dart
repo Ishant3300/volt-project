@@ -677,6 +677,12 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                         children: [
                           _buildToggleRow('Add Master', _addMaster,
                               (v) => setState(() => _addMaster = v)),
+                          const SizedBox(height: 12),
+                          _buildToggleRow(
+                              'Reset Password on First Login',
+                              _changePasswordOnFirstLogin,
+                              (v) => setState(
+                                  () => _changePasswordOnFirstLogin = v)),
                         ],
                       ),
                     ),
