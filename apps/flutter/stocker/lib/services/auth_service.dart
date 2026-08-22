@@ -107,6 +107,7 @@ class AuthService {
               username: data.username,
               role: tokenRole.toUpperCase(),
               token: token,
+              investor: authResponse.data['investor'] == true,
               name: authResponse.data['user']?['name'] ??
                   authResponse.data['master']?['name'] ??
                   authResponse.data['admin']?['username'] ??

@@ -8,18 +8,21 @@ class SavedAccount {
   final String role;
   final String token;
   final String? name;
+  final bool investor;
 
   SavedAccount({
     required this.username,
     required this.role,
     required this.token,
     this.name,
+    this.investor = false,
   });
 
   Map<String, dynamic> toJson() => {
         'username': username,
         'role': role,
         'token': token,
+        'investor': investor,
         if (name != null) 'name': name,
       };
 
@@ -28,10 +31,12 @@ class SavedAccount {
         role: json['role'] ?? '',
         token: json['token'] ?? '',
         name: json['name'],
+        investor: json['investor'] == true,
       );
 
-  /// Unique key: username + role combo (same user could be USER and MASTER)
-  String get key => '${username}_$role';
+  /// Unique key: username + role + mode (same user can have investor and normal sessions)
+  String get key =>
+      investor ? '${username}_${role}_investor' : '${username}_$role';
 }
 
 /// Manages multiple saved account sessions in secure storage.
@@ -53,7 +58,9 @@ class MultiAccountService {
     } catch (e) {
       log('⚠️ MultiAccountService: Error reading accounts: $e');
       // If storage is corrupted, clear it
-      try { await _storage.delete(key: _accountsKey); } catch (_) {}
+      try {
+        await _storage.delete(key: _accountsKey);
+      } catch (_) {}
       return [];
     }
   }
@@ -104,6 +111,7 @@ class MultiAccountService {
         role: old.role,
         token: newToken,
         name: old.name,
+        investor: old.investor,
       );
       await _storage.write(
         key: _accountsKey,

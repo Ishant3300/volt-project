@@ -6,6 +6,7 @@ import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
+import 'package:stocker/providers/investor_mode_provider.dart';
 import 'package:stocker/pages/login_page.dart';
 import 'package:stocker/home_page.dart';
 
@@ -53,13 +54,17 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
 
       if (!mounted) return;
 
+      // Update investor mode based on the account being switched to
+      final investorProvider =
+          Provider.of<InvestorModeProvider>(context, listen: false);
+      await investorProvider.setInvestor(account.investor);
+
       // Clear all providers first
       final profileProvider =
           Provider.of<UserProfileProvider>(context, listen: false);
       final tradeMetrics =
           Provider.of<TradeMetricsProvider>(context, listen: false);
-      final watchlist =
-          Provider.of<WatchlistProvider>(context, listen: false);
+      final watchlist = Provider.of<WatchlistProvider>(context, listen: false);
 
       profileProvider.clearProfile();
       tradeMetrics.clear();
@@ -111,7 +116,8 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Remove Account',
-            style: TextStyle(fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+            style: TextStyle(
+                fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
         content: Text(
           'Remove ${account.username} (${account.role}) from saved accounts?',
           style: const TextStyle(fontFamily: 'Inter'),
@@ -120,7 +126,8 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel',
-                style: TextStyle(color: Color(0xFF94A3B8), fontFamily: 'Inter')),
+                style:
+                    TextStyle(color: Color(0xFF94A3B8), fontFamily: 'Inter')),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -186,7 +193,6 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-
           // Title
           const Padding(
             padding: EdgeInsets.fromLTRB(20, 8, 20, 16),
@@ -236,7 +242,8 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
 
             // Add account button
             Padding(
-              padding: EdgeInsets.fromLTRB(16, 8, 16, 24 + MediaQuery.of(context).viewPadding.bottom),
+              padding: EdgeInsets.fromLTRB(
+                  16, 8, 16, 24 + MediaQuery.of(context).viewPadding.bottom),
               child: GestureDetector(
                 onTap: _addNewAccount,
                 child: Container(
@@ -286,10 +293,14 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF3F45C7).withValues(alpha: 0.04) : Colors.white,
+          color: isActive
+              ? const Color(0xFF3F45C7).withValues(alpha: 0.04)
+              : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isActive ? const Color(0xFF3F45C7).withValues(alpha: 0.2) : const Color(0xFFF1F5F9),
+            color: isActive
+                ? const Color(0xFF3F45C7).withValues(alpha: 0.2)
+                : const Color(0xFFF1F5F9),
             width: isActive ? 1.5 : 1,
           ),
         ),
@@ -345,7 +356,8 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                            color:
+                                const Color(0xFF10B981).withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Text(
@@ -369,7 +381,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                           size: kIconSizeSmall, color: const Color(0xFF94A3B8)),
                       const SizedBox(width: 4),
                       Text(
-                        '${account.username} · ${account.role}',
+                        '${account.username} · ${account.role}${account.investor ? ' · INVESTOR' : ''}',
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: kFontSizeSubtitle,
