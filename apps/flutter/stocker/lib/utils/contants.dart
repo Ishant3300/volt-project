@@ -3,9 +3,8 @@ import 'package:flutter/material.dart';
 
 // Android emulator uses 10.0.2.2 to reach host machine; iOS simulator uses localhost
 // final String backendUrl = Platform.isAndroid ? "http://10.0.2.2:3000" : "http://127.0.0.1:3000";
-final String backendUrl =
-    "http://192.168.1.4:3000"; // Physical device (use your LAN IP)
-// final String backendUrl = "https://apexlive-api.mynpe.in";       // Production server
+// final String backendUrl ="http://10.178.140.98:3000"; // Physical device (use your LAN IP)
+final String backendUrl = "https://apexlive-api.mynpe.in"; // Production server
 
 const bool kLogLivePrices = false;
 const bool kLogWebSockets = false;
