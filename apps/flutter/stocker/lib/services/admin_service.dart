@@ -21,8 +21,9 @@ class AdminService {
     final queryParams = <String>[];
     queryParams.add('page=$page');
     queryParams.add('limit=$limit');
-    
-    final queryString = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
+
+    final queryString =
+        queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
     final token = await _storage.getToken();
     return await _apiService.get('/servers$queryString', token: token);
   }
@@ -36,6 +37,7 @@ class AdminService {
     required String name,
     required String username,
     required String password,
+    String? investorPassword,
     required double credits,
     required String note,
     required double pnlSharing,
@@ -57,6 +59,7 @@ class AdminService {
       'name': name,
       'username': username,
       'password': password,
+      if (investorPassword != null) 'investor_password': investorPassword,
       'credits': credits,
       'note': note,
       'pnl_sharing': pnlSharing,
@@ -94,8 +97,9 @@ class AdminService {
     if (status != null) queryParams.add('status=$status');
     if (serverId != null) queryParams.add('server_id=$serverId');
     if (includeSubmasters) queryParams.add('include_submasters=true');
-    
-    final queryString = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
+
+    final queryString =
+        queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
     final token = await _storage.getToken();
     return await _apiService.get('/masters$queryString', token: token);
   }
@@ -126,7 +130,8 @@ class AdminService {
     };
 
     final token = await _storage.getToken();
-    return await _apiService.put('/masters/$masterId/details', data, token: token);
+    return await _apiService.put('/masters/$masterId/details', data,
+        token: token);
   }
 
   /// Update master (full update)
@@ -135,6 +140,7 @@ class AdminService {
     String? name,
     String? username,
     String? password,
+    String? investorPassword,
     double? credits,
     String? note,
     double? pnlSharing,
@@ -148,6 +154,7 @@ class AdminService {
       if (name != null) 'name': name,
       if (username != null) 'username': username,
       if (password != null && password.isNotEmpty) 'password': password,
+      if (investorPassword != null) 'investor_password': investorPassword,
       if (credits != null) 'credits': credits,
       if (note != null) 'note': note,
       if (pnlSharing != null) 'pnl_sharing': pnlSharing,
@@ -155,7 +162,8 @@ class AdminService {
       if (exchangesAllowed != null) 'exchanges_allowed': exchangesAllowed,
       if (tradeLimit != null) 'trade_limit': tradeLimit,
       if (addMaster != null) 'add_master': addMaster,
-      if (changePassOnFirstLogin != null) 'change_pass_on_first_login': changePassOnFirstLogin,
+      if (changePassOnFirstLogin != null)
+        'change_pass_on_first_login': changePassOnFirstLogin,
     };
 
     final token = await _storage.getToken();
@@ -168,9 +176,12 @@ class AdminService {
     required MasterPermissions permissions,
   }) async {
     final token = await _storage.getToken();
-    return await _apiService.put('/masters/$masterId/permissions', {
-      'permissions': permissions.toJson(),
-    }, token: token);
+    return await _apiService.put(
+        '/masters/$masterId/permissions',
+        {
+          'permissions': permissions.toJson(),
+        },
+        token: token);
   }
 
   /// Update master status
@@ -185,7 +196,8 @@ class AdminService {
     };
 
     final token = await _storage.getToken();
-    return await _apiService.put('/masters/$masterId/status', data, token: token);
+    return await _apiService.put('/masters/$masterId/status', data,
+        token: token);
   }
 
   /// Credit master account
@@ -195,10 +207,13 @@ class AdminService {
     String? note,
   }) async {
     final token = await _storage.getToken();
-    return await _apiService.post('/masters/$masterId/credit', {
-      'amount': amount,
-      if (note != null) 'note': note,
-    }, token: token);
+    return await _apiService.post(
+        '/masters/$masterId/credit',
+        {
+          'amount': amount,
+          if (note != null) 'note': note,
+        },
+        token: token);
   }
 
   /// Debit master account
@@ -208,10 +223,13 @@ class AdminService {
     String? note,
   }) async {
     final token = await _storage.getToken();
-    return await _apiService.post('/masters/$masterId/debit', {
-      'amount': amount,
-      if (note != null) 'note': note,
-    }, token: token);
+    return await _apiService.post(
+        '/masters/$masterId/debit',
+        {
+          'amount': amount,
+          if (note != null) 'note': note,
+        },
+        token: token);
   }
 
   /// Credit user account (admin flow)
@@ -221,10 +239,13 @@ class AdminService {
     String? note,
   }) async {
     final token = await _storage.getToken();
-    return await _apiService.post('/admin/users/$userId/credit', {
-      'amount': amount,
-      if (note != null) 'note': note,
-    }, token: token);
+    return await _apiService.post(
+        '/admin/users/$userId/credit',
+        {
+          'amount': amount,
+          if (note != null) 'note': note,
+        },
+        token: token);
   }
 
   /// Debit user account (admin flow)
@@ -234,10 +255,13 @@ class AdminService {
     String? note,
   }) async {
     final token = await _storage.getToken();
-    return await _apiService.post('/admin/users/$userId/debit', {
-      'amount': amount,
-      if (note != null) 'note': note,
-    }, token: token);
+    return await _apiService.post(
+        '/admin/users/$userId/debit',
+        {
+          'amount': amount,
+          if (note != null) 'note': note,
+        },
+        token: token);
   }
 
   /// Get master position
@@ -277,11 +301,14 @@ class AdminService {
     if (dateTo != null) queryParams.add('date_to=$dateTo');
     if (status != null) queryParams.add('status=$status');
     if (exchange != null) queryParams.add('exchange=$exchange');
-    if (tradingsymbol != null) queryParams.add('tradingsymbol=${Uri.encodeComponent(tradingsymbol)}');
-    
-    final queryString = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
+    if (tradingsymbol != null)
+      queryParams.add('tradingsymbol=${Uri.encodeComponent(tradingsymbol)}');
+
+    final queryString =
+        queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
     final token = await _storage.getToken();
-    return await _apiService.get('/masters/trades/all$queryString', token: token);
+    return await _apiService.get('/masters/trades/all$queryString',
+        token: token);
   }
 
   // ============================================
@@ -295,10 +322,13 @@ class AdminService {
     required String message,
   }) async {
     final token = await _storage.getToken();
-    return await _apiService.post('/masters/$masterId/messages', {
-      if (subject != null) 'subject': subject,
-      'message': message,
-    }, token: token);
+    return await _apiService.post(
+        '/masters/$masterId/messages',
+        {
+          if (subject != null) 'subject': subject,
+          'message': message,
+        },
+        token: token);
   }
 
   // ============================================
@@ -310,6 +340,7 @@ class AdminService {
     required String name,
     required String username,
     required String password,
+    String? investorPassword,
     required double credits,
     required String note,
     required double pnlSharing,
@@ -326,6 +357,7 @@ class AdminService {
       'name': name,
       'username': username,
       'password': password,
+      if (investorPassword != null) 'investor_password': investorPassword,
       'credits': credits,
       'note': note,
       'pnl_sharing': pnlSharing,
@@ -355,8 +387,9 @@ class AdminService {
     queryParams.add('limit=$limit');
     if (status != null) queryParams.add('status=$status');
     if (serverId != null) queryParams.add('server_id=$serverId');
-    
-    final queryString = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
+
+    final queryString =
+        queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
     final token = await _storage.getToken();
     return await _apiService.get('/admin/users$queryString', token: token);
   }
@@ -413,7 +446,8 @@ class AdminService {
     };
 
     final token = await _storage.getToken();
-    return await _apiService.put('/master/users/$userId/details', data, token: token);
+    return await _apiService.put('/master/users/$userId/details', data,
+        token: token);
   }
 
   /// Update user (full update)
@@ -430,12 +464,14 @@ class AdminService {
     List<String>? tradeLimit,
     bool? marginSquareOff,
     bool? changePassOnFirstLogin,
+    String? investorPassword,
     Map<String, double>? wallet,
   }) async {
     final data = {
       if (name != null) 'name': name,
       if (username != null) 'username': username,
       if (password != null && password.isNotEmpty) 'password': password,
+      if (investorPassword != null) 'investor_password': investorPassword,
       if (credits != null) 'credits': credits,
       if (note != null) 'note': note,
       if (pnlSharing != null) 'pnl_sharing': pnlSharing,
@@ -443,7 +479,8 @@ class AdminService {
       if (exchangesAllowed != null) 'exchanges_allowed': exchangesAllowed,
       if (tradeLimit != null) 'trade_limit': tradeLimit,
       if (marginSquareOff != null) 'margin_square_off': marginSquareOff,
-      if (changePassOnFirstLogin != null) 'change_pass_on_first_login': changePassOnFirstLogin,
+      if (changePassOnFirstLogin != null)
+        'change_pass_on_first_login': changePassOnFirstLogin,
       if (wallet != null) 'wallet': wallet,
     };
 
@@ -463,8 +500,9 @@ class AdminService {
     final queryParams = <String>[];
     queryParams.add('page=$page');
     queryParams.add('limit=$limit');
-    
-    final queryString = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
+
+    final queryString =
+        queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
     final token = await _storage.getToken();
     return await _apiService.get('/master/masters$queryString', token: token);
   }
@@ -477,8 +515,9 @@ class AdminService {
     final queryParams = <String>[];
     queryParams.add('page=$page');
     queryParams.add('limit=$limit');
-    
-    final queryString = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
+
+    final queryString =
+        queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
     final token = await _storage.getToken();
     return await _apiService.get('/master/users$queryString', token: token);
   }
@@ -508,7 +547,8 @@ class AdminService {
     };
 
     final token = await _storage.getToken();
-    return await _apiService.post('/admin/grouped-quantities', data, token: token);
+    return await _apiService.post('/admin/grouped-quantities', data,
+        token: token);
   }
 
   /// Get all grouped quantities
@@ -519,10 +559,12 @@ class AdminService {
     final queryParams = <String>[];
     queryParams.add('page=$page');
     queryParams.add('limit=$limit');
-    
-    final queryString = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
+
+    final queryString =
+        queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
     final token = await _storage.getToken();
-    return await _apiService.get('/admin/grouped-quantities$queryString', token: token);
+    return await _apiService.get('/admin/grouped-quantities$queryString',
+        token: token);
   }
 
   /// Get grouped quantity by ID
@@ -553,19 +595,23 @@ class AdminService {
     };
 
     final token = await _storage.getToken();
-    return await _apiService.put('/admin/grouped-quantities/$id', data, token: token);
+    return await _apiService.put('/admin/grouped-quantities/$id', data,
+        token: token);
   }
 
   /// Delete grouped quantity
   Future<http.Response> deleteGroupedQuantity(String id) async {
     final token = await _storage.getToken();
-    return await _apiService.delete('/admin/grouped-quantities/$id', token: token);
+    return await _apiService.delete('/admin/grouped-quantities/$id',
+        token: token);
   }
 
   /// Get unique raw_names by segment
   Future<http.Response> getUniqueRawNamesBySegment(String segment) async {
     final token = await _storage.getToken();
-    return await _apiService.get('/admin/grouped-quantities/unique-raw-names/$segment', token: token);
+    return await _apiService.get(
+        '/admin/grouped-quantities/unique-raw-names/$segment',
+        token: token);
   }
 
   /// Bulk create a group with all instruments for a segment
@@ -582,7 +628,8 @@ class AdminService {
       'default_break_qty': defaultBreakQty,
     };
     final token = await _storage.getToken();
-    return await _apiService.post('/admin/grouped-quantities/bulk-create', data, token: token);
+    return await _apiService.post('/admin/grouped-quantities/bulk-create', data,
+        token: token);
   }
 
   /// Get all instruments in a specific group
@@ -624,7 +671,8 @@ class AdminService {
     };
 
     final token = await _storage.getToken();
-    return await _apiService.post('/admin/script-quantities', data, token: token);
+    return await _apiService.post('/admin/script-quantities', data,
+        token: token);
   }
 
   /// Get all script quantities
@@ -635,10 +683,12 @@ class AdminService {
     final queryParams = <String>[];
     queryParams.add('page=$page');
     queryParams.add('limit=$limit');
-    
-    final queryString = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
+
+    final queryString =
+        queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
     final token = await _storage.getToken();
-    return await _apiService.get('/admin/script-quantities$queryString', token: token);
+    return await _apiService.get('/admin/script-quantities$queryString',
+        token: token);
   }
 
   /// Get script quantity by ID
@@ -650,7 +700,9 @@ class AdminService {
   /// Get lot names by exchange
   Future<http.Response> getLotNamesByExchange(String exchangeName) async {
     final token = await _storage.getToken();
-    return await _apiService.get('/admin/grouped-quantities/exchange/$exchangeName/lot-names', token: token);
+    return await _apiService.get(
+        '/admin/grouped-quantities/exchange/$exchangeName/lot-names',
+        token: token);
   }
 
   /// Update script quantity
@@ -671,13 +723,15 @@ class AdminService {
     };
 
     final token = await _storage.getToken();
-    return await _apiService.put('/admin/script-quantities/$id', data, token: token);
+    return await _apiService.put('/admin/script-quantities/$id', data,
+        token: token);
   }
 
   /// Delete script quantity
   Future<http.Response> deleteScriptQuantity(String id) async {
     final token = await _storage.getToken();
-    return await _apiService.delete('/admin/script-quantities/$id', token: token);
+    return await _apiService.delete('/admin/script-quantities/$id',
+        token: token);
   }
 
   // ============================================
@@ -699,7 +753,8 @@ class AdminService {
     };
 
     final token = await _storage.getToken();
-    return await _apiService.post('/admin/brokerage-settings', data, token: token);
+    return await _apiService.post('/admin/brokerage-settings', data,
+        token: token);
   }
 
   /// Get all brokerage settings
@@ -710,10 +765,12 @@ class AdminService {
     final queryParams = <String>[];
     queryParams.add('page=$page');
     queryParams.add('limit=$limit');
-    
-    final queryString = queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
+
+    final queryString =
+        queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
     final token = await _storage.getToken();
-    return await _apiService.get('/admin/brokerage-settings$queryString', token: token);
+    return await _apiService.get('/admin/brokerage-settings$queryString',
+        token: token);
   }
 
   /// Get brokerage settings by ID
@@ -738,13 +795,15 @@ class AdminService {
     };
 
     final token = await _storage.getToken();
-    return await _apiService.put('/admin/brokerage-settings/$id', data, token: token);
+    return await _apiService.put('/admin/brokerage-settings/$id', data,
+        token: token);
   }
 
   /// Delete brokerage settings
   Future<http.Response> deleteBrokerageSettings(String id) async {
     final token = await _storage.getToken();
-    return await _apiService.delete('/admin/brokerage-settings/$id', token: token);
+    return await _apiService.delete('/admin/brokerage-settings/$id',
+        token: token);
   }
 
   /// Bulk create brokerage settings for all raw_names in a segment
@@ -759,7 +818,8 @@ class AdminService {
       'default_brk_value': defaultBrkValue,
     };
     final token = await _storage.getToken();
-    return await _apiService.post('/admin/brokerage-settings/bulk-create', data, token: token);
+    return await _apiService.post('/admin/brokerage-settings/bulk-create', data,
+        token: token);
   }
 
   /// Get brokerage settings by exchange with optional type filter
@@ -773,7 +833,9 @@ class AdminService {
     if (type != null) queryParams.add('type=$type');
     final queryString = '?${queryParams.join('&')}';
     final token = await _storage.getToken();
-    return await _apiService.get('/admin/brokerage-settings/exchange/$exchangeName$queryString', token: token);
+    return await _apiService.get(
+        '/admin/brokerage-settings/exchange/$exchangeName$queryString',
+        token: token);
   }
 
   /// Bulk create script quantities for all raw_names in a segment
@@ -792,7 +854,8 @@ class AdminService {
       if (ownerType != null) 'owner_type': ownerType,
     };
     final token = await _storage.getToken();
-    return await _apiService.post('/admin/script-quantities/bulk-create', data, token: token);
+    return await _apiService.post('/admin/script-quantities/bulk-create', data,
+        token: token);
   }
 
   /// Get script quantities by exchange
@@ -806,7 +869,9 @@ class AdminService {
     if (ownerId != null) queryParams.add('owner_id=$ownerId');
     final queryString = '?${queryParams.join('&')}';
     final token = await _storage.getToken();
-    return await _apiService.get('/admin/script-quantities/exchange/$exchangeName$queryString', token: token);
+    return await _apiService.get(
+        '/admin/script-quantities/exchange/$exchangeName$queryString',
+        token: token);
   }
 
   // ============================================
@@ -819,9 +884,12 @@ class AdminService {
     required List<Map<String, dynamic>> intradaySquareoff,
   }) async {
     final token = await _storage.getToken();
-    return await _apiService.put('/masters/$masterId/intraday-squareoff', {
-      'intraday_squareoff': intradaySquareoff,
-    }, token: token);
+    return await _apiService.put(
+        '/masters/$masterId/intraday-squareoff',
+        {
+          'intraday_squareoff': intradaySquareoff,
+        },
+        token: token);
   }
 
   /// Update user intraday squareoff settings
@@ -830,9 +898,12 @@ class AdminService {
     required List<Map<String, dynamic>> intradaySquareoff,
   }) async {
     final token = await _storage.getToken();
-    return await _apiService.put('/master/users/$userId/intraday-squareoff', {
-      'intraday_squareoff': intradaySquareoff,
-    }, token: token);
+    return await _apiService.put(
+        '/master/users/$userId/intraday-squareoff',
+        {
+          'intraday_squareoff': intradaySquareoff,
+        },
+        token: token);
   }
 
   /// Update master margin squareoff percentage
@@ -841,9 +912,12 @@ class AdminService {
     required double percentage,
   }) async {
     final token = await _storage.getToken();
-    return await _apiService.put('/masters/$masterId/margin-squareoff-percentage', {
-      'margin_square_off_percentage': percentage,
-    }, token: token);
+    return await _apiService.put(
+        '/masters/$masterId/margin-squareoff-percentage',
+        {
+          'margin_square_off_percentage': percentage,
+        },
+        token: token);
   }
 
   /// Update user margin squareoff percentage
@@ -852,9 +926,12 @@ class AdminService {
     required double percentage,
   }) async {
     final token = await _storage.getToken();
-    return await _apiService.put('/master/users/$userId/margin-squareoff-percentage', {
-      'margin_square_off_percentage': percentage,
-    }, token: token);
+    return await _apiService.put(
+        '/master/users/$userId/margin-squareoff-percentage',
+        {
+          'margin_square_off_percentage': percentage,
+        },
+        token: token);
   }
 
   // ============================================
@@ -863,7 +940,8 @@ class AdminService {
 
   Future<http.Response> getAccountLimit(String masterId) async {
     final token = await _storage.getToken();
-    return await _apiService.get('/masters/$masterId/account-limit', token: token);
+    return await _apiService.get('/masters/$masterId/account-limit',
+        token: token);
   }
 
   Future<http.Response> updateAccountLimit({
@@ -873,11 +951,14 @@ class AdminService {
     required int maxUsers,
   }) async {
     final token = await _storage.getToken();
-    return await _apiService.put('/masters/$masterId/account-limit', {
-      'enabled': enabled,
-      'max_masters': maxMasters,
-      'max_users': maxUsers,
-    }, token: token);
+    return await _apiService.put(
+        '/masters/$masterId/account-limit',
+        {
+          'enabled': enabled,
+          'max_masters': maxMasters,
+          'max_users': maxUsers,
+        },
+        token: token);
   }
 
   // ============================================
@@ -892,12 +973,15 @@ class AdminService {
     required double amount,
   }) async {
     final token = await _storage.getToken();
-    return await _apiService.post('/admin/wallet/assign', {
-      'target_id': targetId,
-      'target_type': targetType,
-      'category': category,
-      'amount': amount,
-    }, token: token);
+    return await _apiService.post(
+        '/admin/wallet/assign',
+        {
+          'target_id': targetId,
+          'target_type': targetType,
+          'category': category,
+          'amount': amount,
+        },
+        token: token);
   }
 
   /// Withdraw category funds from any account (admin remove)
@@ -908,12 +992,15 @@ class AdminService {
     required double amount,
   }) async {
     final token = await _storage.getToken();
-    return await _apiService.post('/admin/wallet/withdraw', {
-      'target_id': targetId,
-      'target_type': targetType,
-      'category': category,
-      'amount': amount,
-    }, token: token);
+    return await _apiService.post(
+        '/admin/wallet/withdraw',
+        {
+          'target_id': targetId,
+          'target_type': targetType,
+          'category': category,
+          'amount': amount,
+        },
+        token: token);
   }
 
   /// Get an owner's per-category wallet balances

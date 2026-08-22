@@ -7,6 +7,7 @@ import 'package:stocker/services/multi_account_service.dart';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
+import 'package:stocker/providers/investor_mode_provider.dart';
 import 'pages/login_page.dart';
 import 'pages/force_password_reset_page.dart';
 import 'home_page.dart';
@@ -62,6 +63,11 @@ class _InitialScreenState extends State<InitialScreen> {
 
         final apiService = Provider.of<ApiService>(context, listen: false);
         apiService.setInitializing(true);
+
+        // Restore investor mode state from storage
+        final investorProvider =
+            Provider.of<InvestorModeProvider>(context, listen: false);
+        await investorProvider.loadFromStorage();
 
         try {
           final profileProvider =

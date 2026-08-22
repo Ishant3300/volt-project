@@ -16,6 +16,7 @@ import '../services/api_service.dart';
 import '../services/multi_account_service.dart';
 import '../providers/user_profile_provider.dart';
 import '../providers/trade_metrics_provider.dart';
+import '../providers/investor_mode_provider.dart';
 import '../pages/login_page.dart';
 import '../services/firebase_service.dart';
 import '../pages/account_switcher_sheet.dart';
@@ -490,7 +491,10 @@ class _ProfilePageState extends State<ProfilePage> {
                     _buildMenuItem(context, 'Account Detail',
                         svgPath: kIconAccountDetails),
                     _buildDivider(),
-                    if (_isAdmin || _isMaster) ...[
+                    if ((_isAdmin || _isMaster) &&
+                        !Provider.of<InvestorModeProvider>(context,
+                                listen: false)
+                            .isInvestor) ...[
                       _buildMenuItem(context, 'Master And User Management',
                           svgPath: kIconMasterUserMgmt),
                       _buildDivider(),
@@ -498,12 +502,14 @@ class _ProfilePageState extends State<ProfilePage> {
                       Builder(builder: (context) {
                         return const SizedBox.shrink();
                       }),
-                    if (Provider.of<UserProfileProvider>(context, listen: false).hasAnyReportPermission) ...[
+                    if (Provider.of<UserProfileProvider>(context, listen: false)
+                        .hasAnyReportPermission) ...[
                       _buildMenuItem(context, 'Reports', svgPath: kIconReports),
                       _buildDivider(),
                     ],
                     if (_isMaster) ...[
-                      _buildMenuItem(context, 'Manage Reports', icon: Icons.description_outlined),
+                      _buildMenuItem(context, 'Manage Reports',
+                          icon: Icons.description_outlined),
                       _buildDivider(),
                     ],
                     _buildMenuItem(context, 'Settings', svgPath: kIconSettings),
@@ -517,9 +523,13 @@ class _ProfilePageState extends State<ProfilePage> {
                     _buildMenuItem(context, 'Switch Account',
                         icon: Icons.swap_horiz),
                     _buildDivider(),
-                    _buildMenuItem(context, 'Delete Account',
-                        svgPath: kIconDeleteAccount, isRed: true),
-                    _buildDivider(),
+                    if (!Provider.of<InvestorModeProvider>(context,
+                            listen: false)
+                        .isInvestor) ...[
+                      _buildMenuItem(context, 'Delete Account',
+                          svgPath: kIconDeleteAccount, isRed: true),
+                      _buildDivider(),
+                    ],
                     _buildMenuItem(context, 'Logout',
                         svgPath: kIconLogout, isRed: true),
                   ],
@@ -576,7 +586,8 @@ class _ProfilePageState extends State<ProfilePage> {
               } else if (title == 'Manage Reports') {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const ManageReportsView()),
+                  MaterialPageRoute(
+                      builder: (context) => const ManageReportsView()),
                 );
               } else if (title == 'Settings') {
                 Navigator.push(

@@ -7,6 +7,7 @@ import 'package:stocker/models/watchlist_item.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
+import 'package:stocker/providers/investor_mode_provider.dart';
 import 'package:stocker/services/trade_service.dart';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
@@ -459,6 +460,19 @@ class _TradeCardPageState extends State<TradeCardPage> {
   Future<void> _handleTrade(String transactionType, double currentPrice) async {
     if (_isLoading) return;
     if (!mounted) return;
+
+    // Block trades in investor mode (read-only access)
+    final investorMode =
+        Provider.of<InvestorModeProvider>(context, listen: false);
+    if (investorMode.isInvestor) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Trading is not available in investor mode'),
+          backgroundColor: Color(0xFF64748B),
+        ),
+      );
+      return;
+    }
 
     // Admin and Master must select a user before placing a trade
     final profile = Provider.of<UserProfileProvider>(context, listen: false);

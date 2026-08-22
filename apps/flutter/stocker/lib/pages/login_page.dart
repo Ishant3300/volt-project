@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
+import 'package:stocker/providers/investor_mode_provider.dart';
 import 'package:stocker/services/auth_service.dart';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
@@ -143,6 +144,12 @@ class _LoginPageState extends State<LoginPage> {
             );
             return;
           }
+
+          // Set investor mode based on login response
+          final investorProvider =
+              Provider.of<InvestorModeProvider>(context, listen: false);
+          await investorProvider
+              .setInvestor(response.data?['investor'] == true);
 
           final profileProvider =
               Provider.of<UserProfileProvider>(context, listen: false);

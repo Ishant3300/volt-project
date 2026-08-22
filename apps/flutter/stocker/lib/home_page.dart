@@ -1,5 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart';
+import 'package:stocker/providers/investor_mode_provider.dart';
 import 'utils/contants.dart';
 import 'pages/watchlist_page.dart';
 import 'pages/orders_page.dart';
@@ -33,7 +35,8 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Widget _buildNavItem(String svgPath, String label, int index) {
     final bool isSelected = _selectedIndex == index;
-    final color = isSelected ? const Color(0xFF3F45C7) : const Color(0xFF94A3B8);
+    final color =
+        isSelected ? const Color(0xFF3F45C7) : const Color(0xFF94A3B8);
     return GestureDetector(
       onTap: () => _onItemTapped(index),
       behavior: HitTestBehavior.opaque,
@@ -42,7 +45,9 @@ class _MyHomePageState extends State<MyHomePage> {
         curve: Curves.easeInOut,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF3F45C7).withValues(alpha: 0.08) : Colors.transparent,
+          color: isSelected
+              ? const Color(0xFF3F45C7).withValues(alpha: 0.08)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -60,7 +65,8 @@ class _MyHomePageState extends State<MyHomePage> {
               style: TextStyle(
                 fontFamily: 'Inter',
                 fontSize: kFontSizeNavLabel,
-                fontWeight: isSelected ? kFontWeightSemiBold : kFontWeightMedium,
+                fontWeight:
+                    isSelected ? kFontWeightSemiBold : kFontWeightMedium,
                 color: color,
                 letterSpacing: 0.2,
               ),
@@ -74,7 +80,42 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _pages[_selectedIndex],
+      body: Column(
+        children: [
+          // Investor mode banner (only shown when logged in with investor password)
+          Consumer<InvestorModeProvider>(
+            builder: (context, investor, _) {
+              if (!investor.isInvestor) return const SizedBox.shrink();
+              return Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+                color: const Color(0xFF64748B),
+                child: SafeArea(
+                  bottom: false,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.lock_outline, size: 14, color: Colors.white),
+                      SizedBox(width: 6),
+                      Text(
+                        'Investor Mode (Read Only)',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontFamily: 'Inter',
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          Expanded(child: _pages[_selectedIndex]),
+        ],
+      ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Colors.white,

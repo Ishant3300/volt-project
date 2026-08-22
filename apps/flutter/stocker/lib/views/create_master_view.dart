@@ -26,6 +26,10 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
+  final TextEditingController _investorPasswordController =
+      TextEditingController();
+  final TextEditingController _confirmInvestorPasswordController =
+      TextEditingController();
   final TextEditingController _creditController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
   final TextEditingController _profitLossController = TextEditingController();
@@ -71,6 +75,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     _usernameController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _investorPasswordController.dispose();
+    _confirmInvestorPasswordController.dispose();
     _creditController.dispose();
     _noteController.dispose();
     _profitLossController.dispose();
@@ -224,6 +230,20 @@ class _CreateMasterViewState extends State<CreateMasterView> {
       }
     }
 
+    // Validate investor password (optional — only if filled)
+    if (_investorPasswordController.text.isNotEmpty) {
+      if (_investorPasswordController.text !=
+          _confirmInvestorPasswordController.text) {
+        _showSnack('Investor passwords do not match', isError: true);
+        return;
+      }
+      if (_investorPasswordController.text == _passwordController.text) {
+        _showSnack('Investor password must be different from main password',
+            isError: true);
+        return;
+      }
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
@@ -246,6 +266,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           username: _usernameController.text.trim(),
           password: _passwordController.text.isNotEmpty
               ? _passwordController.text
+              : null,
+          investorPassword: _investorPasswordController.text.isNotEmpty
+              ? _investorPasswordController.text
               : null,
           credits: double.tryParse(_creditController.text.trim()),
           note: _noteController.text.trim().isEmpty
@@ -324,6 +347,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           name: _nameController.text.trim(),
           username: _usernameController.text.trim(),
           password: _passwordController.text,
+          investorPassword: _investorPasswordController.text.isNotEmpty
+              ? _investorPasswordController.text
+              : null,
           credits: double.tryParse(_creditController.text.trim()) ?? 0,
           note: _noteController.text.trim().isEmpty
               ? ''
@@ -548,6 +574,20 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                             hint: widget.master != null
                                 ? 'Leave empty to keep current'
                                 : 'Confirm password',
+                          ),
+                          _divider(),
+                          _buildTextField(
+                            label: 'Investor Password',
+                            controller: _investorPasswordController,
+                            obscureText: true,
+                            hint: 'Optional — read-only access',
+                          ),
+                          _divider(),
+                          _buildTextField(
+                            label: 'Confirm Investor',
+                            controller: _confirmInvestorPasswordController,
+                            obscureText: true,
+                            hint: 'Optional',
                           ),
                           _divider(),
                           _buildTextField(

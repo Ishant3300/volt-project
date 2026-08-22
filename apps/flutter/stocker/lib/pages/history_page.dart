@@ -8,6 +8,7 @@ import 'package:stocker/models/watchlist_item.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
+import 'package:stocker/providers/investor_mode_provider.dart';
 import 'package:stocker/views/trade_card_view.dart';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
@@ -429,6 +430,7 @@ class _PortfolioPageState extends State<PortfolioPage>
       ),
     );
   }
+
   String _buildFilterSummary() {
     final parts = <String>[];
     if (_activeFilters?.tradingsymbol != null)
@@ -608,7 +610,6 @@ class _PortfolioPageState extends State<PortfolioPage>
                 color: Color(0xFF3F45C7), strokeWidth: 2.5));
       }
       final completedTrades = (_filteredUserTrades ?? [])
-
           .where((t) => t.status.toLowerCase() == 'completed')
           .toList();
       return _buildTradeListView(completedTrades, 'completed',
@@ -771,10 +772,24 @@ class _PortfolioPageState extends State<PortfolioPage>
     final inst = wItem?.instrument;
 
     if (inst != null) {
-      final base = (inst.name.isNotEmpty ? inst.name : inst.tradingsymbol).toUpperCase();
+      final base =
+          (inst.name.isNotEmpty ? inst.name : inst.tradingsymbol).toUpperCase();
       if (inst.expiry != null) {
         final day = inst.expiry!.day;
-        const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+        const months = [
+          'JAN',
+          'FEB',
+          'MAR',
+          'APR',
+          'MAY',
+          'JUN',
+          'JUL',
+          'AUG',
+          'SEP',
+          'OCT',
+          'NOV',
+          'DEC'
+        ];
         final month = months[inst.expiry!.month - 1];
         if (inst.instrumentType == 'CE' || inst.instrumentType == 'PE') {
           return '$base | $day$month ${inst.strike.toInt()} ${inst.instrumentType}';
@@ -794,8 +809,18 @@ class _PortfolioPageState extends State<PortfolioPage>
     if (symbol.isEmpty) return symbol;
 
     const months = [
-      'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-      'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC'
     ];
 
     for (final month in months) {
@@ -857,12 +882,12 @@ class _PortfolioPageState extends State<PortfolioPage>
     // A trade is "closing" if the backend computed a non-zero P&L for it.
     final bool isClosing = trade.pnl != 0;
     final double deals = trade.pnl;
-    final Color dealsColor = deals >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+    final Color dealsColor =
+        deals >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => showTradeDetailSheet(context, trade,
-          isClosing: isClosing),
+      onTap: () => showTradeDetailSheet(context, trade, isClosing: isClosing),
       child: Column(
         children: [
           // Main content area
@@ -913,7 +938,8 @@ class _PortfolioPageState extends State<PortfolioPage>
                           if (trade.placedBy == 'ADMIN') ...[
                             const SizedBox(width: 6),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 3),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF3F45C7).withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
@@ -964,7 +990,10 @@ class _PortfolioPageState extends State<PortfolioPage>
                           if (_isAdmin && trade.masterName != null) ...[
                             const Padding(
                               padding: EdgeInsets.symmetric(horizontal: 6),
-                              child: Text('·', style: TextStyle(fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1))),
+                              child: Text('·',
+                                  style: TextStyle(
+                                      fontSize: kFontSizeCaption,
+                                      color: Color(0xFFCBD5E1))),
                             ),
                             Flexible(
                               child: Text(
@@ -1039,54 +1068,57 @@ class _PortfolioPageState extends State<PortfolioPage>
                         ),
                       ],
                       if (!_isAdmin && !_isMaster) ...[
-                  if (isClosing)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'Closed',
-                        style: const TextStyle(
-                          color: Color(0xFF64748B),
-                          fontSize: kFontSizeCaption,
-                          fontFamily: 'Inter',
-                          fontWeight: kFontWeightSemiBold,
+                        if (isClosing)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              'Closed',
+                              style: const TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: kFontSizeCaption,
+                                fontFamily: 'Inter',
+                                fontWeight: kFontWeightSemiBold,
+                              ),
+                            ),
+                          )
+                        else ...[
+                          const Icon(Icons.access_time,
+                              size: 11, color: Color(0xFF94A3B8)),
+                          const SizedBox(width: 4),
+                          Text(
+                            formattedDate,
+                            style: const TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: kFontSizeCaption,
+                              fontFamily: 'Inter',
+                              fontWeight: kFontWeightMedium,
+                            ),
+                          ),
+                        ],
+                      ],
+                      if ((_isAdmin || _isMaster) && isClosing)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            'Closed',
+                            style: TextStyle(
+                              color: Color(0xFF64748B),
+                              fontSize: kFontSizeCaption,
+                              fontFamily: 'Inter',
+                              fontWeight: kFontWeightSemiBold,
+                            ),
+                          ),
                         ),
-                      ),
-                    )
-                  else ...[
-                    const Icon(Icons.access_time, size: 11, color: Color(0xFF94A3B8)),
-                    const SizedBox(width: 4),
-                    Text(
-                      formattedDate,
-                      style: const TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: kFontSizeCaption,
-                        fontFamily: 'Inter',
-                        fontWeight: kFontWeightMedium,
-                      ),
-                    ),
-                  ],
-                ],
-                if ((_isAdmin || _isMaster) && isClosing)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      'Closed',
-                      style: TextStyle(
-                        color: Color(0xFF64748B),
-                        fontSize: kFontSizeCaption,
-                        fontFamily: 'Inter',
-                        fontWeight: kFontWeightSemiBold,
-                      ),
-                    ),
-                  ),
                     ],
                   ),
                 ),
@@ -1124,7 +1156,8 @@ class _PortfolioPageState extends State<PortfolioPage>
                   )
                 else if (isClosing)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: dealsColor.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(8),
@@ -1637,7 +1670,9 @@ class _PortfolioPageState extends State<PortfolioPage>
           item: itemToUse,
           initialOrderType: closeOrderType,
           initialQuantity: closeQuantity,
-          forceSide: trade.status.toLowerCase() == 'pending' ? trade.transactionType.toUpperCase() : null,
+          forceSide: trade.status.toLowerCase() == 'pending'
+              ? trade.transactionType.toUpperCase()
+              : null,
         ),
       ),
     );
@@ -1650,7 +1685,8 @@ class _PortfolioPageState extends State<PortfolioPage>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text(
           'Delete Trade',
-          style: TextStyle(fontFamily: 'Inter', fontWeight: kFontWeightSemiBold),
+          style:
+              TextStyle(fontFamily: 'Inter', fontWeight: kFontWeightSemiBold),
         ),
         content: Text(
           'Are you sure you want to permanently delete this ${trade.transactionType} trade for ${trade.tradingSymbol}?',
@@ -1723,6 +1759,19 @@ class _PortfolioPageState extends State<PortfolioPage>
   }
 
   Future<void> _cancelOrder(Trade trade) async {
+    // Block in investor mode
+    final investorMode =
+        Provider.of<InvestorModeProvider>(context, listen: false);
+    if (investorMode.isInvestor) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content:
+                Text('Order cancellation is not available in investor mode'),
+            backgroundColor: Color(0xFF64748B)),
+      );
+      return;
+    }
+
     final metricsProvider =
         Provider.of<TradeMetricsProvider>(context, listen: false);
 
@@ -1817,5 +1866,3 @@ class _PortfolioPageState extends State<PortfolioPage>
     }
   }
 }
-
-

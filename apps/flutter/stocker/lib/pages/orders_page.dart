@@ -6,6 +6,7 @@ import 'package:jwt_decode/jwt_decode.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
+import 'package:stocker/providers/investor_mode_provider.dart';
 import 'package:stocker/models/kite_instrument.dart';
 import 'package:stocker/models/watchlist_item.dart';
 import 'package:stocker/views/trade_card_view.dart';
@@ -159,11 +160,12 @@ class _OrdersPageState extends State<OrdersPage> {
           totalRealised += (u['realised_pnl'] as num?)?.toDouble() ?? 0;
           totalPositionPnl += (u['position_pnl'] as num?)?.toDouble() ?? 0;
           totalEquity += (u['equity'] as num?)?.toDouble() ?? 0;
-          
+
           final wallet = u['wallet'] as Map<String, dynamic>?;
           if (wallet != null) {
             wallet.forEach((key, value) {
-              aggregatedWallet[key] = (aggregatedWallet[key] ?? 0) + ((value as num?)?.toDouble() ?? 0);
+              aggregatedWallet[key] = (aggregatedWallet[key] ?? 0) +
+                  ((value as num?)?.toDouble() ?? 0);
             });
           }
 
@@ -183,7 +185,8 @@ class _OrdersPageState extends State<OrdersPage> {
 
         _masterRealisedPnl = (totalRealised * 100).roundToDouble() / 100;
         _masterPositionPnl = (totalPositionPnl * 100).roundToDouble() / 100;
-        _masterM2mPnl = ((totalRealised + totalPositionPnl) * 100).roundToDouble() / 100;
+        _masterM2mPnl =
+            ((totalRealised + totalPositionPnl) * 100).roundToDouble() / 100;
         _masterEquity = (totalEquity * 100).roundToDouble() / 100;
         _masterWallet = aggregatedWallet;
       });
@@ -278,18 +281,20 @@ class _OrdersPageState extends State<OrdersPage> {
       totalRealised += (user['realised_pnl'] as num?)?.toDouble() ?? 0;
       totalPositionPnl += (user['position_pnl'] as num?)?.toDouble() ?? 0;
       totalEquity += (user['equity'] as num?)?.toDouble() ?? 0;
-      
+
       final wallet = user['wallet'] as Map<String, dynamic>?;
       if (wallet != null) {
         wallet.forEach((key, value) {
-          aggregatedWallet[key] = (aggregatedWallet[key] ?? 0) + ((value as num?)?.toDouble() ?? 0);
+          aggregatedWallet[key] =
+              (aggregatedWallet[key] ?? 0) + ((value as num?)?.toDouble() ?? 0);
         });
       }
     }
 
     _masterRealisedPnl = (totalRealised * 100).roundToDouble() / 100;
     _masterPositionPnl = (totalPositionPnl * 100).roundToDouble() / 100;
-    _masterM2mPnl = ((totalRealised + totalPositionPnl) * 100).roundToDouble() / 100;
+    _masterM2mPnl =
+        ((totalRealised + totalPositionPnl) * 100).roundToDouble() / 100;
     _masterEquity = (totalEquity * 100).roundToDouble() / 100;
     _masterWallet = aggregatedWallet;
   }
@@ -344,8 +349,10 @@ class _OrdersPageState extends State<OrdersPage> {
     for (final master in _adminMasterMetrics) {
       final String masterId = master['master_id'] ?? '';
       final double realised = (master['realised_pnl'] as num?)?.toDouble() ?? 0;
-      final double positionPnl = (master['position_pnl'] as num?)?.toDouble() ?? 0;
-      _adminMasterPnl[masterId] = ((realised + positionPnl) * 100).roundToDouble() / 100;
+      final double positionPnl =
+          (master['position_pnl'] as num?)?.toDouble() ?? 0;
+      _adminMasterPnl[masterId] =
+          ((realised + positionPnl) * 100).roundToDouble() / 100;
     }
   }
 
@@ -460,13 +467,14 @@ class _OrdersPageState extends State<OrdersPage> {
       final initialM2m = (master['m2m_pnl'] as num?)?.toDouble() ?? 0;
       final mid = master['master_id']?.toString() ?? '';
       final livePnl = _adminMasterPnl[mid] ?? initialM2m;
-      
+
       // Compute live equity
       totalEquity += initialEquity + (livePnl - initialM2m);
 
       final wallet = master['wallet'] as Map<String, dynamic>? ?? {};
       for (final entry in wallet.entries) {
-        totalWallet[entry.key] = (totalWallet[entry.key] ?? 0) + ((entry.value as num?)?.toDouble() ?? 0);
+        totalWallet[entry.key] = (totalWallet[entry.key] ?? 0) +
+            ((entry.value as num?)?.toDouble() ?? 0);
       }
     }
 
@@ -489,7 +497,8 @@ class _OrdersPageState extends State<OrdersPage> {
                 // Total P&L and Equity values
                 Container(
                   margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
@@ -535,10 +544,12 @@ class _OrdersPageState extends State<OrdersPage> {
                                       fontFamily: 'Inter',
                                       fontWeight: kFontWeightMedium)),
                               GestureDetector(
-                                onTap: () => _showAdminWalletBreakdownSheet(context, totalWallet),
+                                onTap: () => _showAdminWalletBreakdownSheet(
+                                    context, totalWallet),
                                 behavior: HitTestBehavior.opaque,
                                 child: const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 4, vertical: 2),
                                   child: Icon(
                                     Icons.info_outline_rounded,
                                     size: kIconSizeSmall,
@@ -711,7 +722,8 @@ class _OrdersPageState extends State<OrdersPage> {
                         padding: EdgeInsets.symmetric(horizontal: 6),
                         child: Text('·',
                             style: TextStyle(
-                                fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1))),
+                                fontSize: kFontSizeCaption,
+                                color: Color(0xFFCBD5E1))),
                       ),
                       const Icon(Icons.people_outline,
                           size: 12, color: Color(0xFF94A3B8)),
@@ -733,15 +745,15 @@ class _OrdersPageState extends State<OrdersPage> {
 
             // Live P&L
             Text(
-                            pnl.toStringAsFixed(2),
-                            style: TextStyle(
+              pnl.toStringAsFixed(2),
+              style: TextStyle(
                 color: isPnlPositive
                     ? const Color(0xFF22C55E)
                     : const Color(0xFFEF4444),
                 fontSize: kFontSizeBody,
                 fontFamily: 'Inter',
                 fontWeight: kFontWeightBold,
-                          ),
+              ),
             ),
           ],
         ),
@@ -791,15 +803,15 @@ class _OrdersPageState extends State<OrdersPage> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Text(
-                            _masterPositionPnl.toStringAsFixed(2),
-                            style: TextStyle(
+                      _masterPositionPnl.toStringAsFixed(2),
+                      style: TextStyle(
                         color: isPnlPositive
                             ? const Color(0xFF22C55E)
                             : const Color(0xFFEF4444),
                         fontSize: 20,
                         fontFamily: 'Inter',
                         fontWeight: kFontWeightBold,
-                          ),
+                      ),
                     ),
                   ),
                 ),
@@ -816,49 +828,74 @@ class _OrdersPageState extends State<OrdersPage> {
                   child: Column(
                     children: [
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text('Realised P&L',
-                                style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
+                                style: TextStyle(
+                                    color: Color(0xFF64748B),
+                                    fontSize: kFontSizeBodySmall,
+                                    fontFamily: 'Inter',
+                                    fontWeight: kFontWeightMedium)),
                             Text(_masterRealisedPnl.toStringAsFixed(2),
                                 style: TextStyle(
-                                    color: isRealisedPositive ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
-                                    fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                                    color: isRealisedPositive
+                                        ? const Color(0xFF22C55E)
+                                        : const Color(0xFFEF4444),
+                                    fontSize: kFontSizeBody,
+                                    fontFamily: 'Inter',
+                                    fontWeight: kFontWeightSemiBold)),
                           ],
                         ),
                       ),
                       const Divider(height: 1, color: Color(0xFFF1F5F9)),
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text('TOTAL P&L',
-                                style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
+                                style: TextStyle(
+                                    color: Color(0xFF64748B),
+                                    fontSize: kFontSizeBodySmall,
+                                    fontFamily: 'Inter',
+                                    fontWeight: kFontWeightMedium)),
                             Text(_masterM2mPnl.toStringAsFixed(2),
                                 style: TextStyle(
-                                    color: isM2mPositive ? const Color(0xFF22C55E) : const Color(0xFFEF4444),
-                                    fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                                    color: isM2mPositive
+                                        ? const Color(0xFF22C55E)
+                                        : const Color(0xFFEF4444),
+                                    fontSize: kFontSizeBody,
+                                    fontFamily: 'Inter',
+                                    fontWeight: kFontWeightSemiBold)),
                           ],
                         ),
                       ),
                       const Divider(height: 1, color: Color(0xFFF1F5F9)),
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Row(
                               children: [
                                 const Text('Equity',
-                                    style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
+                                    style: TextStyle(
+                                        color: Color(0xFF64748B),
+                                        fontSize: kFontSizeBodySmall,
+                                        fontFamily: 'Inter',
+                                        fontWeight: kFontWeightMedium)),
                                 GestureDetector(
-                                  onTap: () => _showMasterWalletBreakdownSheet(context),
+                                  onTap: () =>
+                                      _showMasterWalletBreakdownSheet(context),
                                   behavior: HitTestBehavior.opaque,
                                   child: const Padding(
-                                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 4, vertical: 2),
                                     child: Icon(
                                       Icons.info_outline_rounded,
                                       size: kIconSizeSmall,
@@ -870,8 +907,12 @@ class _OrdersPageState extends State<OrdersPage> {
                             ),
                             Text(_masterEquity.toStringAsFixed(2),
                                 style: TextStyle(
-                                    color: _masterEquity >= 0 ? const Color(0xFF0F172A) : const Color(0xFFEF4444),
-                                    fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                                    color: _masterEquity >= 0
+                                        ? const Color(0xFF0F172A)
+                                        : const Color(0xFFEF4444),
+                                    fontSize: kFontSizeBody,
+                                    fontFamily: 'Inter',
+                                    fontWeight: kFontWeightSemiBold)),
                           ],
                         ),
                       ),
@@ -991,13 +1032,10 @@ class _OrdersPageState extends State<OrdersPage> {
                     ),
                     child: Column(
                       children: [
-                        for (int i = 0;
-                            i < filteredPositions.length;
-                            i++) ...[
+                        for (int i = 0; i < filteredPositions.length; i++) ...[
                           _buildMasterPositionItem(filteredPositions[i]),
                           if (i < filteredPositions.length - 1)
-                            const Divider(
-                                height: 1, color: Color(0xFFF1F5F9)),
+                            const Divider(height: 1, color: Color(0xFFF1F5F9)),
                         ],
                       ],
                     ),
@@ -1073,7 +1111,8 @@ class _OrdersPageState extends State<OrdersPage> {
                         padding: EdgeInsets.symmetric(horizontal: 6),
                         child: Text('·',
                             style: TextStyle(
-                                fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1))),
+                                fontSize: kFontSizeCaption,
+                                color: Color(0xFFCBD5E1))),
                       ),
                       const Icon(Icons.people_outline,
                           size: 12, color: Color(0xFF94A3B8)),
@@ -1114,7 +1153,8 @@ class _OrdersPageState extends State<OrdersPage> {
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.chevron_right, size: kIconSizeMedium, color: Color(0xFF94A3B8)),
+            const Icon(Icons.chevron_right,
+                size: kIconSizeMedium, color: Color(0xFF94A3B8)),
           ],
         ),
       ),
@@ -1127,8 +1167,18 @@ class _OrdersPageState extends State<OrdersPage> {
     if (symbol.isEmpty) return symbol;
 
     const months = [
-      'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
-      'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC'
     ];
 
     for (final month in months) {
@@ -1181,7 +1231,8 @@ class _OrdersPageState extends State<OrdersPage> {
   bool _expiredCheckDone = false;
 
   /// Check for expired instrument positions and auto-squareoff
-  Future<void> _checkAndSquareOffExpired(List<PositionAgg> openPositions, WatchlistProvider watchlistProvider) async {
+  Future<void> _checkAndSquareOffExpired(List<PositionAgg> openPositions,
+      WatchlistProvider watchlistProvider) async {
     if (_expiredCheckDone) return;
     _expiredCheckDone = true;
 
@@ -1208,15 +1259,19 @@ class _OrdersPageState extends State<OrdersPage> {
       if (token == null) return;
 
       final apiService = ApiService(backendUrl);
-      final res = await apiService.post('/trade/auto-squareoff-expired', {
-        'instrument_tokens': expiredTokens,
-      }, token: token);
+      final res = await apiService.post(
+          '/trade/auto-squareoff-expired',
+          {
+            'instrument_tokens': expiredTokens,
+          },
+          token: token);
 
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         final squaredOff = (body['data']?['squared_off'] as List?)?.length ?? 0;
         if (squaredOff > 0 && mounted) {
-          Provider.of<TradeMetricsProvider>(context, listen: false).fetchBaseData();
+          Provider.of<TradeMetricsProvider>(context, listen: false)
+              .fetchBaseData();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Auto squared off $squaredOff expired position(s)'),
@@ -1267,253 +1322,263 @@ class _OrdersPageState extends State<OrdersPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  // Position P&L value
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Text(
+                      // Position P&L value
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Text(
                             posPnl.toStringAsFixed(2),
                             style: TextStyle(
-                          color: isPosPnlPositive
-                              ? const Color(0xFF22C55E)
-                              : const Color(0xFFEF4444),
-                          fontSize: kFontSizePageTitle,
-                          fontFamily: 'Inter',
-                          fontWeight: kFontWeightBold,
+                              color: isPosPnlPositive
+                                  ? const Color(0xFF22C55E)
+                                  : const Color(0xFFEF4444),
+                              fontSize: kFontSizePageTitle,
+                              fontFamily: 'Inter',
+                              fontWeight: kFontWeightBold,
+                            ),
                           ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // P&L Detail Rows
-                  Container(
-                    width: double.infinity,
-                    decoration: ShapeDecoration(
-                      color: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        side: const BorderSide(
-                            width: 1, color: Color(0xFFE2E8F0)),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildMetricRow('Realised P&L', realised),
-                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                        _buildMetricRow('M2M P&L', m2m),
-                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                        _buildMetricRow('Credit', credit),
-                        AnimatedSize(
-                          duration: const Duration(milliseconds: 250),
-                          curve: Curves.easeInOut,
-                          child: _metricsExpanded
-                              ? Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Divider(
-                                        height: 1, color: Color(0xFFF1F5F9)),
-                                    _buildMetricRow(
-                                      'Equity',
-                                      equity,
-                                      trailing: GestureDetector(
-                                        onTap: () =>
-                                            _showWalletBreakdownSheet(context),
-                                        behavior: HitTestBehavior.opaque,
-                                        child: const Padding(
-                                          padding: EdgeInsets.symmetric(
-                                              horizontal: 4, vertical: 2),
-                                          child: Icon(
-                                            Icons.info_outline_rounded,
-                                            size: kIconSizeSmall,
-                                            color: Color(0xFF3F45C7),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const Divider(
-                                        height: 1, color: Color(0xFFF1F5F9)),
-                                    _buildMetricRow('Margin Used', marginUsed),
-                                    const Divider(
-                                        height: 1, color: Color(0xFFF1F5F9)),
-                                    _buildMetricRow('Free Margin', freeMargin),
-                                  ],
-                                )
-                              : const SizedBox.shrink(),
                         ),
-                        const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                        GestureDetector(
-                          onTap: () => setState(
-                              () => _metricsExpanded = !_metricsExpanded),
-                          behavior: HitTestBehavior.opaque,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: AnimatedRotation(
-                              turns: _metricsExpanded ? 0.5 : 0,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // P&L Detail Rows
+                      Container(
+                        width: double.infinity,
+                        decoration: ShapeDecoration(
+                          color: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            side: const BorderSide(
+                                width: 1, color: Color(0xFFE2E8F0)),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildMetricRow('Realised P&L', realised),
+                            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                            _buildMetricRow('M2M P&L', m2m),
+                            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                            _buildMetricRow('Credit', credit),
+                            AnimatedSize(
                               duration: const Duration(milliseconds: 250),
                               curve: Curves.easeInOut,
-                              child: const Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                size: kIconSizeMedium,
-                                color: Color(0xFF94A3B8),
-                              ),
+                              child: _metricsExpanded
+                                  ? Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Divider(
+                                            height: 1,
+                                            color: Color(0xFFF1F5F9)),
+                                        _buildMetricRow(
+                                          'Equity',
+                                          equity,
+                                          trailing: GestureDetector(
+                                            onTap: () =>
+                                                _showWalletBreakdownSheet(
+                                                    context),
+                                            behavior: HitTestBehavior.opaque,
+                                            child: const Padding(
+                                              padding: EdgeInsets.symmetric(
+                                                  horizontal: 4, vertical: 2),
+                                              child: Icon(
+                                                Icons.info_outline_rounded,
+                                                size: kIconSizeSmall,
+                                                color: Color(0xFF3F45C7),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const Divider(
+                                            height: 1,
+                                            color: Color(0xFFF1F5F9)),
+                                        _buildMetricRow(
+                                            'Margin Used', marginUsed),
+                                        const Divider(
+                                            height: 1,
+                                            color: Color(0xFFF1F5F9)),
+                                        _buildMetricRow(
+                                            'Free Margin', freeMargin),
+                                      ],
+                                    )
+                                  : const SizedBox.shrink(),
                             ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Action Bar (Square Off trigger OR selection controls)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      if (_isSelectionMode) ...[
-                        // Cancel button
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _isSelectionMode = false;
-                              _selectedPositionTokens.clear();
-                            });
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE2E8F0),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Text(
-                              'Cancel',
-                              style: TextStyle(
-                                color: Color(0xFF374151),
-                                fontSize: kFontSizeSubtitle,
-                                fontFamily: 'Inter',
-                                fontWeight: kFontWeightSemiBold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        // Select All + count
-                        Row(
-                          children: [
-                            Text(
-                              '${_selectedPositionTokens.length} selected',
-                              style: const TextStyle(
-                                color: Color(0xFF64748B),
-                                fontSize: kFontSizeSubtitle,
-                                fontFamily: 'Inter',
-                              ),
-                            ),
-                            const SizedBox(width: 8),
+                            const Divider(height: 1, color: Color(0xFFF1F5F9)),
                             GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  if (_selectedPositionTokens.length ==
-                                      openPositions.length) {
-                                    _selectedPositionTokens.clear();
-                                  } else {
-                                    _selectedPositionTokens.clear();
-                                    _selectedPositionTokens.addAll(openPositions
-                                        .map((p) => p.instrumentToken));
-                                  }
-                                });
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color:
-                                      const Color(0xFF3F45C7).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  _selectedPositionTokens.length ==
-                                          openPositions.length
-                                      ? 'Deselect All'
-                                      : 'Select All',
-                                  style: const TextStyle(
-                                    color: Color(0xFF3F45C7),
-                                    fontSize: kFontSizeSubtitle,
-                                    fontFamily: 'Inter',
-                                    fontWeight: kFontWeightSemiBold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: _selectedPositionTokens.isEmpty
-                                  ? null
-                                  : () => _squareOffSelected(openPositions),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: _selectedPositionTokens.isEmpty
-                                      ? const Color(0xFFE2E8F0)
-                                      : const Color(0xFFFF3B30),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  'Square Off',
-                                  style: TextStyle(
-                                    color: _selectedPositionTokens.isEmpty
-                                        ? const Color(0xFF9CA3AF)
-                                        : Colors.white,
-                                    fontSize: kFontSizeSubtitle,
-                                    fontFamily: 'Inter',
-                                    fontWeight: kFontWeightSemiBold,
+                              onTap: () => setState(
+                                  () => _metricsExpanded = !_metricsExpanded),
+                              behavior: HitTestBehavior.opaque,
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 8),
+                                child: AnimatedRotation(
+                                  turns: _metricsExpanded ? 0.5 : 0,
+                                  duration: const Duration(milliseconds: 250),
+                                  curve: Curves.easeInOut,
+                                  child: const Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                    size: kIconSizeMedium,
+                                    color: Color(0xFF94A3B8),
                                   ),
                                 ),
                               ),
                             ),
                           ],
                         ),
-                      ] else if (openPositions.isNotEmpty)
-                        const SizedBox.shrink()
-                      else
-                        const SizedBox.shrink(),
-                      if (!_isSelectionMode && openPositions.isNotEmpty)
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _isSelectionMode = true;
-                            });
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE2E8F0).withOpacity(0.5),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.check_box_outlined,
-                                    size: kIconSizeSmall, color: Color(0xFF3F45C7)),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Square Off',
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Action Bar (Square Off trigger OR selection controls)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          if (_isSelectionMode) ...[
+                            // Cancel button
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _isSelectionMode = false;
+                                  _selectedPositionTokens.clear();
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE2E8F0),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Text(
+                                  'Cancel',
                                   style: TextStyle(
-                                    color: Color(0xFF3F45C7),
+                                    color: Color(0xFF374151),
                                     fontSize: kFontSizeSubtitle,
                                     fontFamily: 'Inter',
                                     fontWeight: kFontWeightSemiBold,
                                   ),
                                 ),
+                              ),
+                            ),
+                            // Select All + count
+                            Row(
+                              children: [
+                                Text(
+                                  '${_selectedPositionTokens.length} selected',
+                                  style: const TextStyle(
+                                    color: Color(0xFF64748B),
+                                    fontSize: kFontSizeSubtitle,
+                                    fontFamily: 'Inter',
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      if (_selectedPositionTokens.length ==
+                                          openPositions.length) {
+                                        _selectedPositionTokens.clear();
+                                      } else {
+                                        _selectedPositionTokens.clear();
+                                        _selectedPositionTokens.addAll(
+                                            openPositions
+                                                .map((p) => p.instrumentToken));
+                                      }
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF3F45C7)
+                                          .withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      _selectedPositionTokens.length ==
+                                              openPositions.length
+                                          ? 'Deselect All'
+                                          : 'Select All',
+                                      style: const TextStyle(
+                                        color: Color(0xFF3F45C7),
+                                        fontSize: kFontSizeSubtitle,
+                                        fontFamily: 'Inter',
+                                        fontWeight: kFontWeightSemiBold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                GestureDetector(
+                                  onTap: _selectedPositionTokens.isEmpty
+                                      ? null
+                                      : () => _squareOffSelected(openPositions),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: _selectedPositionTokens.isEmpty
+                                          ? const Color(0xFFE2E8F0)
+                                          : const Color(0xFFFF3B30),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      'Square Off',
+                                      style: TextStyle(
+                                        color: _selectedPositionTokens.isEmpty
+                                            ? const Color(0xFF9CA3AF)
+                                            : Colors.white,
+                                        fontSize: kFontSizeSubtitle,
+                                        fontFamily: 'Inter',
+                                        fontWeight: kFontWeightSemiBold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
+                          ] else if (openPositions.isNotEmpty)
+                            const SizedBox.shrink()
+                          else
+                            const SizedBox.shrink(),
+                          if (!_isSelectionMode && openPositions.isNotEmpty)
+                            GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _isSelectionMode = true;
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color:
+                                      const Color(0xFFE2E8F0).withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.check_box_outlined,
+                                        size: kIconSizeSmall,
+                                        color: Color(0xFF3F45C7)),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Square Off',
+                                      style: TextStyle(
+                                        color: Color(0xFF3F45C7),
+                                        fontSize: kFontSizeSubtitle,
+                                        fontFamily: 'Inter',
+                                        fontWeight: kFontWeightSemiBold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
                     ],
                   ),
                 ),
@@ -1521,56 +1586,70 @@ class _OrdersPageState extends State<OrdersPage> {
                 // Scrollable positions list
                 Expanded(
                   child: RefreshIndicator(
-                    onRefresh: () => Provider.of<TradeMetricsProvider>(context, listen: false).fetchBaseData(),
+                    onRefresh: () => Provider.of<TradeMetricsProvider>(context,
+                            listen: false)
+                        .fetchBaseData(),
                     child: openPositions.isEmpty
-                      ? ListView(
-                          children: const [
-                            Padding(
-                              padding: EdgeInsets.all(32.0),
-                              child: Center(
-                                child: Text(
-                                  'No open positions',
-                                  style: TextStyle(
-                                    color: Color(0xFF64748B),
-                                    fontSize: kFontSizeSectionHeader,
-                                    fontFamily: 'Inter',
+                        ? ListView(
+                            children: const [
+                              Padding(
+                                padding: EdgeInsets.all(32.0),
+                                child: Center(
+                                  child: Text(
+                                    'No open positions',
+                                    style: TextStyle(
+                                      color: Color(0xFF64748B),
+                                      fontSize: kFontSizeSectionHeader,
+                                      fontFamily: 'Inter',
+                                    ),
                                   ),
                                 ),
                               ),
+                            ],
+                          )
+                        : Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 16),
+                            decoration: ShapeDecoration(
+                              color: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                side: const BorderSide(
+                                    width: 1, color: Color(0xFFE2E8F0)),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
-                          ],
-                        )
-                      : Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 16),
-                          decoration: ShapeDecoration(
-                            color: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              side: const BorderSide(
-                                  width: 1, color: Color(0xFFE2E8F0)),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: ListView.separated(
-                            padding: EdgeInsets.zero,
-                            itemCount: openPositions.length,
-                            separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFE2E8F0)),
-                            itemBuilder: (context, idx) {
-                            final pos = openPositions[idx];
-                            final isBuy = pos.netQty > 0;
-                            final watchlist = Provider.of<WatchlistProvider>(context, listen: false);
-                            final wItem = watchlist.getByToken(pos.instrumentToken);
-                            final displayName = wItem?.instrument.userFriendlyName ?? pos.tradingsymbol;
-                            final ltp = pos.ltp;
-                            final fallbackSpread = ltp * 0.0005;
-                            final cmp = pos.cmp > 0
-                                ? pos.cmp
-                                : isBuy
-                                    ? (wItem?.bidPrice ?? (ltp > 0 ? ltp - fallbackSpread : ltp))
-                                    : (wItem?.askPrice ?? (ltp > 0 ? ltp + fallbackSpread : ltp));
-                            final floating = pos.floating;
-                            final isNegative = floating < 0;
-                              return _buildOrderItem(
+                            clipBehavior: Clip.antiAlias,
+                            child: ListView.separated(
+                              padding: EdgeInsets.zero,
+                              itemCount: openPositions.length,
+                              separatorBuilder: (_, __) => const Divider(
+                                  height: 1, color: Color(0xFFE2E8F0)),
+                              itemBuilder: (context, idx) {
+                                final pos = openPositions[idx];
+                                final isBuy = pos.netQty > 0;
+                                final watchlist =
+                                    Provider.of<WatchlistProvider>(context,
+                                        listen: false);
+                                final wItem =
+                                    watchlist.getByToken(pos.instrumentToken);
+                                final displayName =
+                                    wItem?.instrument.userFriendlyName ??
+                                        pos.tradingsymbol;
+                                final ltp = pos.ltp;
+                                final fallbackSpread = ltp * 0.0005;
+                                final cmp = pos.cmp > 0
+                                    ? pos.cmp
+                                    : isBuy
+                                        ? (wItem?.bidPrice ??
+                                            (ltp > 0
+                                                ? ltp - fallbackSpread
+                                                : ltp))
+                                        : (wItem?.askPrice ??
+                                            (ltp > 0
+                                                ? ltp + fallbackSpread
+                                                : ltp));
+                                final floating = pos.floating;
+                                final isNegative = floating < 0;
+                                return _buildOrderItem(
                                   context,
                                   pos,
                                   displayName,
@@ -1580,10 +1659,10 @@ class _OrdersPageState extends State<OrdersPage> {
                                   cmp,
                                   floating,
                                   isNegative,
-                              );
-                            },
+                                );
+                              },
+                            ),
                           ),
-                        ),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -1622,13 +1701,13 @@ class _OrdersPageState extends State<OrdersPage> {
             ],
           ),
           Text(
-                            value.toStringAsFixed(2),
-                            style: TextStyle(
+            value.toStringAsFixed(2),
+            style: TextStyle(
               color: valueColor,
               fontSize: kFontSizeBody,
               fontFamily: 'Inter',
               fontWeight: kFontWeightSemiBold,
-                          ),
+            ),
           ),
         ],
       ),
@@ -1659,12 +1738,11 @@ class _OrdersPageState extends State<OrdersPage> {
                   return (ia == -1 ? order.length : ia)
                       .compareTo(ib == -1 ? order.length : ib);
                 });
-              final double total =
-                  entries.fold(0.0, (sum, e) => sum + e.value);
+              final double total = entries.fold(0.0, (sum, e) => sum + e.value);
 
               return Padding(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+                padding: const EdgeInsets.symmetric(
+                    vertical: 24.0, horizontal: 16.0),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1726,12 +1804,11 @@ class _OrdersPageState extends State<OrdersPage> {
                   return (ia == -1 ? order.length : ia)
                       .compareTo(ib == -1 ? order.length : ib);
                 });
-              final double total =
-                  entries.fold(0.0, (sum, e) => sum + e.value);
+              final double total = entries.fold(0.0, (sum, e) => sum + e.value);
 
               return Padding(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+                padding: const EdgeInsets.symmetric(
+                    vertical: 24.0, horizontal: 16.0),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1774,7 +1851,8 @@ class _OrdersPageState extends State<OrdersPage> {
     );
   }
 
-  void _showAdminWalletBreakdownSheet(BuildContext context, Map<String, double> wallet) {
+  void _showAdminWalletBreakdownSheet(
+      BuildContext context, Map<String, double> wallet) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -1793,12 +1871,11 @@ class _OrdersPageState extends State<OrdersPage> {
                   return (ia == -1 ? order.length : ia)
                       .compareTo(ib == -1 ? order.length : ib);
                 });
-              final double total =
-                  entries.fold(0.0, (sum, e) => sum + e.value);
+              final double total = entries.fold(0.0, (sum, e) => sum + e.value);
 
               return Padding(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+                padding: const EdgeInsets.symmetric(
+                    vertical: 24.0, horizontal: 16.0),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -2123,13 +2200,13 @@ class _OrdersPageState extends State<OrdersPage> {
                         ),
                       ),
                       Text(
-                            atp.toStringAsFixed(2),
-                            style: const TextStyle(
+                        atp.toStringAsFixed(2),
+                        style: const TextStyle(
                           color: Color(0xFF64748B),
                           fontSize: kFontSizePositionDetail,
                           fontFamily: 'Inter',
                           fontWeight: kFontWeightRegular,
-                          ),
+                        ),
                       ),
                       const SizedBox(width: 16),
                       const Text(
@@ -2142,13 +2219,13 @@ class _OrdersPageState extends State<OrdersPage> {
                         ),
                       ),
                       Text(
-                            cmp.toStringAsFixed(2),
-                            style: const TextStyle(
+                        cmp.toStringAsFixed(2),
+                        style: const TextStyle(
                           color: Color(0xFF64748B),
                           fontSize: kFontSizePositionDetail,
                           fontFamily: 'Inter',
                           fontWeight: kFontWeightRegular,
-                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -2156,13 +2233,13 @@ class _OrdersPageState extends State<OrdersPage> {
               ),
             ),
             Text(
-                            pnl.toStringAsFixed(2),
-                            style: TextStyle(
+              pnl.toStringAsFixed(2),
+              style: TextStyle(
                 color: valueColor,
                 fontSize: kFontSizePositionPnl,
                 fontFamily: 'Inter',
                 fontWeight: kFontWeightSemiBold,
-                          ),
+              ),
             ),
           ],
         ),
@@ -2171,6 +2248,18 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   Future<void> _squareOffSelected(List<PositionAgg> allPositions) async {
+    // Block in investor mode
+    final investorMode =
+        Provider.of<InvestorModeProvider>(context, listen: false);
+    if (investorMode.isInvestor) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Square off is not available in investor mode'),
+            backgroundColor: Color(0xFF64748B)),
+      );
+      return;
+    }
+
     final selectedPositions = allPositions
         .where((p) => _selectedPositionTokens.contains(p.instrumentToken))
         .toList();
@@ -2294,13 +2383,15 @@ class _OrdersPageState extends State<OrdersPage> {
       for (final position in selectedPositions) {
         try {
           // Check market hours for this instrument (admin bypasses)
-          final userProfile = Provider.of<UserProfileProvider>(context, listen: false);
+          final userProfile =
+              Provider.of<UserProfileProvider>(context, listen: false);
           if (!userProfile.isAdmin) {
             final ex = position.exchange;
             final sym = position.tradingsymbol;
             if (!MarketHours.isMarketOpen(exchange: ex, tradingsymbol: sym)) {
               failCount++;
-              errors.add('${position.tradingsymbol}: ${MarketHours.getMarketStatusMessage(exchange: ex, tradingsymbol: sym)}');
+              errors.add(
+                  '${position.tradingsymbol}: ${MarketHours.getMarketStatusMessage(exchange: ex, tradingsymbol: sym)}');
               continue;
             }
           }

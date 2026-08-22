@@ -5,6 +5,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
+import 'package:stocker/providers/investor_mode_provider.dart';
 import 'package:stocker/services/admin_service.dart';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/auth_service.dart';
@@ -116,6 +117,9 @@ class MyApp extends StatelessWidget {
             previous.tradeMetricsProvider = tradeMetricsProvider;
             return previous;
           },
+        ),
+        ChangeNotifierProvider<InvestorModeProvider>(
+          create: (_) => InvestorModeProvider(),
         ),
       ],
       child: MaterialApp(

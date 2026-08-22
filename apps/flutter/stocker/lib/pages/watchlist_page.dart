@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stocker/pages/instrument_search_page.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
+import 'package:stocker/providers/investor_mode_provider.dart';
 import '../utils/contants.dart';
 import '../views/trade_card_view.dart';
 import '../widgets/announcement_banner.dart';
@@ -266,6 +267,23 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                 return Dismissible(
                                   key: Key(item.id),
                                   direction: DismissDirection.endToStart,
+                                  confirmDismiss: (direction) async {
+                                    final investorMode =
+                                        Provider.of<InvestorModeProvider>(
+                                            context,
+                                            listen: false);
+                                    if (investorMode.isInvestor) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                            content: Text(
+                                                'Watchlist editing is not available in investor mode'),
+                                            backgroundColor: Color(0xFF64748B)),
+                                      );
+                                      return false;
+                                    }
+                                    return true;
+                                  },
                                   background: Container(
                                     alignment: Alignment.centerRight,
                                     padding: const EdgeInsets.only(right: 20),

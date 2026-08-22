@@ -28,6 +28,10 @@ class _CreateUserViewState extends State<CreateUserView> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
+  final TextEditingController _investorPasswordController =
+      TextEditingController();
+  final TextEditingController _confirmInvestorPasswordController =
+      TextEditingController();
   final TextEditingController _creditController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
 
@@ -384,6 +388,8 @@ class _CreateUserViewState extends State<CreateUserView> {
     _usernameController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _investorPasswordController.dispose();
+    _confirmInvestorPasswordController.dispose();
     _creditController.dispose();
     _noteController.dispose();
     for (final entry in _brokerageSettings.values) {
@@ -459,6 +465,21 @@ class _CreateUserViewState extends State<CreateUserView> {
       _showSnack('Please enter credit amount', isError: true);
       return;
     }
+
+    // Validate investor password (optional — only if filled)
+    if (_investorPasswordController.text.isNotEmpty) {
+      if (_investorPasswordController.text !=
+          _confirmInvestorPasswordController.text) {
+        _showSnack('Investor passwords do not match', isError: true);
+        return;
+      }
+      if (_investorPasswordController.text == _passwordController.text) {
+        _showSnack('Investor password must be different from main password',
+            isError: true);
+        return;
+      }
+    }
+
     final credit = double.tryParse(_creditController.text.trim());
     if (credit == null || credit < 0) {
       _showSnack('Please enter a valid credit amount', isError: true);
@@ -524,6 +545,9 @@ class _CreateUserViewState extends State<CreateUserView> {
           password: _passwordController.text.isNotEmpty
               ? _passwordController.text
               : null,
+          investorPassword: _investorPasswordController.text.isNotEmpty
+              ? _investorPasswordController.text
+              : (widget.user != null ? null : ''),
           credits: credit,
           note: _noteController.text.trim().isEmpty
               ? ''
@@ -546,6 +570,9 @@ class _CreateUserViewState extends State<CreateUserView> {
           name: _nameController.text.trim(),
           username: _usernameController.text.trim(),
           password: _passwordController.text,
+          investorPassword: _investorPasswordController.text.isNotEmpty
+              ? _investorPasswordController.text
+              : null,
           credits: credit,
           note: _noteController.text.trim().isEmpty
               ? ''
@@ -665,6 +692,16 @@ class _CreateUserViewState extends State<CreateUserView> {
                           _buildTextField(
                               label: 'Confirm',
                               controller: _confirmPasswordController,
+                              obscureText: true),
+                          _divider(),
+                          _buildTextField(
+                              label: 'Investor Password',
+                              controller: _investorPasswordController,
+                              obscureText: true),
+                          _divider(),
+                          _buildTextField(
+                              label: 'Confirm Investor',
+                              controller: _confirmInvestorPasswordController,
                               obscureText: true),
                           _divider(),
                           _buildTextField(
