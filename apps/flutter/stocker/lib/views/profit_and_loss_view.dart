@@ -174,11 +174,11 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
                   onTap: () => _sort(i),
                   child: Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
                     Text(labels[i], style: TextStyle(
-                      color: isSorted ? const Color(0xFF3F45C7) : const Color(0xFF94A3B8),
+                      color: isSorted ? kBrandPrimary : const Color(0xFF94A3B8),
                       fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
                     const SizedBox(width: 2),
                     Icon(isSorted ? (_sortAsc ? Icons.arrow_upward : Icons.arrow_downward) : Icons.unfold_more,
-                      size: 11, color: isSorted ? const Color(0xFF3F45C7) : const Color(0xFF94A3B8)),
+                      size: 11, color: isSorted ? kBrandPrimary : const Color(0xFF94A3B8)),
                   ]),
                 ),
               );
@@ -188,7 +188,7 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
           // Table body
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5))
+                ? const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
                 : filtered.isEmpty
                     ? const Center(child: Text('No data', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: 'Inter')))
                     : RefreshIndicator(
@@ -237,7 +237,7 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
         Expanded(child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           if (type == 'master')
             const Padding(padding: EdgeInsets.only(right: 4),
-              child: Icon(Icons.supervisor_account, size: 12, color: Color(0xFF3F45C7))),
+              child: Icon(Icons.supervisor_account, size: 12, color: kBrandPrimary)),
           Flexible(child: Text(username, textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.black, fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold),
             maxLines: 1, overflow: TextOverflow.ellipsis)),

@@ -36,7 +36,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Widget _buildNavItem(String svgPath, String label, int index) {
     final bool isSelected = _selectedIndex == index;
     final color =
-        isSelected ? const Color(0xFF3F45C7) : const Color(0xFF94A3B8);
+        isSelected ? kBrandPrimary : const Color(0xFF94A3B8);
     return GestureDetector(
       onTap: () => _onItemTapped(index),
       behavior: HitTestBehavior.opaque,
@@ -46,7 +46,7 @@ class _MyHomePageState extends State<MyHomePage> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF3F45C7).withValues(alpha: 0.08)
+              ? kBrandPrimary.withValues(alpha: 0.08)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
         ),

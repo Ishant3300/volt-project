@@ -99,7 +99,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: kBrandPrimary, borderRadius: BorderRadius.circular(10)),
               child: const Text('Create', style: TextStyle(color: Colors.white, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, fontSize: kFontSizeBodySmall)),
             ),
           ),
@@ -160,7 +160,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: kBrandPrimary, borderRadius: BorderRadius.circular(10)),
               child: const Text('Update All', style: TextStyle(color: Colors.white, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, fontSize: kFontSizeBodySmall)),
             ),
           ),
@@ -199,7 +199,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(item['raw_name'] ?? '',
-            style: const TextStyle(fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, fontSize: kFontSizeSectionHeader, color: Color(0xFF3F45C7))),
+            style: const TextStyle(fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, fontSize: kFontSizeSectionHeader, color: kBrandPrimary)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           _dialogField(timeCtrl, 'Time (minutes)', ''),
           const SizedBox(height: 10),
@@ -215,7 +215,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(10)),
+              decoration: BoxDecoration(color: kBrandPrimary, borderRadius: BorderRadius.circular(10)),
               child: const Text('Save', style: TextStyle(color: Colors.white, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, fontSize: kFontSizeBodySmall)),
             ),
           ),
@@ -256,7 +256,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
         filled: true, fillColor: const Color(0xFFF8FAFC),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF3F45C7), width: 1.5)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: kBrandPrimary, width: 1.5)),
       ),
     );
   }
@@ -292,7 +292,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
                 onTap: () { setState(() => _selectedExchange = ex); _fetchLimits(); },
                 child: Container(padding: const EdgeInsets.symmetric(horizontal: 16), alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: sel ? const Color(0xFF3F45C7) : Colors.white,
+                    color: sel ? kBrandPrimary : Colors.white,
                     borderRadius: BorderRadius.circular(10),
                     border: sel ? null : Border.all(color: const Color(0xFFE2E8F0))),
                   child: Text(ex, style: TextStyle(color: sel ? Colors.white : const Color(0xFF64748B), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold))),
@@ -307,7 +307,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
           Expanded(child: GestureDetector(
             onTap: _showBulkCreateDialog,
             child: Container(height: 42, alignment: Alignment.center,
-              decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: kBrandPrimary, borderRadius: BorderRadius.circular(12)),
               child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Icon(Icons.add, color: Colors.white, size: 18), SizedBox(width: 6),
                 Text('Create All', style: TextStyle(color: Colors.white, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
@@ -318,8 +318,8 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
             onTap: _limits.isEmpty ? null : _showBulkUpdateDialog,
             child: Container(height: 42, alignment: Alignment.center,
               decoration: BoxDecoration(color: _limits.isEmpty ? const Color(0xFFE2E8F0) : Colors.white, borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _limits.isEmpty ? const Color(0xFFE2E8F0) : const Color(0xFF3F45C7))),
-              child: Text('Update All', style: TextStyle(color: _limits.isEmpty ? const Color(0xFF94A3B8) : const Color(0xFF3F45C7), fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold))),
+                border: Border.all(color: _limits.isEmpty ? const Color(0xFFE2E8F0) : kBrandPrimary)),
+              child: Text('Update All', style: TextStyle(color: _limits.isEmpty ? const Color(0xFF94A3B8) : kBrandPrimary, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold))),
           )),
         ])),
         const SizedBox(height: 12),
@@ -347,7 +347,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
 
         // List
         Expanded(child: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5))
+          ? const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
           : filtered.isEmpty
             ? const Center(child: Text('No limits set. Tap "Create All" to initialize.', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: 'Inter')))
             : RefreshIndicator(onRefresh: _fetchLimits, child: ListView.builder(
@@ -369,7 +369,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
         child: Row(children: [
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(rawName, style: const TextStyle(color: Color(0xFF3F45C7), fontSize: kFontSizeButtonText, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: -0.3)),
+            Text(rawName, style: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeButtonText, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: -0.3)),
             const SizedBox(height: 6),
             Row(children: [
               _valuePill('Time', '${time}min'),

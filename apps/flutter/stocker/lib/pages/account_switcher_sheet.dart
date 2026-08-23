@@ -83,7 +83,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
       // Navigate to home, clearing the stack
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) => const MyHomePage(title: 'Stocker'),
+          builder: (_) => const MyHomePage(title: kAppName),
         ),
         (route) => false,
       );
@@ -160,7 +160,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
       case 'ADMIN':
         return const Color(0xFF8B5CF6);
       case 'MASTER':
-        return const Color(0xFF3F45C7);
+        return kBrandPrimary;
       default:
         return const Color(0xFF10B981);
     }
@@ -215,7 +215,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
               child: Column(
                 children: [
                   CircularProgressIndicator(
-                      color: Color(0xFF3F45C7), strokeWidth: 2.5),
+                      color: kBrandPrimary, strokeWidth: 2.5),
                   SizedBox(height: 16),
                   Text('Switching account...',
                       style: TextStyle(
@@ -262,12 +262,12 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.add_circle_outline,
-                          color: Color(0xFF3F45C7), size: kIconSizeMedium),
+                          color: kBrandPrimary, size: kIconSizeMedium),
                       SizedBox(width: 10),
                       Text(
                         'Add Another Account',
                         style: TextStyle(
-                          color: Color(0xFF3F45C7),
+                          color: kBrandPrimary,
                           fontSize: kFontSizeButtonText,
                           fontFamily: 'Inter',
                           fontWeight: kFontWeightSemiBold,
@@ -294,12 +294,12 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: isActive
-              ? const Color(0xFF3F45C7).withValues(alpha: 0.04)
+              ? kBrandPrimary.withValues(alpha: 0.04)
               : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isActive
-                ? const Color(0xFF3F45C7).withValues(alpha: 0.2)
+                ? kBrandPrimary.withValues(alpha: 0.2)
                 : const Color(0xFFF1F5F9),
             width: isActive ? 1.5 : 1,
           ),

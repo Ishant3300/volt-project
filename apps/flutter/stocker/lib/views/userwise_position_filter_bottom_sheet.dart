@@ -217,7 +217,7 @@ class _UserwisePositionFilterBottomSheetState
                 child: Container(
                   height: 48, alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF3F45C7),
+                    color: kBrandPrimary,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text('View',
@@ -288,7 +288,7 @@ class _UserwisePositionFilterBottomSheetState
           suffixIcon: isSearching
               ? const Padding(padding: EdgeInsets.all(12),
                   child: SizedBox(width: 16, height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF3F45C7))))
+                    child: CircularProgressIndicator(strokeWidth: 2, color: kBrandPrimary)))
               : (controller.text.isNotEmpty
                   ? GestureDetector(onTap: onClear,
                       child: Icon(Icons.close, size: kIconSizeDefault, color: Color(0xFF94A3B8)))

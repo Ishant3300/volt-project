@@ -373,7 +373,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
                   child: Text(
                     '₹ $words',
                     style: const TextStyle(
-                      color: Color(0xFF3F45C7),
+                      color: kBrandPrimary,
                       fontSize: 12,
                       fontFamily: 'Inter',
                       fontWeight: FontWeight.w500,
@@ -490,10 +490,10 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF3F45C7) : const Color(0xFFF8FAFC),
+          color: selected ? kBrandPrimary : const Color(0xFFF8FAFC),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected ? const Color(0xFF3F45C7) : const Color(0xFFF1F5F9),
+            color: selected ? kBrandPrimary : const Color(0xFFF1F5F9),
           ),
         ),
         child: Text(

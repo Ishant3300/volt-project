@@ -192,7 +192,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
             child: _isLoading
                 ? const Center(
                     child: CircularProgressIndicator(
-                        color: Color(0xFF3F45C7), strokeWidth: 2.5))
+                        color: kBrandPrimary, strokeWidth: 2.5))
                 : filtered.isEmpty
                     ? const Center(
                         child: Text('No data',
@@ -271,7 +271,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text(username.toUpperCase(),
               style: const TextStyle(
-                  color: Color(0xFF3F45C7),
+                  color: kBrandPrimary,
                   fontSize: kFontSizeName,
                   fontFamily: 'Inter',
                   fontWeight: kFontWeightName,

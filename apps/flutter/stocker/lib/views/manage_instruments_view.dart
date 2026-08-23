@@ -282,7 +282,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
             // List
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5))
+                  ? const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
                   : _instruments.isEmpty
                       ? const Center(child: Text('No instruments found', style: TextStyle(color: Color(0xFF94A3B8), fontFamily: 'Inter')))
                       : ListView.builder(
@@ -293,7 +293,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
                             if (index == _instruments.length) {
                               return const Padding(padding: EdgeInsets.all(16),
                                 child: Center(child: SizedBox(width: 20, height: 20,
-                                  child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2))));
+                                  child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2))));
                             }
                             return _buildInstrumentCard(_instruments[index]);
                           },
@@ -312,7 +312,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
         margin: const EdgeInsets.only(right: 6),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFF3F45C7) : Colors.white,
+          color: active ? kBrandPrimary : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: active ? null : Border.all(color: const Color(0xFFE2E8F0)),
         ),
@@ -405,7 +405,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
                 duration: const Duration(milliseconds: 200),
                 width: 40, height: 24, padding: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
-                  color: enabled ? const Color(0xFF3F45C7) : const Color(0xFFCBD5E1),
+                  color: enabled ? kBrandPrimary : const Color(0xFFCBD5E1),
                   borderRadius: BorderRadius.circular(12)),
                 child: AnimatedAlign(
                   duration: const Duration(milliseconds: 200),

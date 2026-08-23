@@ -141,7 +141,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                   focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                          color: Color(0xFF3F45C7), width: 1.5)),
+                          color: kBrandPrimary, width: 1.5)),
                 ),
               ),
             ]),
@@ -170,7 +170,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               decoration: BoxDecoration(
-                  color: const Color(0xFF3F45C7),
+                  color: kBrandPrimary,
                   borderRadius: BorderRadius.circular(10)),
               child: const Text('Next',
                   style: TextStyle(
@@ -242,7 +242,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: sel ? const Color(0xFF3F45C7) : Colors.white,
+                        color: sel ? kBrandPrimary : Colors.white,
                         borderRadius: BorderRadius.circular(10),
                         border: sel
                             ? null
@@ -272,7 +272,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                   height: 42,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                      color: const Color(0xFF3F45C7),
+                      color: kBrandPrimary,
                       borderRadius: BorderRadius.circular(12)),
                   child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -309,7 +309,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
           child: _isLoading
               ? const Center(
                   child: CircularProgressIndicator(
-                      color: Color(0xFF3F45C7), strokeWidth: 2.5))
+                      color: kBrandPrimary, strokeWidth: 2.5))
               : _lotCounts.isEmpty
                   ? Center(
                       child: Text(
@@ -358,7 +358,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                                         children: [
                                       Text(lotName,
                                           style: const TextStyle(
-                                              color: Color(0xFF3F45C7),
+                                              color: kBrandPrimary,
                                               fontSize: kFontSizeButtonText,
                                               fontFamily: 'Inter',
                                               fontWeight: kFontWeightSemiBold,
@@ -381,14 +381,14 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                                       children: [
                                         Text('VIEW',
                                             style: TextStyle(
-                                                color: Color(0xFF3F45C7),
+                                                color: kBrandPrimary,
                                                 fontSize: kFontSizeNavLabel,
                                                 fontFamily: 'Inter',
                                                 fontWeight: kFontWeightBold,
                                                 letterSpacing: 0.3)),
                                         SizedBox(width: 2),
                                         Icon(Icons.chevron_right,
-                                            size: kIconSizeDefault, color: Color(0xFF3F45C7)),
+                                            size: kIconSizeDefault, color: kBrandPrimary),
                                       ]),
                                 ),
                               ]),

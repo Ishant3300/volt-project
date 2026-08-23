@@ -220,12 +220,12 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF3F45C7).withValues(alpha: 0.06),
+        color: kBrandPrimary.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF3F45C7).withValues(alpha: 0.15)),
+        border: Border.all(color: kBrandPrimary.withValues(alpha: 0.15)),
       ),
       child: Row(children: [
-        const Icon(Icons.info_outline, size: kIconSizeDefault, color: Color(0xFF3F45C7)),
+        const Icon(Icons.info_outline, size: kIconSizeDefault, color: kBrandPrimary),
         const SizedBox(width: 8),
         Expanded(child: Text(
           _isLotBased
@@ -286,7 +286,7 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
 
   Widget _buildLoading() {
     return const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5),
+      CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5),
       SizedBox(height: 16),
       Text('Loading instruments...', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: 'Inter')),
     ]));
@@ -323,11 +323,11 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
             Expanded(flex: 2, child: _buildCompactInput(entry.brkQtyCtrl, () => setState(() => entry.isModified = true))),
             const SizedBox(width: 4),
             SizedBox(width: 36, child: entry.isSaving
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF3F45C7)))
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: kBrandPrimary))
                 : GestureDetector(
                     onTap: entry.isModified ? () => _saveInstrument(entry) : null,
                     child: Icon(Icons.check_circle, size: 22,
-                      color: entry.isModified ? const Color(0xFF3F45C7) : const Color(0xFFCBD5E1)),
+                      color: entry.isModified ? kBrandPrimary : const Color(0xFFCBD5E1)),
                   )),
           ]),
         );

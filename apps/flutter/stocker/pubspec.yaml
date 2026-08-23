@@ -94,6 +94,8 @@ flutter:
     - assets/trade_bell_sound.mp3
     - assets/Subtract.svg
     - assets/new_app_icon.png
+    # White-label brand assets (selected at build time via --dart-define=BRAND)
+    - assets/volt/
     - lib/icons/
     - lib/icons/profile_page_icons/
     - lib/icons/reports_view_icons/

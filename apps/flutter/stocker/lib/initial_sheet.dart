@@ -129,7 +129,7 @@ class _InitialScreenState extends State<InitialScreen> {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (context) => const MyHomePage(title: 'APEX'),
+              builder: (context) => const MyHomePage(title: kAppName),
             ),
           );
         } catch (e) {
@@ -270,7 +270,7 @@ class _SplashScreenState extends State<SplashScreen>
                     child: FadeTransition(
                       opacity: _logoFade,
                       child: SvgPicture.asset(
-                        'assets/Subtract.svg',
+                        kLogoAsset,
                         width: 100,
                         height: 100,
                         placeholderBuilder: (context) => Container(
@@ -290,13 +290,13 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   ),
                   const SizedBox(height: 24),
-                  // APEX text — slides up + fades in
+                  // Brand name text — slides up + fades in
                   SlideTransition(
                     position: _textSlide,
                     child: FadeTransition(
                       opacity: _textFade,
                       child: const Text(
-                        'APEX',
+                        kAppName,
                         style: TextStyle(
                           color: Color(0xFF0F172A),
                           fontSize: kFontSizeDisplay,
@@ -339,7 +339,7 @@ class _SplashScreenState extends State<SplashScreen>
                     height: 24,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.5,
-                      color: Color(0xFF3F45C7),
+                      color: kBrandPrimary,
                     ),
                   ),
                 ),

@@ -489,7 +489,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
         margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF3F45C7) : Colors.transparent,
+          color: isActive ? kBrandPrimary : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
@@ -510,7 +510,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
     if (_isSearching) {
       return const Center(
         child: CircularProgressIndicator(
-          color: Color(0xFF3F45C7),
+          color: kBrandPrimary,
           strokeWidth: 2.5,
         ),
       );
@@ -554,7 +554,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                              color: Color(0xFF3F45C7), strokeWidth: 2))),
+                              color: kBrandPrimary, strokeWidth: 2))),
                 );
               }
 
@@ -761,14 +761,14 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                     shape: BoxShape.circle,
                     color: isAdded
                         ? const Color(0xFF10B981).withOpacity(0.1)
-                        : const Color(0xFF3F45C7).withOpacity(0.1),
+                        : kBrandPrimary.withOpacity(0.1),
                   ),
                   child: Icon(
                     isAdded ? Icons.check : Icons.add,
                     size: kIconSizeDefault,
                     color: isAdded
                         ? const Color(0xFF10B981)
-                        : const Color(0xFF3F45C7),
+                        : kBrandPrimary,
                   ),
                 ),
               ),

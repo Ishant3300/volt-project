@@ -612,18 +612,18 @@ class _UsernameViewState extends State<UsernameView> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF3F45C7).withValues(alpha: 0.08),
+                        color: kBrandPrimary.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.edit_outlined,
-                              size: kIconSizeSmall, color: Color(0xFF3F45C7)),
+                              size: kIconSizeSmall, color: kBrandPrimary),
                           SizedBox(width: 4),
                           Text('Edit',
                               style: TextStyle(
-                                  color: Color(0xFF3F45C7),
+                                  color: kBrandPrimary,
                                   fontSize: kFontSizeBodySmall,
                                   fontFamily: 'Inter',
                                   fontWeight: kFontWeightSemiBold)),
@@ -691,7 +691,7 @@ class _UsernameViewState extends State<UsernameView> {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: selected ? const Color(0xFF3F45C7) : Colors.transparent,
+            color: selected ? kBrandPrimary : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
@@ -846,9 +846,9 @@ class _UsernameViewState extends State<UsernameView> {
                         width: kIconSizeMedium,
                         height: kIconSizeMedium,
                         colorFilter: const ColorFilter.mode(
-                            Color(0xFF3F45C7), BlendMode.srcIn))
+                            kBrandPrimary, BlendMode.srcIn))
                     : Icon(iconOrPath as IconData,
-                        size: kIconSizeMedium, color: const Color(0xFF3F45C7)),
+                        size: kIconSizeMedium, color: kBrandPrimary),
                 const SizedBox(width: 12),
                 Expanded(
                     child: Text(label,
@@ -873,7 +873,7 @@ class _UsernameViewState extends State<UsernameView> {
     if (_isLoadingTrades) {
       return const Center(
           child: CircularProgressIndicator(
-              color: Color(0xFF3F45C7), strokeWidth: 2.5));
+              color: kBrandPrimary, strokeWidth: 2.5));
     }
     if (_tradesError != null) {
       return Center(
@@ -894,7 +894,7 @@ class _UsernameViewState extends State<UsernameView> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                    color: const Color(0xFF3F45C7),
+                    color: kBrandPrimary,
                     borderRadius: BorderRadius.circular(10)),
                 child: const Text('Retry',
                     style: TextStyle(
@@ -1387,7 +1387,7 @@ class _UsernameViewState extends State<UsernameView> {
   Widget _buildLivePositionTab() {
     if (_isLoadingLivePositions) {
       return const Center(
-          child: CircularProgressIndicator(color: Color(0xFF3F45C7)));
+          child: CircularProgressIndicator(color: kBrandPrimary));
     }
     if (_liveUserMetrics == null) {
       return Center(
@@ -1408,7 +1408,7 @@ class _UsernameViewState extends State<UsernameView> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                    color: const Color(0xFF3F45C7),
+                    color: kBrandPrimary,
                     borderRadius: BorderRadius.circular(10)),
                 child: const Text('Refresh',
                     style: TextStyle(
@@ -1693,7 +1693,7 @@ class _UsernameViewState extends State<UsernameView> {
                           child: Icon(
                             Icons.info_outline_rounded,
                             size: 12,
-                            color: Color(0xFF3F45C7),
+                            color: kBrandPrimary,
                           ),
                         ),
                       ),
@@ -1898,7 +1898,7 @@ class _UsernameViewState extends State<UsernameView> {
               height: 26,
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
-                color: isOn ? const Color(0xFF3F45C7) : const Color(0xFFCBD5E1),
+                color: isOn ? kBrandPrimary : const Color(0xFFCBD5E1),
                 borderRadius: BorderRadius.circular(13),
               ),
               child: AnimatedAlign(
@@ -2156,7 +2156,7 @@ class _UsernameViewState extends State<UsernameView> {
     if (_isLoadingSubMasters) {
       return const Center(
           child: CircularProgressIndicator(
-              color: Color(0xFF3F45C7), strokeWidth: 2.5));
+              color: kBrandPrimary, strokeWidth: 2.5));
     }
     if (_subMastersError != null) {
       return Center(
@@ -2177,7 +2177,7 @@ class _UsernameViewState extends State<UsernameView> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                    color: const Color(0xFF3F45C7),
+                    color: kBrandPrimary,
                     borderRadius: BorderRadius.circular(10)),
                 child: const Text('Retry',
                     style: TextStyle(
@@ -2356,7 +2356,7 @@ class _UsernameViewState extends State<UsernameView> {
     if (_isLoadingUsers) {
       return const Center(
           child: CircularProgressIndicator(
-              color: Color(0xFF3F45C7), strokeWidth: 2.5));
+              color: kBrandPrimary, strokeWidth: 2.5));
     }
     if (_usersError != null) {
       return Center(
@@ -2377,7 +2377,7 @@ class _UsernameViewState extends State<UsernameView> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                    color: const Color(0xFF3F45C7),
+                    color: kBrandPrimary,
                     borderRadius: BorderRadius.circular(10)),
                 child: const Text('Retry',
                     style: TextStyle(
@@ -2467,14 +2467,14 @@ class _UsernameViewState extends State<UsernameView> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF3F45C7).withValues(alpha: 0.08),
+                      color: kBrandPrimary.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Center(
                       child: Text(
                         user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
                         style: const TextStyle(
-                            color: Color(0xFF3F45C7),
+                            color: kBrandPrimary,
                             fontSize: 16,
                             fontFamily: 'Inter',
                             fontWeight: kFontWeightBold),
@@ -2678,7 +2678,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
           ? const SizedBox(
               height: 200,
               child: Center(
-                  child: CircularProgressIndicator(color: Color(0xFF3F45C7))))
+                  child: CircularProgressIndicator(color: kBrandPrimary)))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -2722,7 +2722,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
                             padding: const EdgeInsets.all(2),
                             decoration: BoxDecoration(
                               color: _enabled
-                                  ? const Color(0xFF3F45C7)
+                                  ? kBrandPrimary
                                   : const Color(0xFFCBD5E1),
                               borderRadius: BorderRadius.circular(13),
                             ),
@@ -2778,19 +2778,19 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color:
-                              const Color(0xFF3F45C7).withValues(alpha: 0.06),
+                              kBrandPrimary.withValues(alpha: 0.06),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
                           children: [
                             const Icon(Icons.info_outline,
-                                size: 16, color: Color(0xFF3F45C7)),
+                                size: 16, color: kBrandPrimary),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 'Parent limit: ${_parentLimit!['max_masters']} masters, ${_parentLimit!['max_users']} clients',
                                 style: const TextStyle(
-                                    color: Color(0xFF3F45C7),
+                                    color: kBrandPrimary,
                                     fontSize: 12,
                                     fontFamily: 'Inter',
                                     fontWeight: kFontWeightMedium),
@@ -2836,7 +2836,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
                             decoration: BoxDecoration(
                               color: _isSaving
                                   ? const Color(0xFF94A3B8)
-                                  : const Color(0xFF3F45C7),
+                                  : kBrandPrimary,
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: Center(
@@ -2934,11 +2934,11 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-                color: const Color(0xFF3F45C7).withValues(alpha: 0.08),
+                color: kBrandPrimary.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(8)),
             child: Text('$created created',
                 style: const TextStyle(
-                    color: Color(0xFF3F45C7),
+                    color: kBrandPrimary,
                     fontSize: 11,
                     fontFamily: 'Inter',
                     fontWeight: kFontWeightSemiBold)),
@@ -3103,7 +3103,7 @@ class _ManageUserReportsSheetState extends State<_ManageUserReportsSheet> {
                 decoration: BoxDecoration(
                   color: _isUpdating || !_hasChanges
                       ? const Color(0xFF94A3B8)
-                      : const Color(0xFF3F45C7),
+                      : kBrandPrimary,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Center(
@@ -3174,7 +3174,7 @@ class _ManageUserReportsSheetState extends State<_ManageUserReportsSheet> {
                 color: !parentHas
                     ? const Color(0xFFE2E8F0)
                     : value
-                        ? const Color(0xFF3F45C7)
+                        ? kBrandPrimary
                         : const Color(0xFFCBD5E1),
                 borderRadius: BorderRadius.circular(13),
               ),

@@ -728,7 +728,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
           height: 40,
           decoration: BoxDecoration(
             color:
-                isSelected ? const Color(0xFF3F45C7) : const Color(0xFFF1F5F9),
+                isSelected ? kBrandPrimary : const Color(0xFFF1F5F9),
             borderRadius: BorderRadius.circular(10),
           ),
           alignment: Alignment.center,
@@ -811,7 +811,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF3F45C7)
+                              color: kBrandPrimary
                                   .withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(10),
                             ),
@@ -832,7 +832,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                 Text(
                                   '${(currentItem.currentPrice ?? 0.0).toStringAsFixed(2)}',
                                   style: const TextStyle(
-                                    color: Color(0xFF3F45C7),
+                                    color: kBrandPrimary,
                                     fontSize: kFontSizeBody,
                                     fontFamily: 'Inter',
                                     fontWeight: kFontWeightBold,
@@ -927,12 +927,12 @@ class _TradeCardPageState extends State<TradeCardPage> {
                           children: [
                             Icon(Icons.info_outline,
                                 size: kIconSizeMedium,
-                                color: Color(0xFF3F45C7)),
+                                color: kBrandPrimary),
                             SizedBox(width: 4),
                             Text(
                               'Info',
                               style: TextStyle(
-                                color: Color(0xFF3F45C7),
+                                color: kBrandPrimary,
                                 fontSize: kFontSizeBody,
                                 fontFamily: 'Inter',
                                 fontWeight: kFontWeightMedium,
@@ -988,12 +988,12 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                   children: [
                                     Icon(Icons.info_outline,
                                         size: kIconSizeMedium,
-                                        color: Color(0xFF3F45C7)),
+                                        color: kBrandPrimary),
                                     SizedBox(width: 4),
                                     Text(
                                       'Info',
                                       style: TextStyle(
-                                        color: Color(0xFF3F45C7),
+                                        color: kBrandPrimary,
                                         fontSize: kFontSizeSectionHeader,
                                         fontFamily: 'Inter',
                                         fontWeight: kFontWeightMedium,
@@ -1052,7 +1052,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                     height: 18,
                                     child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        color: Color(0xFF3F45C7)),
+                                        color: kBrandPrimary),
                                   )
                                 else if (_selectedUser != null)
                                   GestureDetector(
@@ -1120,7 +1120,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                             height: 16,
                                             child: CircularProgressIndicator(
                                                 strokeWidth: 2,
-                                                color: Color(0xFF3F45C7)),
+                                                color: kBrandPrimary),
                                           ),
                                         ),
                                       );
@@ -1331,7 +1331,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                   horizontal: 20, vertical: 8),
                               decoration: ShapeDecoration(
                                 color: isSelected
-                                    ? const Color(0xFF3F45C7)
+                                    ? kBrandPrimary
                                     : const Color(0xFFC7C7CC),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(6)),
@@ -1371,7 +1371,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                   horizontal: 16, vertical: 8),
                               decoration: ShapeDecoration(
                                 color: isSelected
-                                    ? const Color(0xFF3F45C7)
+                                    ? kBrandPrimary
                                     : const Color(0xFFC7C7CC),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(6)),
@@ -1402,10 +1402,10 @@ class _TradeCardPageState extends State<TradeCardPage> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF3F45C7).withValues(alpha: 0.06),
+                        color: kBrandPrimary.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                            color: const Color(0xFF3F45C7)
+                            color: kBrandPrimary
                                 .withValues(alpha: 0.15)),
                       ),
                       child: Column(
@@ -1415,7 +1415,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                             children: [
                               const Icon(Icons.info_outline,
                                   size: kIconSizeDefault,
-                                  color: Color(0xFF3F45C7)),
+                                  color: kBrandPrimary),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text.rich(
@@ -1432,7 +1432,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                       TextSpan(
                                         text: '${_lotLimitInfo!.maxQty}',
                                         style: const TextStyle(
-                                          color: Color(0xFF3F45C7),
+                                          color: kBrandPrimary,
                                           fontSize: kFontSizeSubtitle,
                                           fontFamily: 'Inter',
                                           fontWeight: kFontWeightSemiBold,
@@ -1450,7 +1450,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                         TextSpan(
                                           text: '${_lotLimitInfo!.breakQty}',
                                           style: const TextStyle(
-                                            color: Color(0xFF3F45C7),
+                                            color: kBrandPrimary,
                                             fontSize: kFontSizeSubtitle,
                                             fontFamily: 'Inter',
                                             fontWeight: kFontWeightSemiBold,
@@ -1503,7 +1503,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF3F45C7).withValues(alpha: 0.06),
+                        color: kBrandPrimary.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Row(
@@ -1513,7 +1513,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                             width: 14,
                             height: 14,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Color(0xFF3F45C7)),
+                                strokeWidth: 2, color: kBrandPrimary),
                           ),
                           SizedBox(width: 8),
                           Text(
@@ -1533,10 +1533,10 @@ class _TradeCardPageState extends State<TradeCardPage> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF3F45C7).withValues(alpha: 0.06),
+                        color: kBrandPrimary.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                            color: const Color(0xFF3F45C7)
+                            color: kBrandPrimary
                                 .withValues(alpha: 0.15)),
                       ),
                       child: Column(
@@ -1569,7 +1569,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                             children: [
                               const Icon(Icons.info_outline,
                                   size: kIconSizeDefault,
-                                  color: Color(0xFF3F45C7)),
+                                  color: kBrandPrimary),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text.rich(
@@ -1586,7 +1586,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                       TextSpan(
                                         text: '${_lotLimitInfo!.lotSize} qty',
                                         style: const TextStyle(
-                                          color: Color(0xFF3F45C7),
+                                          color: kBrandPrimary,
                                           fontSize: kFontSizeSubtitle,
                                           fontFamily: 'Inter',
                                           fontWeight: kFontWeightSemiBold,
@@ -1603,7 +1603,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                       TextSpan(
                                         text: '${_lotLimitInfo!.maxLots} Lots',
                                         style: const TextStyle(
-                                          color: Color(0xFF3F45C7),
+                                          color: kBrandPrimary,
                                           fontSize: kFontSizeSubtitle,
                                           fontFamily: 'Inter',
                                           fontWeight: kFontWeightSemiBold,
@@ -1816,8 +1816,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                               begin: Alignment.centerLeft,
                                               end: Alignment.centerRight,
                                               colors: [
-                                                Color(0xFFC6529E),
-                                                Color(0xFF3B43C9),
+                                                kBrandGradientStart,
+                                                kBrandGradientEnd,
                                               ],
                                             ),
                                             borderRadius:
@@ -1993,8 +1993,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                               begin: Alignment.centerLeft,
                                               end: Alignment.centerRight,
                                               colors: [
-                                                Color(0xFFC6529E),
-                                                Color(0xFF3B43C9),
+                                                kBrandGradientStart,
+                                                kBrandGradientEnd,
                                               ],
                                             ),
                                             borderRadius:
@@ -2144,8 +2144,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                           begin: Alignment.centerLeft,
                                           end: Alignment.centerRight,
                                           colors: [
-                                            Color(0xFFC6529E),
-                                            Color(0xFF3B43C9)
+                                            kBrandGradientStart,
+                                            kBrandGradientEnd
                                           ],
                                         ),
                                         borderRadius: BorderRadius.circular(8),
@@ -2269,12 +2269,12 @@ class _TradeCardPageState extends State<TradeCardPage> {
                     child: const Row(
                       children: [
                         Icon(Icons.link,
-                            size: kIconSizeDefault, color: Color(0xFF3F45C7)),
+                            size: kIconSizeDefault, color: kBrandPrimary),
                         SizedBox(width: 4),
                         Text(
                           'Option Chain',
                           style: TextStyle(
-                            color: Color(0xFF3F45C7),
+                            color: kBrandPrimary,
                             fontSize: kFontSizeBody,
                             fontFamily: 'Inter',
                             fontWeight: kFontWeightMedium,
@@ -2297,12 +2297,12 @@ class _TradeCardPageState extends State<TradeCardPage> {
                     child: const Row(
                       children: [
                         Icon(Icons.show_chart,
-                            size: kIconSizeDefault, color: Color(0xFF3F45C7)),
+                            size: kIconSizeDefault, color: kBrandPrimary),
                         SizedBox(width: 4),
                         Text(
                           'View chart',
                           style: TextStyle(
-                            color: Color(0xFF3F45C7),
+                            color: kBrandPrimary,
                             fontSize: kFontSizeBody,
                             fontFamily: 'Inter',
                             fontWeight: kFontWeightMedium,
@@ -2319,12 +2319,12 @@ class _TradeCardPageState extends State<TradeCardPage> {
                     child: const Row(
                       children: [
                         Icon(Icons.layers,
-                            size: kIconSizeDefault, color: Color(0xFF3F45C7)),
+                            size: kIconSizeDefault, color: kBrandPrimary),
                         SizedBox(width: 4),
                         Text(
                           'Market Depth',
                           style: TextStyle(
-                            color: Color(0xFF3F45C7),
+                            color: kBrandPrimary,
                             fontSize: kFontSizeBody,
                             fontFamily: 'Inter',
                             fontWeight: kFontWeightMedium,

@@ -304,7 +304,7 @@ class _ScriptQuantityDetailViewState extends State<ScriptQuantityDetailView> {
           // Table body
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5))
+                ? const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
                 : data.isEmpty
                     ? Center(child: Text(
                         _getEmptyMessage(isUser),
@@ -316,7 +316,7 @@ class _ScriptQuantityDetailViewState extends State<ScriptQuantityDetailView> {
                           borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
                         ),
                         child: RefreshIndicator(
-                          color: const Color(0xFF3F45C7),
+                          color: kBrandPrimary,
                           onRefresh: _fetch,
                           child: ListView.builder(
                             padding: EdgeInsets.zero,
@@ -349,12 +349,12 @@ class _ScriptQuantityDetailViewState extends State<ScriptQuantityDetailView> {
             mainAxisAlignment: col == 0 ? MainAxisAlignment.start : MainAxisAlignment.end,
             children: [
               Text(label, style: TextStyle(
-                color: isSorted ? const Color(0xFF3F45C7) : const Color(0xFF94A3B8),
+                color: isSorted ? kBrandPrimary : const Color(0xFF94A3B8),
                 fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.3)),
               const SizedBox(width: 2),
               Icon(
                 isSorted ? (_sortAsc ? Icons.arrow_upward : Icons.arrow_downward) : Icons.unfold_more,
-                size: 13, color: isSorted ? const Color(0xFF3F45C7) : const Color(0xFF94A3B8)),
+                size: 13, color: isSorted ? kBrandPrimary : const Color(0xFF94A3B8)),
             ],
           ),
         ),

@@ -132,7 +132,7 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
-            builder: (_) => const MyHomePage(title: 'Stocker App')),
+            builder: (_) => const MyHomePage(title: kAppName)),
         (route) => false, // Remove all previous routes
       );
     } catch (e) {
@@ -183,12 +183,12 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
                     height: 80,
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFFC6529E), Color(0xFF3B43C9)],
+                        colors: [kBrandGradientStart, kBrandGradientEnd],
                       ),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF3F45C7).withValues(alpha: 0.3),
+                          color: kBrandPrimary.withValues(alpha: 0.3),
                           blurRadius: 20,
                           offset: const Offset(0, 8),
                         ),
@@ -274,7 +274,7 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
                               borderSide: const BorderSide(
-                                  color: Color(0xFF3F45C7), width: 1.5),
+                                  color: kBrandPrimary, width: 1.5),
                             ),
                             suffixIcon: IconButton(
                               icon: Icon(
@@ -321,7 +321,7 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
                               borderSide: const BorderSide(
-                                  color: Color(0xFF3F45C7), width: 1.5),
+                                  color: kBrandPrimary, width: 1.5),
                             ),
                             suffixIcon: IconButton(
                               icon: Icon(
@@ -354,7 +354,7 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
                             : const LinearGradient(
                                 begin: Alignment.centerLeft,
                                 end: Alignment.centerRight,
-                                colors: [Color(0xFFC6529E), Color(0xFF3B43C9)],
+                                colors: [kBrandGradientStart, kBrandGradientEnd],
                               ),
                         color: _isLoading ? const Color(0xFF94A3B8) : null,
                         borderRadius: BorderRadius.circular(16),

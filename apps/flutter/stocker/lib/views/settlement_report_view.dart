@@ -78,7 +78,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
       lastDate: DateTime.now(),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.light(primary: Color(0xFF3F45C7)),
+          colorScheme: const ColorScheme.light(primary: kBrandPrimary),
         ),
         child: child!,
       ),
@@ -310,10 +310,10 @@ class _SettlementReportViewState extends State<SettlementReportView> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
           decoration: ShapeDecoration(
-            color: selected ? const Color(0xFF3F45C7) : Colors.white,
+            color: selected ? kBrandPrimary : Colors.white,
             shape: RoundedRectangleBorder(
               side:
-                  const BorderSide(width: 1, color: Color(0xFF3F45C7)),
+                  const BorderSide(width: 1, color: kBrandPrimary),
               borderRadius: BorderRadius.only(
                 topLeft:
                     isLeft ? const Radius.circular(8) : Radius.zero,
@@ -345,7 +345,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
   Widget _buildTableContent(List<Map<String, dynamic>> filtered) {
     if (_isLoading) {
       return const Center(
-          child: CircularProgressIndicator(color: Color(0xFF3F45C7)));
+          child: CircularProgressIndicator(color: kBrandPrimary));
     }
     if (_error != null) {
       return Center(
@@ -362,7 +362,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
               onTap: _fetchReport,
               child: const Text('Retry',
                   style: TextStyle(
-                      color: Color(0xFF3F45C7),
+                      color: kBrandPrimary,
                       fontSize: kFontSizeBody,
                       fontFamily: 'Inter',
                       fontWeight: kFontWeightSemiBold)),

@@ -310,7 +310,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                  color: sel ? const Color(0xFF3F45C7) : Colors.white,
+                  color: sel ? kBrandPrimary : Colors.white,
                   borderRadius: BorderRadius.circular(10),
                   border:
                       sel ? null : Border.all(color: const Color(0xFFE2E8F0))),
@@ -375,7 +375,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Color(0xFF3F45C7))))
+                        strokeWidth: 2, color: kBrandPrimary)))
           else if (_searchCtrl.text.isNotEmpty)
             GestureDetector(
               onTap: () {
@@ -404,7 +404,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
     if (_isSearching && _groupedResults.isEmpty) {
       return const Center(
           child: CircularProgressIndicator(
-              color: Color(0xFF3F45C7), strokeWidth: 2.5));
+              color: kBrandPrimary, strokeWidth: 2.5));
     }
     if (_groupedResults.isEmpty) {
       return const Center(
@@ -441,7 +441,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                              color: Color(0xFF3F45C7), strokeWidth: 2))));
+                              color: kBrandPrimary, strokeWidth: 2))));
             }
             final group = _groupedResults[gi];
             final label = group['label'] as String;
@@ -521,7 +521,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
                 width: 38,
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 decoration: BoxDecoration(
-                    color: const Color(0xFF3F45C7).withOpacity(0.1),
+                    color: kBrandPrimary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8)),
                 child: Text(
                     _selected!.instrumentType.isNotEmpty
@@ -531,7 +531,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
                     style: const TextStyle(
                         fontSize: kFontSizeCaption,
                         fontWeight: kFontWeightSemiBold,
-                        color: Color(0xFF3F45C7),
+                        color: kBrandPrimary,
                         fontFamily: 'Inter'))),
             const SizedBox(width: 12),
             Expanded(
@@ -572,8 +572,8 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
             padding: const EdgeInsets.symmetric(vertical: 16),
             decoration: BoxDecoration(
                 color: _isSubmitting
-                    ? const Color(0xFF3F45C7).withOpacity(0.5)
-                    : const Color(0xFF3F45C7),
+                    ? kBrandPrimary.withOpacity(0.5)
+                    : kBrandPrimary,
                 borderRadius: BorderRadius.circular(16)),
             child: _isSubmitting
                 ? const Center(
@@ -629,7 +629,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
               focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide:
-                      const BorderSide(color: Color(0xFF3F45C7), width: 1.5)))),
+                      const BorderSide(color: kBrandPrimary, width: 1.5)))),
     ]);
   }
 

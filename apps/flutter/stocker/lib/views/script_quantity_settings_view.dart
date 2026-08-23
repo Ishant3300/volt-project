@@ -267,7 +267,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: ShapeDecoration(
-                          color: const Color(0xFF3F45C7),
+                          color: kBrandPrimary,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6),
                           ),
@@ -374,12 +374,12 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                       height: 20,
                       decoration: BoxDecoration(
                         color: _selectedIds.length == _filteredItems.length && _filteredItems.isNotEmpty
-                            ? const Color(0xFF3F45C7)
+                            ? kBrandPrimary
                             : Colors.white,
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
                           color: _selectedIds.length == _filteredItems.length && _filteredItems.isNotEmpty
-                              ? const Color(0xFF3F45C7)
+                              ? kBrandPrimary
                               : const Color(0xFFCBD5E1),
                           width: 1.5,
                         ),
@@ -466,7 +466,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                       child: Container(
                         padding: const EdgeInsets.all(10),
                         decoration: ShapeDecoration(
-                          color: _isUpdating ? const Color(0xFF8E8E93) : const Color(0xFF3F45C7),
+                          color: _isUpdating ? const Color(0xFF8E8E93) : kBrandPrimary,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
                         child: _isUpdating
@@ -503,7 +503,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
             Expanded(
               child: _isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(color: Color(0xFF3F45C7)),
+                      child: CircularProgressIndicator(color: kBrandPrimary),
                     )
                   : _filteredItems.isEmpty
                       ? const Center(
@@ -572,10 +572,10 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                         width: 20,
                                         height: 20,
                                         decoration: BoxDecoration(
-                                          color: isSelected ? const Color(0xFF3F45C7) : Colors.white,
+                                          color: isSelected ? kBrandPrimary : Colors.white,
                                           borderRadius: BorderRadius.circular(6),
                                           border: Border.all(
-                                            color: isSelected ? const Color(0xFF3F45C7) : const Color(0xFFCBD5E1),
+                                            color: isSelected ? kBrandPrimary : const Color(0xFFCBD5E1),
                                             width: 1.5,
                                           ),
                                         ),

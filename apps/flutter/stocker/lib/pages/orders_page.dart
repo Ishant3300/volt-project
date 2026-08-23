@@ -362,7 +362,7 @@ class _OrdersPageState extends State<OrdersPage> {
       barrierDismissible: false,
       builder: (_) => const Center(
         child: CircularProgressIndicator(
-            color: Color(0xFF3F45C7), strokeWidth: 2.5),
+            color: kBrandPrimary, strokeWidth: 2.5),
       ),
     );
     try {
@@ -553,7 +553,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                   child: Icon(
                                     Icons.info_outline_rounded,
                                     size: kIconSizeSmall,
-                                    color: Color(0xFF3F45C7),
+                                    color: kBrandPrimary,
                                   ),
                                 ),
                               ),
@@ -579,7 +579,7 @@ class _OrdersPageState extends State<OrdersPage> {
                     child: Padding(
                       padding: EdgeInsets.all(32),
                       child: CircularProgressIndicator(
-                          color: Color(0xFF3F45C7), strokeWidth: 2.5),
+                          color: kBrandPrimary, strokeWidth: 2.5),
                     ),
                   )
                 else if (_adminMasterMetrics.isEmpty)
@@ -672,14 +672,14 @@ class _OrdersPageState extends State<OrdersPage> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: const Color(0xFF3F45C7).withValues(alpha: 0.1),
+                color: kBrandPrimary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Center(
                 child: Text(
                   name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?',
                   style: const TextStyle(
-                    color: Color(0xFF3F45C7),
+                    color: kBrandPrimary,
                     fontSize: kFontSizeViewTitle,
                     fontFamily: 'Inter',
                     fontWeight: kFontWeightBold,
@@ -899,7 +899,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                     child: Icon(
                                       Icons.info_outline_rounded,
                                       size: kIconSizeSmall,
-                                      color: Color(0xFF3F45C7),
+                                      color: kBrandPrimary,
                                     ),
                                   ),
                                 ),
@@ -1385,7 +1385,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                               child: Icon(
                                                 Icons.info_outline_rounded,
                                                 size: kIconSizeSmall,
-                                                color: Color(0xFF3F45C7),
+                                                color: kBrandPrimary,
                                               ),
                                             ),
                                           ),
@@ -1490,7 +1490,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 10, vertical: 5),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF3F45C7)
+                                      color: kBrandPrimary
                                           .withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
@@ -1500,7 +1500,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                           ? 'Deselect All'
                                           : 'Select All',
                                       style: const TextStyle(
-                                        color: Color(0xFF3F45C7),
+                                        color: kBrandPrimary,
                                         fontSize: kFontSizeSubtitle,
                                         fontFamily: 'Inter',
                                         fontWeight: kFontWeightSemiBold,
@@ -1561,12 +1561,12 @@ class _OrdersPageState extends State<OrdersPage> {
                                   children: [
                                     Icon(Icons.check_box_outlined,
                                         size: kIconSizeSmall,
-                                        color: Color(0xFF3F45C7)),
+                                        color: kBrandPrimary),
                                     SizedBox(width: 4),
                                     Text(
                                       'Square Off',
                                       style: TextStyle(
-                                        color: Color(0xFF3F45C7),
+                                        color: kBrandPrimary,
                                         fontSize: kFontSizeSubtitle,
                                         fontFamily: 'Inter',
                                         fontWeight: kFontWeightSemiBold,

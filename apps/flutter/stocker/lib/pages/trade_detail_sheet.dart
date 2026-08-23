@@ -231,7 +231,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
               child: TextButton(
                 onPressed: () => Navigator.pop(context),
                 style: TextButton.styleFrom(
-                  backgroundColor: const Color(0xFF3F45C7),
+                  backgroundColor: kBrandPrimary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),

@@ -336,7 +336,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF3F45C7).withValues(alpha: 0.08),
+                        color: kBrandPrimary.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Column(
@@ -356,7 +356,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                           Text(
                           _ltp!.toStringAsFixed(2),
                             style: const TextStyle(
-                              color: Color(0xFF3F45C7),
+                              color: kBrandPrimary,
                               fontSize: kFontSizeBody,
                               fontFamily: 'Inter',
                               fontWeight: kFontWeightBold,
@@ -516,14 +516,14 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF3F45C7).withValues(alpha: 0.08),
+                    color: kBrandPrimary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Center(
                     child: Text(
                       (user['name'] ?? 'U')[0].toUpperCase(),
                       style: const TextStyle(
-                        color: Color(0xFF3F45C7),
+                        color: kBrandPrimary,
                         fontSize: kFontSizeSectionHeader,
                         fontFamily: 'Inter',
                         fontWeight: kFontWeightBold,

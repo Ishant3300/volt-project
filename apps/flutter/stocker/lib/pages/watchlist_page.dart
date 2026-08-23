@@ -434,12 +434,12 @@ class _WatchlistPageState extends State<WatchlistPage> {
               final Color bidColor = (prevBid != null &&
                       effectiveBid != null &&
                       effectiveBid > prevBid)
-                  ? const Color(0xFF3F45C7)
+                  ? kBrandPrimary
                   : const Color(0xFFEF4444);
               final Color askColor = (prevAsk != null &&
                       effectiveAsk != null &&
                       effectiveAsk > prevAsk)
-                  ? const Color(0xFF3F45C7)
+                  ? kBrandPrimary
                   : const Color(0xFFEF4444);
 
               final double? high = item.high;

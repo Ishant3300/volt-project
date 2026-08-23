@@ -230,7 +230,7 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
               child: _isLoading
                   ? const Center(
                       child: CircularProgressIndicator(
-                          color: Color(0xFF3F45C7), strokeWidth: 2.5))
+                          color: kBrandPrimary, strokeWidth: 2.5))
                   : _filtered.isEmpty
                       ? _buildEmpty()
                       : RefreshIndicator(
@@ -248,7 +248,7 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
                                       width: 24,
                                       height: 24,
                                       child: CircularProgressIndicator(
-                                          color: Color(0xFF3F45C7),
+                                          color: kBrandPrimary,
                                           strokeWidth: 2),
                                     ),
                                   ),
@@ -315,7 +315,7 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
     final roleColor = role == 'ADMIN'
         ? const Color(0xFFEF4444)
         : role == 'MASTER'
-            ? const Color(0xFF3F45C7)
+            ? kBrandPrimary
             : const Color(0xFF10B981);
 
     return Container(

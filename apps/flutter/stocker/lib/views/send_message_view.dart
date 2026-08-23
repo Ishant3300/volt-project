@@ -155,7 +155,7 @@ class _SendMessageViewState extends State<SendMessageView> {
                               hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBody, fontFamily: 'Inter'),
                               border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12)), borderSide: BorderSide(color: Color(0xFFF1F5F9))),
                               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12)), borderSide: BorderSide(color: Color(0xFFF1F5F9))),
-                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12)), borderSide: BorderSide(color: Color(0xFF3F45C7))),
+                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12)), borderSide: BorderSide(color: kBrandPrimary)),
                               contentPadding: EdgeInsets.all(14),
                             ),
                           ),
@@ -169,7 +169,7 @@ class _SendMessageViewState extends State<SendMessageView> {
                       child: Container(
                         width: double.infinity, height: 52,
                         decoration: BoxDecoration(
-                          color: _isSending ? const Color(0xFF94A3B8) : const Color(0xFF3F45C7),
+                          color: _isSending ? const Color(0xFF94A3B8) : kBrandPrimary,
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Center(

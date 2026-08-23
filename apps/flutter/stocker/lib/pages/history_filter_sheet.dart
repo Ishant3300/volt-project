@@ -68,7 +68,7 @@ class _PortfolioFilterSheetState extends State<PortfolioFilterSheet> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(primary: Color(0xFF3F45C7)),
+            colorScheme: const ColorScheme.light(primary: kBrandPrimary),
           ),
           child: child!,
         );
@@ -129,7 +129,7 @@ class _PortfolioFilterSheetState extends State<PortfolioFilterSheet> {
                   const Text('Filter Trades', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
                   GestureDetector(
                     onTap: _clearFilters,
-                    child: const Text('Clear All', style: TextStyle(color: Color(0xFF3F45C7), fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
+                    child: const Text('Clear All', style: TextStyle(color: kBrandPrimary, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
                   ),
                 ],
               ),
@@ -147,7 +147,7 @@ class _PortfolioFilterSheetState extends State<PortfolioFilterSheet> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFC7C7CC))),
                   enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFC7C7CC))),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF3F45C7))),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: kBrandPrimary)),
                 ),
                 style: const TextStyle(fontSize: kFontSizeBody, fontFamily: 'Inter'),
               ),
@@ -208,7 +208,7 @@ class _PortfolioFilterSheetState extends State<PortfolioFilterSheet> {
                       onTap: _applyFilters,
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(8)),
+                        decoration: BoxDecoration(color: kBrandPrimary, borderRadius: BorderRadius.circular(8)),
                         child: const Text('SEARCH', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: kFontSizeSectionHeader, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
                       ),
                     ),

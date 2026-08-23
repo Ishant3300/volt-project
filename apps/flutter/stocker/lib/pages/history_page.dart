@@ -253,7 +253,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                       width: 44,
                       decoration: BoxDecoration(
                         color:
-                            hasFilters ? const Color(0xFF3F45C7) : Colors.white,
+                            hasFilters ? kBrandPrimary : Colors.white,
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
@@ -266,7 +266,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                       child: Icon(Icons.tune,
                           color: hasFilters
                               ? Colors.white
-                              : const Color(0xFF3F45C7),
+                              : kBrandPrimary,
                           size: kIconSizeMedium),
                     ),
                   ),
@@ -287,7 +287,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                       width: 44,
                       decoration: BoxDecoration(
                         color: _showSearchBar
-                            ? const Color(0xFF3F45C7)
+                            ? kBrandPrimary
                             : Colors.white,
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
@@ -301,7 +301,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                       child: Icon(Icons.search,
                           color: _showSearchBar
                               ? Colors.white
-                              : const Color(0xFF3F45C7),
+                              : kBrandPrimary,
                           size: kIconSizeMedium),
                     ),
                   ),
@@ -317,19 +317,19 @@ class _PortfolioPageState extends State<PortfolioPage>
                   height: 36,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF3F45C7).withValues(alpha: 0.08),
+                    color: kBrandPrimary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     children: [
                       const Icon(Icons.filter_list,
-                          size: kIconSizeSmall, color: Color(0xFF3F45C7)),
+                          size: kIconSizeSmall, color: kBrandPrimary),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           _buildFilterSummary(),
                           style: const TextStyle(
-                            color: Color(0xFF3F45C7),
+                            color: kBrandPrimary,
                             fontSize: kFontSizeSubtitle,
                             fontFamily: 'Inter',
                             fontWeight: kFontWeightMedium,
@@ -341,7 +341,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                       GestureDetector(
                         onTap: _clearFilters,
                         child: const Icon(Icons.close,
-                            color: Color(0xFF3F45C7), size: kIconSizeDefault),
+                            color: kBrandPrimary, size: kIconSizeDefault),
                       ),
                     ],
                   ),
@@ -456,7 +456,7 @@ class _PortfolioPageState extends State<PortfolioPage>
         onTap: () => _tabController.animateTo(index),
         child: Container(
           decoration: BoxDecoration(
-            color: isActive ? const Color(0xFF3F45C7) : Colors.transparent,
+            color: isActive ? kBrandPrimary : Colors.transparent,
             borderRadius: BorderRadius.circular(13),
           ),
           child: Center(
@@ -479,7 +479,7 @@ class _PortfolioPageState extends State<PortfolioPage>
     if (_masterLoading && _masterTrades.isEmpty) {
       return const Center(
         child: CircularProgressIndicator(
-          color: Color(0xFF3F45C7),
+          color: kBrandPrimary,
           strokeWidth: 2.5,
         ),
       );
@@ -607,7 +607,7 @@ class _PortfolioPageState extends State<PortfolioPage>
       if (_userFilterLoading) {
         return const Center(
             child: CircularProgressIndicator(
-                color: Color(0xFF3F45C7), strokeWidth: 2.5));
+                color: kBrandPrimary, strokeWidth: 2.5));
       }
       final completedTrades = (_filteredUserTrades ?? [])
           .where((t) => t.status.toLowerCase() == 'completed')
@@ -621,7 +621,7 @@ class _PortfolioPageState extends State<PortfolioPage>
         if (provider.isLoading && provider.trades.isEmpty) {
           return const Center(
             child: CircularProgressIndicator(
-              color: Color(0xFF3F45C7),
+              color: kBrandPrimary,
               strokeWidth: 2.5,
             ),
           );
@@ -643,7 +643,7 @@ class _PortfolioPageState extends State<PortfolioPage>
       if (_userFilterLoading) {
         return const Center(
             child: CircularProgressIndicator(
-                color: Color(0xFF3F45C7), strokeWidth: 2.5));
+                color: kBrandPrimary, strokeWidth: 2.5));
       }
       final pendingTrades = (_filteredUserTrades ?? [])
           .where((t) => t.status.toLowerCase() == 'pending')
@@ -657,7 +657,7 @@ class _PortfolioPageState extends State<PortfolioPage>
         if (provider.isLoading && provider.trades.isEmpty) {
           return const Center(
             child: CircularProgressIndicator(
-              color: Color(0xFF3F45C7),
+              color: kBrandPrimary,
               strokeWidth: 2.5,
             ),
           );
@@ -941,13 +941,13 @@ class _PortfolioPageState extends State<PortfolioPage>
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 6, vertical: 3),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF3F45C7).withOpacity(0.1),
+                                color: kBrandPrimary.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: const Text(
                                 'ADMIN',
                                 style: TextStyle(
-                                  color: Color(0xFF3F45C7),
+                                  color: kBrandPrimary,
                                   fontSize: kFontSizeTradeBadge,
                                   fontFamily: 'Inter',
                                   fontWeight: kFontWeightSemiBold,

@@ -201,7 +201,7 @@ class _MarginSquareoffBottomSheetState extends State<MarginSquareoffBottomSheet>
         ),
         child: _isLoading
             ? Center(
-                child: CircularProgressIndicator(color: const Color(0xFF3F45C7)),
+                child: CircularProgressIndicator(color: kBrandPrimary),
               )
             : Column(
                 mainAxisSize: MainAxisSize.min,
@@ -315,7 +315,7 @@ class _MarginSquareoffBottomSheetState extends State<MarginSquareoffBottomSheet>
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
                             decoration: ShapeDecoration(
-                              color: _isSubmitting ? const Color(0xFF8E8E93) : const Color(0xFF3F45C7),
+                              color: _isSubmitting ? const Color(0xFF8E8E93) : kBrandPrimary,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                             child: _isSubmitting

@@ -106,7 +106,7 @@ class _InfoSheetState extends State<InfoSheet> {
           if (_isLoading)
             const Padding(
               padding: EdgeInsets.all(32),
-              child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5),
+              child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5),
             )
           else
             Flexible(

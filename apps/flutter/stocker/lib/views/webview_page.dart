@@ -57,7 +57,7 @@ class _WebViewPageState extends State<WebViewPage> {
                 ],
               ),
             ),
-            if (_isLoading) const LinearProgressIndicator(color: Color(0xFF3F45C7), minHeight: 2),
+            if (_isLoading) const LinearProgressIndicator(color: kBrandPrimary, minHeight: 2),
             Expanded(child: WebViewWidget(controller: _controller)),
           ],
         ),

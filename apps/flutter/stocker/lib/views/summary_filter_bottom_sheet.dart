@@ -111,9 +111,9 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
                     decoration: ShapeDecoration(
-                      color: _selectedTabIndex == 0 ? const Color(0xFF3F45C7) : Colors.white,
+                      color: _selectedTabIndex == 0 ? kBrandPrimary : Colors.white,
                       shape: RoundedRectangleBorder(
-                        side: BorderSide(width: 1, color: const Color(0xFF3F45C7)),
+                        side: BorderSide(width: 1, color: kBrandPrimary),
                         borderRadius: BorderRadius.only(
                           topLeft: Radius.circular(8),
                           bottomLeft: Radius.circular(8),
@@ -139,9 +139,9 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
                     decoration: ShapeDecoration(
-                      color: _selectedTabIndex == 1 ? const Color(0xFF3F45C7) : Colors.white,
+                      color: _selectedTabIndex == 1 ? kBrandPrimary : Colors.white,
                       shape: RoundedRectangleBorder(
-                        side: BorderSide(width: 1, color: const Color(0xFF3F45C7)),
+                        side: BorderSide(width: 1, color: kBrandPrimary),
                       ),
                     ),
                     child: Text(
@@ -163,9 +163,9 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
                     decoration: ShapeDecoration(
-                      color: _selectedTabIndex == 2 ? const Color(0xFF3F45C7) : Colors.white,
+                      color: _selectedTabIndex == 2 ? kBrandPrimary : Colors.white,
                       shape: RoundedRectangleBorder(
-                        side: BorderSide(width: 1, color: const Color(0xFF3F45C7)),
+                        side: BorderSide(width: 1, color: kBrandPrimary),
                         borderRadius: BorderRadius.only(
                           topRight: Radius.circular(8),
                           bottomRight: Radius.circular(8),
@@ -227,7 +227,7 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
                     decoration: ShapeDecoration(
-                      color: const Color(0xFF3F45C7),
+                      color: kBrandPrimary,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     child: Text(

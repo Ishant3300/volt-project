@@ -36,7 +36,7 @@ void main() async {
   await FirebaseService().init();
   print('✅ FirebaseService initialized');
 
-  print('🚀 Starting APEX App');
+  print('🚀 Starting $kAppName App');
   runApp(const MyApp());
   print('✅ runApp called');
 }
@@ -123,10 +123,12 @@ class MyApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'APEX',
+        title: kAppName,
         navigatorKey: NavigationService.navigatorKey,
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+          // Seeded from the active brand so Material-generated colours
+          // (selection handles, ripples, date pickers) follow the flavour.
+          colorScheme: ColorScheme.fromSeed(seedColor: kBrandPrimary),
           useMaterial3: true,
         ),
         debugShowCheckedModeBanner: false,

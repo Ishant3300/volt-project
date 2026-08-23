@@ -100,7 +100,7 @@ class _NotificationSettingsViewState extends State<NotificationSettingsView> {
         ])),
 
         Expanded(child: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5))
+          ? const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
           : SingleChildScrollView(padding: const EdgeInsets.symmetric(horizontal: 16), child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20),
@@ -127,7 +127,7 @@ class _NotificationSettingsViewState extends State<NotificationSettingsView> {
           Expanded(child: GestureDetector(
             onTap: _isSaving ? null : _save,
             child: Container(height: 48, alignment: Alignment.center,
-              decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: kBrandPrimary, borderRadius: BorderRadius.circular(12)),
               child: _isSaving
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                 : const Text('UPDATE', style: TextStyle(color: Colors.white, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold))),
@@ -146,7 +146,7 @@ class _NotificationSettingsViewState extends State<NotificationSettingsView> {
           duration: const Duration(milliseconds: 200),
           width: 48, height: 28,
           padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(color: value ? const Color(0xFF3F45C7) : const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(14)),
+          decoration: BoxDecoration(color: value ? kBrandPrimary : const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(14)),
           child: AnimatedAlign(
             duration: const Duration(milliseconds: 200),
             alignment: value ? Alignment.centerRight : Alignment.centerLeft,

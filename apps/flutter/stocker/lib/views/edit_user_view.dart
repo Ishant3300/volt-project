@@ -358,7 +358,7 @@ class EditUserView extends StatelessWidget {
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(vertical: 18),
                         decoration: ShapeDecoration(
-                          color: const Color(0xFF3F45C7),
+                          color: kBrandPrimary,
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8)),
                         ),

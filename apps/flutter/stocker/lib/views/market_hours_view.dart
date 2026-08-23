@@ -173,7 +173,7 @@ class _MarketHoursViewState extends State<MarketHoursView> {
 
         // Calendar + details
         Expanded(child: _loadingHolidays
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5))
+          ? const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
           : SingleChildScrollView(child: Column(children: [
             // Calendar card
             Container(
@@ -192,8 +192,8 @@ class _MarketHoursViewState extends State<MarketHoursView> {
                 headerStyle: const HeaderStyle(
                   titleCentered: true, formatButtonVisible: false,
                   titleTextStyle: TextStyle(color: Colors.black, fontSize: kFontSizeButtonText, fontFamily: 'Inter', fontWeight: kFontWeightBold),
-                  leftChevronIcon: Icon(Icons.chevron_left, color: Color(0xFF3F45C7), size: 22),
-                  rightChevronIcon: Icon(Icons.chevron_right, color: Color(0xFF3F45C7), size: 22),
+                  leftChevronIcon: Icon(Icons.chevron_left, color: kBrandPrimary, size: 22),
+                  rightChevronIcon: Icon(Icons.chevron_right, color: kBrandPrimary, size: 22),
                 ),
                 daysOfWeekStyle: const DaysOfWeekStyle(
                   weekdayStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold),
@@ -203,9 +203,9 @@ class _MarketHoursViewState extends State<MarketHoursView> {
                   outsideDaysVisible: false,
                   defaultTextStyle: const TextStyle(color: Color(0xFF334155), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
                   weekendTextStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
-                  todayDecoration: BoxDecoration(color: const Color(0xFF3F45C7).withValues(alpha: 0.12), shape: BoxShape.circle),
-                  todayTextStyle: const TextStyle(color: Color(0xFF3F45C7), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightBold),
-                  selectedDecoration: const BoxDecoration(color: Color(0xFF3F45C7), shape: BoxShape.circle),
+                  todayDecoration: BoxDecoration(color: kBrandPrimary.withValues(alpha: 0.12), shape: BoxShape.circle),
+                  todayTextStyle: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightBold),
+                  selectedDecoration: const BoxDecoration(color: kBrandPrimary, shape: BoxShape.circle),
                   selectedTextStyle: const TextStyle(color: Colors.white, fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightBold),
                   cellMargin: const EdgeInsets.all(4),
                 ),
@@ -240,7 +240,7 @@ class _MarketHoursViewState extends State<MarketHoursView> {
                 const SizedBox(height: 12),
 
                 if (_loadingTimings)
-                  const Center(child: Padding(padding: EdgeInsets.all(8), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF3F45C7)))))
+                  const Center(child: Padding(padding: EdgeInsets.all(8), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: kBrandPrimary))))
                 else if (status == _DayStatus.closed)
                   Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(color: const Color(0xFFEF4444).withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),

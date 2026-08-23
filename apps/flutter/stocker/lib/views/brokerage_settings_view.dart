@@ -264,7 +264,7 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                          color: const Color(0xFF3F45C7),
+                          color: kBrandPrimary,
                           borderRadius: BorderRadius.circular(10)),
                       child:
                           const Row(mainAxisSize: MainAxisSize.min, children: [
@@ -357,7 +357,7 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                       decoration: BoxDecoration(
                           color: _isApplying
                               ? const Color(0xFF94A3B8)
-                              : const Color(0xFF3F45C7),
+                              : kBrandPrimary,
                           borderRadius: const BorderRadius.only(
                               topRight: Radius.circular(12),
                               bottomRight: Radius.circular(12))),
@@ -413,7 +413,7 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
           child: _isLoading
               ? const Center(
                   child: CircularProgressIndicator(
-                      color: Color(0xFF3F45C7), strokeWidth: 2.5))
+                      color: kBrandPrimary, strokeWidth: 2.5))
               : _items.isEmpty
                   ? Center(
                       child: Text(
@@ -453,7 +453,7 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                                           fontWeight: kFontWeightMedium))),
                               Text('${item['brk_value']}',
                                   style: const TextStyle(
-                                      color: Color(0xFF3F45C7),
+                                      color: kBrandPrimary,
                                       fontSize: kFontSizeBodySmall,
                                       fontFamily: 'Inter',
                                       fontWeight: kFontWeightBold)),
@@ -514,10 +514,10 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
         width: 20,
         height: 20,
         decoration: BoxDecoration(
-            color: all ? const Color(0xFF3F45C7) : Colors.white,
+            color: all ? kBrandPrimary : Colors.white,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-                color: all ? const Color(0xFF3F45C7) : const Color(0xFFCBD5E1),
+                color: all ? kBrandPrimary : const Color(0xFFCBD5E1),
                 width: 1.5)),
         child: all
             ? const Icon(Icons.check, size: 12, color: Colors.white)
@@ -529,10 +529,10 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
         width: 20,
         height: 20,
         decoration: BoxDecoration(
-            color: sel ? const Color(0xFF3F45C7) : Colors.white,
+            color: sel ? kBrandPrimary : Colors.white,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-                color: sel ? const Color(0xFF3F45C7) : const Color(0xFFCBD5E1),
+                color: sel ? kBrandPrimary : const Color(0xFFCBD5E1),
                 width: 1.5)),
         child: sel
             ? const Icon(Icons.check, size: 12, color: Colors.white)

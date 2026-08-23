@@ -254,7 +254,7 @@ class _ChartViewState extends State<ChartView> {
                       ),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? const Color(0xFF3F45C7)
+                            ? kBrandPrimary
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(6),
                       ),
@@ -295,7 +295,7 @@ class _ChartViewState extends State<ChartView> {
                     ),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? const Color(0xFF3F45C7)
+                          ? kBrandPrimary
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(4),
                     ),
@@ -368,7 +368,7 @@ class _ChartViewState extends State<ChartView> {
                               Paint()
                                 ..strokeWidth = 2.0
                                 ..strokeCap = StrokeCap.round
-                                ..color = const Color(0xFF3F45C7),
+                                ..color = kBrandPrimary,
                             ],
                             priceGridLineColor: Colors.grey.withOpacity(0.2),
                             priceLabelStyle: const TextStyle(

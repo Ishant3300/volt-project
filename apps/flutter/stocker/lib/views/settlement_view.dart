@@ -187,7 +187,7 @@ class _SettlementViewState extends State<SettlementView> {
                             children: [
                               Icon(
                                 isDone ? Icons.check_circle : isError ? Icons.error : isRunning ? Icons.sync : Icons.schedule,
-                                color: isDone ? const Color(0xFF10B981) : isError ? const Color(0xFFEF4444) : isRunning ? const Color(0xFF3F45C7) : const Color(0xFF94A3B8),
+                                color: isDone ? const Color(0xFF10B981) : isError ? const Color(0xFFEF4444) : isRunning ? kBrandPrimary : const Color(0xFF94A3B8),
                                 size: kIconSizeLarge,
                               ),
                               const SizedBox(width: 12),
@@ -218,7 +218,7 @@ class _SettlementViewState extends State<SettlementView> {
                                   children: [
                                     SizedBox(
                                       width: 16, height: 16,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF3F45C7)),
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: kBrandPrimary),
                                     ),
                                     SizedBox(width: 12),
                                     Expanded(
@@ -237,7 +237,7 @@ class _SettlementViewState extends State<SettlementView> {
                                 value: total > 0 ? processed / total : 0,
                                 minHeight: 8,
                                 backgroundColor: const Color(0xFFF1F5F9),
-                                valueColor: AlwaysStoppedAnimation<Color>(isDone ? const Color(0xFF10B981) : const Color(0xFF3F45C7)),
+                                valueColor: AlwaysStoppedAnimation<Color>(isDone ? const Color(0xFF10B981) : kBrandPrimary),
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -245,7 +245,7 @@ class _SettlementViewState extends State<SettlementView> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text('$processed / $total positions', style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightRegular)),
-                                Text('$pct%', style: const TextStyle(color: Color(0xFF3F45C7), fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                                Text('$pct%', style: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
                               ],
                             ),
                             if (currentInst.isNotEmpty) ...[
@@ -284,7 +284,7 @@ class _SettlementViewState extends State<SettlementView> {
                           child: ElevatedButton(
                             onPressed: _isLoading ? null : _startSettlement,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF3F45C7),
+                              backgroundColor: kBrandPrimary,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
                             child: _isLoading

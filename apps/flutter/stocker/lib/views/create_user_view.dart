@@ -735,7 +735,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF3F45C7)
+                              color: kBrandPrimary
                                   .withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -745,7 +745,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                   ? 'Deselect All'
                                   : 'Select All',
                               style: const TextStyle(
-                                  color: Color(0xFF3F45C7),
+                                  color: kBrandPrimary,
                                   fontSize: kFontSizeNavLabel,
                                   fontFamily: 'Inter',
                                   fontWeight: kFontWeightSemiBold),
@@ -855,7 +855,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF3F45C7)
+                              color: kBrandPrimary
                                   .withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(8),
                             ),
@@ -864,7 +864,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                   ? 'Deselect All'
                                   : 'Select All',
                               style: const TextStyle(
-                                  color: Color(0xFF3F45C7),
+                                  color: kBrandPrimary,
                                   fontSize: kFontSizeNavLabel,
                                   fontFamily: 'Inter',
                                   fontWeight: kFontWeightSemiBold),
@@ -903,12 +903,12 @@ class _CreateUserViewState extends State<CreateUserView> {
                                     horizontal: 14, vertical: 10),
                                 decoration: BoxDecoration(
                                   color: selected
-                                      ? const Color(0xFF3F45C7)
+                                      ? kBrandPrimary
                                       : const Color(0xFFF8FAFC),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                       color: selected
-                                          ? const Color(0xFF3F45C7)
+                                          ? kBrandPrimary
                                           : const Color(0xFFF1F5F9)),
                                 ),
                                 child: Text(
@@ -1022,8 +1022,8 @@ class _CreateUserViewState extends State<CreateUserView> {
                                   begin: Alignment.centerLeft,
                                   end: Alignment.centerRight,
                                   colors: [
-                                    Color(0xFFC6529E),
-                                    Color(0xFF3B43C9),
+                                    kBrandGradientStart,
+                                    kBrandGradientEnd,
                                   ],
                                 ),
                           color: _isSubmitting ? const Color(0xFF94A3B8) : null,
@@ -1180,10 +1180,10 @@ class _CreateUserViewState extends State<CreateUserView> {
                   height: 22,
                   decoration: BoxDecoration(
                     color:
-                        enabled ? const Color(0xFF3F45C7) : Colors.transparent,
+                        enabled ? kBrandPrimary : Colors.transparent,
                     border: Border.all(
                         color: enabled
-                            ? const Color(0xFF3F45C7)
+                            ? kBrandPrimary
                             : const Color(0xFFCBD5E1),
                         width: 2),
                     borderRadius: BorderRadius.circular(6),
@@ -1227,13 +1227,13 @@ class _CreateUserViewState extends State<CreateUserView> {
                   color: toBlocked
                       ? const Color(0xFFE2E8F0)
                       : (settings['turnover'] as bool)
-                          ? const Color(0xFF3F45C7)
+                          ? kBrandPrimary
                           : Colors.transparent,
                   border: Border.all(
                       color: toBlocked
                           ? const Color(0xFFE2E8F0)
                           : (settings['turnover'] as bool)
-                              ? const Color(0xFF3F45C7)
+                              ? kBrandPrimary
                               : const Color(0xFFCBD5E1),
                       width: 2),
                   borderRadius: BorderRadius.circular(6),
@@ -1266,13 +1266,13 @@ class _CreateUserViewState extends State<CreateUserView> {
                   color: lotBlocked
                       ? const Color(0xFFE2E8F0)
                       : (settings['lot'] as bool)
-                          ? const Color(0xFF3F45C7)
+                          ? kBrandPrimary
                           : Colors.transparent,
                   border: Border.all(
                       color: lotBlocked
                           ? const Color(0xFFE2E8F0)
                           : (settings['lot'] as bool)
-                              ? const Color(0xFF3F45C7)
+                              ? kBrandPrimary
                               : const Color(0xFFCBD5E1),
                       width: 2),
                   borderRadius: BorderRadius.circular(6),
@@ -1356,7 +1356,7 @@ class _CreateUserViewState extends State<CreateUserView> {
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
                 color:
-                    value ? const Color(0xFF3F45C7) : const Color(0xFFCBD5E1),
+                    value ? kBrandPrimary : const Color(0xFFCBD5E1),
                 borderRadius: BorderRadius.circular(13),
               ),
               child: AnimatedAlign(
@@ -1465,7 +1465,7 @@ class _CreateUserViewState extends State<CreateUserView> {
               child: Text(
                 '₹ $words',
                 style: const TextStyle(
-                  color: Color(0xFF3F45C7),
+                  color: kBrandPrimary,
                   fontSize: 11,
                   fontFamily: 'Inter',
                   fontWeight: FontWeight.w500,
@@ -1516,7 +1516,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: BoxDecoration(
                   color: type == 'LOT WISE'
-                      ? const Color(0xFF3F45C7).withValues(alpha: 0.08)
+                      ? kBrandPrimary.withValues(alpha: 0.08)
                       : const Color(0xFF10B981).withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -1525,7 +1525,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: type == 'LOT WISE'
-                        ? const Color(0xFF3F45C7)
+                        ? kBrandPrimary
                         : const Color(0xFF10B981),
                     fontSize: kFontSizeCaption,
                     fontFamily: 'Inter',

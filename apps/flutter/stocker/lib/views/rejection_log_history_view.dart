@@ -191,7 +191,7 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
               child: _isLoading && _logs.isEmpty
                   ? const Center(
                       child: CircularProgressIndicator(
-                          color: Color(0xFF3F45C7), strokeWidth: 2.5))
+                          color: kBrandPrimary, strokeWidth: 2.5))
                   : _logs.isEmpty
                       ? _buildEmpty()
                       : RefreshIndicator(
@@ -216,7 +216,7 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                                     padding: EdgeInsets.all(16),
                                     child: Center(
                                         child: CircularProgressIndicator(
-                                            color: Color(0xFF3F45C7),
+                                            color: kBrandPrimary,
                                             strokeWidth: 2)),
                                   );
                                 }

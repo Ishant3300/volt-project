@@ -1,6 +1,12 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 
+// White-label branding (app name, logo, brand colours). Re-exported here so that
+// every file already importing this constants file picks up the brand tokens
+// without needing an extra import. Values are resolved at compile time — see
+// lib/config/app_brand.dart and build with --dart-define=BRAND=volt for Volt.
+export '../config/app_brand.dart';
+
 // Android emulator uses 10.0.2.2 to reach host machine; iOS simulator uses localhost
 // final String backendUrl = Platform.isAndroid ? "http://10.0.2.2:3000" : "http://127.0.0.1:3000";
 // final String backendUrl ="http://10.178.140.98:3000"; // Physical device (use your LAN IP)

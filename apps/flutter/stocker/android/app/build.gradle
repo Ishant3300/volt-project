@@ -35,6 +35,38 @@ android {
         versionName = flutter.versionName
     }
 
+    // ─── White-label brands ──────────────────────────────────────────────────
+    // One dimension, one flavour per brand. The Dart-side branding is selected
+    // separately via --dart-define=BRAND=<id>, so always pass BOTH flags:
+    //
+    //   flutter build apk --flavor apex --dart-define=BRAND=apex
+    //   flutter build apk --flavor volt --dart-define=BRAND=volt
+    //
+    // Use scripts/flavor.sh to keep the two in sync, e.g. `scripts/flavor.sh volt run`.
+    //
+    // `app_name` is injected as a string resource and referenced by
+    // AndroidManifest.xml via android:label="@string/app_name".
+    //
+    // Every applicationId here must have a matching client in
+    // app/google-services.json or the com.google.gms.google-services plugin fails
+    // with "No matching client found for package name ...". Volt currently uses a
+    // PLACEHOLDER entry — push notifications will not work for Volt until it is
+    // properly registered in Firebase. See FLAVORS.md.
+    flavorDimensions "brand"
+
+    productFlavors {
+        apex {
+            dimension "brand"
+            applicationId "com.apexlive.apex"
+            resValue "string", "app_name", "APEX"
+        }
+        volt {
+            dimension "brand"
+            applicationId "com.voltlive.volt"
+            resValue "string", "app_name", "VOLT"
+        }
+    }
+
     signingConfigs {
         if (keystorePropertiesFile.exists()) {
             release {

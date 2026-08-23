@@ -341,7 +341,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       roleColor = const Color(0xFF8B5CF6);
                       break;
                     case 'MASTER':
-                      roleColor = const Color(0xFF3F45C7);
+                      roleColor = kBrandPrimary;
                       break;
                     default:
                       roleColor = const Color(0xFF10B981);

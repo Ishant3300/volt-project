@@ -255,7 +255,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                             ),
                           ),
                           if (_totpLoading)
-                            const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF3F45C7)))
+                            const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: kBrandPrimary))
                           else
                             GestureDetector(
                               onTap: () => _handleTotpToggle(!_totpEnabled),
@@ -264,7 +264,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                                 width: 44, height: 26,
                                 padding: const EdgeInsets.all(2),
                                 decoration: BoxDecoration(
-                                  color: _totpEnabled ? const Color(0xFF3F45C7) : const Color(0xFFCBD5E1),
+                                  color: _totpEnabled ? kBrandPrimary : const Color(0xFFCBD5E1),
                                   borderRadius: BorderRadius.circular(13)),
                                 child: AnimatedAlign(
                                   duration: const Duration(milliseconds: 200),
@@ -352,7 +352,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5)),
+      builder: (_) => const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5)),
     );
 
     try {
@@ -559,7 +559,7 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
                 onTap: () {
                   Clipboard.setData(ClipboardData(text: widget.secret));
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Secret copied to clipboard'), backgroundColor: Color(0xFF3F45C7)),
+                    const SnackBar(content: Text('Secret copied to clipboard'), backgroundColor: kBrandPrimary),
                   );
                 },
                 child: Container(
@@ -597,7 +597,7 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   filled: true, fillColor: Colors.white,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF3F45C7), width: 1.5)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: kBrandPrimary, width: 1.5)),
                 ),
               ),
               const SizedBox(height: 20),
@@ -608,7 +608,7 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: BoxDecoration(
-                    gradient: _isVerifying ? null : const LinearGradient(colors: [Color(0xFFC6529E), Color(0xFF3B43C9)]),
+                    gradient: _isVerifying ? null : const LinearGradient(colors: [kBrandGradientStart, kBrandGradientEnd]),
                     color: _isVerifying ? const Color(0xFF94A3B8) : null,
                     borderRadius: BorderRadius.circular(14)),
                   child: Center(

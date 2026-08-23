@@ -305,12 +305,12 @@ class _ManageReportsViewState extends State<ManageReportsView> {
                       Container(
                         width: 36, height: 36,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF3F45C7).withValues(alpha: 0.08),
+                          color: kBrandPrimary.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(
                           _selectedTab == 0 ? Icons.person_outline : Icons.person,
-                          size: 18, color: const Color(0xFF3F45C7),
+                          size: 18, color: kBrandPrimary,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -347,7 +347,7 @@ class _ManageReportsViewState extends State<ManageReportsView> {
             // Permissions list
             Expanded(
               child: isLoading
-                  ? const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5))
+                  ? const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
                   : (_selectedTab == 0 && _masters.isEmpty) || (_selectedTab == 1 && _users.isEmpty)
                       ? Center(
                           child: Text(
@@ -407,7 +407,7 @@ class _ManageReportsViewState extends State<ManageReportsView> {
                           child: Container(
                             width: double.infinity, height: 52,
                             decoration: BoxDecoration(
-                              color: _isUpdating || !_hasChanges ? const Color(0xFF94A3B8) : const Color(0xFF3F45C7),
+                              color: _isUpdating || !_hasChanges ? const Color(0xFF94A3B8) : kBrandPrimary,
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Center(
@@ -445,7 +445,7 @@ class _ManageReportsViewState extends State<ManageReportsView> {
             const Text('Select Master', style: TextStyle(color: Colors.black, fontSize: kFontSizeSectionHeader, fontFamily: 'Inter', fontWeight: kFontWeightBold)),
             const SizedBox(height: 16),
             if (_isLoadingMasters)
-              const Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5))
+              const Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
             else
               Flexible(
                 child: ListView.separated(
@@ -461,13 +461,13 @@ class _ManageReportsViewState extends State<ManageReportsView> {
                       behavior: HitTestBehavior.opaque,
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
-                        color: sel ? const Color(0xFF3F45C7).withValues(alpha: 0.05) : Colors.transparent,
+                        color: sel ? kBrandPrimary.withValues(alpha: 0.05) : Colors.transparent,
                         child: Row(
                           children: [
                             Container(
                               width: 36, height: 36,
-                              decoration: BoxDecoration(color: const Color(0xFF3F45C7).withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
-                              child: Center(child: Text(m.name.isNotEmpty ? m.name[0].toUpperCase() : '?', style: const TextStyle(color: Color(0xFF3F45C7), fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightBold))),
+                              decoration: BoxDecoration(color: kBrandPrimary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+                              child: Center(child: Text(m.name.isNotEmpty ? m.name[0].toUpperCase() : '?', style: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightBold))),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -479,7 +479,7 @@ class _ManageReportsViewState extends State<ManageReportsView> {
                                 ],
                               ),
                             ),
-                            if (sel) const Icon(Icons.check_circle, size: kIconSizeMedium, color: Color(0xFF3F45C7)),
+                            if (sel) const Icon(Icons.check_circle, size: kIconSizeMedium, color: kBrandPrimary),
                           ],
                         ),
                       ),
@@ -512,7 +512,7 @@ class _ManageReportsViewState extends State<ManageReportsView> {
             const Text('Select User', style: TextStyle(color: Colors.black, fontSize: kFontSizeSectionHeader, fontFamily: 'Inter', fontWeight: kFontWeightBold)),
             const SizedBox(height: 16),
             if (_isLoadingUsers)
-              const Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5))
+              const Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
             else
               Flexible(
                 child: ListView.separated(
@@ -528,13 +528,13 @@ class _ManageReportsViewState extends State<ManageReportsView> {
                       behavior: HitTestBehavior.opaque,
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 4),
-                        color: sel ? const Color(0xFF3F45C7).withValues(alpha: 0.05) : Colors.transparent,
+                        color: sel ? kBrandPrimary.withValues(alpha: 0.05) : Colors.transparent,
                         child: Row(
                           children: [
                             Container(
                               width: 36, height: 36,
-                              decoration: BoxDecoration(color: const Color(0xFF3F45C7).withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
-                              child: Center(child: Text(u.name.isNotEmpty ? u.name[0].toUpperCase() : '?', style: const TextStyle(color: Color(0xFF3F45C7), fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightBold))),
+                              decoration: BoxDecoration(color: kBrandPrimary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+                              child: Center(child: Text(u.name.isNotEmpty ? u.name[0].toUpperCase() : '?', style: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightBold))),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -546,7 +546,7 @@ class _ManageReportsViewState extends State<ManageReportsView> {
                                 ],
                               ),
                             ),
-                            if (sel) const Icon(Icons.check_circle, size: kIconSizeMedium, color: Color(0xFF3F45C7)),
+                            if (sel) const Icon(Icons.check_circle, size: kIconSizeMedium, color: kBrandPrimary),
                           ],
                         ),
                       ),
@@ -600,7 +600,7 @@ class _ManageReportsViewState extends State<ManageReportsView> {
                 color: !enabled
                     ? const Color(0xFFE2E8F0)
                     : value
-                        ? const Color(0xFF3F45C7)
+                        ? kBrandPrimary
                         : const Color(0xFFCBD5E1),
                 borderRadius: BorderRadius.circular(13),
               ),

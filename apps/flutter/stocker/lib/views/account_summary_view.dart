@@ -122,7 +122,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
       initialDate: isFrom ? (_fromDate ?? DateTime.now()) : (_toDate ?? DateTime.now()),
       firstDate: DateTime(2024),
       lastDate: DateTime.now(),
-      builder: (ctx, child) => Theme(data: Theme.of(ctx).copyWith(colorScheme: const ColorScheme.light(primary: Color(0xFF3F45C7))), child: child!),
+      builder: (ctx, child) => Theme(data: Theme.of(ctx).copyWith(colorScheme: const ColorScheme.light(primary: kBrandPrimary)), child: child!),
     );
     if (picked != null) setState(() { if (isFrom) _fromDate = picked; else _toDate = picked; });
   }
@@ -228,7 +228,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
                   onTap: _isLoading ? null : _fetch,
                   child: Container(
                     height: 42, alignment: Alignment.center,
-                    decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(12)),
+                    decoration: BoxDecoration(color: kBrandPrimary, borderRadius: BorderRadius.circular(12)),
                     child: _isLoading
                         ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                         : const Text('View', style: TextStyle(color: Colors.white, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
@@ -297,7 +297,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE2E8F0))),
       child: Row(children: [
-        Icon(Icons.calendar_today, size: kIconSizeSmall, color: isPlaceholder ? const Color(0xFFCBD5E1) : const Color(0xFF3F45C7)),
+        Icon(Icons.calendar_today, size: kIconSizeSmall, color: isPlaceholder ? const Color(0xFFCBD5E1) : kBrandPrimary),
         const SizedBox(width: 6),
         Expanded(child: Text(text, style: TextStyle(color: isPlaceholder ? const Color(0xFFCBD5E1) : Colors.black, fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightMedium), overflow: TextOverflow.ellipsis)),
       ]),
@@ -310,7 +310,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
         width: 20, height: 20,
         child: Checkbox(
           value: value, onChanged: onChanged,
-          activeColor: const Color(0xFF3F45C7),
+          activeColor: kBrandPrimary,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           side: const BorderSide(color: Color(0xFFCBD5E1)),
           materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -325,7 +325,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
 
   Widget _buildResults() {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5));
+      return const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5));
     }
 
     if (_showCredit) return _buildCreditResults();
@@ -403,7 +403,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Symbol + exchange
         Row(children: [
-          Expanded(child: Text(symbol, style: const TextStyle(color: Color(0xFF3F45C7), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: -0.3))),
+          Expanded(child: Text(symbol, style: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: -0.3))),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6)),
@@ -525,7 +525,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
           ),
           const SizedBox(width: 8),
           if (username.isNotEmpty)
-            Text(username.toUpperCase(), style: const TextStyle(color: Color(0xFF3F45C7), fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: -0.3)),
+            Text(username.toUpperCase(), style: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: -0.3)),
           const Spacer(),
           Text(timeStr, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: 'Inter')),
         ]),

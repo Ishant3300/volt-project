@@ -161,9 +161,9 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
           decoration: ShapeDecoration(
-            color: selected ? const Color(0xFF3F45C7) : Colors.white,
+            color: selected ? kBrandPrimary : Colors.white,
             shape: RoundedRectangleBorder(
-              side: const BorderSide(width: 1, color: Color(0xFF3F45C7)),
+              side: const BorderSide(width: 1, color: kBrandPrimary),
               borderRadius: BorderRadius.only(
                 topLeft: isLeft ? const Radius.circular(8) : Radius.zero,
                 bottomLeft: isLeft ? const Radius.circular(8) : Radius.zero,
@@ -190,7 +190,7 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
   Widget _buildContent() {
     if (_isLoading) {
       return const Center(
-          child: CircularProgressIndicator(color: Color(0xFF3F45C7)));
+          child: CircularProgressIndicator(color: kBrandPrimary));
     }
     if (_error != null) {
       return Center(
@@ -207,7 +207,7 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
               onTap: _fetchSharingDetails,
               child: const Text('Retry',
                   style: TextStyle(
-                      color: Color(0xFF3F45C7),
+                      color: kBrandPrimary,
                       fontSize: kFontSizeBody,
                       fontFamily: 'Inter',
                       fontWeight: kFontWeightSemiBold)),
@@ -235,7 +235,7 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
     }
 
     return RefreshIndicator(
-      color: const Color(0xFF3F45C7),
+      color: kBrandPrimary,
       onRefresh: _fetchSharingDetails,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -263,11 +263,11 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: isMasterEntry
-            ? const Color(0xFF3F45C7).withValues(alpha: 0.04)
+            ? kBrandPrimary.withValues(alpha: 0.04)
             : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: isMasterEntry
-            ? Border.all(color: const Color(0xFF3F45C7).withValues(alpha: 0.2))
+            ? Border.all(color: kBrandPrimary.withValues(alpha: 0.2))
             : null,
         boxShadow: isMasterEntry
             ? null
@@ -286,7 +286,7 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
             height: 38,
             decoration: BoxDecoration(
               color: isMasterEntry
-                  ? const Color(0xFF3F45C7).withValues(alpha: 0.12)
+                  ? kBrandPrimary.withValues(alpha: 0.12)
                   : const Color(0xFFF1F5F9),
               borderRadius: BorderRadius.circular(10),
             ),
@@ -295,7 +295,7 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
                 username.isNotEmpty ? username[0].toUpperCase() : '?',
                 style: TextStyle(
                   color: isMasterEntry
-                      ? const Color(0xFF3F45C7)
+                      ? kBrandPrimary
                       : const Color(0xFF64748B),
                   fontSize: kFontSizeBody,
                   fontFamily: 'Inter',
@@ -363,13 +363,13 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFF3F45C7).withValues(alpha: 0.08),
+              color: kBrandPrimary.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               '${sharing.toStringAsFixed(sharing.truncateToDouble() == sharing ? 0 : 1)}%',
               style: const TextStyle(
-                color: Color(0xFF3F45C7),
+                color: kBrandPrimary,
                 fontSize: kFontSizeBody,
                 fontFamily: 'Inter',
                 fontWeight: kFontWeightSemiBold,

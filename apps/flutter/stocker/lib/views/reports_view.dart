@@ -364,7 +364,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
       lastDate: now,
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.light(primary: Color(0xFF3F45C7)),
+          colorScheme: const ColorScheme.light(primary: kBrandPrimary),
         ),
         child: child!,
       ),
@@ -422,7 +422,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                                 style: const TextStyle(fontSize: 13, color: Colors.white),
                                 overflow: TextOverflow.ellipsis,
                               ),
-                              backgroundColor: const Color(0xFF3F45C7),
+                              backgroundColor: kBrandPrimary,
                               foregroundColor: Colors.white,
                             ),
                             body: PdfPreview(
@@ -445,9 +445,9 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                       ),
                       child: const Column(
                         children: [
-                          Icon(Icons.picture_as_pdf_rounded, size: 28, color: Color(0xFF3F45C7)),
+                          Icon(Icons.picture_as_pdf_rounded, size: 28, color: kBrandPrimary),
                           SizedBox(height: 6),
-                          Text('View PDF', style: TextStyle(fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, color: Color(0xFF3F45C7))),
+                          Text('View PDF', style: TextStyle(fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, color: kBrandPrimary)),
                         ],
                       ),
                     ),
@@ -930,7 +930,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 32, vertical: 16),
                         decoration: ShapeDecoration(
-                          color: const Color(0xFF3F45C7),
+                          color: kBrandPrimary,
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8)),
                         ),
@@ -986,7 +986,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
         child: Text(label,
             style: TextStyle(
               color: isSelected
-                  ? const Color(0xFF3F45C7)
+                  ? kBrandPrimary
                   : const Color(0xFF1E293B),
               fontSize: 13,
               fontFamily: 'Inter',
@@ -1034,11 +1034,11 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF3F45C7) : Colors.white,
+          color: selected ? kBrandPrimary : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
               color:
-                  selected ? const Color(0xFF3F45C7) : const Color(0xFFD1D1D6)),
+                  selected ? kBrandPrimary : const Color(0xFFD1D1D6)),
         ),
         child: Text(
           label,

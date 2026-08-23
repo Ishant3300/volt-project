@@ -271,7 +271,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 4),
                       decoration: ShapeDecoration(
-                        color: const Color(0xFF3F45C7),
+                        color: kBrandPrimary,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6)),
                       ),
@@ -402,7 +402,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                 padding: const EdgeInsets.all(2),
                                 decoration: ShapeDecoration(
                                   color: _isActive
-                                      ? const Color(0xFF3F45C7)
+                                      ? kBrandPrimary
                                       : const Color(0xFFE5E5EA),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12.5),
@@ -477,7 +477,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
               child: _isLoadingChildren
                   ? Center(
                       child: CircularProgressIndicator(
-                          color: const Color(0xFF3F45C7)))
+                          color: kBrandPrimary))
                   : (_childMasters.isEmpty && _users.isEmpty)
                       ? Center(
                           child: Text(

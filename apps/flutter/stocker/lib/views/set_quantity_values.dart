@@ -48,7 +48,7 @@ class _SetQuantityValuesViewState extends State<SetQuantityValuesView> {
           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12), filled: true, fillColor: const Color(0xFFF8FAFC),
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
           enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF3F45C7), width: 1.5))),
+          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: kBrandPrimary, width: 1.5))),
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8), fontFamily: 'Inter'))),
@@ -58,7 +58,7 @@ class _SetQuantityValuesViewState extends State<SetQuantityValuesView> {
             if (v != null && v > 0) { setState(() => _values.add(v)); Navigator.pop(ctx); }
           },
           child: Container(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(color: kBrandPrimary, borderRadius: BorderRadius.circular(10)),
             child: const Text('Add', style: TextStyle(color: Colors.white, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, fontSize: kFontSizeBodySmall))),
         ),
       ],
@@ -83,7 +83,7 @@ class _SetQuantityValuesViewState extends State<SetQuantityValuesView> {
 
         // Grid of quantity boxes
         Expanded(child: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5))
+          ? const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
           : Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Column(children: [
               const Text('These values appear as quick quantity buttons on the trade card.', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: 'Inter')),
               const SizedBox(height: 12),
@@ -99,7 +99,7 @@ class _SetQuantityValuesViewState extends State<SetQuantityValuesView> {
         Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: GestureDetector(
           onTap: _addBox,
           child: Container(height: 44, alignment: Alignment.center,
-            decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: kBrandPrimary, borderRadius: BorderRadius.circular(12)),
             child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.add, color: Colors.white, size: 18), SizedBox(width: 6),
               Text('ADD BOX', style: TextStyle(color: Colors.white, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
@@ -119,7 +119,7 @@ class _SetQuantityValuesViewState extends State<SetQuantityValuesView> {
           Expanded(child: GestureDetector(
             onTap: _save,
             child: Container(height: 48, alignment: Alignment.center,
-              decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: kBrandPrimary, borderRadius: BorderRadius.circular(12)),
               child: const Text('UPDATE', style: TextStyle(color: Colors.white, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold))),
           )),
         ])),

@@ -184,7 +184,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                     children: [
                       Text(inst.tradingsymbol,
                           style: const TextStyle(
-                              color: Color(0xFF3F45C7),
+                              color: kBrandPrimary,
                               fontSize: kFontSizeBody,
                               fontFamily: 'Inter',
                               fontWeight: kFontWeightSemiBold,
@@ -249,7 +249,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 20, vertical: 10),
                       decoration: BoxDecoration(
-                          color: const Color(0xFF3F45C7),
+                          color: kBrandPrimary,
                           borderRadius: BorderRadius.circular(10)),
                       child: adding
                           ? const SizedBox(
@@ -341,7 +341,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                  color: sel ? const Color(0xFF3F45C7) : Colors.white,
+                  color: sel ? kBrandPrimary : Colors.white,
                   borderRadius: BorderRadius.circular(10),
                   border:
                       sel ? null : Border.all(color: const Color(0xFFE2E8F0))),
@@ -403,7 +403,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Color(0xFF3F45C7))))
+                        strokeWidth: 2, color: kBrandPrimary)))
           else if (_searchCtrl.text.isNotEmpty)
             GestureDetector(
               onTap: () {
@@ -431,7 +431,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
     if (_isSearching && _groupedResults.isEmpty) {
       return const Center(
           child: CircularProgressIndicator(
-              color: Color(0xFF3F45C7), strokeWidth: 2.5));
+              color: kBrandPrimary, strokeWidth: 2.5));
     }
     if (_groupedResults.isEmpty) {
       return const Center(
@@ -468,7 +468,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                              color: Color(0xFF3F45C7), strokeWidth: 2))));
+                              color: kBrandPrimary, strokeWidth: 2))));
             }
             final group = _groupedResults[gi];
             final label = group['label'] as String;
@@ -583,7 +583,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                 ]),
               ])),
           const Icon(Icons.add_circle_outline,
-              size: kIconSizeMedium, color: Color(0xFF3F45C7)),
+              size: kIconSizeMedium, color: kBrandPrimary),
         ]),
       ),
     );
@@ -706,6 +706,6 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
             focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide:
-                    const BorderSide(color: Color(0xFF3F45C7), width: 1.5))));
+                    const BorderSide(color: kBrandPrimary, width: 1.5))));
   }
 }

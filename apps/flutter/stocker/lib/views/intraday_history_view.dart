@@ -136,7 +136,7 @@ class _IntradayHistoryViewState extends State<IntradayHistoryView> {
                     onTap: _isLoading ? null : _fetch,
                     child: Container(
                       height: 44, alignment: Alignment.center,
-                      decoration: BoxDecoration(color: const Color(0xFF3F45C7), borderRadius: BorderRadius.circular(12)),
+                      decoration: BoxDecoration(color: kBrandPrimary, borderRadius: BorderRadius.circular(12)),
                       child: _isLoading
                           ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                           : const Text('View', style: TextStyle(color: Colors.white, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
@@ -177,11 +177,11 @@ class _IntradayHistoryViewState extends State<IntradayHistoryView> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(labels[i], style: TextStyle(
-                        color: isSorted ? const Color(0xFF3F45C7) : const Color(0xFF94A3B8),
+                        color: isSorted ? kBrandPrimary : const Color(0xFF94A3B8),
                         fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
                       const SizedBox(width: 2),
                       Icon(isSorted ? (_sortAsc ? Icons.arrow_upward : Icons.arrow_downward) : Icons.unfold_more,
-                        size: 12, color: isSorted ? const Color(0xFF3F45C7) : const Color(0xFF94A3B8)),
+                        size: 12, color: isSorted ? kBrandPrimary : const Color(0xFF94A3B8)),
                     ],
                   ),
                 ),
@@ -191,7 +191,7 @@ class _IntradayHistoryViewState extends State<IntradayHistoryView> {
           // Table body
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFF3F45C7), strokeWidth: 2.5))
+                ? const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
                 : _candles.isEmpty
                     ? Center(child: Text(
                         _selectedInst == null ? 'Select an instrument and tap View' : 'No data available',
@@ -246,7 +246,7 @@ class _IntradayHistoryViewState extends State<IntradayHistoryView> {
           hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall, fontFamily: 'Inter'),
           suffixIcon: _isSearching
               ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 16, height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF3F45C7))))
+                  child: CircularProgressIndicator(strokeWidth: 2, color: kBrandPrimary)))
               : (_instCtrl.text.isNotEmpty
                   ? GestureDetector(
                       onTap: () { _instCtrl.clear(); setState(() { _selectedInst = null; _instResults = []; _showDropdown = false; }); },

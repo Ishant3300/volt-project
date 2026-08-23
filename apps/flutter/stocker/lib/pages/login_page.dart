@@ -184,7 +184,7 @@ class _LoginPageState extends State<LoginPage> {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                  builder: (context) => const MyHomePage(title: 'Stocker App')),
+                  builder: (context) => const MyHomePage(title: kAppName)),
             );
           } else {
             _showDisclaimerDialog();
@@ -239,11 +239,11 @@ class _LoginPageState extends State<LoginPage> {
                       height: 64,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                            colors: [Color(0xFFC6529E), Color(0xFF3B43C9)]),
+                            colors: [kBrandGradientStart, kBrandGradientEnd]),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                              color: const Color(0xFF3F45C7)
+                              color: kBrandPrimary
                                   .withValues(alpha: 0.3),
                               blurRadius: 20,
                               offset: const Offset(0, 8))
@@ -287,7 +287,7 @@ class _LoginPageState extends State<LoginPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(Icons.security,
-                      size: 48, color: Color(0xFF3F45C7)),
+                      size: 48, color: kBrandPrimary),
                   const SizedBox(height: 12),
                   const Text('Two-Factor Authentication',
                       style: TextStyle(
@@ -329,7 +329,7 @@ class _LoginPageState extends State<LoginPage> {
                       focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(14),
                           borderSide: const BorderSide(
-                              color: Color(0xFF3F45C7), width: 1.5)),
+                              color: kBrandPrimary, width: 1.5)),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -434,7 +434,7 @@ class _LoginPageState extends State<LoginPage> {
                                       parentContext,
                                       MaterialPageRoute(
                                           builder: (_) => const MyHomePage(
-                                              title: 'Stocker App')));
+                                              title: kAppName)));
                                 } else {
                                   _showDisclaimerDialog();
                                 }
@@ -471,7 +471,7 @@ class _LoginPageState extends State<LoginPage> {
                         gradient: isVerifying
                             ? null
                             : const LinearGradient(
-                                colors: [Color(0xFFC6529E), Color(0xFF3B43C9)]),
+                                colors: [kBrandGradientStart, kBrandGradientEnd]),
                         color: isVerifying ? const Color(0xFF94A3B8) : null,
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -535,7 +535,7 @@ class _LoginPageState extends State<LoginPage> {
               ),
               const SizedBox(height: 16),
               Text(
-                'APEX is a simulation-based trading platform designed for educational purposes only.',
+                '$kAppName is a simulation-based trading platform designed for educational purposes only.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: kFontSizeBody,
@@ -550,7 +550,7 @@ class _LoginPageState extends State<LoginPage> {
               _buildBulletPoint(
                   'All trades, prices, and profits/losses are simulated or based on delayed data'),
               _buildBulletPoint(
-                  'APEX does not provide financial or investment advice'),
+                  '$kAppName does not provide financial or investment advice'),
               const SizedBox(height: 16),
               Text(
                 'By continuing, you acknowledge that you are using a virtual trading environment and not a real brokerage service.',
@@ -575,7 +575,7 @@ class _LoginPageState extends State<LoginPage> {
                     context,
                     MaterialPageRoute(
                         builder: (context) =>
-                            const MyHomePage(title: 'Stocker App')),
+                            const MyHomePage(title: kAppName)),
                   );
                 },
                 child: Container(
@@ -585,7 +585,7 @@ class _LoginPageState extends State<LoginPage> {
                     gradient: const LinearGradient(
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
-                      colors: [Color(0xFFC6529E), Color(0xFF3B43C9)],
+                      colors: [kBrandGradientStart, kBrandGradientEnd],
                     ),
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -685,12 +685,12 @@ class _LoginPageState extends State<LoginPage> {
                     children: [
                       // Logo
                       SvgPicture.asset(
-                        'assets/Subtract.svg',
+                        kLogoAsset,
                         width: 80,
                         height: 80,
                       ),
                       const SizedBox(height: 12),
-                      Text('APEX',
+                      Text(kAppName,
                           style: TextStyle(
                               color: Color(0xFF0F172A),
                               fontSize: kFontSizeLoginTitle,
@@ -742,8 +742,8 @@ class _LoginPageState extends State<LoginPage> {
                                     begin: Alignment.centerLeft,
                                     end: Alignment.centerRight,
                                     colors: [
-                                      Color(0xFFC6529E),
-                                      Color(0xFF3B43C9),
+                                      kBrandGradientStart,
+                                      kBrandGradientEnd,
                                     ],
                                   ),
                             color: _isLoading ? const Color(0xFF94A3B8) : null,
@@ -866,7 +866,7 @@ class _LoginPageState extends State<LoginPage> {
                       width: 16,
                       height: 16,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Color(0xFF3F45C7))),
+                          strokeWidth: 2, color: kBrandPrimary)),
                 )
               else if (_selectedServer != 'Select Server')
                 GestureDetector(
@@ -992,7 +992,7 @@ class _LoginPageState extends State<LoginPage> {
             borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
         focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
-            borderSide: const BorderSide(color: Color(0xFF3F45C7), width: 1.5)),
+            borderSide: const BorderSide(color: kBrandPrimary, width: 1.5)),
       ),
     );
   }

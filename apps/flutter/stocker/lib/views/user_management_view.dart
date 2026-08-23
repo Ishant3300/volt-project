@@ -187,13 +187,13 @@ class _UserManagementViewState extends State<UserManagementView> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF3F45C7).withValues(alpha: 0.08),
+                      color: kBrandPrimary.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       '${_filteredItems.length}',
                       style: const TextStyle(
-                        color: Color(0xFF3F45C7),
+                        color: kBrandPrimary,
                         fontSize: kFontSizeBodySmall,
                         fontFamily: 'Inter',
                         fontWeight: kFontWeightBold,
@@ -275,7 +275,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                 child: Row(
                   children: [
                     _buildCountChip(
-                        'Masters', _masters.length, const Color(0xFF3F45C7)),
+                        'Masters', _masters.length, kBrandPrimary),
                     const SizedBox(width: 8),
                     _buildCountChip(
                         'Users', _users.length, const Color(0xFFD97706)),
@@ -290,7 +290,7 @@ class _UserManagementViewState extends State<UserManagementView> {
               child: _isLoading
                   ? const Center(
                       child: CircularProgressIndicator(
-                        color: Color(0xFF3F45C7),
+                        color: kBrandPrimary,
                         strokeWidth: 2.5,
                       ),
                     )
@@ -349,14 +349,14 @@ class _UserManagementViewState extends State<UserManagementView> {
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                       colors: [
-                        Color(0xFFC6529E),
-                        Color(0xFF3B43C9),
+                        kBrandGradientStart,
+                        kBrandGradientEnd,
                       ],
                     ),
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF3F45C7).withValues(alpha: 0.2),
+                        color: kBrandPrimary.withValues(alpha: 0.2),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -460,7 +460,7 @@ class _UserManagementViewState extends State<UserManagementView> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFF3F45C7),
+                color: kBrandPrimary,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Text(
@@ -541,14 +541,14 @@ class _UserManagementViewState extends State<UserManagementView> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: const Color(0xFF3F45C7).withValues(alpha: 0.08),
+                color: kBrandPrimary.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Center(
                 child: Text(
                   'M',
                   style: TextStyle(
-                    color: Color(0xFF3F45C7),
+                    color: kBrandPrimary,
                     fontSize: kFontSizeSectionHeader,
                     fontFamily: 'Inter',
                     fontWeight: kFontWeightBold,
@@ -599,13 +599,13 @@ class _UserManagementViewState extends State<UserManagementView> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF3F45C7).withValues(alpha: 0.1),
+                          color: kBrandPrimary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Text(
                           'MASTER',
                           style: TextStyle(
-                            color: Color(0xFF3F45C7),
+                            color: kBrandPrimary,
                             fontSize: kFontSizeBadge,
                             fontFamily: 'Inter',
                             fontWeight: kFontWeightBold,
@@ -865,7 +865,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                 if (isAdmin || (isMaster && canAddMaster))
                   _buildCreateOption(
                     icon: Icons.admin_panel_settings,
-                    iconColor: const Color(0xFF3F45C7),
+                    iconColor: kBrandPrimary,
                     title: 'Create Master',
                     subtitle: 'Create a new master account',
                     onTap: () {

@@ -742,8 +742,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                                   begin: Alignment.centerLeft,
                                   end: Alignment.centerRight,
                                   colors: [
-                                    Color(0xFFC6529E),
-                                    Color(0xFF3B43C9),
+                                    kBrandGradientStart,
+                                    kBrandGradientEnd,
                                   ],
                                 ),
                           color: _isSubmitting ? const Color(0xFF94A3B8) : null,
@@ -1011,7 +1011,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF3F45C7).withValues(alpha: 0.06),
+                        color: kBrandPrimary.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -1019,7 +1019,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                             ? 'Our: ${parentVal.toStringAsFixed(1)}'
                             : 'Our: 100',
                         style: const TextStyle(
-                          color: Color(0xFF3F45C7),
+                          color: kBrandPrimary,
                           fontSize: kFontSizeSubtitle,
                           fontFamily: 'Inter',
                           fontWeight: kFontWeightSemiBold,
@@ -1080,13 +1080,13 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF3F45C7).withValues(alpha: 0.08),
+                  color: kBrandPrimary.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   values.values.every((v) => v) ? 'Deselect All' : 'Select All',
                   style: const TextStyle(
-                    color: Color(0xFF3F45C7),
+                    color: kBrandPrimary,
                     fontSize: kFontSizeNavLabel,
                     fontFamily: 'Inter',
                     fontWeight: kFontWeightSemiBold,
@@ -1110,12 +1110,12 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: selected
-                        ? const Color(0xFF3F45C7)
+                        ? kBrandPrimary
                         : const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: selected
-                          ? const Color(0xFF3F45C7)
+                          ? kBrandPrimary
                           : const Color(0xFFF1F5F9),
                     ),
                   ),
@@ -1175,7 +1175,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: BoxDecoration(
                   color: type == 'LOT WISE'
-                      ? const Color(0xFF3F45C7).withValues(alpha: 0.08)
+                      ? kBrandPrimary.withValues(alpha: 0.08)
                       : const Color(0xFF10B981).withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -1184,7 +1184,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: type == 'LOT WISE'
-                        ? const Color(0xFF3F45C7)
+                        ? kBrandPrimary
                         : const Color(0xFF10B981),
                     fontSize: kFontSizeCaption,
                     fontFamily: 'Inter',
@@ -1320,7 +1320,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               child: Text(
                 '₹ $words',
                 style: const TextStyle(
-                  color: Color(0xFF3F45C7),
+                  color: kBrandPrimary,
                   fontSize: 11,
                   fontFamily: 'Inter',
                   fontWeight: FontWeight.w500,
@@ -1357,7 +1357,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
                 color:
-                    value ? const Color(0xFF3F45C7) : const Color(0xFFCBD5E1),
+                    value ? kBrandPrimary : const Color(0xFFCBD5E1),
                 borderRadius: BorderRadius.circular(13),
               ),
               child: AnimatedAlign(
