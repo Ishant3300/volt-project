@@ -1,0 +1,26 @@
+# ─── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─── IDEs ─────────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ─── Flutter (apps/flutter/) ─────────────────────────────────────────────────
+apps/flutter/.dart_tool/
+apps/flutter/build/
+apps/flutter/.flutter-plugins
+apps/flutter/.flutter-plugins-dependencies
+apps/flutter/.packages
+apps/flutter/pubspec.lock
+
+# ─── Node (apps/backend/) ────────────────────────────────────────────────────
+apps/backend/node_modules/
+apps/backend/dump.rdb
+apps/backend/.tmp-settlement-mongo/
+
+# ─── Env / secrets ───────────────────────────────────────────────────────────
+.env
+*.env.local

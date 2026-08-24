@@ -1,0 +1,785 @@
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const User = require('../models/User');
+const Admin = require('../models/Admin');
+const Master = require('../models/Master');
+const LoginHistory = require('../models/LoginHistory');
+
+const _getClientIp = (req) => {
+  // X-Forwarded-For can be comma-separated list; first entry is the real client
+  const forwarded = req.headers['x-forwarded-for'];
+  let ip = forwarded
+    ? forwarded.split(',')[0].trim()
+    : req.ip || req.connection?.remoteAddress || req.socket?.remoteAddress || req.connection?.socket?.remoteAddress || null;
+  // Strip IPv4-mapped IPv6 prefix (::ffff:127.0.0.1 → 127.0.0.1)
+  if (ip && ip.startsWith('::ffff:')) {
+    ip = ip.slice(7);
+  }
+  return ip;
+};
+
+const _logLogin = async (req, userId, userModel, username, name) => {
+  try {
+    await LoginHistory.create({
+      userId,
+      userModel,
+      username,
+      name: name || username,
+      ip_address: _getClientIp(req),
+      user_agent: req.headers['user-agent'] || null
+    });
+  } catch (e) {
+    console.error('[LoginHistory] Failed to log:', e.message);
+  }
+};
+
+// Generate JWT Token
+const generateToken = (id, role, investor = false) => {
+  return jwt.sign({ id, role, investor }, process.env.JWT_SECRET);
+};
+
+// User Login
+const userLogin = async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username and password are required',
+        data: null
+      });
+    }
+
+    const user = await User.findOne({ username });
+
+    if (!user || user.deleted_at) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials',
+        data: null
+      });
+    }
+
+    if (user.status !== 'active') {
+      return res.status(403).json({
+        success: false,
+        message: 'Account is not active',
+        data: null
+      });
+    }
+
+    // Check active_status toggle (admin can disable login via control panel)
+    if (user.active_status === false) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not allowed to login',
+        data: null
+      });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials',
+        data: null
+      });
+    }
+
+    // Generate new token (no expiration)
+    const token = generateToken(user._id, 'user');
+
+    // Update active_token, last_login, and IP address
+    user.active_token = token;
+    user.last_login = new Date();
+    user.ip_address = _getClientIp(req);
+    await user.save();
+
+    await _logLogin(req, user._id, 'User', user.username, user.name);
+
+    res.status(200).json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        token,
+        user: user.toJSON()
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+      data: null
+    });
+  }
+};
+
+// Admin Login
+const adminLogin = async (req, res) => {
+  try {
+    const { username, password, totp_code } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username and password are required',
+        data: null
+      });
+    }
+
+    const admin = await Admin.findOne({ username });
+
+    if (!admin || admin.deleted_at) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials',
+        data: null
+      });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials',
+        data: null
+      });
+    }
+
+    // Check if TOTP is enabled for this admin
+    if (admin.totp_enabled) {
+      if (!totp_code) {
+        // Password correct but TOTP required — tell client
+        return res.status(200).json({
+          success: true,
+          message: 'TOTP verification required',
+          data: {
+            requires_totp: true,
+            totp_configured: !!admin.totp_secret,
+          }
+        });
+      }
+
+      // Verify TOTP code
+      const totpService = require('../services/adminOtpService');
+      const verified = await totpService.verifyLogin(admin._id.toString(), totp_code);
+      if (!verified) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid or expired TOTP code',
+          data: null
+        });
+      }
+    }
+
+    // All verified (or TOTP not enabled) — issue token
+    const token = generateToken(admin._id, 'admin');
+    admin.active_token = token;
+    await admin.save();
+
+    await _logLogin(req, admin._id, 'Admin', admin.username, admin.username);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        token,
+        admin: admin.toJSON()
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+      data: null
+    });
+  }
+};
+
+// User Logout
+const userLogout = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+        data: null
+      });
+    }
+
+    // Clear active token
+    user.active_token = null;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Logout successful',
+      data: null
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+      data: null
+    });
+  }
+};
+
+// Admin Logout
+const adminLogout = async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.admin.id);
+
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Admin not found',
+        data: null
+      });
+    }
+
+    // Clear active token
+    admin.active_token = null;
+    await admin.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Logout successful',
+      data: null
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+      data: null
+    });
+  }
+};
+
+// Master Login
+const masterLogin = async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username and password are required',
+        data: null
+      });
+    }
+
+    const master = await Master.findOne({ username });
+
+    if (!master || master.deleted_at) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials',
+        data: null
+      });
+    }
+
+    if (master.status !== 'active') {
+      return res.status(403).json({
+        success: false,
+        message: 'Account is not active',
+        data: null
+      });
+    }
+
+    // Check active_status toggle (admin can disable login via control panel)
+    if (master.active_status === false) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not allowed to login',
+        data: null
+      });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, master.password);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials',
+        data: null
+      });
+    }
+
+    // Generate new token (no expiration)
+    const token = generateToken(master._id, 'master');
+
+    // Update active_token, last_login, and IP address
+    master.active_token = token;
+    master.last_login = new Date();
+    master.ip_address = _getClientIp(req);
+    await master.save();
+
+    await _logLogin(req, master._id, 'Master', master.username, master.name);
+
+    res.status(200).json({
+      success: true,
+      message: 'Login successful',
+      data: {
+        token,
+        master: master.toJSON()
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+      data: null
+    });
+  }
+};
+
+// Master Logout
+const masterLogout = async (req, res) => {
+  try {
+    const master = await Master.findById(req.master.id);
+
+    if (!master) {
+      return res.status(404).json({
+        success: false,
+        message: 'Master not found',
+        data: null
+      });
+    }
+
+    // Clear active token
+    master.active_token = null;
+    await master.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Logout successful',
+      data: null
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+      data: null
+    });
+  }
+};
+
+// Universal Login
+const universalLogin = async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username and password are required',
+        data: null
+      });
+    }
+
+    let userAccount = null;
+    let roleType = null;
+    let isInvestorLogin = false;
+
+    console.log(`🔐 [LOGIN] Attempt: username="${username}", password length=${password.length}`);
+
+    // Check Admin (admins don't have investor password)
+    const admin = await Admin.findOne({ username });
+    console.log(`🔐 [LOGIN] Admin lookup: found=${!!admin}, deleted=${admin?.deleted_at || 'N/A'}`);
+    if (admin && !admin.deleted_at && await bcrypt.compare(password, admin.password)) {
+      console.log(`🔐 [LOGIN] Admin password matched`);
+      userAccount = admin;
+      roleType = 'admin';
+    }
+
+    // Check Master (main password first, then investor password)
+    if (!userAccount) {
+      const master = await Master.findOne({ username });
+      console.log(`🔐 [LOGIN] Master lookup: found=${!!master}, deleted=${master?.deleted_at || 'N/A'}`);
+      if (master && !master.deleted_at) {
+        let passwordMatched = false;
+
+        // Try main password first
+        if (await bcrypt.compare(password, master.password)) {
+          console.log(`🔐 [LOGIN] Master password matched`);
+          passwordMatched = true;
+        }
+        // Try investor password if main didn't match and investor_password is set
+        else if (master.investor_password && await bcrypt.compare(password, master.investor_password)) {
+          console.log(`🔐 [LOGIN] Master investor password matched`);
+          passwordMatched = true;
+          isInvestorLogin = true;
+        }
+
+        if (passwordMatched) {
+          if (master.status !== 'active') {
+            return res.status(403).json({
+              success: false,
+              message: 'Account is not active',
+              data: null
+            });
+          }
+          if (master.active_status === false) {
+            return res.status(403).json({
+              success: false,
+              message: 'You are not allowed to login',
+              data: null
+            });
+          }
+          userAccount = master;
+          roleType = 'master';
+        }
+      }
+    }
+
+    // Check User (main password first, then investor password)
+    if (!userAccount) {
+      const user = await User.findOne({ username });
+      console.log(`🔐 [LOGIN] User lookup: found=${!!user}, deleted=${user?.deleted_at || 'N/A'}`);
+      if (user && !user.deleted_at) {
+        let passwordMatched = false;
+
+        // Try main password first
+        if (await bcrypt.compare(password, user.password)) {
+          console.log(`🔐 [LOGIN] User password matched`);
+          passwordMatched = true;
+        }
+        // Try investor password if main didn't match and investor_password is set
+        else if (user.investor_password && await bcrypt.compare(password, user.investor_password)) {
+          console.log(`🔐 [LOGIN] User investor password matched`);
+          passwordMatched = true;
+          isInvestorLogin = true;
+        }
+
+        if (passwordMatched) {
+          if (user.status !== 'active') {
+            return res.status(403).json({
+              success: false,
+              message: 'Account is not active',
+              data: null
+            });
+          }
+          if (user.active_status === false) {
+            return res.status(403).json({
+              success: false,
+              message: 'You are not allowed to login',
+              data: null
+            });
+          }
+          userAccount = user;
+          roleType = 'user';
+        }
+      }
+    }
+
+    if (!userAccount) {
+      console.log(`🔐 [LOGIN] No match found for username="${username}" in any collection`);
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials',
+        data: null
+      });
+    }
+
+    // Admin TOTP flow: if admin and TOTP enabled, require verification
+    if (roleType === 'admin' && userAccount.totp_enabled) {
+      const { totp_code } = req.body;
+
+      if (!totp_code) {
+        return res.status(200).json({
+          success: true,
+          message: 'TOTP verification required',
+          data: {
+            requires_totp: true,
+            totp_configured: !!userAccount.totp_secret,
+            role: 'ADMIN',
+          }
+        });
+      }
+
+      const totpService = require('../services/adminOtpService');
+      const verified = await totpService.verifyLogin(userAccount._id.toString(), totp_code);
+      if (!verified) {
+        return res.status(401).json({ success: false, message: 'Invalid or expired TOTP code', data: null });
+      }
+      // Verified — fall through to token generation below
+    }
+
+    // Generate new token (no expiration)
+    const token = generateToken(userAccount._id, roleType, isInvestorLogin);
+
+    // Update active_token, last_login, and IP address
+    userAccount.active_token = token;
+    if (roleType !== 'admin') {
+      userAccount.last_login = new Date();
+      userAccount.ip_address = _getClientIp(req);
+    }
+
+    await userAccount.save();
+
+    const modelName = roleType.charAt(0).toUpperCase() + roleType.slice(1); // 'user' -> 'User'
+    await _logLogin(req, userAccount._id, modelName, userAccount.username, userAccount.name || userAccount.username);
+
+    // Check if password reset is required on first login (users/masters only, not investor logins)
+    const requiresPasswordChange = !isInvestorLogin && (roleType === 'user' || roleType === 'master') && userAccount.change_pass_on_first_login === true;
+
+    res.status(200).json({
+      success: true,
+      message: requiresPasswordChange ? 'Password change required' : 'Login successful',
+      data: {
+        token,
+        [roleType]: userAccount.toJSON(),
+        role: roleType.toUpperCase(),
+        requires_password_change: requiresPasswordChange,
+        investor: isInvestorLogin,
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+      data: null
+    });
+  }
+};
+
+// Change password for any role (user/admin/master)
+const changePassword = async (req, res) => {
+  try {
+    const { current_password, new_password } = req.body;
+    if (!current_password || !new_password) {
+      return res.status(400).json({ success: false, message: 'Current and new password are required' });
+    }
+    if (new_password.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+    }
+
+    let account, Model;
+    if (req.admin) {
+      Model = Admin;
+      account = await Admin.findById(req.admin.id);
+    } else if (req.master) {
+      Model = Master;
+      account = await Master.findById(req.master.id);
+    } else if (req.user) {
+      Model = User;
+      account = await User.findById(req.user.id);
+    }
+
+    if (!account) {
+      return res.status(404).json({ success: false, message: 'Account not found' });
+    }
+
+    const isMatch = await bcrypt.compare(current_password, account.password);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+    account.password = await bcrypt.hash(new_password, 10);
+
+    // Clear force-password-reset flag if it was set (first login reset complete)
+    if (account.change_pass_on_first_login === true) {
+      account.change_pass_on_first_login = false;
+    }
+
+    await account.save();
+
+    return res.status(200).json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('❌ Change password error:', error);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// Get notification settings
+const getNotificationSettings = async (req, res) => {
+  try {
+    let account;
+    if (req.admin) account = await Admin.findById(req.admin.id);
+    else if (req.master) account = await Master.findById(req.master.id);
+    else if (req.user) account = await User.findById(req.user.id);
+
+    if (!account) return res.status(404).json({ success: false, message: 'Account not found' });
+
+    const defaults = { market_order: false, pending_order: true, admin_order_execution: false, admin_order_deletion: true, trading_sound: false };
+    const settings = account.notification_settings || defaults;
+
+    return res.status(200).json({ success: true, data: { notification_settings: settings } });
+  } catch (error) {
+    console.error('❌ Get notification settings error:', error);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// Update notification settings
+const updateNotificationSettings = async (req, res) => {
+  try {
+    const { notification_settings } = req.body;
+    if (!notification_settings || typeof notification_settings !== 'object') {
+      return res.status(400).json({ success: false, message: 'notification_settings object is required' });
+    }
+
+    let account;
+    if (req.admin) account = await Admin.findById(req.admin.id);
+    else if (req.master) account = await Master.findById(req.master.id);
+    else if (req.user) account = await User.findById(req.user.id);
+
+    if (!account) return res.status(404).json({ success: false, message: 'Account not found' });
+
+    const allowed = ['market_order', 'pending_order', 'admin_order_execution', 'admin_order_deletion', 'trading_sound'];
+    for (const key of allowed) {
+      if (notification_settings[key] !== undefined) {
+        account.notification_settings[key] = !!notification_settings[key];
+      }
+    }
+    account.markModified('notification_settings');
+    await account.save();
+
+    return res.status(200).json({ success: true, message: 'Notification settings updated', data: { notification_settings: account.notification_settings } });
+  } catch (error) {
+    console.error('❌ Update notification settings error:', error);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// Register FCM token for push notifications
+const registerFcmToken = async (req, res) => {
+  try {
+    const { fcm_token } = req.body;
+    if (!fcm_token) {
+      return res.status(400).json({ success: false, message: 'fcm_token is required' });
+    }
+
+    let account;
+    if (req.admin) account = await Admin.findById(req.admin.id);
+    else if (req.master) account = await Master.findById(req.master.id);
+    else if (req.user) account = await User.findById(req.user.id);
+
+    if (!account) return res.status(404).json({ success: false, message: 'Account not found' });
+
+    // Add token if not already present
+    if (!account.fcm_tokens) account.fcm_tokens = [];
+    if (!account.fcm_tokens.includes(fcm_token)) {
+      account.fcm_tokens.push(fcm_token);
+      await account.save();
+    }
+
+    return res.status(200).json({ success: true, message: 'FCM token registered' });
+  } catch (error) {
+    console.error('❌ Register FCM token error:', error);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// Remove FCM token (on logout or token refresh)
+const removeFcmToken = async (req, res) => {
+  try {
+    const { fcm_token } = req.body;
+    if (!fcm_token) {
+      return res.status(400).json({ success: false, message: 'fcm_token is required' });
+    }
+
+    let account;
+    if (req.admin) account = await Admin.findById(req.admin.id);
+    else if (req.master) account = await Master.findById(req.master.id);
+    else if (req.user) account = await User.findById(req.user.id);
+
+    if (!account) return res.status(404).json({ success: false, message: 'Account not found' });
+
+    account.fcm_tokens = (account.fcm_tokens || []).filter(t => t !== fcm_token);
+    await account.save();
+
+    return res.status(200).json({ success: true, message: 'FCM token removed' });
+  } catch (error) {
+    console.error('❌ Remove FCM token error:', error);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+/**
+ * Soft-delete the currently authenticated account.
+ * Works for all roles: User, Master, Admin.
+ * Sets deleted_at timestamp and clears the session.
+ */
+const deleteAccount = async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const Master = require('../models/Master');
+    const Admin = require('../models/Admin');
+    const Trade = require('../models/Trade');
+
+    const role = req.user ? 'user' : req.master ? 'master' : req.admin ? 'admin' : null;
+    const accountId = req.user?.id || req.master?.id || req.admin?.id;
+
+    if (!role || !accountId) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    // For master: check if they have active child users or sub-masters with open positions
+    if (role === 'master') {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allMasterIds = await getAllSubMasterIds(accountId);
+      const childUsers = await User.find({ master_id: { $in: allMasterIds }, deleted_at: null }).select('_id').lean();
+      if (childUsers.length > 0) {
+        // Check if any child user has open positions
+        const childUserIds = childUsers.map(u => u._id);
+        const openTrades = await Trade.aggregate([
+          { $match: { user_id: { $in: childUserIds }, status: 'completed', deleted_at: null } },
+          { $group: { _id: '$user_id', buy: { $sum: { $cond: [{ $eq: ['$transaction_type', 'BUY'] }, '$executed_quantity', 0] } }, sell: { $sum: { $cond: [{ $eq: ['$transaction_type', 'SELL'] }, '$executed_quantity', 0] } } } },
+        ]);
+        const hasOpenPositions = openTrades.some(t => (t.buy - t.sell) !== 0);
+        if (hasOpenPositions) {
+          return res.status(400).json({ success: false, message: 'Cannot delete account while child users have open positions. Please square off all positions first.' });
+        }
+      }
+    }
+
+    // For user: check if they have open positions
+    if (role === 'user') {
+      const openTrades = await Trade.aggregate([
+        { $match: { user_id: require('mongoose').Types.ObjectId.createFromHexString(accountId), status: 'completed', deleted_at: null } },
+        { $group: { _id: null, buy: { $sum: { $cond: [{ $eq: ['$transaction_type', 'BUY'] }, '$executed_quantity', 0] } }, sell: { $sum: { $cond: [{ $eq: ['$transaction_type', 'SELL'] }, '$executed_quantity', 0] } } } },
+      ]);
+      if (openTrades.length > 0 && (openTrades[0].buy - openTrades[0].sell) !== 0) {
+        return res.status(400).json({ success: false, message: 'Cannot delete account while you have open positions. Please square off all positions first.' });
+      }
+    }
+
+    // Soft delete
+    const now = new Date();
+    if (role === 'user') {
+      await User.updateOne({ _id: accountId }, { $set: { deleted_at: now, active_status: false } });
+    } else if (role === 'master') {
+      await Master.updateOne({ _id: accountId }, { $set: { deleted_at: now, active_status: false } });
+    } else if (role === 'admin') {
+      await Admin.updateOne({ _id: accountId }, { $set: { deleted_at: now, active_status: false } });
+    }
+
+    res.status(200).json({ success: true, message: 'Account deleted successfully' });
+  } catch (error) {
+    console.error('❌ Delete account error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+module.exports = {
+  userLogin,
+  adminLogin,
+  masterLogin,
+  userLogout,
+  adminLogout,
+  masterLogout,
+  universalLogin,
+  changePassword,
+  getNotificationSettings,
+  updateNotificationSettings,
+  registerFcmToken,
+  removeFcmToken,
+  deleteAccount
+};
