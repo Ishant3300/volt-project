@@ -3,10 +3,34 @@
 | File | Purpose |
 |---|---|
 | `logo.svg` | In-app logo (splash + login). Transparent background, matches the `Subtract.svg` convention used by Apex. |
-| `icon_source.svg` | Source for the launcher icon — the brand mark on an opaque white background. |
-| `adaptive_foreground_source.svg` | Source for the Android adaptive-icon foreground. viewBox is expanded so the mark sits inside the 66% safe zone. |
+| `icon_source.svg` | Source for the launcher icon — the brand mark on an opaque white square, inset to 62% so there's a white margin. Used for iOS and the legacy pre-API-26 Android icon. |
+| `adaptive_foreground_source.svg` | Source for the Android adaptive-icon foreground. Inset to 46% of the canvas — see the sizing note below. |
 | `icon.png` | 1024×1024 launcher icon, generated from `icon_source.svg`. |
 | `adaptive_icon_foreground.png` | 1024×1024 adaptive foreground, generated from `adaptive_foreground_source.svg`. |
+
+## Adaptive-icon sizing (why the mark looks small in the source)
+
+Android renders the adaptive foreground on a **108dp** canvas but only ever shows
+the centre **72dp** — the outer ring is reserve for masking and parallax. So
+content scaled to X% of the source renders at **X / 66.7%** of what the user
+actually sees.
+
+The brand mark is 368 units wide (it spans 72..440 of the original 512 box), and
+the viewBox is expanded to 800 units:
+
+| | value |
+|---|---|
+| mark ÷ canvas | 368 / 800 = **46%** |
+| visible area | 66.7% × 800 = 533 units |
+| mark ÷ **visible** | 368 / 533 = **~69%** |
+
+~69% of the visible area is comfortable breathing room under every mask (circle,
+squircle, rounded square).
+
+> A first attempt used an 800→588 canvas, i.e. 63% of the canvas but **94% of the
+> visible area**, which made the icon look edge-to-edge on the home screen. If
+> you rescale the mark, always check the ratio against the *visible* 72dp — not
+> the full canvas.
 
 ## Regenerating the PNGs
 
