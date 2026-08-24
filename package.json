@@ -1,0 +1,20 @@
+{
+  "name": "apex-project",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Apex monorepo — backend + Flutter apps",
+  "scripts": {
+    "dev:backend": "cd apps/backend && npm run dev",
+    "dev:flutter:apex": "cd apps/flutter && scripts/flavor.sh apex run",
+    "dev:flutter:volt": "cd apps/flutter && scripts/flavor.sh volt run",
+    "build:flutter:apex": "cd apps/flutter && scripts/flavor.sh apex build apk --release",
+    "build:flutter:volt": "cd apps/flutter && scripts/flavor.sh volt build apk --release",
+    "build:flutter:apex:bundle": "cd apps/flutter && scripts/flavor.sh apex build appbundle --release",
+    "build:flutter:volt:bundle": "cd apps/flutter && scripts/flavor.sh volt build appbundle --release",
+    "deploy:backend:prod": "bash deploy/backend-prod.sh",
+    "deploy:backend:logs": "bash deploy/backend-logs.sh",
+    "analyze:flutter": "cd apps/flutter && flutter analyze",
+    "test:flutter": "cd apps/flutter && flutter test",
+    "test:backend": "cd apps/backend && npm test"
+  }
+}

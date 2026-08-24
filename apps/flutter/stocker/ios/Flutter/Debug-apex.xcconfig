@@ -1,4 +1,0 @@
-// Debug configuration for the APEX flavour.
-// Assign this file to the `Debug-apex` build configuration in Xcode.
-#include "Debug.xcconfig"
-#include "brand-apex.xcconfig"

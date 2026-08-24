@@ -1,5 +1,0 @@
-// Brand settings for the APEX flavour.
-// Included by Debug-apex / Profile-apex / Release-apex.
-PRODUCT_BUNDLE_IDENTIFIER = com.apexlive.apex
-APP_DISPLAY_NAME = APEX
-ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon-apex

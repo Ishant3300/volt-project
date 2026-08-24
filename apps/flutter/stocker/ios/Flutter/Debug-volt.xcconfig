@@ -1,4 +1,0 @@
-// Debug configuration for the VOLT flavour.
-// Assign this file to the `Debug-volt` build configuration in Xcode.
-#include "Debug.xcconfig"
-#include "brand-volt.xcconfig"

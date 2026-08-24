@@ -1,4 +1,0 @@
-// Release configuration for the APEX flavour.
-// Assign this file to the `Release-apex` build configuration in Xcode.
-#include "Release.xcconfig"
-#include "brand-apex.xcconfig"

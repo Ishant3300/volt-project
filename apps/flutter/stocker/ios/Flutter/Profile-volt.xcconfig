@@ -1,4 +1,0 @@
-// Profile configuration for the VOLT flavour.
-// Assign this file to the `Profile-volt` build configuration in Xcode.
-#include "Release.xcconfig"
-#include "brand-volt.xcconfig"

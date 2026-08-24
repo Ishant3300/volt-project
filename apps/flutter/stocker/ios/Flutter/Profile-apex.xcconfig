@@ -1,4 +1,0 @@
-// Profile configuration for the APEX flavour.
-// Assign this file to the `Profile-apex` build configuration in Xcode.
-#include "Release.xcconfig"
-#include "brand-apex.xcconfig"

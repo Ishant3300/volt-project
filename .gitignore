@@ -17,9 +17,11 @@ apps/flutter/.packages
 apps/flutter/pubspec.lock
 
 # ─── Node (apps/backend/) ────────────────────────────────────────────────────
-apps/backend/node_modules/
 apps/backend/dump.rdb
 apps/backend/.tmp-settlement-mongo/
+
+# ─── Root (pnpm) ─────────────────────────────────────────────────────────────
+node_modules/
 
 # ─── Env / secrets ───────────────────────────────────────────────────────────
 .env

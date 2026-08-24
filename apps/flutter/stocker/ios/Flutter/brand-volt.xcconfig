@@ -1,8 +1,0 @@
-// Brand settings for the VOLT flavour.
-// Included by Debug-volt / Profile-volt / Release-volt.
-//
-// NOTE: Volt needs its own iOS app registered in the Firebase project so that a
-// GoogleService-Info.plist matching this bundle id exists. See FLAVORS.md.
-PRODUCT_BUNDLE_IDENTIFIER = com.voltlive.volt
-APP_DISPLAY_NAME = VOLT
-ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon-volt
