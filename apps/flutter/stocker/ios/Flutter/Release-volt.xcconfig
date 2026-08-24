@@ -1,0 +1,4 @@
+// Release configuration for the VOLT flavour.
+// Assign this file to the `Release-volt` build configuration in Xcode.
+#include "Release.xcconfig"
+#include "brand-volt.xcconfig"
