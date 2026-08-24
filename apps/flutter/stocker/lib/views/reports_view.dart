@@ -6,7 +6,7 @@ import 'dart:developer';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:printing/printing.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import '../widgets/brand_menu_row.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import '../providers/user_profile_provider.dart';
@@ -49,25 +49,31 @@ class ReportsView extends StatelessWidget {
       reportItems.add(_ReportItemData('Generate PDF', kIconGeneratePdf));
     }
     if (perms['weekly_admin'] == true && !isUser) {
-      reportItems.add(_ReportItemData('Weekly Admin Report', kIconWeeklyAdminReport));
+      reportItems
+          .add(_ReportItemData('Weekly Admin Report', kIconWeeklyAdminReport));
     }
     if (perms['settlement_report'] == true && !isUser) {
-      reportItems.add(_ReportItemData('Settlement Report', kIconWeeklyAdminReport));
+      reportItems
+          .add(_ReportItemData('Settlement Report', kIconWeeklyAdminReport));
     }
     if (perms['intraday_history'] == true) {
-      reportItems.add(_ReportItemData('Intraday History', kIconIntradayHistory));
+      reportItems
+          .add(_ReportItemData('Intraday History', kIconIntradayHistory));
     }
     if (perms['userwise_open_position'] == true) {
-      reportItems.add(_ReportItemData('Userwise Open Position', kIconUserwisePosition));
+      reportItems.add(
+          _ReportItemData('Userwise Open Position', kIconUserwisePosition));
     }
     if (perms['script_quantity'] == true) {
-      reportItems.add(_ReportItemData('Script Qty Details', kIconScriptQtyDetails));
+      reportItems
+          .add(_ReportItemData('Script Qty Details', kIconScriptQtyDetails));
     }
     if (perms['deleted_trade'] == true) {
       reportItems.add(_ReportItemData('Deleted Trades', kIconDeletedTrades));
     }
     if (perms['trade_account'] == true) {
-      reportItems.add(_ReportItemData('Rejection Log History', kIconRejectionLogHistory));
+      reportItems.add(
+          _ReportItemData('Rejection Log History', kIconRejectionLogHistory));
     }
 
     return Scaffold(
@@ -83,13 +89,20 @@ class ReportsView extends StatelessWidget {
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child: Container(
-                      width: 40, height: 40,
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(12),
-                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.02),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2))
+                        ],
                       ),
-                      child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+                      child: const Icon(Icons.arrow_back,
+                          color: Colors.black, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -123,28 +136,30 @@ class ReportsView extends StatelessWidget {
                       ),
                     )
                   : Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                decoration: ShapeDecoration(
-                  color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    side: const BorderSide(width: 1, color: Color(0xFFE2E8F0)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: ListView(
-                  padding: EdgeInsets.zero,
-                  children: [
-                    for (int i = 0; i < reportItems.length; i++)
-                      _buildReportItem(
-                        context,
-                        reportItems[i].title,
-                        reportItems[i].iconPath,
-                        showBorder: i < reportItems.length - 1,
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 4),
+                      decoration: ShapeDecoration(
+                        color: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          side: const BorderSide(
+                              width: 1, color: Color(0xFFE2E8F0)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
-                  ],
-                ),
-              ),
+                      clipBehavior: Clip.antiAlias,
+                      child: ListView(
+                        padding: EdgeInsets.zero,
+                        children: [
+                          for (int i = 0; i < reportItems.length; i++)
+                            _buildReportItem(
+                              context,
+                              reportItems[i].title,
+                              reportItems[i].iconPath,
+                              showBorder: i < reportItems.length - 1,
+                            ),
+                        ],
+                      ),
+                    ),
             ),
           ],
         ),
@@ -154,7 +169,10 @@ class ReportsView extends StatelessWidget {
 
   Widget _buildReportItem(BuildContext context, String title, String svgPath,
       {required bool showBorder}) {
-    return GestureDetector(
+    return BrandMenuRow(
+      label: title,
+      svgPath: svgPath,
+      showBottomBorder: showBorder,
       onTap: () {
         if (title == 'Account Summary') {
           Navigator.push(
@@ -204,52 +222,6 @@ class ReportsView extends StatelessWidget {
           );
         }
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-        decoration: showBorder
-            ? const BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(width: 1, color: Color(0xFFF1F5F9)),
-                ),
-              )
-            : null,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: kMenuIconCircleSize,
-                  height: kMenuIconCircleSize,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF1F5F9),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: SvgPicture.asset(
-                      svgPath,
-                      width: kMenuIconSize,
-                      height: kMenuIconSize,
-                      colorFilter: const ColorFilter.mode(Color(0xFF1E3A8A), BlendMode.srcIn),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Color(0xFF1E293B),
-                    fontSize: kFontSizeMenuItem,
-                    fontFamily: 'Inter',
-                    fontWeight: kFontWeightMedium,
-                  ),
-                ),
-              ],
-            ),
-            const Icon(Icons.chevron_right, size: kMenuChevronSize, color: Color(0xFF94A3B8)),
-          ],
-        ),
-      ),
     );
   }
 
@@ -379,16 +351,20 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
     }
   }
 
-  Future<void> _showPdfOptionsSheet(BuildContext context, Uint8List bytes, {required String userName}) async {
+  Future<void> _showPdfOptionsSheet(BuildContext context, Uint8List bytes,
+      {required String userName}) async {
     final dateFmt = DateFormat('ddMMyyyy');
-    final fileName = '${userName.replaceAll(' ', '_')}_${dateFmt.format(_fromDate!)}_${dateFmt.format(_toDate!)}.pdf';
+    final fileName =
+        '${userName.replaceAll(' ', '_')}_${dateFmt.format(_fromDate!)}_${dateFmt.format(_toDate!)}.pdf';
 
     await showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         padding: EdgeInsets.only(
-          top: 24, left: 24, right: 24,
+          top: 24,
+          left: 24,
+          right: 24,
           bottom: 24 + MediaQuery.of(ctx).viewPadding.bottom,
         ),
         decoration: const BoxDecoration(
@@ -399,10 +375,17 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text('PDF Generated',
-                style: TextStyle(fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightBold, color: Color(0xFF0F172A))),
+                style: TextStyle(
+                    fontSize: kFontSizeViewTitle,
+                    fontFamily: 'Inter',
+                    fontWeight: kFontWeightBold,
+                    color: Color(0xFF0F172A))),
             const SizedBox(height: 8),
             Text(fileName,
-                style: const TextStyle(fontSize: kFontSizeSubtitle, fontFamily: 'Inter', color: Color(0xFF94A3B8))),
+                style: const TextStyle(
+                    fontSize: kFontSizeSubtitle,
+                    fontFamily: 'Inter',
+                    color: Color(0xFF94A3B8))),
             const SizedBox(height: 24),
             Row(
               children: [
@@ -419,7 +402,8 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                             appBar: AppBar(
                               title: Text(
                                 fileName,
-                                style: const TextStyle(fontSize: 13, color: Colors.white),
+                                style: const TextStyle(
+                                    fontSize: 13, color: Colors.white),
                                 overflow: TextOverflow.ellipsis,
                               ),
                               backgroundColor: kBrandPrimary,
@@ -445,9 +429,15 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                       ),
                       child: const Column(
                         children: [
-                          Icon(Icons.picture_as_pdf_rounded, size: 28, color: kBrandPrimary),
+                          Icon(Icons.picture_as_pdf_rounded,
+                              size: 28, color: kBrandPrimary),
                           SizedBox(height: 6),
-                          Text('View PDF', style: TextStyle(fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, color: kBrandPrimary)),
+                          Text('View PDF',
+                              style: TextStyle(
+                                  fontSize: kFontSizeBody,
+                                  fontFamily: 'Inter',
+                                  fontWeight: kFontWeightSemiBold,
+                                  color: kBrandPrimary)),
                         ],
                       ),
                     ),
@@ -470,7 +460,9 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                       } catch (e) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Share failed: $e'), backgroundColor: Colors.red),
+                            SnackBar(
+                                content: Text('Share failed: $e'),
+                                backgroundColor: Colors.red),
                           );
                         }
                       }
@@ -483,9 +475,15 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                       ),
                       child: const Column(
                         children: [
-                          Icon(Icons.share_rounded, size: 28, color: Color(0xFF10B981)),
+                          Icon(Icons.share_rounded,
+                              size: 28, color: Color(0xFF10B981)),
                           SizedBox(height: 6),
-                          Text('Share', style: TextStyle(fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, color: Color(0xFF10B981))),
+                          Text('Share',
+                              style: TextStyle(
+                                  fontSize: kFontSizeBody,
+                                  fontFamily: 'Inter',
+                                  fontWeight: kFontWeightSemiBold,
+                                  color: Color(0xFF10B981))),
                         ],
                       ),
                     ),
@@ -535,7 +533,8 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
             final todayStart = DateTime(today.year, today.month, today.day);
             final isCurrentPeriod = !_toDate!.isBefore(todayStart);
             if (isCurrentPeriod) {
-              reportData = await _enrichWithLivePositions(reportData, api, token);
+              reportData =
+                  await _enrichWithLivePositions(reportData, api, token);
             }
           }
 
@@ -548,7 +547,8 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
           Navigator.pop(context); // dismiss loading
 
           // Show options: Download or Share
-          await _showPdfOptionsSheet(context, bytes, userName: reportData['user_name'] ?? 'Report');
+          await _showPdfOptionsSheet(context, bytes,
+              userName: reportData['user_name'] ?? 'Report');
         } else {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -584,7 +584,9 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
 
     final kite = KiteService(api);
     final instruments = List<Map<String, dynamic>>.from(
-      (reportData['instruments'] as List?)?.map((e) => Map<String, dynamic>.from(e)) ?? [],
+      (reportData['instruments'] as List?)
+              ?.map((e) => Map<String, dynamic>.from(e)) ??
+          [],
     );
     final List<Map<String, dynamic>> carryForward = [];
     double totalLivePnlAdjustment = 0;
@@ -628,7 +630,8 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
 
       final bool isLong = (openPos['direction'] ?? '') == 'BUY';
       final double openQty = (openPos['open_qty'] as num?)?.toDouble() ?? 0;
-      final double avgEntryPrice = (openPos['avg_price'] as num?)?.toDouble() ?? 0;
+      final double avgEntryPrice =
+          (openPos['avg_price'] as num?)?.toDouble() ?? 0;
 
       if (openQty <= 0.001) {
         instruments[i] = instr;
@@ -662,7 +665,9 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
 
       if (livePrice != null) {
         final allTrades = List<Map<String, dynamic>>.from(
-          (instr['all_trades'] as List?)?.map((e) => Map<String, dynamic>.from(e)) ?? [],
+          (instr['all_trades'] as List?)
+                  ?.map((e) => Map<String, dynamic>.from(e)) ??
+              [],
         );
         final now = DateTime.now();
 
@@ -676,8 +681,8 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
         final liveRow = {
           'date': now.toIso8601String(),
           'type': 'LIVE',
-          'buy_qty': isLong ? openQty : 0,   // Long  → show in Buy column
-          'sell_qty': isLong ? 0 : openQty,  // Short → show in Sell column
+          'buy_qty': isLong ? openQty : 0, // Long  → show in Buy column
+          'sell_qty': isLong ? 0 : openQty, // Short → show in Sell column
           'rate': livePrice,
           'brokerage': 0,
           'net': unrealizedPnl,
@@ -720,9 +725,11 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
     final summary = Map<String, dynamic>.from(reportData['summary'] ?? {});
     if (totalLivePnlAdjustment != 0) {
       final oldTotalPnl = (summary['total_pnl'] as num?)?.toDouble() ?? 0;
-      final totalBrokerage = (summary['total_brokerage'] as num?)?.toDouble() ?? 0;
+      final totalBrokerage =
+          (summary['total_brokerage'] as num?)?.toDouble() ?? 0;
       summary['total_pnl'] = oldTotalPnl + totalLivePnlAdjustment;
-      summary['net_pnl'] = (oldTotalPnl + totalLivePnlAdjustment) - totalBrokerage;
+      summary['net_pnl'] =
+          (oldTotalPnl + totalLivePnlAdjustment) - totalBrokerage;
     }
 
     return {
@@ -740,8 +747,11 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
       padding:
           EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: Container(
-        padding:
-            EdgeInsets.only(top: 24, left: 16, right: 16, bottom: 32 + MediaQuery.of(context).viewPadding.bottom),
+        padding: EdgeInsets.only(
+            top: 24,
+            left: 16,
+            right: 16,
+            bottom: 32 + MediaQuery.of(context).viewPadding.bottom),
         decoration: const ShapeDecoration(
           color: Colors.white,
           shape: RoundedRectangleBorder(
@@ -863,11 +873,13 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                           child: TextField(
                             controller: _userSearchController,
                             style: const TextStyle(
-                                fontSize: kFontSizeSheetHint, fontFamily: 'Inter'),
+                                fontSize: kFontSizeSheetHint,
+                                fontFamily: 'Inter'),
                             decoration: const InputDecoration(
                               hintText: 'Search by name...',
                               hintStyle: TextStyle(
-                                  color: Color(0xFFCBD5E1), fontSize: kFontSizeSheetHint),
+                                  color: Color(0xFFCBD5E1),
+                                  fontSize: kFontSizeSheetHint),
                               prefixIcon: Icon(Icons.search,
                                   size: 18, color: Color(0xFF94A3B8)),
                               contentPadding: EdgeInsets.symmetric(
@@ -937,10 +949,10 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                         child: _isLoading
                             ? const Center(
                                 child: SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                      color: Colors.white, strokeWidth: 2)))
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                        color: Colors.white, strokeWidth: 2)))
                             : const Text('VIEW',
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
@@ -985,9 +997,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
         ),
         child: Text(label,
             style: TextStyle(
-              color: isSelected
-                  ? kBrandPrimary
-                  : const Color(0xFF1E293B),
+              color: isSelected ? kBrandPrimary : const Color(0xFF1E293B),
               fontSize: 13,
               fontFamily: 'Inter',
               fontWeight: isSelected ? kFontWeightSemiBold : kFontWeightRegular,
@@ -1037,8 +1047,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
           color: selected ? kBrandPrimary : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-              color:
-                  selected ? kBrandPrimary : const Color(0xFFD1D1D6)),
+              color: selected ? kBrandPrimary : const Color(0xFFD1D1D6)),
         ),
         child: Text(
           label,

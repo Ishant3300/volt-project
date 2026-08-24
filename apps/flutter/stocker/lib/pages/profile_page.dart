@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:convert';
 import 'dart:developer';
 import '../views/account_detail_view.dart';
@@ -17,6 +16,7 @@ import '../services/multi_account_service.dart';
 import '../providers/user_profile_provider.dart';
 import '../providers/trade_metrics_provider.dart';
 import '../providers/investor_mode_provider.dart';
+import '../widgets/brand_menu_row.dart';
 import '../pages/login_page.dart';
 import '../services/firebase_service.dart';
 import '../pages/account_switcher_sheet.dart';
@@ -546,7 +546,22 @@ class _ProfilePageState extends State<ProfilePage> {
 
   Widget _buildMenuItem(BuildContext context, String title,
       {String? svgPath, IconData? icon, bool isRed = false}) {
-    return GestureDetector(
+    return BrandMenuRow(
+      label: title,
+      svgPath: svgPath,
+      icon: icon,
+      isDestructive: isRed,
+      trailing: (_isLoggingOut && title == 'Logout')
+          ? const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor:
+                    AlwaysStoppedAnimation<Color>(kMenuRowDestructiveColor),
+              ),
+            )
+          : null,
       onTap: _isLoggingOut
           ? null
           : () {
@@ -598,80 +613,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 showAccountSwitcher(context);
               }
             },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-        color: Colors.transparent, // allow full width tap
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: kMenuIconCircleSize,
-                  height: kMenuIconCircleSize,
-                  decoration: BoxDecoration(
-                    color: isRed
-                        ? const Color(0xFFFEF2F2)
-                        : const Color(0xFFF1F5F9),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: svgPath != null
-                        ? SvgPicture.asset(
-                            svgPath,
-                            width: kMenuIconSize,
-                            height: kMenuIconSize,
-                            colorFilter: ColorFilter.mode(
-                              isRed
-                                  ? const Color(0xFFEF4444)
-                                  : const Color(0xFF1E3A8A),
-                              BlendMode.srcIn,
-                            ),
-                          )
-                        : Icon(
-                            icon,
-                            size: kMenuIconSize,
-                            color: isRed
-                                ? const Color(0xFFEF4444)
-                                : const Color(0xFF1E3A8A),
-                          ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: isRed
-                        ? const Color(0xFFEF4444)
-                        : const Color(0xFF1E293B),
-                    fontSize: kFontSizeMenuItem,
-                    fontFamily: 'Inter',
-                    fontWeight: kFontWeightMedium,
-                  ),
-                ),
-                if (_isLoggingOut && title == 'Logout') ...[
-                  const SizedBox(width: 8),
-                  const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        Color(0xFFEF4444),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            const Icon(
-              Icons.chevron_right,
-              size: kMenuChevronSize,
-              color: Color(0xFF94A3B8),
-            ),
-          ],
-        ),
-      ),
     );
   }
 

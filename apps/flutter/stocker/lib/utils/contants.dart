@@ -89,10 +89,13 @@ const double kIconSizeLarge = 24.0;
 const double kIconSizeXLarge = 32.0;
 const double kIconSizeProfileMenu = 28.0;
 
-// Menu Item Layout (Profile, Reports, Settings — shared)
+// Menu Item Layout (Profile, Reports, Settings, Admin Settings — shared)
+//
+// The icon-tile size/shape and row height are brand-specific: see
+// `kMenuTileSize` / `kMenuTileIconSize` / `kMenuRowVerticalPadding` in
+// lib/config/app_brand.dart. Don't rebuild menu rows by hand — use
+// `BrandMenuRow` (lib/widgets/brand_menu_row.dart) so both brands stay correct.
 const double kFontSizeMenuItem = 15.0;
-const double kMenuIconCircleSize = 32.0;
-const double kMenuIconSize = 16.0;
 const double kMenuChevronSize = 24.0;
 
 // ─── SVG Icon Paths ─────────────────────────────────────────────────────────

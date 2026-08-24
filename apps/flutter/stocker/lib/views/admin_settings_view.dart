@@ -14,6 +14,7 @@ import 'settlement_view.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
+import '../widgets/brand_menu_row.dart';
 
 class AdminSettingsView extends StatefulWidget {
   const AdminSettingsView({super.key});
@@ -69,7 +70,8 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
         try {
           final token = await SecureStorageService().getToken();
           final apiService = ApiService(backendUrl);
-          await apiService.post('/admin/totp/toggle', {'enabled': false}, token: token);
+          await apiService.post('/admin/totp/toggle', {'enabled': false},
+              token: token);
           setState(() {
             _totpEnabled = false;
             _totpConfigured = false;
@@ -89,7 +91,8 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
     try {
       final token = await SecureStorageService().getToken();
       final apiService = ApiService(backendUrl);
-      final res = await apiService.post('/admin/totp/generate', {}, token: token);
+      final res =
+          await apiService.post('/admin/totp/generate', {}, token: token);
       if (res.statusCode != 200) {
         throw Exception('Failed to generate TOTP');
       }
@@ -139,7 +142,9 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('TOTP reset. Re-enable to configure a new one.'), backgroundColor: Color(0xFF10B981)),
+            const SnackBar(
+                content: Text('TOTP reset. Re-enable to configure a new one.'),
+                backgroundColor: Color(0xFF10B981)),
           );
         }
       } catch (e) {
@@ -162,9 +167,18 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(title, style: const TextStyle(fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightBold)),
+              Text(title,
+                  style: const TextStyle(
+                      fontSize: kFontSizeViewTitle,
+                      fontFamily: 'Inter',
+                      fontWeight: kFontWeightBold)),
               const SizedBox(height: 12),
-              Text(message, style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBody, fontFamily: 'Inter'), textAlign: TextAlign.center),
+              Text(message,
+                  style: const TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: kFontSizeBody,
+                      fontFamily: 'Inter'),
+                  textAlign: TextAlign.center),
               const SizedBox(height: 24),
               Row(
                 children: [
@@ -173,8 +187,15 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                       onTap: () => Navigator.pop(ctx, false),
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
-                        child: const Center(child: Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontFamily: 'Inter', fontWeight: kFontWeightSemiBold))),
+                        decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(12)),
+                        child: const Center(
+                            child: Text('Cancel',
+                                style: TextStyle(
+                                    color: Color(0xFF64748B),
+                                    fontFamily: 'Inter',
+                                    fontWeight: kFontWeightSemiBold))),
                       ),
                     ),
                   ),
@@ -184,8 +205,15 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                       onTap: () => Navigator.pop(ctx, true),
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(12)),
-                        child: const Center(child: Text('Confirm', style: TextStyle(color: Colors.white, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold))),
+                        decoration: BoxDecoration(
+                            color: const Color(0xFFEF4444),
+                            borderRadius: BorderRadius.circular(12)),
+                        child: const Center(
+                            child: Text('Confirm',
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontFamily: 'Inter',
+                                    fontWeight: kFontWeightSemiBold))),
                       ),
                     ),
                   ),
@@ -215,14 +243,28 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
                       child: Container(
-                        width: 40, height: 40,
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
-                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
-                        child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.02),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2))
+                            ]),
+                        child: const Icon(Icons.arrow_back,
+                            color: Colors.black, size: kIconSizeMedium),
                       ),
                     ),
                     const SizedBox(width: 12),
-                    const Text('Admin Settings', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                    const Text('Admin Settings',
+                        style: TextStyle(
+                            color: Colors.black,
+                            fontSize: kFontSizeViewTitle,
+                            fontFamily: 'Inter',
+                            fontWeight: kFontWeightSemiBold)),
                   ],
                 ),
               ),
@@ -238,38 +280,60 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                       padding: const EdgeInsets.symmetric(vertical: 9),
                       child: Row(
                         children: [
-                          Container(
-                            width: kMenuIconCircleSize, height: kMenuIconCircleSize,
-                            decoration: const BoxDecoration(color: Color(0xFFF1F5F9), shape: BoxShape.circle),
-                            child: const Center(child: Icon(Icons.lock_outline, size: kMenuIconSize, color: Color(0xFF1E3A8A))),
+                          const BrandMenuIconTile(
+                            label: 'Two-Factor Auth (TOTP)',
+                            icon: Icons.lock_outline,
                           ),
-                          const SizedBox(width: 16),
+                          SizedBox(width: kMenuRowIconLabelGap),
                           const Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Two-Factor Auth (TOTP)', style: TextStyle(color: Color(0xFF1E293B), fontSize: kFontSizeMenuItem, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
+                                Text('Two-Factor Auth (TOTP)',
+                                    style: TextStyle(
+                                        color: Color(0xFF1E293B),
+                                        fontSize: kFontSizeMenuItem,
+                                        fontFamily: 'Inter',
+                                        fontWeight: kFontWeightMedium)),
                                 SizedBox(height: 2),
-                                Text('Authenticator app verification', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: 'Inter')),
+                                Text('Authenticator app verification',
+                                    style: TextStyle(
+                                        color: Color(0xFF94A3B8),
+                                        fontSize: kFontSizeSubtitle,
+                                        fontFamily: 'Inter')),
                               ],
                             ),
                           ),
                           if (_totpLoading)
-                            const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: kBrandPrimary))
+                            const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: kBrandPrimary))
                           else
                             GestureDetector(
                               onTap: () => _handleTotpToggle(!_totpEnabled),
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),
-                                width: 44, height: 26,
+                                width: 44,
+                                height: 26,
                                 padding: const EdgeInsets.all(2),
                                 decoration: BoxDecoration(
-                                  color: _totpEnabled ? kBrandPrimary : const Color(0xFFCBD5E1),
-                                  borderRadius: BorderRadius.circular(13)),
+                                    color: _totpEnabled
+                                        ? kBrandPrimary
+                                        : const Color(0xFFCBD5E1),
+                                    borderRadius: BorderRadius.circular(13)),
                                 child: AnimatedAlign(
                                   duration: const Duration(milliseconds: 200),
-                                  alignment: _totpEnabled ? Alignment.centerRight : Alignment.centerLeft,
-                                  child: Container(width: 22, height: 22, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
+                                  alignment: _totpEnabled
+                                      ? Alignment.centerRight
+                                      : Alignment.centerLeft,
+                                  child: Container(
+                                      width: 22,
+                                      height: 22,
+                                      decoration: const BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle)),
                                 ),
                               ),
                             ),
@@ -278,7 +342,9 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                     ),
                     if (_totpEnabled && _totpConfigured) ...[
                       const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                      _settingRow(context, Icons.refresh, 'Reset TOTP Configuration', _handleTotpReset, isLast: true),
+                      _settingRow(context, Icons.refresh,
+                          'Reset TOTP Configuration', _handleTotpReset,
+                          isLast: true),
                     ],
                   ],
                 ),
@@ -292,20 +358,30 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
               _card(
                 child: Column(
                   children: [
-                    _settingRow(context, Icons.inventory_2_outlined, 'Manage Instruments',
+                    _settingRow(
+                        context,
+                        Icons.inventory_2_outlined,
+                        'Manage Instruments',
                         () => _push(context, const ManageInstrumentsView())),
                     _divider(),
                     _settingRow(context, Icons.mail_outline, 'Send Message',
                         () => _push(context, const SendMessageView())),
                     _divider(),
-                    _settingRow(context, Icons.description_outlined, 'Manage Reports',
+                    _settingRow(
+                        context,
+                        Icons.description_outlined,
+                        'Manage Reports',
                         () => _push(context, const ManageReportsView())),
                     _divider(),
-                    _settingRow(context, Icons.account_balance_outlined, 'Settlement',
+                    _settingRow(
+                        context,
+                        Icons.account_balance_outlined,
+                        'Settlement',
                         () => _push(context, const SettlementView())),
                     _divider(),
-                    _settingRow(context, Icons.download_outlined, 'Fetch Settlement Prices',
-                        _fetchSettlementPrices, isLast: true),
+                    _settingRow(context, Icons.download_outlined,
+                        'Fetch Settlement Prices', _fetchSettlementPrices,
+                        isLast: true),
                   ],
                 ),
               ),
@@ -318,17 +394,31 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
               _card(
                 child: Column(
                   children: [
-                    _settingRow(context, Icons.grid_view_rounded, 'Group Quantity',
+                    _settingRow(
+                        context,
+                        Icons.grid_view_rounded,
+                        'Group Quantity',
                         () => _push(context, const GroupQuantityView())),
                     _divider(),
-                    _settingRow(context, Icons.list_alt_outlined, 'Script Quantity',
-                        () => _push(context, const ScriptQuantitySettingsView())),
+                    _settingRow(
+                        context,
+                        Icons.list_alt_outlined,
+                        'Script Quantity',
+                        () =>
+                            _push(context, const ScriptQuantitySettingsView())),
                     _divider(),
-                    _settingRow(context, Icons.tune_outlined, 'Brokerage Settings',
+                    _settingRow(
+                        context,
+                        Icons.tune_outlined,
+                        'Brokerage Settings',
                         () => _push(context, const BrokerageSettingsView())),
                     _divider(),
-                    _settingRow(context, Icons.shield_outlined, 'Fresh Stop-Loss Limits',
-                        () => _push(context, const FreshStoplossLimitView()), isLast: true),
+                    _settingRow(
+                        context,
+                        Icons.shield_outlined,
+                        'Fresh Stop-Loss Limits',
+                        () => _push(context, const FreshStoplossLimitView()),
+                        isLast: true),
                   ],
                 ),
               ),
@@ -352,18 +442,25 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5)),
+      builder: (_) => const Center(
+          child: CircularProgressIndicator(
+              color: kBrandPrimary, strokeWidth: 2.5)),
     );
 
     try {
       final token = await SecureStorageService().getToken();
       // Use longer timeout — bhavcopy downloads CSVs from external sources
       final url = Uri.parse('$backendUrl/api/admin/bhavcopy/fetch');
-      final res = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json', if (token != null) 'Authorization': 'Bearer $token'},
-        body: jsonEncode({}),
-      ).timeout(const Duration(seconds: 120));
+      final res = await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              if (token != null) 'Authorization': 'Bearer $token'
+            },
+            body: jsonEncode({}),
+          )
+          .timeout(const Duration(seconds: 120));
       if (!mounted) return;
       Navigator.pop(context);
 
@@ -372,14 +469,17 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
         final data = body['data'];
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Fetched ${data['total']} prices (NSE: ${data['nse']}, MCX: ${data['mcx']}, BSE: ${data['bse']})'),
+            content: Text(
+                'Fetched ${data['total']} prices (NSE: ${data['nse']}, MCX: ${data['mcx']}, BSE: ${data['bse']})'),
             backgroundColor: const Color(0xFF10B981),
             duration: const Duration(seconds: 3),
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(body['message'] ?? 'Failed'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text(body['message'] ?? 'Failed'),
+              backgroundColor: Colors.red),
         );
       }
     } catch (e) {
@@ -399,7 +499,13 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
   static Widget _sectionLabel(String text) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Text(text, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
+      child: Text(text,
+          style: const TextStyle(
+              color: Color(0xFF94A3B8),
+              fontSize: kFontSizeNavLabel,
+              fontFamily: 'Inter',
+              fontWeight: kFontWeightSemiBold,
+              letterSpacing: 0.5)),
     );
   }
 
@@ -408,42 +514,39 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
+      decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 4,
+                offset: const Offset(0, 2))
+          ]),
       child: child,
     );
   }
 
-  static Widget _divider() => const Divider(height: 1, color: Color(0xFFF1F5F9));
+  static Widget _divider() =>
+      const Divider(height: 1, color: Color(0xFFF1F5F9));
 
-  static Widget _settingRow(BuildContext context, IconData icon, String label, VoidCallback onTap, {bool isLast = false}) {
+  static Widget _settingRow(
+      BuildContext context, IconData icon, String label, VoidCallback onTap,
+      {bool isLast = false}) {
     return Column(
       children: [
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
+        BrandMenuRow(
+          label: label,
+          icon: icon,
           onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 9),
-            child: Row(
-              children: [
-                Container(
-                  width: kMenuIconCircleSize, height: kMenuIconCircleSize,
-                  decoration: const BoxDecoration(color: Color(0xFFF1F5F9), shape: BoxShape.circle),
-                  child: Center(child: Icon(icon, size: kMenuIconSize, color: const Color(0xFF1E3A8A))),
-                ),
-                const SizedBox(width: 16),
-                Expanded(child: Text(label, style: const TextStyle(color: Color(0xFF1E293B), fontSize: kFontSizeMenuItem, fontFamily: 'Inter', fontWeight: kFontWeightMedium))),
-                const Icon(Icons.chevron_right, size: kMenuChevronSize, color: Color(0xFF94A3B8)),
-              ],
-            ),
-          ),
+          // The surrounding _card already supplies the side padding.
+          horizontalPadding: 0,
         ),
-        if (!isLast) const Divider(height: 1, color: Color(0xFFF1F5F9)),
+        if (!isLast) const Divider(height: 1, color: kMenuRowDividerColor),
       ],
     );
   }
 }
-
 
 // ── TOTP Setup Bottom Sheet ──
 class _TotpSetupSheet extends StatefulWidget {
@@ -470,7 +573,8 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
     final code = _codeController.text.trim();
     if (code.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter 6-digit code'), backgroundColor: Colors.red),
+        const SnackBar(
+            content: Text('Enter 6-digit code'), backgroundColor: Colors.red),
       );
       return;
     }
@@ -479,7 +583,8 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
     try {
       final token = await SecureStorageService().getToken();
       final apiService = ApiService(backendUrl);
-      final res = await apiService.post('/admin/totp/verify-setup', {'token': code}, token: token);
+      final res = await apiService
+          .post('/admin/totp/verify-setup', {'token': code}, token: token);
       final body = jsonDecode(res.body);
 
       if (res.statusCode == 200 && body['success'] == true) {
@@ -490,7 +595,9 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(body['message'] ?? 'Invalid code'), backgroundColor: Colors.red),
+            SnackBar(
+                content: Text(body['message'] ?? 'Invalid code'),
+                backgroundColor: Colors.red),
           );
         }
       }
@@ -522,66 +629,110 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
         color: Color(0xFFF8FAFC),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding:
+          EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 36, height: 4,
+              width: 36,
+              height: 4,
               margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(color: const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(2)),
             ),
-
             if (_verified) ...[
-              const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 64),
+              const Icon(Icons.check_circle,
+                  color: Color(0xFF10B981), size: 64),
               const SizedBox(height: 16),
-              const Text('TOTP Activated!', style: TextStyle(fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightBold, color: Color(0xFF10B981))),
+              const Text('TOTP Activated!',
+                  style: TextStyle(
+                      fontSize: kFontSizeViewTitle,
+                      fontFamily: 'Inter',
+                      fontWeight: kFontWeightBold,
+                      color: Color(0xFF10B981))),
             ] else ...[
               const Text('Setup Two-Factor Authentication',
-                  style: TextStyle(fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightBold, color: Color(0xFF0F172A))),
+                  style: TextStyle(
+                      fontSize: kFontSizeViewTitle,
+                      fontFamily: 'Inter',
+                      fontWeight: kFontWeightBold,
+                      color: Color(0xFF0F172A))),
               const SizedBox(height: 8),
-              const Text('Scan this QR code with your authenticator app\n(Google Authenticator, Microsoft Authenticator, etc.)',
+              const Text(
+                  'Scan this QR code with your authenticator app\n(Google Authenticator, Microsoft Authenticator, etc.)',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: kFontSizeBodySmall, fontFamily: 'Inter', color: Color(0xFF64748B))),
+                  style: TextStyle(
+                      fontSize: kFontSizeBodySmall,
+                      fontFamily: 'Inter',
+                      color: Color(0xFF64748B))),
               const SizedBox(height: 20),
-
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))]),
-                child: Image.memory(base64Decode(base64Data), width: 200, height: 200),
+                decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2))
+                    ]),
+                child: Image.memory(base64Decode(base64Data),
+                    width: 200, height: 200),
               ),
               const SizedBox(height: 16),
-
               GestureDetector(
                 onTap: () {
                   Clipboard.setData(ClipboardData(text: widget.secret));
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Secret copied to clipboard'), backgroundColor: kBrandPrimary),
+                    const SnackBar(
+                        content: Text('Secret copied to clipboard'),
+                        backgroundColor: kBrandPrimary),
                   );
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(8)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(8)),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Flexible(child: Text(widget.secret, style: const TextStyle(fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium, color: Color(0xFF64748B), letterSpacing: 1))),
+                      Flexible(
+                          child: Text(widget.secret,
+                              style: const TextStyle(
+                                  fontSize: kFontSizeBodySmall,
+                                  fontFamily: 'Inter',
+                                  fontWeight: kFontWeightMedium,
+                                  color: Color(0xFF64748B),
+                                  letterSpacing: 1))),
                       const SizedBox(width: 8),
-                      const Icon(Icons.copy, size: 14, color: Color(0xFF94A3B8)),
+                      const Icon(Icons.copy,
+                          size: 14, color: Color(0xFF94A3B8)),
                     ],
                   ),
                 ),
               ),
               const SizedBox(height: 4),
-              const Text("Can't scan? Tap to copy the secret key", style: TextStyle(fontSize: kFontSizeSubtitle, fontFamily: 'Inter', color: Color(0xFF94A3B8))),
+              const Text("Can't scan? Tap to copy the secret key",
+                  style: TextStyle(
+                      fontSize: kFontSizeSubtitle,
+                      fontFamily: 'Inter',
+                      color: Color(0xFF94A3B8))),
               const SizedBox(height: 24),
-
               const Align(
                 alignment: Alignment.centerLeft,
-                child: Text('Enter the 6-digit code from your app', style: TextStyle(fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium, color: Color(0xFF475569))),
+                child: Text('Enter the 6-digit code from your app',
+                    style: TextStyle(
+                        fontSize: kFontSizeBodySmall,
+                        fontFamily: 'Inter',
+                        fontWeight: kFontWeightMedium,
+                        color: Color(0xFF475569))),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -589,39 +740,67 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
                 keyboardType: TextInputType.number,
                 maxLength: 6,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 24, fontFamily: 'Inter', fontWeight: kFontWeightBold, letterSpacing: 8),
+                style: const TextStyle(
+                    fontSize: 24,
+                    fontFamily: 'Inter',
+                    fontWeight: kFontWeightBold,
+                    letterSpacing: 8),
                 decoration: InputDecoration(
                   counterText: '',
                   hintText: '------',
-                  hintStyle: const TextStyle(color: Color(0xFFCBD5E1), letterSpacing: 8),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  filled: true, fillColor: Colors.white,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: kBrandPrimary, width: 1.5)),
+                  hintStyle: const TextStyle(
+                      color: Color(0xFFCBD5E1), letterSpacing: 8),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+                  focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide:
+                          const BorderSide(color: kBrandPrimary, width: 1.5)),
                 ),
               ),
               const SizedBox(height: 20),
-
               GestureDetector(
                 onTap: _isVerifying ? null : _verify,
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: BoxDecoration(
-                    gradient: _isVerifying ? null : const LinearGradient(colors: [kBrandGradientStart, kBrandGradientEnd]),
-                    color: _isVerifying ? const Color(0xFF94A3B8) : null,
-                    borderRadius: BorderRadius.circular(14)),
+                      gradient: _isVerifying
+                          ? null
+                          : const LinearGradient(
+                              colors: [kBrandGradientStart, kBrandGradientEnd]),
+                      color: _isVerifying ? const Color(0xFF94A3B8) : null,
+                      borderRadius: BorderRadius.circular(14)),
                   child: Center(
                     child: _isVerifying
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Text('ACTIVATE TOTP', style: TextStyle(color: Colors.white, fontSize: kFontSizeButtonText, fontFamily: 'Inter', fontWeight: kFontWeightBold)),
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2))
+                        : const Text('ACTIVATE TOTP',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: kFontSizeButtonText,
+                                fontFamily: 'Inter',
+                                fontWeight: kFontWeightBold)),
                   ),
                 ),
               ),
               const SizedBox(height: 12),
               GestureDetector(
                 onTap: () => Navigator.pop(context),
-                child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                child: const Text('Cancel',
+                    style: TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: kFontSizeBody,
+                        fontFamily: 'Inter',
+                        fontWeight: kFontWeightSemiBold)),
               ),
             ],
             const SizedBox(height: 16),

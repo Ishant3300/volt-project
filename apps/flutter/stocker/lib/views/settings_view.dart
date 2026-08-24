@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../utils/contants.dart';
+import '../widgets/brand_menu_row.dart';
 import 'market_hours_view.dart';
 import 'set_quantity_values.dart';
 import 'change_password_view.dart';
@@ -28,13 +28,20 @@ class SettingsView extends StatelessWidget {
                     GestureDetector(
                       onTap: () => Navigator.pop(context),
                       child: Container(
-                        width: 40, height: 40,
+                        width: 40,
+                        height: 40,
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
-                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
+                          boxShadow: [
+                            BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.02),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2))
+                          ],
                         ),
-                        child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+                        child: const Icon(Icons.arrow_back,
+                            color: Colors.black, size: kIconSizeMedium),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -68,15 +75,19 @@ class SettingsView extends StatelessWidget {
                   children: [
                     _buildMenuItem(context, kIconMarketHours, 'Market Hours'),
                     _buildDivider(),
-                    _buildMenuItem(context, kIconSetQuantityValues, 'Set Quantity Values'),
+                    _buildMenuItem(
+                        context, kIconSetQuantityValues, 'Set Quantity Values'),
                     _buildDivider(),
-                    _buildMenuItem(context, kIconChangePassword, 'Change Password'),
+                    _buildMenuItem(
+                        context, kIconChangePassword, 'Change Password'),
                     _buildDivider(),
                     _buildMenuItem(context, kIconNotifications, 'Notification'),
                     _buildDivider(),
-                    _buildMenuItem(context, kIconPrivacyPolicy, 'Privacy Policy'),
+                    _buildMenuItem(
+                        context, kIconPrivacyPolicy, 'Privacy Policy'),
                     _buildDivider(),
-                    _buildMenuItem(context, kIconTermsOfUse, 'Rules And Regulations'),
+                    _buildMenuItem(
+                        context, kIconTermsOfUse, 'Rules And Regulations'),
                   ],
                 ),
               ),
@@ -90,7 +101,9 @@ class SettingsView extends StatelessWidget {
   }
 
   Widget _buildMenuItem(BuildContext context, String svgPath, String title) {
-    return GestureDetector(
+    return BrandMenuRow(
+      label: title,
+      svgPath: svgPath,
       onTap: () {
         if (title == 'Market Hours') {
           Navigator.push(
@@ -129,46 +142,6 @@ class SettingsView extends StatelessWidget {
           );
         }
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-        color: Colors.transparent,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: kMenuIconCircleSize,
-                  height: kMenuIconCircleSize,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF1F5F9),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: SvgPicture.asset(
-                      svgPath,
-                      width: kMenuIconSize,
-                      height: kMenuIconSize,
-                      colorFilter: const ColorFilter.mode(Color(0xFF1E3A8A), BlendMode.srcIn),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Color(0xFF1E293B),
-                    fontSize: kFontSizeMenuItem,
-                    fontFamily: 'Inter',
-                    fontWeight: kFontWeightMedium,
-                  ),
-                ),
-              ],
-            ),
-            const Icon(Icons.chevron_right, size: kMenuChevronSize, color: Color(0xFF94A3B8)),
-          ],
-        ),
-      ),
     );
   }
 

@@ -83,6 +83,52 @@ imports the constants file gets the brand tokens with no extra import.
 
 ---
 
+## Per-brand menu row style
+
+The Profile, Settings, Admin Settings and Reports menus are styled per brand:
+
+| | Apex | Volt |
+|---|---|---|
+| tile shape | circle | rounded square (radius 10) |
+| tile fill | one neutral grey `#F1F5F9` | a **per-row accent colour** |
+| icon colour | brand navy `#1E3A8A` | white |
+| tile / icon size | 32 / 16 | 40 / 21 |
+| row height | 50px (9px padding) | 68px (14px padding) |
+
+All four screens render their rows through a single widget —
+`BrandMenuRow` in `lib/widgets/brand_menu_row.dart` — so the styling lives in one
+place instead of being duplicated per screen:
+
+```dart
+BrandMenuRow(
+  label: 'Settings',        // also selects the Volt accent colour
+  svgPath: kIconSettings,   // or: icon: Icons.settings
+  onTap: () { ... },
+  isDestructive: false,     // red label + chevron (Logout / Delete Account)
+  horizontalPadding: 16,    // 0 when the row sits in a card that already pads
+  showBottomBorder: false,
+)
+```
+
+Knobs live in `lib/config/app_brand.dart`: `kMenuTileColourful`,
+`kMenuTileIsCircle`, `kMenuTileCornerRadius`, `kMenuTileSize`,
+`kMenuTileIconSize`, `kMenuRowVerticalPadding`, `kMenuRowIconLabelGap`.
+
+`BrandMenuIconTile` exposes just the icon tile, for rows that share the look but
+not the layout (e.g. the Two-Factor Auth row, which has a subtitle and a toggle
+instead of a chevron).
+
+### Accent colours
+
+On colourful brands each row's tile colour comes from `menuAccentFor(label)` — a
+label-keyed map in `brand_menu_row.dart`, so no screen has to thread colours
+through its call sites. Labels not in the map fall back to a deterministic hash
+into a small palette, so **a newly added menu item gets a sensible stable colour
+with no code change**. To pin a specific colour, add the label to `_menuAccents`
+or pass `accentColor:` explicitly.
+
+---
+
 ## Adding a new brand
 
 1. **`lib/config/app_brand.dart`** — add `kIsX` and extend each ternary chain.
@@ -212,6 +258,9 @@ until you do it.
 - `flutter analyze` → **218 issues, 0 errors**, byte-identical to the
   pre-change baseline.
 - `flutter test test/brand_flavor_test.dart` passes for **both** flavours.
+- `flutter test test/brand_menu_row_test.dart` passes for **both** flavours, and
+  asserts the concrete rendering: Apex → circle tile, 32px, `#F1F5F9`, 50px rows;
+  Volt → rounded tile, 40px, accent colour, 68px rows.
 - **Release** APKs build for both brands via `scripts/flavor.sh <brand> build apk --release`.
 - `aapt2 dump badging` on the release APKs:
 

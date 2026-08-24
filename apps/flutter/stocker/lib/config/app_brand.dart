@@ -41,16 +41,14 @@ const String kLogoAsset =
 // ─── Brand colours ──────────────────────────────────────────────────────────
 
 /// Primary brand colour — buttons, active states, spinners, focus borders.
-const Color kBrandPrimary =
-    kIsVolt ? Color(0xFF4E75FF) : Color(0xFF3F45C7);
+const Color kBrandPrimary = kIsVolt ? Color(0xFF4E75FF) : Color(0xFF3F45C7);
 
 /// Gradient start for primary CTAs (login button, badges, avatars).
 const Color kBrandGradientStart =
     kIsVolt ? Color(0xFF4E75FF) : Color(0xFFC6529E);
 
 /// Gradient end for primary CTAs.
-const Color kBrandGradientEnd =
-    kIsVolt ? Color(0xFF2E55DF) : Color(0xFF3B43C9);
+const Color kBrandGradientEnd = kIsVolt ? Color(0xFF2E55DF) : Color(0xFF3B43C9);
 
 /// Standard left→right brand gradient used on primary CTAs.
 const LinearGradient kBrandGradient = LinearGradient(
@@ -58,3 +56,46 @@ const LinearGradient kBrandGradient = LinearGradient(
   end: Alignment.centerRight,
   colors: [kBrandGradientStart, kBrandGradientEnd],
 );
+
+// ─── Menu row style (Profile / Settings / Admin Settings / Reports) ─────────
+//
+// Apex: small light-grey CIRCLE behind a brand-tinted icon, compact rows.
+// Volt: larger ROUNDED-SQUARE tile filled with a per-item accent colour behind
+//       a white icon, and taller rows with bigger icons.
+//
+// Consumed exclusively by `BrandMenuRow` (lib/widgets/brand_menu_row.dart) —
+// the four menu screens delegate their row rendering to it, so this is the only
+// place menu styling is defined.
+
+/// `true`  → each row's tile is filled with its own accent colour, icon white.
+/// `false` → every tile uses the same neutral background, icon brand-tinted.
+const bool kMenuTileColourful = kIsVolt;
+
+/// Tile shape: circle (Apex) vs rounded square (Volt).
+const bool kMenuTileIsCircle = !kIsVolt;
+
+/// Corner radius used when [kMenuTileIsCircle] is false.
+const double kMenuTileCornerRadius = 10.0;
+
+/// Width/height of the icon tile.
+const double kMenuTileSize = kIsVolt ? 40.0 : 32.0;
+
+/// Icon size inside the tile.
+const double kMenuTileIconSize = kIsVolt ? 21.0 : 16.0;
+
+/// Vertical padding on each row — this is what makes Volt's rows taller.
+const double kMenuRowVerticalPadding = kIsVolt ? 14.0 : 9.0;
+
+/// Gap between the icon tile and the label.
+const double kMenuRowIconLabelGap = kIsVolt ? 14.0 : 16.0;
+
+// Neutral (Apex) tile colours.
+const Color kMenuTileNeutralBg = Color(0xFFF1F5F9);
+const Color kMenuTileNeutralIcon = Color(0xFF1E3A8A);
+const Color kMenuTileDestructiveBg = Color(0xFFFEF2F2);
+
+// Shared row colours (identical across brands).
+const Color kMenuRowLabelColor = Color(0xFF1E293B);
+const Color kMenuRowDestructiveColor = Color(0xFFEF4444);
+const Color kMenuRowChevronColor = Color(0xFF94A3B8);
+const Color kMenuRowDividerColor = Color(0xFFF1F5F9);
