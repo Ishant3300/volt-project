@@ -17,7 +17,6 @@ echo "🚀 Deploying backend to production ($EC2_HOST)..."
 
 echo "🧹 Cleaning up remote server..."
 ssh -i "$SSH_KEY" "${EC2_USER}@${EC2_HOST}" << 'EOF'
-  pm2 flush || true
   npm cache clean --force || true
   sudo journalctl --vacuum-size=100M || true
   sudo rm -rf /tmp/rsync* || true
@@ -39,7 +38,7 @@ echo "🔄 Installing dependencies and restarting..."
 ssh -i "$SSH_KEY" "${EC2_USER}@${EC2_HOST}" << 'EOF'
   cd ~/stocker-backend-node
   npm install --production
-  pm2 restart stocker-backend-node --update-env || pm2 start src/index.js --name stocker-backend-node
+  pm2 restart stocker-backend-node --update-env || pm2 start src/index.js --name stocker-backend-node --time
   echo "✅ Deployed and restarted"
 EOF
 

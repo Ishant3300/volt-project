@@ -13,6 +13,7 @@
     "build:flutter:volt:bundle": "cd apps/flutter && scripts/flavor.sh volt build appbundle --release",
     "deploy:backend:prod": "bash deploy/backend-prod.sh",
     "logs:backend:prod": "bash deploy/backend-logs.sh",
+    "logs:redis:prod": "bash deploy/redis-logs.sh",
     "analyze:flutter": "cd apps/flutter && flutter analyze",
     "test:flutter": "cd apps/flutter && flutter test",
     "test:backend": "cd apps/backend && npm test"
