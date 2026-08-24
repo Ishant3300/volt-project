@@ -26,7 +26,7 @@ class EditUserView extends StatelessWidget {
                     style: TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeSectionHeader,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
                     ),
                   ),
@@ -48,7 +48,7 @@ class EditUserView extends StatelessWidget {
                       style: TextStyle(
                         color: const Color(0xFF2B2B2B),
                         fontSize: kFontSizeSectionHeader,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium,
                       ),
                     ),
@@ -74,7 +74,7 @@ class EditUserView extends StatelessWidget {
                             style: TextStyle(
                               color: const Color(0xFF8E8E93),
                               fontSize: kFontSizeSectionHeader,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightRegular,
                             ),
                           ),
@@ -92,7 +92,7 @@ class EditUserView extends StatelessWidget {
                       style: TextStyle(
                         color: const Color(0xFF8E8E93),
                         fontSize: kFontSizeSubtitle,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium,
                       ),
                     ),
@@ -116,7 +116,7 @@ class EditUserView extends StatelessWidget {
                             style: TextStyle(
                               color: const Color(0xFF2B2B2B),
                               fontSize: kFontSizeSectionHeader,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium,
                             ),
                           ),
@@ -139,7 +139,7 @@ class EditUserView extends StatelessWidget {
                               style: TextStyle(
                                 color: const Color(0xFF8E8E93),
                                 fontSize: kFontSizeSectionHeader,
-                                fontFamily: 'Inter',
+                                fontFamily: kFontFamily,
                                 fontWeight: kFontWeightRegular,
                               ),
                             ),
@@ -153,7 +153,7 @@ class EditUserView extends StatelessWidget {
                             style: TextStyle(
                               color: const Color(0xFF2B2B2B),
                               fontSize: kFontSizeSectionHeader,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium,
                             ),
                           ),
@@ -176,7 +176,7 @@ class EditUserView extends StatelessWidget {
                               style: TextStyle(
                                 color: const Color(0xFF8E8E93),
                                 fontSize: kFontSizeSectionHeader,
-                                fontFamily: 'Inter',
+                                fontFamily: kFontFamily,
                                 fontWeight: kFontWeightRegular,
                               ),
                             ),
@@ -190,7 +190,7 @@ class EditUserView extends StatelessWidget {
                             style: TextStyle(
                               color: const Color(0xFF2B2B2B),
                               fontSize: kFontSizeSectionHeader,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium,
                             ),
                           ),
@@ -213,7 +213,7 @@ class EditUserView extends StatelessWidget {
                               style: TextStyle(
                                 color: const Color(0xFF8E8E93),
                                 fontSize: kFontSizeSectionHeader,
-                                fontFamily: 'Inter',
+                                fontFamily: kFontFamily,
                                 fontWeight: kFontWeightRegular,
                               ),
                             ),
@@ -227,7 +227,7 @@ class EditUserView extends StatelessWidget {
                             style: TextStyle(
                               color: const Color(0xFF2B2B2B),
                               fontSize: kFontSizeSectionHeader,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium,
                             ),
                           ),
@@ -250,7 +250,7 @@ class EditUserView extends StatelessWidget {
                               style: TextStyle(
                                 color: const Color(0xFF8E8E93),
                                 fontSize: kFontSizeSectionHeader,
-                                fontFamily: 'Inter',
+                                fontFamily: kFontFamily,
                                 fontWeight: kFontWeightRegular,
                               ),
                             ),
@@ -267,7 +267,7 @@ class EditUserView extends StatelessWidget {
                       style: TextStyle(
                         color: const Color(0xFF8E8E93),
                         fontSize: kFontSizeSubtitle,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium,
                       ),
                     ),
@@ -302,7 +302,7 @@ class EditUserView extends StatelessWidget {
                           style: TextStyle(
                             color: const Color(0xFF8E8E93),
                             fontSize: kFontSizeSubtitle,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightMedium,
                           ),
                         ),
@@ -368,7 +368,7 @@ class EditUserView extends StatelessWidget {
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: kFontSizeSectionHeader,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
                             height: 1.25,
                           ),
@@ -403,7 +403,7 @@ class EditUserView extends StatelessWidget {
                     style: TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeSectionHeader,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightRegular,
                     ),
                   ),
@@ -421,7 +421,7 @@ class EditUserView extends StatelessWidget {
                     style: TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeSectionHeader,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightRegular,
                     ),
                   ),
@@ -439,7 +439,7 @@ class EditUserView extends StatelessWidget {
                     style: TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeSectionHeader,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightRegular,
                     ),
                   ),
@@ -468,7 +468,7 @@ class EditUserView extends StatelessWidget {
                 style: TextStyle(
                   color: const Color(0xFF8E8E93),
                   fontSize: kFontSizeSectionHeader,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightRegular,
                 ),
               ),
@@ -502,7 +502,7 @@ class EditUserView extends StatelessWidget {
               style: TextStyle(
                 color: Colors.black,
                 fontSize: kFontSizeSectionHeader,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightRegular,
               ),
               overflow: TextOverflow.ellipsis,

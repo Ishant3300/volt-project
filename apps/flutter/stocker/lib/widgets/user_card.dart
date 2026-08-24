@@ -46,7 +46,7 @@ class UserCard extends StatelessWidget {
                     style: TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeName,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightName,
                     ),
                   ),
@@ -65,7 +65,7 @@ class UserCard extends StatelessWidget {
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: kFontSizeCaption,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightRegular,
                     ),
                   ),
@@ -78,7 +78,7 @@ class UserCard extends StatelessWidget {
               style: TextStyle(
                 color: const Color(0xFF666666),
                 fontSize: kFontSizeSubtitle,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightRegular,
               ),
             ),
@@ -91,7 +91,7 @@ class UserCard extends StatelessWidget {
                   style: TextStyle(
                     color: const Color(0xFF999999),
                     fontSize: kFontSizeSubtitle,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightRegular,
                   ),
                 ),
@@ -100,7 +100,7 @@ class UserCard extends StatelessWidget {
                   style: TextStyle(
                     color: const Color(0xFF999999),
                     fontSize: kFontSizeSubtitle,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightRegular,
                   ),
                 ),
@@ -109,7 +109,7 @@ class UserCard extends StatelessWidget {
                   style: TextStyle(
                     color: const Color(0xFF999999),
                     fontSize: kFontSizeSubtitle,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightRegular,
                   ),
                 ),

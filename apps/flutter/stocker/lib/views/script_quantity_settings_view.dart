@@ -242,7 +242,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                         style: TextStyle(
                           color: Colors.black,
                           fontSize: kFontSizeSectionHeader,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold,
                         ),
                       ),
@@ -277,7 +277,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: kFontSizeBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
                           ),
                         ),
@@ -301,10 +301,10 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _selectedExchange,
-                    hint: const Text('Select Exchange', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: 'Inter')),
+                    hint: const Text('Select Exchange', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
                     isExpanded: true,
                     icon: const Icon(Icons.keyboard_arrow_down, size: 18, color: Color(0xFF94A3B8)),
-                    style: const TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
+                    style: const TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
                     items: _exchanges.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                     onChanged: (v) {
                       setState(() => _selectedExchange = v);
@@ -342,7 +342,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                         hintStyle: TextStyle(
                           color: Color(0xFF8E8E93),
                           fontSize: kFontSizeSectionHeader,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightRegular,
                         ),
                       ),
@@ -409,7 +409,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                           hintStyle: TextStyle(
                             color: Colors.black,
                             fontSize: kFontSizeSubtitle,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightRegular,
                           ),
                           isDense: true,
@@ -418,7 +418,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                         style: const TextStyle(
                           color: Colors.black,
                           fontSize: kFontSizeSubtitle,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightRegular,
                         ),
                       ),
@@ -444,7 +444,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                           hintStyle: TextStyle(
                             color: Colors.black,
                             fontSize: kFontSizeSubtitle,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightRegular,
                           ),
                           isDense: true,
@@ -453,7 +453,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                         style: const TextStyle(
                           color: Colors.black,
                           fontSize: kFontSizeSubtitle,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightRegular,
                         ),
                       ),
@@ -486,7 +486,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: kFontSizeSubtitle,
-                                  fontFamily: 'Inter',
+                                  fontFamily: kFontFamily,
                                   fontWeight: kFontWeightMedium,
                                 ),
                               ),
@@ -535,8 +535,8 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                 return await showDialog<bool>(
                                   context: context,
                                   builder: (ctx) => AlertDialog(
-                                    title: const Text('Delete Script', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
-                                    content: Text('Delete "${item.scriptName}"? This will also remove it from all Masters and Users.', style: const TextStyle(fontFamily: 'Inter')),
+                                    title: const Text('Delete Script', style: TextStyle(fontFamily: kFontFamily, fontWeight: FontWeight.w600)),
+                                    content: Text('Delete "${item.scriptName}"? This will also remove it from all Masters and Users.', style: const TextStyle(fontFamily: kFontFamily)),
                                     actions: [
                                       TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
                                       TextButton(
@@ -593,7 +593,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                               style: const TextStyle(
                                                 color: Color(0xFF334155),
                                                 fontSize: kFontSizeBodySmall,
-                                                fontFamily: 'Inter',
+                                                fontFamily: kFontFamily,
                                                 fontWeight: kFontWeightMedium,
                                               ),
                                               maxLines: 1,
@@ -620,7 +620,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                             style: TextStyle(
                                                               color: Colors.black,
                                                               fontSize: kFontSizeCaption,
-                                                              fontFamily: 'Inter',
+                                                              fontFamily: kFontFamily,
                                                               fontWeight: kFontWeightRegular,
                                                             ),
                                                           ),
@@ -630,7 +630,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                               style: const TextStyle(
                                                                 color: Colors.black,
                                                                 fontSize: kFontSizeSubtitle,
-                                                                fontFamily: 'Inter',
+                                                                fontFamily: kFontFamily,
                                                                 fontWeight: kFontWeightMedium,
                                                               ),
                                                               overflow: TextOverflow.ellipsis,
@@ -660,7 +660,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                             style: TextStyle(
                                                               color: Colors.black,
                                                               fontSize: kFontSizeCaption,
-                                                              fontFamily: 'Inter',
+                                                              fontFamily: kFontFamily,
                                                               fontWeight: kFontWeightRegular,
                                                             ),
                                                           ),
@@ -670,7 +670,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                               style: const TextStyle(
                                                                 color: Colors.black,
                                                                 fontSize: kFontSizeSubtitle,
-                                                                fontFamily: 'Inter',
+                                                                fontFamily: kFontFamily,
                                                                 fontWeight: kFontWeightMedium,
                                                               ),
                                                               overflow: TextOverflow.ellipsis,
@@ -700,7 +700,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                             style: TextStyle(
                                                               color: Colors.black,
                                                               fontSize: kFontSizeCaption,
-                                                              fontFamily: 'Inter',
+                                                              fontFamily: kFontFamily,
                                                               fontWeight: kFontWeightRegular,
                                                             ),
                                                           ),
@@ -710,7 +710,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                               style: const TextStyle(
                                                                 color: Colors.black,
                                                                 fontSize: kFontSizeSubtitle,
-                                                                fontFamily: 'Inter',
+                                                                fontFamily: kFontFamily,
                                                                 fontWeight: kFontWeightMedium,
                                                               ),
                                                               overflow: TextOverflow.ellipsis,
@@ -733,8 +733,8 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                             final confirm = await showDialog<bool>(
                                               context: context,
                                               builder: (ctx) => AlertDialog(
-                                                title: const Text('Delete Script', style: TextStyle(fontFamily: 'Inter', fontWeight: FontWeight.w600)),
-                                                content: Text('Delete "${item.scriptName}"? This will also remove it from all Masters and Users.', style: const TextStyle(fontFamily: 'Inter')),
+                                                title: const Text('Delete Script', style: TextStyle(fontFamily: kFontFamily, fontWeight: FontWeight.w600)),
+                                                content: Text('Delete "${item.scriptName}"? This will also remove it from all Masters and Users.', style: const TextStyle(fontFamily: kFontFamily)),
                                                 actions: [
                                                   TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
                                                   TextButton(

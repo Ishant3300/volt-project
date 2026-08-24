@@ -83,8 +83,8 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
           ),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(widget.lotName, style: const TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
-            Text('${widget.exchange} · ${_instruments.length} instruments', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: 'Inter')),
+            Text(widget.lotName, style: const TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+            Text('${widget.exchange} · ${_instruments.length} instruments', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily)),
           ])),
         ])),
 
@@ -96,7 +96,7 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
               decoration: BoxDecoration(color: kBrandPrimary, borderRadius: BorderRadius.circular(12)),
               child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 Icon(Icons.edit, color: Colors.white, size: 18), SizedBox(width: 6),
-                Text('Edit Instruments', style: TextStyle(color: Colors.white, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                Text('Edit Instruments', style: TextStyle(color: Colors.white, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
               ]),
             ),
           )),
@@ -106,7 +106,7 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
         Expanded(child: _isLoading
           ? const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
           : _instruments.isEmpty
-            ? const Center(child: Text('No instruments added yet', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: 'Inter')))
+            ? const Center(child: Text('No instruments added yet', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)))
             : RefreshIndicator(onRefresh: _fetchLotData, child: ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: _instruments.length,
@@ -121,7 +121,7 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
                     child: Row(children: [
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(inst['instrument_symbol'] ?? 'N/A', style: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: -0.3)),
+                        Text(inst['instrument_symbol'] ?? 'N/A', style: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: -0.3)),
                         const SizedBox(height: 8),
                         Row(children: [
                           _chip('Max', '${inst['max_qty']}'),
@@ -135,14 +135,14 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
                         GestureDetector(
                           onTap: () => showDialog(context: context, builder: (ctx) => AlertDialog(
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                            title: const Text('Delete Instrument', style: TextStyle(fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, fontSize: kFontSizeSectionHeader)),
-                            content: const Text('Are you sure?', style: TextStyle(fontFamily: 'Inter', fontSize: kFontSizeBodySmall)),
+                            title: const Text('Delete Instrument', style: TextStyle(fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, fontSize: kFontSizeSectionHeader)),
+                            content: const Text('Are you sure?', style: TextStyle(fontFamily: kFontFamily, fontSize: kFontSizeBodySmall)),
                             actions: [
-                              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8), fontFamily: 'Inter'))),
+                              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8), fontFamily: kFontFamily))),
                               GestureDetector(
                                 onTap: () { Navigator.pop(ctx); _deleteInstrument(inst['id'], inst['instrument_symbol']); },
                                 child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(10)),
-                                  child: const Text('Delete', style: TextStyle(color: Colors.white, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, fontSize: kFontSizeBodySmall))),
+                                  child: const Text('Delete', style: TextStyle(color: Colors.white, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, fontSize: kFontSizeBodySmall))),
                               ),
                             ],
                           )),
@@ -165,8 +165,8 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Text('$label ', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.3)),
-        Text(value, style: const TextStyle(color: Color(0xFF334155), fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightBold)),
+        Text('$label ', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.3)),
+        Text(value, style: const TextStyle(color: Color(0xFF334155), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
       ]),
     );
   }

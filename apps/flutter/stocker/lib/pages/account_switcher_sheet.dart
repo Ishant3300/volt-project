@@ -117,24 +117,24 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Remove Account',
             style: TextStyle(
-                fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
         content: Text(
           'Remove ${account.username} (${account.role}) from saved accounts?',
-          style: const TextStyle(fontFamily: 'Inter'),
+          style: const TextStyle(fontFamily: kFontFamily),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel',
                 style:
-                    TextStyle(color: Color(0xFF94A3B8), fontFamily: 'Inter')),
+                    TextStyle(color: Color(0xFF94A3B8), fontFamily: kFontFamily)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Remove',
                 style: TextStyle(
                     color: Color(0xFFEF4444),
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightSemiBold)),
           ),
         ],
@@ -201,7 +201,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
               style: TextStyle(
                 color: Color(0xFF0F172A),
                 fontSize: kFontSizeViewTitle,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightBold,
                 letterSpacing: -0.3,
               ),
@@ -220,7 +220,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                   Text('Switching account...',
                       style: TextStyle(
                           color: Color(0xFF64748B),
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontSize: kFontSizeBody)),
                 ],
               ),
@@ -269,7 +269,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                         style: TextStyle(
                           color: kBrandPrimary,
                           fontSize: kFontSizeButtonText,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold,
                         ),
                       ),
@@ -322,7 +322,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                   style: TextStyle(
                     color: roleColor,
                     fontSize: kFontSizeViewTitle,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightBold,
                   ),
                 ),
@@ -343,7 +343,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                           style: const TextStyle(
                             color: Color(0xFF0F172A),
                             fontSize: kFontSizeButtonText,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
                           ),
                           maxLines: 1,
@@ -365,7 +365,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                             style: TextStyle(
                               color: Color(0xFF10B981),
                               fontSize: kFontSizeBadge,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightBold,
                               letterSpacing: 0.5,
                             ),
@@ -385,7 +385,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: kFontSizeSubtitle,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
                         ),
                       ),

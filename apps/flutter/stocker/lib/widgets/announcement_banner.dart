@@ -41,7 +41,7 @@ class _AnnouncementBannerState extends State<AnnouncementBanner>
     final tp = TextPainter(
       text: TextSpan(
         text: _message ?? '',
-        style: const TextStyle(fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold),
+        style: const TextStyle(fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
       ),
       maxLines: 1,
       textDirection: TextDirection.ltr,
@@ -58,7 +58,7 @@ class _AnnouncementBannerState extends State<AnnouncementBanner>
     const textStyle = TextStyle(
       color: Color(0xFFDC2626),
       fontSize: kFontSizeSubtitle,
-      fontFamily: 'Inter',
+      fontFamily: kFontFamily,
       fontWeight: kFontWeightSemiBold,
     );
 

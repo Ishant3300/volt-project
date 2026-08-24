@@ -162,7 +162,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   style: TextStyle(
                       color: Color(0xFF0F172A),
                       fontSize: kFontSizeViewTitle,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightBold)),
               const SizedBox(height: 12),
               const Text(
@@ -170,7 +170,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 style: TextStyle(
                     color: Color(0xFF64748B),
                     fontSize: kFontSizeBody,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightRegular,
                     height: 1.5),
               ),
@@ -190,7 +190,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         style: TextStyle(
                             color: Color(0xFF64748B),
                             fontSize: kFontSizeBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold)),
                   ),
                   const SizedBox(width: 8),
@@ -207,7 +207,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         style: TextStyle(
                             color: Color(0xFFEF4444),
                             fontSize: kFontSizeBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold)),
                   ),
                 ],
@@ -313,7 +313,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       style: TextStyle(
                         color: Color(0xFF0F172A),
                         fontSize: kFontSizePageTitle,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightBold,
                         letterSpacing: -0.5,
                       ),
@@ -377,7 +377,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 style: TextStyle(
                                   color: roleColor,
                                   fontSize: kFontSizeSectionHeader,
-                                  fontFamily: 'Inter',
+                                  fontFamily: kFontFamily,
                                   fontWeight: kFontWeightBold,
                                 ),
                               ),
@@ -393,7 +393,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                   style: const TextStyle(
                                     color: Color(0xFF0F172A),
                                     fontSize: kFontSizeBody,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightBold,
                                   ),
                                   maxLines: 1,
@@ -407,7 +407,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                       style: const TextStyle(
                                         color: Color(0xFF94A3B8),
                                         fontSize: kFontSizeNavLabel,
-                                        fontFamily: 'Inter',
+                                        fontFamily: kFontFamily,
                                         fontWeight: kFontWeightMedium,
                                       ),
                                     ),
@@ -424,7 +424,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                         style: TextStyle(
                                           color: roleColor,
                                           fontSize: kFontSizeBadge,
-                                          fontFamily: 'Inter',
+                                          fontFamily: kFontFamily,
                                           fontWeight: kFontWeightBold,
                                           letterSpacing: 0.3,
                                         ),
@@ -448,7 +448,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                 style: const TextStyle(
                                   color: Color(0xFF64748B),
                                   fontSize: kFontSizeCaption,
-                                  fontFamily: 'Inter',
+                                  fontFamily: kFontFamily,
                                   fontWeight: kFontWeightSemiBold,
                                 ),
                               ),

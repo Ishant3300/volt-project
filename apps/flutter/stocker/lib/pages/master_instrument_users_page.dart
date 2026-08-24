@@ -289,7 +289,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                           style: const TextStyle(
                             color: Colors.black,
                             fontSize: kFontSizeSectionHeader,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
                             letterSpacing: -0.3,
                           ),
@@ -302,7 +302,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                               style: const TextStyle(
                                 color: Color(0xFF94A3B8),
                                 fontSize: kFontSizeSubtitle,
-                                fontFamily: 'Inter',
+                                fontFamily: kFontFamily,
                                 fontWeight: kFontWeightMedium,
                               ),
                             ),
@@ -321,7 +321,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                               style: TextStyle(
                                 color: sideColor,
                                 fontSize: kFontSizeSubtitle,
-                                fontFamily: 'Inter',
+                                fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold,
                               ),
                             ),
@@ -347,7 +347,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                             style: TextStyle(
                               color: Color(0xFF94A3B8),
                               fontSize: kFontSizeBadge,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightSemiBold,
                               letterSpacing: 0.5,
                             ),
@@ -358,7 +358,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                             style: const TextStyle(
                               color: kBrandPrimary,
                               fontSize: kFontSizeBody,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightBold,
                           ),
                           ),
@@ -379,7 +379,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                     style: const TextStyle(
                       color: Color(0xFF94A3B8),
                       fontSize: kFontSizeSubtitle,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium,
                       letterSpacing: 0.5,
                     ),
@@ -441,7 +441,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
             style: TextStyle(
               color: Color(0xFF94A3B8),
               fontSize: kFontSizeBody,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
             ),
           ),
         ],
@@ -525,7 +525,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                       style: const TextStyle(
                         color: kBrandPrimary,
                         fontSize: kFontSizeSectionHeader,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightBold,
                       ),
                     ),
@@ -541,7 +541,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                         style: const TextStyle(
                           color: Colors.black,
                           fontSize: kFontSizeName,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightName,
                           letterSpacing: -0.3,
                         ),
@@ -552,7 +552,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: kFontSizeSubtitle,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightRegular,
                         ),
                       ),
@@ -575,7 +575,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                         style: TextStyle(
                           color: sideColor,
                           fontSize: kFontSizeNavLabel,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightBold,
                           letterSpacing: 0.5,
                         ),
@@ -590,7 +590,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                           style: const TextStyle(
                             color: Color(0xFF94A3B8),
                             fontSize: kFontSizeNavLabel,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightMedium,
                           ),
                         ),
@@ -599,7 +599,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                             style: const TextStyle(
                             color: Color(0xFF94A3B8),
                             fontSize: kFontSizeNavLabel,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightMedium,
                           ),
                         ),
@@ -614,7 +614,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                               ? const Color(0xFF10B981)
                               : const Color(0xFFEF4444),
                           fontSize: kFontSizeSubtitle,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightBold,
                         ),
                       ),

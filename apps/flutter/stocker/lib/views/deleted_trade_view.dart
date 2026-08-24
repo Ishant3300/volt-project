@@ -130,7 +130,7 @@ class _DeletedTradeViewState extends State<DeletedTradeView> {
               const Expanded(
                 child: Text('Deleted Trades',
                   style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle,
-                    fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                    fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -140,7 +140,7 @@ class _DeletedTradeViewState extends State<DeletedTradeView> {
                 ),
                 child: Text('$_total',
                   style: const TextStyle(color: Color(0xFFEF4444), fontSize: kFontSizeBodySmall,
-                    fontFamily: 'Inter', fontWeight: kFontWeightBold)),
+                    fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
               ),
             ]),
           ),
@@ -162,10 +162,10 @@ class _DeletedTradeViewState extends State<DeletedTradeView> {
                       _searchQuery = v;
                       _fetch();
                     },
-                    style: const TextStyle(fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
+                    style: const TextStyle(fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
                     decoration: InputDecoration(
                       hintText: 'Search script...',
-                      hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall, fontFamily: 'Inter'),
+                      hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily),
                       prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFF94A3B8)),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? GestureDetector(
@@ -210,7 +210,7 @@ class _DeletedTradeViewState extends State<DeletedTradeView> {
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     Text(DateFormat('dd MMM yyyy').format(_filterDate!),
                       style: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeNavLabel,
-                        fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                        fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                     const SizedBox(width: 6),
                     GestureDetector(
                       onTap: _clearDate,
@@ -235,15 +235,15 @@ class _DeletedTradeViewState extends State<DeletedTradeView> {
             child: Row(children: [
               const Expanded(flex: 3,
                 child: Text('SCRIPT', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel,
-                  fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.5))),
+                  fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5))),
               if (showUserInfo)
                 const Expanded(flex: 2,
                   child: Text('USER', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel,
-                    fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.5))),
+                    fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5))),
               const Expanded(flex: 3,
                 child: Text('DELETED AT', textAlign: TextAlign.right,
                   style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel,
-                    fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.5))),
+                    fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5))),
             ]),
           ),
 
@@ -258,7 +258,7 @@ class _DeletedTradeViewState extends State<DeletedTradeView> {
                           Icon(Icons.delete_outline, size: 48, color: const Color(0xFF94A3B8).withValues(alpha: 0.5)),
                           const SizedBox(height: 12),
                           const Text('No deleted trades',
-                            style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: 'Inter')),
+                            style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: kFontFamily)),
                         ],
                       ))
                     : NotificationListener<ScrollNotification>(
@@ -307,13 +307,13 @@ class _DeletedTradeViewState extends State<DeletedTradeView> {
           children: [
             Text(symbol,
               style: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeBodySmall,
-                fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: -0.3),
+                fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: -0.3),
               maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 2),
             Wrap(spacing: 4, runSpacing: 2, children: [
               Text(exchange,
                 style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption,
-                  fontFamily: 'Inter', fontWeight: kFontWeightMedium, letterSpacing: 0.5)),
+                  fontFamily: kFontFamily, fontWeight: kFontWeightMedium, letterSpacing: 0.5)),
               const Text('·', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
@@ -324,12 +324,12 @@ class _DeletedTradeViewState extends State<DeletedTradeView> {
                 child: Text(txnType,
                   style: TextStyle(
                     color: isBuy ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-                    fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                    fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
               ),
               const Text('·', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption)),
               Text('$qty @ ${(price as num).toStringAsFixed(2)}',
                 style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeCaption,
-                  fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
+                  fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
             ]),
           ],
         )),
@@ -339,18 +339,18 @@ class _DeletedTradeViewState extends State<DeletedTradeView> {
             children: [
               Text(username,
                 style: const TextStyle(color: Colors.black, fontSize: kFontSizeSubtitle,
-                  fontFamily: 'Inter', fontWeight: kFontWeightSemiBold),
+                  fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
               if (masterUsername.isNotEmpty)
                 Text(masterUsername,
                   style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption,
-                    fontFamily: 'Inter', fontWeight: kFontWeightMedium),
+                    fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
                   maxLines: 1, overflow: TextOverflow.ellipsis),
             ],
           )),
         Expanded(flex: 3, child: Text(deletedAt, textAlign: TextAlign.right,
           style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeNavLabel,
-            fontFamily: 'Inter', fontWeight: kFontWeightMedium))),
+            fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
       ]),
     );
   }

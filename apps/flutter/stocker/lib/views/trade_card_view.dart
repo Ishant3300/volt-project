@@ -737,7 +737,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
             style: TextStyle(
               color: isSelected ? Colors.white : const Color(0xFF64748B),
               fontSize: kFontSizeBody,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,
             ),
           ),
@@ -794,7 +794,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                               style: const TextStyle(
                                 color: Colors.black,
                                 fontSize: kFontSizeViewTitle,
-                                fontFamily: 'Inter',
+                                fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold,
                               ),
                               maxLines: 1,
@@ -823,7 +823,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                   style: TextStyle(
                                     color: Color(0xFF94A3B8),
                                     fontSize: kFontSizeBadge,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightSemiBold,
                                     letterSpacing: 0.5,
                                   ),
@@ -834,7 +834,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                   style: const TextStyle(
                                     color: kBrandPrimary,
                                     fontSize: kFontSizeBody,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightBold,
                                   ),
                                 ),
@@ -852,7 +852,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                   ? const Color(0xFF10B981)
                                   : const Color(0xFFEF4444),
                               fontSize: kFontSizeNavLabel,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium,
                             ),
                           ),
@@ -875,7 +875,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                     style: TextStyle(
                       color: Color(0xFF2B2B2B),
                       fontSize: kFontSizeSectionHeader,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium,
                     ),
                   ),
@@ -934,7 +934,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                               style: TextStyle(
                                 color: kBrandPrimary,
                                 fontSize: kFontSizeBody,
-                                fontFamily: 'Inter',
+                                fontFamily: kFontFamily,
                                 fontWeight: kFontWeightMedium,
                               ),
                             ),
@@ -968,7 +968,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                 style: TextStyle(
                                   color: Color(0xFF2B2B2B),
                                   fontSize: kFontSizeSectionHeader,
-                                  fontFamily: 'Inter',
+                                  fontFamily: kFontFamily,
                                   fontWeight: kFontWeightMedium,
                                 ),
                               ),
@@ -995,7 +995,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                       style: TextStyle(
                                         color: kBrandPrimary,
                                         fontSize: kFontSizeSectionHeader,
-                                        fontFamily: 'Inter',
+                                        fontFamily: kFontFamily,
                                         fontWeight: kFontWeightMedium,
                                       ),
                                     ),
@@ -1027,7 +1027,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                     style: const TextStyle(
                                       color: Colors.black,
                                       fontSize: kFontSizeButtonText,
-                                      fontFamily: 'Inter',
+                                      fontFamily: kFontFamily,
                                       fontWeight: kFontWeightRegular,
                                     ),
                                     decoration: InputDecoration(
@@ -1038,7 +1038,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                       hintStyle: const TextStyle(
                                         color: Color(0xFF8E8E93),
                                         fontSize: kFontSizeButtonText,
-                                        fontFamily: 'Inter',
+                                        fontFamily: kFontFamily,
                                         fontWeight: kFontWeightRegular,
                                       ),
                                       isDense: true,
@@ -1155,7 +1155,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                                 style: const TextStyle(
                                                   color: Colors.black,
                                                   fontSize: kFontSizeBody,
-                                                  fontFamily: 'Inter',
+                                                  fontFamily: kFontFamily,
                                                   fontWeight:
                                                       kFontWeightRegular,
                                                 ),
@@ -1199,7 +1199,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                     style: const TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeSectionHeader,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium,
                       height: 1.25,
                     ),
@@ -1211,7 +1211,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                       style: const TextStyle(
                         color: Color(0xFF64748B),
                         fontSize: kFontSizeSubtitle,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightRegular,
                       ),
                     ),
@@ -1248,7 +1248,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                             style: const TextStyle(
                               color: Colors.black,
                               fontSize: kFontSizeSectionHeader,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium,
                               height: 1.25,
                             ),
@@ -1344,7 +1344,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                       ? const Color(0xFFF9F9F9)
                                       : Colors.black,
                                   fontSize: kFontSizeBody,
-                                  fontFamily: 'Inter',
+                                  fontFamily: kFontFamily,
                                   fontWeight: kFontWeightMedium,
                                 ),
                               ),
@@ -1384,7 +1384,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                       ? const Color(0xFFF9F9F9)
                                       : Colors.black,
                                   fontSize: kFontSizeBody,
-                                  fontFamily: 'Inter',
+                                  fontFamily: kFontFamily,
                                   fontWeight: kFontWeightRegular,
                                 ),
                               ),
@@ -1426,7 +1426,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                         style: TextStyle(
                                           color: Color(0xFF64748B),
                                           fontSize: kFontSizeSubtitle,
-                                          fontFamily: 'Inter',
+                                          fontFamily: kFontFamily,
                                         ),
                                       ),
                                       TextSpan(
@@ -1434,7 +1434,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                         style: const TextStyle(
                                           color: kBrandPrimary,
                                           fontSize: kFontSizeSubtitle,
-                                          fontFamily: 'Inter',
+                                          fontFamily: kFontFamily,
                                           fontWeight: kFontWeightSemiBold,
                                         ),
                                       ),
@@ -1444,7 +1444,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                           style: TextStyle(
                                             color: Color(0xFF64748B),
                                             fontSize: kFontSizeSubtitle,
-                                            fontFamily: 'Inter',
+                                            fontFamily: kFontFamily,
                                           ),
                                         ),
                                         TextSpan(
@@ -1452,7 +1452,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                           style: const TextStyle(
                                             color: kBrandPrimary,
                                             fontSize: kFontSizeSubtitle,
-                                            fontFamily: 'Inter',
+                                            fontFamily: kFontFamily,
                                             fontWeight: kFontWeightSemiBold,
                                           ),
                                         ),
@@ -1484,7 +1484,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                   style: const TextStyle(
                                     color: Color(0xFF10B981),
                                     fontSize: kFontSizeSubtitle,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightSemiBold,
                                   ),
                                 ),
@@ -1521,7 +1521,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                             style: TextStyle(
                               color: Color(0xFF64748B),
                               fontSize: kFontSizeSubtitle,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                             ),
                           ),
                         ],
@@ -1556,7 +1556,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                   style: const TextStyle(
                                     color: Color(0xFF94A3B8),
                                     fontSize: kFontSizeNavLabel,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightMedium,
                                   ),
                                 ),
@@ -1580,7 +1580,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                         style: TextStyle(
                                           color: Color(0xFF64748B),
                                           fontSize: kFontSizeSubtitle,
-                                          fontFamily: 'Inter',
+                                          fontFamily: kFontFamily,
                                         ),
                                       ),
                                       TextSpan(
@@ -1588,7 +1588,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                         style: const TextStyle(
                                           color: kBrandPrimary,
                                           fontSize: kFontSizeSubtitle,
-                                          fontFamily: 'Inter',
+                                          fontFamily: kFontFamily,
                                           fontWeight: kFontWeightSemiBold,
                                         ),
                                       ),
@@ -1597,7 +1597,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                         style: TextStyle(
                                           color: Color(0xFF64748B),
                                           fontSize: kFontSizeSubtitle,
-                                          fontFamily: 'Inter',
+                                          fontFamily: kFontFamily,
                                         ),
                                       ),
                                       TextSpan(
@@ -1605,7 +1605,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                         style: const TextStyle(
                                           color: kBrandPrimary,
                                           fontSize: kFontSizeSubtitle,
-                                          fontFamily: 'Inter',
+                                          fontFamily: kFontFamily,
                                           fontWeight: kFontWeightSemiBold,
                                         ),
                                       ),
@@ -1637,7 +1637,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                   style: const TextStyle(
                                     color: Color(0xFF10B981),
                                     fontSize: kFontSizeSubtitle,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightSemiBold,
                                   ),
                                 ),
@@ -1711,7 +1711,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                             style: const TextStyle(
                                               color: Colors.black,
                                               fontSize: kFontSizeSectionHeader,
-                                              fontFamily: 'Inter',
+                                              fontFamily: kFontFamily,
                                               fontWeight: kFontWeightMedium,
                                               height: 1.25,
                                             ),
@@ -1751,7 +1751,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                                 color: Colors.white,
                                                 fontSize:
                                                     kFontSizeSectionHeader,
-                                                fontFamily: 'Inter',
+                                                fontFamily: kFontFamily,
                                                 fontWeight: kFontWeightSemiBold,
                                                 height: 1.25,
                                               ),
@@ -1790,7 +1790,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                           style: const TextStyle(
                                             color: Colors.black,
                                             fontSize: kFontSizeSectionHeader,
-                                            fontFamily: 'Inter',
+                                            fontFamily: kFontFamily,
                                             fontWeight: kFontWeightMedium,
                                             height: 1.25,
                                           ),
@@ -1829,7 +1829,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                             style: TextStyle(
                                               color: Colors.white,
                                               fontSize: kFontSizeSectionHeader,
-                                              fontFamily: 'Inter',
+                                              fontFamily: kFontFamily,
                                               fontWeight: kFontWeightSemiBold,
                                               height: 1.25,
                                             ),
@@ -1884,7 +1884,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                   style: const TextStyle(
                                     color: Colors.black,
                                     fontSize: kFontSizeSectionHeader,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightMedium,
                                   ),
                                   decoration: InputDecoration(
@@ -1895,7 +1895,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                     hintStyle: const TextStyle(
                                       color: Color(0xFFC7C7CC),
                                       fontSize: kFontSizeSectionHeader,
-                                      fontFamily: 'Inter',
+                                      fontFamily: kFontFamily,
                                       fontWeight: kFontWeightMedium,
                                     ),
                                   ),
@@ -1951,7 +1951,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                                 color: Colors.white,
                                                 fontSize:
                                                     kFontSizeSectionHeader,
-                                                fontFamily: 'Inter',
+                                                fontFamily: kFontFamily,
                                                 fontWeight: kFontWeightSemiBold,
                                               ),
                                             ),
@@ -2007,7 +2007,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                                 color: Colors.white,
                                                 fontSize:
                                                     kFontSizeSectionHeader,
-                                                fontFamily: 'Inter',
+                                                fontFamily: kFontFamily,
                                                 fontWeight: kFontWeightSemiBold,
                                               ),
                                             ),
@@ -2051,7 +2051,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                   style: const TextStyle(
                                     color: Colors.black,
                                     fontSize: kFontSizeSectionHeader,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightMedium,
                                   ),
                                   decoration: const InputDecoration(
@@ -2062,7 +2062,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                     hintStyle: TextStyle(
                                       color: Color(0xFFC7C7CC),
                                       fontSize: kFontSizeSectionHeader,
-                                      fontFamily: 'Inter',
+                                      fontFamily: kFontFamily,
                                       fontWeight: kFontWeightMedium,
                                     ),
                                   ),
@@ -2110,7 +2110,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                                 color: Colors.white,
                                                 fontSize:
                                                     kFontSizeSectionHeader,
-                                                fontFamily: 'Inter',
+                                                fontFamily: kFontFamily,
                                                 fontWeight:
                                                     kFontWeightSemiBold)),
                                       ),
@@ -2156,7 +2156,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                                 color: Colors.white,
                                                 fontSize:
                                                     kFontSizeSectionHeader,
-                                                fontFamily: 'Inter',
+                                                fontFamily: kFontFamily,
                                                 fontWeight:
                                                     kFontWeightSemiBold)),
                                       ),
@@ -2236,7 +2236,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                           style: const TextStyle(
                             color: Color(0xFFEF4444),
                             fontSize: kFontSizeSubtitle,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightMedium,
                           ),
                         ),
@@ -2276,7 +2276,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                           style: TextStyle(
                             color: kBrandPrimary,
                             fontSize: kFontSizeBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightMedium,
                           ),
                         ),
@@ -2304,7 +2304,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                           style: TextStyle(
                             color: kBrandPrimary,
                             fontSize: kFontSizeBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightMedium,
                           ),
                         ),
@@ -2326,7 +2326,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                           style: TextStyle(
                             color: kBrandPrimary,
                             fontSize: kFontSizeBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightMedium,
                           ),
                         ),
@@ -2385,7 +2385,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
               style: const TextStyle(
                 color: Color(0xFF8E8E93),
                 fontSize: kFontSizeSubtitle,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightRegular,
               ),
             ),
@@ -2402,7 +2402,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
               style: const TextStyle(
                 color: Colors.black,
                 fontSize: kFontSizeBody,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightMedium,
               ),
             ),

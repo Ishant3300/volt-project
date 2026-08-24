@@ -76,7 +76,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                               style: TextStyle(
                                 color: Color(0xFF94A3B8),
                                 fontSize: kFontSizeBody,
-                                fontFamily: 'Inter',
+                                fontFamily: kFontFamily,
                                 fontWeight: kFontWeightRegular,
                               ),
                             ),
@@ -170,7 +170,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                     style: TextStyle(
                                       color: Color(0xFF94A3B8),
                                       fontSize: kFontSizeCaption,
-                                      fontFamily: 'Inter',
+                                      fontFamily: kFontFamily,
                                       fontWeight: kFontWeightSemiBold,
                                       letterSpacing: 0.5,
                                     ),
@@ -189,7 +189,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                               style: TextStyle(
                                                 color: Color(0xFF94A3B8),
                                                 fontSize: kFontSizeCaption,
-                                                fontFamily: 'Inter',
+                                                fontFamily: kFontFamily,
                                                 fontWeight: kFontWeightSemiBold,
                                                 letterSpacing: 0.5,
                                               ),
@@ -203,7 +203,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                               style: TextStyle(
                                                 color: Color(0xFF94A3B8),
                                                 fontSize: kFontSizeCaption,
-                                                fontFamily: 'Inter',
+                                                fontFamily: kFontFamily,
                                                 fontWeight: kFontWeightSemiBold,
                                                 letterSpacing: 0.5,
                                               ),
@@ -221,7 +221,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                               style: TextStyle(
                                                 color: Color(0xFF94A3B8),
                                                 fontSize: kFontSizeCaption,
-                                                fontFamily: 'Inter',
+                                                fontFamily: kFontFamily,
                                                 fontWeight: kFontWeightSemiBold,
                                                 letterSpacing: 0.5,
                                               ),
@@ -235,7 +235,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                               style: TextStyle(
                                                 color: Color(0xFF94A3B8),
                                                 fontSize: kFontSizeCaption,
-                                                fontFamily: 'Inter',
+                                                fontFamily: kFontFamily,
                                                 fontWeight: kFontWeightSemiBold,
                                                 letterSpacing: 0.5,
                                               ),
@@ -357,7 +357,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                     style: const TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeTradeSymbol,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
                       letterSpacing: -0.3,
                     ),
@@ -372,7 +372,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                       style: const TextStyle(
                         color: Color(0xFF94A3B8),
                         fontSize: kFontSizeCaption,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
                         letterSpacing: 0.5,
                       ),
@@ -399,7 +399,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                 ? const Color(0xFF10B981)
                                 : const Color(0xFFEF4444),
                             fontSize: kFontSizePositionDetail,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
                           ),
                           maxLines: 1,
@@ -458,7 +458,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                   effectiveBid.toStringAsFixed(2),
                                   textAlign: TextAlign.end,
                                   style: TextStyle(
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontSize: kFontSizePriceMain,
                                     fontWeight: kFontWeightSemiBold,
                                     color: bidColor,
@@ -468,7 +468,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                   '--',
                                   textAlign: TextAlign.end,
                                   style: TextStyle(
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontSize: kFontSizePriceMain,
                                     fontWeight: kFontWeightSemiBold,
                                     color: bidColor,
@@ -487,7 +487,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                   effectiveAsk.toStringAsFixed(2),
                                   textAlign: TextAlign.end,
                                   style: TextStyle(
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontSize: kFontSizePriceMain,
                                     fontWeight: kFontWeightSemiBold,
                                     color: askColor,
@@ -497,7 +497,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                   '--',
                                   textAlign: TextAlign.end,
                                   style: TextStyle(
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontSize: kFontSizePriceMain,
                                     fontWeight: kFontWeightSemiBold,
                                     color: askColor,
@@ -516,7 +516,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                   high.toStringAsFixed(2),
                                   textAlign: TextAlign.end,
                                   style: const TextStyle(
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontSize: kFontSizePriceSecondary,
                                     fontWeight: kFontWeightSemiBold,
                                     color: Color(0xFF475569),
@@ -526,7 +526,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                   '--',
                                   textAlign: TextAlign.end,
                                   style: TextStyle(
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontSize: kFontSizePriceSecondary,
                                     fontWeight: kFontWeightSemiBold,
                                     color: Color(0xFF475569),
@@ -545,7 +545,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                   low.toStringAsFixed(2),
                                   textAlign: TextAlign.end,
                                   style: const TextStyle(
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontSize: kFontSizePriceSecondary,
                                     fontWeight: kFontWeightSemiBold,
                                     color: Color(0xFF475569),
@@ -555,7 +555,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                   '--',
                                   textAlign: TextAlign.end,
                                   style: TextStyle(
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontSize: kFontSizePriceSecondary,
                                     fontWeight: kFontWeightSemiBold,
                                     color: Color(0xFF475569),

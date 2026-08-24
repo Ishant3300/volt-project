@@ -90,7 +90,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                         style: const TextStyle(
                           color: Colors.black,
                           fontSize: kFontSizeSectionHeader,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightBold,
                           letterSpacing: -0.3,
                         ),
@@ -110,7 +110,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                               style: TextStyle(
                                 color: _sideColor,
                                 fontSize: kFontSizeNavLabel,
-                                fontFamily: 'Inter',
+                                fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold,
                                 letterSpacing: 0.3,
                               ),
@@ -129,7 +129,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                               style: const TextStyle(
                                 color: Color(0xFF64748B),
                                 fontSize: kFontSizeNavLabel,
-                                fontFamily: 'Inter',
+                                fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold,
                               ),
                             ),
@@ -147,7 +147,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                       style: const TextStyle(
                         color: Colors.black,
                         fontSize: kFontSizeViewTitle,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightBold,
                       ),
                     ),
@@ -168,7 +168,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                               ? const Color(0xFF10B981)
                               : const Color(0xFFB45309),
                           fontSize: kFontSizeCaption,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold,
                           letterSpacing: 0.3,
                         ),
@@ -241,7 +241,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: kFontSizeButtonText,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightSemiBold,
                   ),
                 ),
@@ -269,7 +269,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
             style: const TextStyle(
               color: Color(0xFF94A3B8),
               fontSize: kFontSizeBodySmall,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightMedium,
             ),
           ),
@@ -281,7 +281,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
               style: const TextStyle(
                 color: Colors.black,
                 fontSize: kFontSizeBodySmall,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightSemiBold,
               ),
             ),

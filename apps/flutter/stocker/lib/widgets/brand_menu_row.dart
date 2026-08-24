@@ -106,7 +106,7 @@ class BrandMenuRow extends StatelessWidget {
                       style: TextStyle(
                         color: foreground,
                         fontSize: kFontSizeMenuItem,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium,
                       ),
                     ),

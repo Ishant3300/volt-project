@@ -122,7 +122,7 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
                       style: const TextStyle(
                         color: Colors.black,
                         fontSize: kFontSizeViewTitle,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -178,7 +178,7 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
             style: TextStyle(
               color: selected ? Colors.white : const Color(0xFF333333),
               fontSize: kFontSizeBody,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightMedium,
             ),
           ),
@@ -201,7 +201,7 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
                 style: const TextStyle(
                     color: Color(0xFF8E8E93),
                     fontSize: kFontSizeBody,
-                    fontFamily: 'Inter')),
+                    fontFamily: kFontFamily)),
             const SizedBox(height: 12),
             GestureDetector(
               onTap: _fetchSharingDetails,
@@ -209,7 +209,7 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
                   style: TextStyle(
                       color: kBrandPrimary,
                       fontSize: kFontSizeBody,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold)),
             ),
           ],
@@ -230,7 +230,7 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
             style: TextStyle(
                 color: Color(0xFF8E8E93),
                 fontSize: kFontSizeBody,
-                fontFamily: 'Inter')),
+                fontFamily: kFontFamily)),
       );
     }
 
@@ -298,7 +298,7 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
                       ? kBrandPrimary
                       : const Color(0xFF64748B),
                   fontSize: kFontSizeBody,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightSemiBold,
                 ),
               ),
@@ -315,7 +315,7 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
                   style: const TextStyle(
                     color: Colors.black,
                     fontSize: kFontSizeName,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightName,
                   ),
                 ),
@@ -328,7 +328,7 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: kFontSizeCaption,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightRegular,
                         ),
                       ),
@@ -349,7 +349,7 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
                               ? const Color(0xFFE65100)
                               : const Color(0xFF2E7D32),
                           fontSize: kFontSizeBadge,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold,
                         ),
                       ),
@@ -371,7 +371,7 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
               style: const TextStyle(
                 color: kBrandPrimary,
                 fontSize: kFontSizeBody,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightSemiBold,
               ),
             ),

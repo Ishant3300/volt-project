@@ -104,7 +104,7 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
                 ),
               ),
               const SizedBox(width: 12),
-              const Text('Profit & Loss', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+              const Text('Profit & Loss', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
             ]),
           ),
 
@@ -133,10 +133,10 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
             child: TextField(
               controller: _searchCtrl,
               onChanged: (v) => setState(() => _searchQuery = v.trim()),
-              style: const TextStyle(fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
+              style: const TextStyle(fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
               decoration: InputDecoration(
                 hintText: 'Search $label...',
-                hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBody, fontFamily: 'Inter'),
+                hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBody, fontFamily: kFontFamily),
                 prefixIcon: const Icon(Icons.search, color: Color(0xFF94A3B8), size: kIconSizeMedium),
                 suffixIcon: _searchCtrl.text.isNotEmpty
                     ? GestureDetector(onTap: () { _searchCtrl.clear(); setState(() => _searchQuery = ''); },
@@ -153,7 +153,7 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Align(alignment: Alignment.centerLeft,
-              child: Text('${filtered.length} $label', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightMedium))),
+              child: Text('${filtered.length} $label', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
           ),
           const SizedBox(height: 8),
 
@@ -175,7 +175,7 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
                   child: Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
                     Text(labels[i], style: TextStyle(
                       color: isSorted ? kBrandPrimary : const Color(0xFF94A3B8),
-                      fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
+                      fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
                     const SizedBox(width: 2),
                     Icon(isSorted ? (_sortAsc ? Icons.arrow_upward : Icons.arrow_downward) : Icons.unfold_more,
                       size: 11, color: isSorted ? kBrandPrimary : const Color(0xFF94A3B8)),
@@ -190,7 +190,7 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
                 : filtered.isEmpty
-                    ? const Center(child: Text('No data', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: 'Inter')))
+                    ? const Center(child: Text('No data', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)))
                     : RefreshIndicator(
                         onRefresh: _fetch,
                         child: Container(
@@ -212,9 +212,9 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
   Widget _totalItem(String label, double value) {
     return Expanded(
       child: Column(children: [
-        Text(label.toUpperCase(), style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
+        Text(label.toUpperCase(), style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
         const SizedBox(height: 4),
-        Text(_pnlStr(value), style: TextStyle(color: _pnlColor(value), fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightBold)),
+        Text(_pnlStr(value), style: TextStyle(color: _pnlColor(value), fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
       ]),
     );
   }
@@ -239,15 +239,15 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
             const Padding(padding: EdgeInsets.only(right: 4),
               child: Icon(Icons.supervisor_account, size: 12, color: kBrandPrimary)),
           Flexible(child: Text(username, textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.black, fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold),
+            style: const TextStyle(color: Colors.black, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
             maxLines: 1, overflow: TextOverflow.ellipsis)),
         ])),
         Expanded(child: Text(_pnlStr(realised), textAlign: TextAlign.center,
-          style: TextStyle(color: _pnlColor(realised), fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightMedium))),
+          style: TextStyle(color: _pnlColor(realised), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
         Expanded(child: Text(_pnlStr(position), textAlign: TextAlign.center,
-          style: TextStyle(color: _pnlColor(position), fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightMedium))),
+          style: TextStyle(color: _pnlColor(position), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
         Expanded(child: Text(_pnlStr(m2m), textAlign: TextAlign.center,
-          style: TextStyle(color: _pnlColor(m2m), fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightBold))),
+          style: TextStyle(color: _pnlColor(m2m), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightBold))),
       ]),
     );
   }

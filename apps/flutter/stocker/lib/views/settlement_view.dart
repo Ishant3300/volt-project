@@ -82,10 +82,10 @@ class _SettlementViewState extends State<SettlementView> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Start Settlement?', style: TextStyle(fontFamily: 'Inter', fontSize: kFontSizeViewTitle, fontWeight: kFontWeightSemiBold)),
+        title: const Text('Start Settlement?', style: TextStyle(fontFamily: kFontFamily, fontSize: kFontSizeViewTitle, fontWeight: kFontWeightSemiBold)),
         content: const Text(
           'This will close all open positions at settlement price and re-open them for the new week. This action cannot be undone.',
-          style: TextStyle(fontFamily: 'Inter', fontSize: kFontSizeBody, fontWeight: kFontWeightRegular),
+          style: TextStyle(fontFamily: kFontFamily, fontSize: kFontSizeBody, fontWeight: kFontWeightRegular),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
@@ -163,7 +163,7 @@ class _SettlementViewState extends State<SettlementView> {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  const Text('Settlement', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                  const Text('Settlement', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                 ],
               ),
             ),
@@ -196,7 +196,7 @@ class _SettlementViewState extends State<SettlementView> {
                                   _phaseLabel(phase),
                                   style: TextStyle(
                                     color: isDone ? const Color(0xFF10B981) : isError ? const Color(0xFFEF4444) : Colors.black,
-                                    fontSize: kFontSizeSectionHeader, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold,
+                                    fontSize: kFontSizeSectionHeader, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold,
                                   ),
                                 ),
                               ),
@@ -224,7 +224,7 @@ class _SettlementViewState extends State<SettlementView> {
                                     Expanded(
                                       child: Text(
                                         'Loading settlement prices from database...',
-                                        style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightMedium, height: 1.4),
+                                        style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightMedium, height: 1.4),
                                       ),
                                     ),
                                   ],
@@ -244,13 +244,13 @@ class _SettlementViewState extends State<SettlementView> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('$processed / $total positions', style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightRegular)),
-                                Text('$pct%', style: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                                Text('$processed / $total positions', style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightRegular)),
+                                Text('$pct%', style: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                               ],
                             ),
                             if (currentInst.isNotEmpty) ...[
                               const SizedBox(height: 8),
-                              Text(currentInst, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightRegular), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              Text(currentInst, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightRegular), maxLines: 1, overflow: TextOverflow.ellipsis),
                             ],
                             ],
                           ],
@@ -266,7 +266,7 @@ class _SettlementViewState extends State<SettlementView> {
 
                           if (isError) ...[
                             const SizedBox(height: 12),
-                            Text(_status?['error'] ?? 'Unknown error', style: const TextStyle(color: Color(0xFFEF4444), fontSize: kFontSizeCaption, fontFamily: 'Inter')),
+                            Text(_status?['error'] ?? 'Unknown error', style: const TextStyle(color: Color(0xFFEF4444), fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
                           ],
                         ],
                       ),
@@ -289,7 +289,7 @@ class _SettlementViewState extends State<SettlementView> {
                             ),
                             child: _isLoading
                                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                : Text(isDone ? 'Run Again' : 'Start Settlement', style: const TextStyle(color: Colors.white, fontSize: kFontSizeButtonText, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                                : Text(isDone ? 'Run Again' : 'Start Settlement', style: const TextStyle(color: Colors.white, fontSize: kFontSizeButtonText, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                           ),
                         ),
                       ),
@@ -309,8 +309,8 @@ class _SettlementViewState extends State<SettlementView> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightRegular)),
-          Text(value, style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+          Text(label, style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightRegular)),
+          Text(value, style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
         ],
       ),
     );

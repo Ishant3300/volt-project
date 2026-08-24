@@ -206,7 +206,7 @@ class _ChartViewState extends State<ChartView> {
               style: const TextStyle(
                 color: Colors.black,
                 fontSize: kFontSizeViewTitle,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightSemiBold,
               ),
             ),
@@ -216,7 +216,7 @@ class _ChartViewState extends State<ChartView> {
                 style: const TextStyle(
                   color: Color(0xFF8E8E93),
                   fontSize: kFontSizeSubtitle,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightRegular,
                 ),
               ),
@@ -263,7 +263,7 @@ class _ChartViewState extends State<ChartView> {
                         style: TextStyle(
                           color: isSelected ? Colors.white : Colors.black,
                           fontSize: kFontSizeBody,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
                         ),
                       ),
@@ -304,7 +304,7 @@ class _ChartViewState extends State<ChartView> {
                       style: TextStyle(
                         color: isSelected ? Colors.white : Colors.black,
                         fontSize: kFontSizeSubtitle,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium,
                       ),
                     ),

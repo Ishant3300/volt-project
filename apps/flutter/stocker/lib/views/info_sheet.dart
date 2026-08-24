@@ -98,7 +98,7 @@ class _InfoSheetState extends State<InfoSheet> {
             style: TextStyle(
               color: Colors.black,
               fontSize: kFontSizeSheetTitle,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,
             ),
           ),
@@ -149,7 +149,7 @@ class _InfoSheetState extends State<InfoSheet> {
                   style: TextStyle(
                     color: Colors.black,
                     fontSize: kFontSizeButtonText,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightSemiBold,
                   ),
                 ),
@@ -176,7 +176,7 @@ class _InfoSheetState extends State<InfoSheet> {
             style: const TextStyle(
               color: Color(0xFF64748B),
               fontSize: kFontSizeSheetBody,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightMedium,
             ),
           ),
@@ -187,7 +187,7 @@ class _InfoSheetState extends State<InfoSheet> {
               style: const TextStyle(
                 color: Colors.black,
                 fontSize: kFontSizeSheetBody,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightSemiBold,
               ),
               maxLines: 1,

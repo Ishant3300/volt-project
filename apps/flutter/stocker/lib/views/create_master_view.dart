@@ -502,7 +502,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                     style: const TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeViewTitle,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
                     ),
                   ),
@@ -672,7 +672,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                                       style: TextStyle(
                                           color: Color(0xFF94A3B8),
                                           fontSize: kFontSizeNavLabel,
-                                          fontFamily: 'Inter',
+                                          fontFamily: kFontFamily,
                                           fontWeight: kFontWeightSemiBold,
                                           letterSpacing: 0.5)),
                                 ),
@@ -683,7 +683,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                                         style: TextStyle(
                                             color: Color(0xFF94A3B8),
                                             fontSize: kFontSizeNavLabel,
-                                            fontFamily: 'Inter',
+                                            fontFamily: kFontFamily,
                                             fontWeight: kFontWeightSemiBold,
                                             letterSpacing: 0.5)),
                                   ),
@@ -695,7 +695,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                                         style: TextStyle(
                                             color: Color(0xFF94A3B8),
                                             fontSize: kFontSizeNavLabel,
-                                            fontFamily: 'Inter',
+                                            fontFamily: kFontFamily,
                                             fontWeight: kFontWeightSemiBold,
                                             letterSpacing: 0.5)),
                                   ),
@@ -764,7 +764,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: kFontSizeButtonText,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightSemiBold,
                                     letterSpacing: 0.3,
                                   ),
@@ -792,7 +792,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
       style: const TextStyle(
         color: Color(0xFF94A3B8),
         fontSize: kFontSizeNavLabel,
-        fontFamily: 'Inter',
+        fontFamily: kFontFamily,
         fontWeight: kFontWeightSemiBold,
         letterSpacing: 0.5,
       ),
@@ -844,7 +844,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               style: const TextStyle(
                 color: Color(0xFF94A3B8),
                 fontSize: kFontSizeBodySmall,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightMedium,
               ),
             ),
@@ -860,7 +860,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                   : const TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeBody,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium,
                     ),
               decoration: InputDecoration(
@@ -869,7 +869,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 hintStyle: const TextStyle(
                   color: Color(0xFFCBD5E1),
                   fontSize: kFontSizeBody,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightRegular,
                 ),
                 isDense: true,
@@ -901,7 +901,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               style: const TextStyle(
                 color: Color(0xFF94A3B8),
                 fontSize: kFontSizeBodySmall,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightMedium,
               ),
             ),
@@ -915,7 +915,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                   style: const TextStyle(
                     color: Color(0xFFCBD5E1),
                     fontSize: kFontSizeBody,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightRegular,
                   ),
                 ),
@@ -925,7 +925,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 style: const TextStyle(
                   color: Colors.black,
                   fontSize: kFontSizeBody,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightMedium,
                 ),
                 dropdownColor: Colors.white,
@@ -969,7 +969,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 style: const TextStyle(
                   color: Colors.black,
                   fontSize: kFontSizeBody,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightSemiBold,
                 ),
               ),
@@ -988,7 +988,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                   style: const TextStyle(
                     color: Colors.black,
                     fontSize: kFontSizeBody,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightMedium,
                   ),
                   decoration: InputDecoration(
@@ -997,7 +997,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                     hintStyle: const TextStyle(
                         color: Color(0xFFCBD5E1),
                         fontSize: kFontSizeBody,
-                        fontFamily: 'Inter'),
+                        fontFamily: kFontFamily),
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(vertical: 10),
                   ),
@@ -1021,7 +1021,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                         style: const TextStyle(
                           color: kBrandPrimary,
                           fontSize: kFontSizeSubtitle,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold,
                         ),
                       ),
@@ -1046,7 +1046,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                               ? const Color(0xFFEF4444)
                               : const Color(0xFF10B981),
                           fontSize: kFontSizeSubtitle,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold,
                         ),
                       ),
@@ -1088,7 +1088,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                   style: const TextStyle(
                     color: kBrandPrimary,
                     fontSize: kFontSizeNavLabel,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightSemiBold,
                   ),
                 ),
@@ -1124,7 +1124,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                     style: TextStyle(
                       color: selected ? Colors.white : const Color(0xFF64748B),
                       fontSize: kFontSizeBodySmall,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
                     ),
                   ),
@@ -1157,7 +1157,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               style: const TextStyle(
                 color: Colors.black,
                 fontSize: kFontSizeBodySmall,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightMedium,
               ),
             ),
@@ -1187,7 +1187,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                         ? kBrandPrimary
                         : const Color(0xFF10B981),
                     fontSize: kFontSizeCaption,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightSemiBold,
                   ),
                 ),
@@ -1212,7 +1212,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 style: const TextStyle(
                   color: Colors.black,
                   fontSize: kFontSizeBodySmall,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightMedium,
                 ),
                 decoration: const InputDecoration(
@@ -1249,7 +1249,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                     style: TextStyle(
                         color: Color(0xFF94A3B8),
                         fontSize: kFontSizeBodySmall,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium),
                   ),
                 )
@@ -1282,7 +1282,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                   style: const TextStyle(
                       color: Color(0xFF94A3B8),
                       fontSize: kFontSizeBodySmall,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium),
                 ),
               ),
@@ -1295,7 +1295,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                   style: const TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeBody,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium),
                   decoration: const InputDecoration(
                     border: InputBorder.none,
@@ -1303,7 +1303,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                     hintStyle: TextStyle(
                         color: Color(0xFFCBD5E1),
                         fontSize: kFontSizeBody,
-                        fontFamily: 'Inter'),
+                        fontFamily: kFontFamily),
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
                   ),
@@ -1322,7 +1322,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 style: const TextStyle(
                   color: kBrandPrimary,
                   fontSize: 11,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -1344,7 +1344,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             style: const TextStyle(
               color: Colors.black,
               fontSize: kFontSizeBody,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightMedium,
             ),
           ),

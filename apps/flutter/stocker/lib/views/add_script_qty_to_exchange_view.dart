@@ -207,9 +207,9 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Script Quantity',
-              style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+              style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
           Text('${widget.exchange} · ${_instruments.length} instruments',
-              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: 'Inter')),
+              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily)),
         ])),
       ]),
     );
@@ -231,7 +231,7 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
           _isLotBased
               ? 'Values are in lots. Tap save icon to update each instrument.'
               : 'Values are in quantity. Tap save icon to update each instrument.',
-          style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeSubtitle, fontFamily: 'Inter'),
+          style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily),
         )),
       ]),
     );
@@ -250,9 +250,9 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
           const Padding(padding: EdgeInsets.only(left: 14, right: 8), child: Icon(Icons.search, color: Color(0xFF94A3B8), size: kIconSizeMedium)),
           Expanded(child: TextField(
             controller: _searchCtrl,
-            style: const TextStyle(fontSize: kFontSizeBody, color: Color(0xFF0F172A), fontFamily: 'Inter'),
+            style: const TextStyle(fontSize: kFontSizeBody, color: Color(0xFF0F172A), fontFamily: kFontFamily),
             decoration: const InputDecoration(
-              hintText: 'Filter instruments...', hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: 'Inter'),
+              hintText: 'Filter instruments...', hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: kFontFamily),
               border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 12),
             ),
             onChanged: _filterInstruments,
@@ -273,11 +273,11 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(8)),
       child: Row(children: [
-        const Expanded(flex: 3, child: Text('SCRIPT', style: TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: Color(0xFF94A3B8), fontFamily: 'Inter', letterSpacing: 0.5))),
+        const Expanded(flex: 3, child: Text('SCRIPT', style: TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: Color(0xFF94A3B8), fontFamily: kFontFamily, letterSpacing: 0.5))),
         const SizedBox(width: 4),
-        Expanded(flex: 2, child: Text(_qtyLabel.toUpperCase(), style: const TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: Color(0xFF94A3B8), fontFamily: 'Inter', letterSpacing: 0.5))),
+        Expanded(flex: 2, child: Text(_qtyLabel.toUpperCase(), style: const TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: Color(0xFF94A3B8), fontFamily: kFontFamily, letterSpacing: 0.5))),
         const SizedBox(width: 4),
-        Expanded(flex: 2, child: Text(_brkLabel.toUpperCase(), style: const TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: Color(0xFF94A3B8), fontFamily: 'Inter', letterSpacing: 0.5))),
+        Expanded(flex: 2, child: Text(_brkLabel.toUpperCase(), style: const TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: Color(0xFF94A3B8), fontFamily: kFontFamily, letterSpacing: 0.5))),
         const SizedBox(width: 4),
         const SizedBox(width: 36),
       ]),
@@ -288,13 +288,13 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
     return const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
       CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5),
       SizedBox(height: 16),
-      Text('Loading instruments...', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: 'Inter')),
+      Text('Loading instruments...', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
     ]));
   }
 
   Widget _buildList() {
     if (_filteredInstruments.isEmpty) {
-      return const Center(child: Text('No instruments found', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: 'Inter')));
+      return const Center(child: Text('No instruments found', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: kFontFamily)));
     }
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -311,11 +311,11 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
           child: Row(children: [
             Expanded(flex: 3, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(entry.scriptName,
-                  style: const TextStyle(fontSize: kFontSizeBodySmall, fontWeight: kFontWeightSemiBold, color: Color(0xFF0F172A), fontFamily: 'Inter'),
+                  style: const TextStyle(fontSize: kFontSizeBodySmall, fontWeight: kFontWeightSemiBold, color: Color(0xFF0F172A), fontFamily: kFontFamily),
                   maxLines: 1, overflow: TextOverflow.ellipsis),
               if (!_isLotBased)
                 Text('Lot: ${entry.lotSize}',
-                    style: const TextStyle(fontSize: kFontSizeCaption, color: Color(0xFF94A3B8), fontFamily: 'Inter')),
+                    style: const TextStyle(fontSize: kFontSizeCaption, color: Color(0xFF94A3B8), fontFamily: kFontFamily)),
             ])),
             const SizedBox(width: 4),
             Expanded(flex: 2, child: _buildCompactInput(entry.maxQtyCtrl, () => setState(() => entry.isModified = true))),
@@ -347,7 +347,7 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
         controller: ctrl,
         keyboardType: TextInputType.number,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        style: const TextStyle(fontSize: kFontSizeBodySmall, fontWeight: kFontWeightSemiBold, color: Color(0xFF0F172A), fontFamily: 'Inter'),
+        style: const TextStyle(fontSize: kFontSizeBodySmall, fontWeight: kFontWeightSemiBold, color: Color(0xFF0F172A), fontFamily: kFontFamily),
         decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 10)),
         onChanged: (_) => onChanged(),
       ),

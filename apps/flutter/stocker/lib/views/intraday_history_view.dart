@@ -109,7 +109,7 @@ class _IntradayHistoryViewState extends State<IntradayHistoryView> {
                 ),
               ),
               const SizedBox(width: 12),
-              const Text('Intraday History', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+              const Text('Intraday History', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
             ]),
           ),
           // Controls
@@ -139,7 +139,7 @@ class _IntradayHistoryViewState extends State<IntradayHistoryView> {
                       decoration: BoxDecoration(color: kBrandPrimary, borderRadius: BorderRadius.circular(12)),
                       child: _isLoading
                           ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Text('View', style: TextStyle(color: Colors.white, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                          : const Text('View', style: TextStyle(color: Colors.white, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                     ),
                   ),
                 ),
@@ -150,7 +150,7 @@ class _IntradayHistoryViewState extends State<IntradayHistoryView> {
                     height: 44, padding: const EdgeInsets.symmetric(horizontal: 20), alignment: Alignment.center,
                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: const Color(0xFFE2E8F0))),
-                    child: const Text('Clear', style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                    child: const Text('Clear', style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                   ),
                 ),
               ]),
@@ -178,7 +178,7 @@ class _IntradayHistoryViewState extends State<IntradayHistoryView> {
                     children: [
                       Text(labels[i], style: TextStyle(
                         color: isSorted ? kBrandPrimary : const Color(0xFF94A3B8),
-                        fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
+                        fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
                       const SizedBox(width: 2),
                       Icon(isSorted ? (_sortAsc ? Icons.arrow_upward : Icons.arrow_downward) : Icons.unfold_more,
                         size: 12, color: isSorted ? kBrandPrimary : const Color(0xFF94A3B8)),
@@ -195,7 +195,7 @@ class _IntradayHistoryViewState extends State<IntradayHistoryView> {
                 : _candles.isEmpty
                     ? Center(child: Text(
                         _selectedInst == null ? 'Select an instrument and tap View' : 'No data available',
-                        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: 'Inter')))
+                        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)))
                     : Container(
                         margin: const EdgeInsets.symmetric(horizontal: 16),
                         decoration: const BoxDecoration(
@@ -224,7 +224,7 @@ class _IntradayHistoryViewState extends State<IntradayHistoryView> {
         child: DropdownButton<T>(
           value: value,
           icon: const Icon(Icons.keyboard_arrow_down, size: 18, color: Color(0xFF94A3B8)),
-          style: const TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold),
+          style: const TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
           items: items.map((e) => DropdownMenuItem(value: e, child: Text(e.toString()))).toList(),
           onChanged: onChanged,
         ),
@@ -240,10 +240,10 @@ class _IntradayHistoryViewState extends State<IntradayHistoryView> {
       child: TextField(
         controller: _instCtrl,
         onChanged: _search,
-        style: const TextStyle(fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
+        style: const TextStyle(fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
         decoration: InputDecoration(
           hintText: 'Search instrument...',
-          hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall, fontFamily: 'Inter'),
+          hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily),
           suffixIcon: _isSearching
               ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 16, height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2, color: kBrandPrimary)))
@@ -283,13 +283,13 @@ class _IntradayHistoryViewState extends State<IntradayHistoryView> {
               decoration: BoxDecoration(border: Border(bottom: BorderSide(color: const Color(0xFFF1F5F9), width: i < _instResults.length - 1 ? 1 : 0))),
               child: Row(children: [
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(sym, style: const TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: -0.3)),
-                  if (name.isNotEmpty) Text(name, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: 'Inter'), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(sym, style: const TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: -0.3)),
+                  if (name.isNotEmpty) Text(name, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: kFontFamily), maxLines: 1, overflow: TextOverflow.ellipsis),
                 ])),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6)),
-                  child: Text(type, style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                  child: Text(type, style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                 ),
               ]),
             ),
@@ -330,7 +330,7 @@ class _IntradayHistoryViewState extends State<IntradayHistoryView> {
       child: Text(text, textAlign: TextAlign.center,
         style: TextStyle(
           color: isBold ? Colors.black : const Color(0xFF334155),
-          fontSize: kFontSizeSubtitle, fontFamily: 'Inter',
+          fontSize: kFontSizeSubtitle, fontFamily: kFontFamily,
           fontWeight: isBold ? kFontWeightSemiBold : kFontWeightRegular)),
     );
   }

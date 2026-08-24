@@ -50,7 +50,7 @@ class SettingsView extends StatelessWidget {
                       style: TextStyle(
                         color: Color(0xFF0F172A),
                         fontSize: kFontSizePageTitle,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightBold,
                         letterSpacing: -0.5,
                       ),

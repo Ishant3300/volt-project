@@ -152,7 +152,7 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
             style: TextStyle(
               color: Colors.black,
               fontSize: kFontSizeSheetTitle,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,
             ),
           ),
@@ -183,7 +183,7 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
                       style: TextStyle(
                         color: _selectedTab == 0 ? Colors.white : const Color(0xFF333333),
                         fontSize: kFontSizeSectionHeader,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium,
                         height: 1.25,
                       ),
@@ -212,7 +212,7 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
                       style: TextStyle(
                         color: _selectedTab == 1 ? Colors.white : const Color(0xFF333333),
                         fontSize: kFontSizeSectionHeader,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium,
                         height: 1.25,
                       ),
@@ -238,7 +238,7 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
               style: TextStyle(
                 color: Colors.black,
                 fontSize: kFontSizeSectionHeader,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightRegular,
               ),
             ),
@@ -252,7 +252,7 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
             style: TextStyle(
               color: const Color(0xFF2B2B2B),
               fontSize: kFontSizeSectionHeader,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightMedium,
             ),
           ),
@@ -265,7 +265,7 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
               hintStyle: TextStyle(
                 color: const Color(0xFF8E8E93),
                 fontSize: kFontSizeSectionHeader,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightRegular,
               ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -292,7 +292,7 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
             style: TextStyle(
               color: const Color(0xFF2B2B2B),
               fontSize: kFontSizeSectionHeader,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightMedium,
             ),
           ),
@@ -305,7 +305,7 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
               hintStyle: TextStyle(
                 color: const Color(0xFF8E8E93),
                 fontSize: kFontSizeSectionHeader,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightRegular,
               ),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -344,7 +344,7 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
                       style: TextStyle(
                         color: Colors.black,
                         fontSize: kFontSizeButtonText,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
                         height: 1.25,
                       ),
@@ -381,7 +381,7 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: kFontSizeButtonText,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightSemiBold,
                               height: 1.25,
                             ),

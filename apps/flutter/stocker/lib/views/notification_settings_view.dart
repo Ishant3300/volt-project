@@ -96,7 +96,7 @@ class _NotificationSettingsViewState extends State<NotificationSettingsView> {
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
               child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium))),
           const SizedBox(width: 12),
-          const Text('Notification Settings', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+          const Text('Notification Settings', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
         ])),
 
         Expanded(child: _isLoading
@@ -121,7 +121,7 @@ class _NotificationSettingsViewState extends State<NotificationSettingsView> {
             onTap: _reset,
             child: Container(height: 48, alignment: Alignment.center,
               decoration: BoxDecoration(color: const Color(0xFFE2E8F0), borderRadius: BorderRadius.circular(12)),
-              child: const Text('RESET', style: TextStyle(color: Color(0xFF334155), fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold))),
+              child: const Text('RESET', style: TextStyle(color: Color(0xFF334155), fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
           )),
           const SizedBox(width: 12),
           Expanded(child: GestureDetector(
@@ -130,7 +130,7 @@ class _NotificationSettingsViewState extends State<NotificationSettingsView> {
               decoration: BoxDecoration(color: kBrandPrimary, borderRadius: BorderRadius.circular(12)),
               child: _isSaving
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('UPDATE', style: TextStyle(color: Colors.white, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold))),
+                : const Text('UPDATE', style: TextStyle(color: Colors.white, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
           )),
         ])),
       ])),
@@ -139,7 +139,7 @@ class _NotificationSettingsViewState extends State<NotificationSettingsView> {
 
   Widget _toggleRow(String label, bool value, ValueChanged<bool> onChanged) {
     return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-      Expanded(child: Text(label, style: const TextStyle(color: Color(0xFF334155), fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightMedium))),
+      Expanded(child: Text(label, style: const TextStyle(color: Color(0xFF334155), fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
       GestureDetector(
         onTap: () => onChanged(!value),
         child: AnimatedContainer(

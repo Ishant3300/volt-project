@@ -176,7 +176,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                       style: const TextStyle(
                         color: Colors.black,
                         fontSize: kFontSizeSectionHeader,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
                         letterSpacing: -0.3,
                       ),
@@ -195,7 +195,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                       style: const TextStyle(
                         color: kBrandPrimary,
                         fontSize: kFontSizeBodySmall,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightBold,
                       ),
                     ),
@@ -235,7 +235,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                         style: const TextStyle(
                           color: Colors.black,
                           fontSize: kFontSizeBody,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightRegular,
                         ),
                         decoration: const InputDecoration(
@@ -244,7 +244,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                           hintStyle: TextStyle(
                             color: Color(0xFF94A3B8),
                             fontSize: kFontSizeBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightRegular,
                           ),
                           isDense: true,
@@ -373,7 +373,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: kFontSizeButtonText,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold,
                         ),
                       ),
@@ -403,7 +403,7 @@ class _UserManagementViewState extends State<UserManagementView> {
             style: TextStyle(
               color: color,
               fontSize: kFontSizeSubtitle,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightBold,
             ),
           ),
@@ -413,7 +413,7 @@ class _UserManagementViewState extends State<UserManagementView> {
             style: TextStyle(
               color: color,
               fontSize: kFontSizeSubtitle,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightMedium,
             ),
           ),
@@ -450,7 +450,7 @@ class _UserManagementViewState extends State<UserManagementView> {
             style: const TextStyle(
               color: Color(0xFF475569),
               fontSize: kFontSizeBody,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightMedium,
             ),
           ),
@@ -468,7 +468,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: kFontSizeBody,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightSemiBold,
                 ),
               ),
@@ -509,7 +509,7 @@ class _UserManagementViewState extends State<UserManagementView> {
             style: const TextStyle(
               color: Color(0xFF475569),
               fontSize: kFontSizeBody,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightMedium,
             ),
           ),
@@ -550,7 +550,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                   style: TextStyle(
                     color: kBrandPrimary,
                     fontSize: kFontSizeSectionHeader,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightBold,
                   ),
                 ),
@@ -567,7 +567,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                     style: const TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeName,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightName,
                       letterSpacing: -0.3,
                     ),
@@ -589,7 +589,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: kFontSizeBadge,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
                           ),
                         ),
@@ -607,7 +607,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                           style: TextStyle(
                             color: kBrandPrimary,
                             fontSize: kFontSizeBadge,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightBold,
                             letterSpacing: 0.5,
                           ),
@@ -634,7 +634,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: kFontSizeNavLabel,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
                         ),
                       ),
@@ -650,7 +650,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: kFontSizeNavLabel,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
                         ),
                       ),
@@ -699,7 +699,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                   style: TextStyle(
                     color: Color(0xFFD97706),
                     fontSize: kFontSizeSectionHeader,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightBold,
                   ),
                 ),
@@ -716,7 +716,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                     style: const TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeName,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightName,
                       letterSpacing: -0.3,
                     ),
@@ -738,7 +738,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: kFontSizeBadge,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
                           ),
                         ),
@@ -756,7 +756,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                           style: TextStyle(
                             color: Color(0xFFD97706),
                             fontSize: kFontSizeBadge,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightBold,
                             letterSpacing: 0.5,
                           ),
@@ -783,7 +783,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: kFontSizeNavLabel,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
                         ),
                       ),
@@ -799,7 +799,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: kFontSizeNavLabel,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
                         ),
                       ),
@@ -855,7 +855,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                   style: TextStyle(
                     color: Colors.black,
                     fontSize: kFontSizeSectionHeader,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightSemiBold,
                   ),
                 ),
@@ -921,7 +921,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                           style: TextStyle(
                             color: Color(0xFF475569),
                             fontSize: kFontSizeButtonText,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
                           ),
                         ),
@@ -975,7 +975,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                     style: const TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeBody,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
                     ),
                   ),
@@ -985,7 +985,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                     style: const TextStyle(
                       color: Color(0xFF94A3B8),
                       fontSize: kFontSizeSubtitle,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightRegular,
                     ),
                   ),

@@ -225,7 +225,7 @@ class _IntradaySquareoffBottomSheetState extends State<IntradaySquareoffBottomSh
                         style: TextStyle(
                           color: Colors.black,
                           fontSize: kFontSizeSheetTitle,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold,
                         ),
                       ),
@@ -275,7 +275,7 @@ class _IntradaySquareoffBottomSheetState extends State<IntradaySquareoffBottomSh
                                   style: TextStyle(
                                     color: const Color(0xFF2B2B2B),
                                     fontSize: kFontSizeSectionHeader,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightMedium,
                                   ),
                                 ),
@@ -336,7 +336,7 @@ class _IntradaySquareoffBottomSheetState extends State<IntradaySquareoffBottomSh
                             style: TextStyle(
                               color: Colors.black,
                               fontSize: kFontSizeButtonText,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightSemiBold,
                               height: 1.25,
                             ),
@@ -360,7 +360,7 @@ class _IntradaySquareoffBottomSheetState extends State<IntradaySquareoffBottomSh
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: kFontSizeButtonText,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightSemiBold,
                               height: 1.25,
                             ),

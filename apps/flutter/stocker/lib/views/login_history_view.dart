@@ -177,14 +177,14 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
                       style: TextStyle(
                           color: Colors.black,
                           fontSize: kFontSizeViewTitle,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold)),
                   const Spacer(),
                   Text(_isLoading ? '...' : '${_filtered.length} of $_total',
                       style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: kFontSizeSubtitle,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium)),
                 ],
               ),
@@ -207,14 +207,14 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
                 controller: _searchController,
                 style: const TextStyle(
                     fontSize: kFontSizeBody,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightMedium),
                 decoration: const InputDecoration(
                   hintText: 'Search by name or username...',
                   hintStyle: TextStyle(
                       color: Color(0xFFCBD5E1),
                       fontSize: kFontSizeBody,
-                      fontFamily: 'Inter'),
+                      fontFamily: kFontFamily),
                   prefixIcon: Icon(Icons.search,
                       color: Color(0xFF94A3B8), size: kIconSizeMedium),
                   contentPadding:
@@ -290,7 +290,7 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
               style: TextStyle(
                   color: Color(0xFF475569),
                   fontSize: kFontSizeButtonText,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightSemiBold)),
         ],
       ),
@@ -349,7 +349,7 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
                         style: TextStyle(
                             color: roleColor,
                             fontSize: kFontSizeBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightBold))),
               ),
               const SizedBox(width: 10),
@@ -358,7 +358,7 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
                     style: const TextStyle(
                         color: Colors.black,
                         fontSize: kFontSizeBody,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold)),
               ),
               Container(
@@ -370,7 +370,7 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
                     style: TextStyle(
                         color: roleColor,
                         fontSize: kFontSizeBadge,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightBold,
                         letterSpacing: 0.5)),
               ),
@@ -405,7 +405,7 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
               style: const TextStyle(
                   color: Color(0xFF64748B),
                   fontSize: kFontSizeNavLabel,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightMedium),
               overflow: TextOverflow.ellipsis,
             ),

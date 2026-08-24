@@ -26,7 +26,7 @@ class TermsView extends StatelessWidget {
                     style: TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeSectionHeader,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
                     ),
                   ),
@@ -50,7 +50,7 @@ class TermsView extends StatelessWidget {
                     style: TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeBody,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightRegular,
                       height: 1.43,
                     ),

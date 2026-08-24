@@ -204,7 +204,7 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
                     'Set New Password',
                     style: TextStyle(
                       fontSize: kFontSizePageTitle,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightBold,
                       color: Color(0xFF0F172A),
                     ),
@@ -217,7 +217,7 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: kFontSizeBody,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightRegular,
                       color: Color(0xFF64748B),
                     ),
@@ -247,7 +247,7 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
                           'New Password',
                           style: TextStyle(
                             fontSize: kFontSizeBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
                             color: Color(0xFF334155),
                           ),
@@ -258,7 +258,7 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
                           obscureText: _obscureNew,
                           style: const TextStyle(
                               fontSize: kFontSizeButtonText,
-                              fontFamily: 'Inter'),
+                              fontFamily: kFontFamily),
                           decoration: InputDecoration(
                             hintText: 'Enter new password',
                             hintStyle: const TextStyle(
@@ -294,7 +294,7 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
                           'Confirm Password',
                           style: TextStyle(
                             fontSize: kFontSizeBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
                             color: Color(0xFF334155),
                           ),
@@ -305,7 +305,7 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
                           obscureText: _obscureConfirm,
                           style: const TextStyle(
                               fontSize: kFontSizeButtonText,
-                              fontFamily: 'Inter'),
+                              fontFamily: kFontFamily),
                           decoration: InputDecoration(
                             hintText: 'Confirm new password',
                             hintStyle: const TextStyle(
@@ -372,7 +372,7 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: kFontSizeButtonText,
-                                  fontFamily: 'Inter',
+                                  fontFamily: kFontFamily,
                                   fontWeight: kFontWeightBold,
                                 ),
                               ),
@@ -390,7 +390,7 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
                       style: TextStyle(
                         color: Color(0xFF64748B),
                         fontSize: kFontSizeBody,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
                         decoration: TextDecoration.underline,
                       ),

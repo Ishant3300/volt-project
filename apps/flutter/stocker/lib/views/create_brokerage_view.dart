@@ -175,7 +175,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                     borderRadius: BorderRadius.circular(20)),
                 title: const Text('Add Brokerage',
                     style: TextStyle(
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
                         fontSize: kFontSizeSectionHeader)),
                 content: Column(
@@ -186,7 +186,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                           style: const TextStyle(
                               color: kBrandPrimary,
                               fontSize: kFontSizeBody,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightSemiBold,
                               letterSpacing: -0.3)),
                       const SizedBox(height: 14),
@@ -200,7 +200,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                       onPressed: adding ? null : () => Navigator.pop(ctx),
                       child: const Text('Cancel',
                           style: TextStyle(
-                              color: Color(0xFF94A3B8), fontFamily: 'Inter'))),
+                              color: Color(0xFF94A3B8), fontFamily: kFontFamily))),
                   GestureDetector(
                     onTap: adding
                         ? null
@@ -260,7 +260,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                           : const Text('Add',
                               style: TextStyle(
                                   color: Colors.white,
-                                  fontFamily: 'Inter',
+                                  fontFamily: kFontFamily,
                                   fontWeight: kFontWeightSemiBold,
                                   fontSize: kFontSizeBodySmall)),
                     ),
@@ -313,7 +313,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
             style: TextStyle(
                 color: Colors.black,
                 fontSize: kFontSizeViewTitle,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightSemiBold)),
       ]),
     );
@@ -349,7 +349,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                   style: TextStyle(
                       color: sel ? Colors.white : const Color(0xFF64748B),
                       fontSize: kFontSizeBodySmall,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold)),
             ),
           );
@@ -383,14 +383,14 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
             style: const TextStyle(
                 fontSize: kFontSizeBody,
                 color: Color(0xFF0F172A),
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightRegular),
             decoration: const InputDecoration(
                 hintText: 'Search instruments...',
                 hintStyle: TextStyle(
                     color: Color(0xFF94A3B8),
                     fontSize: kFontSizeBody,
-                    fontFamily: 'Inter'),
+                    fontFamily: kFontFamily),
                 border: InputBorder.none,
                 isDense: true,
                 contentPadding: EdgeInsets.symmetric(vertical: 14)),
@@ -426,7 +426,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
               style: TextStyle(
                   color: Color(0xFF94A3B8),
                   fontSize: kFontSizeBodySmall,
-                  fontFamily: 'Inter')));
+                  fontFamily: kFontFamily)));
     }
     if (_isSearching && _groupedResults.isEmpty) {
       return const Center(
@@ -439,7 +439,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
               style: TextStyle(
                   color: Color(0xFF94A3B8),
                   fontSize: kFontSizeBodySmall,
-                  fontFamily: 'Inter')));
+                  fontFamily: kFontFamily)));
     }
     return Stack(children: [
       Container(
@@ -486,7 +486,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                               fontSize: kFontSizeCaption,
                               fontWeight: kFontWeightSemiBold,
                               color: Color(0xFF94A3B8),
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               letterSpacing: 0.5))),
                   ...items.asMap().entries.map((e) => Column(children: [
                         _buildRow(e.value),
@@ -522,7 +522,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                       fontSize: kFontSizeSubtitle,
                       fontWeight: kFontWeightMedium,
                       color: Color(0xFF475569),
-                      fontFamily: 'Inter')),
+                      fontFamily: kFontFamily)),
             ))),
     ]);
   }
@@ -553,7 +553,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                       fontSize: kFontSizeCaption,
                       fontWeight: kFontWeightSemiBold,
                       color: typeColor,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       letterSpacing: 0.3))),
           const SizedBox(width: 12),
           Expanded(
@@ -567,7 +567,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                       style: const TextStyle(
                           fontSize: kFontSizeCaption,
                           color: Color(0xFF94A3B8),
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium)),
                   const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 5),
@@ -578,7 +578,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                       style: const TextStyle(
                           fontSize: kFontSizeCaption,
                           color: Color(0xFF94A3B8),
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium)),
                 ]),
               ])),
@@ -596,7 +596,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
               fontWeight: kFontWeightSemiBold,
               fontSize: kFontSizeBody,
               color: Color(0xFF0F172A),
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               letterSpacing: -0.3),
           maxLines: 1,
           overflow: TextOverflow.ellipsis);
@@ -620,7 +620,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
               fontWeight: kFontWeightSemiBold,
               fontSize: kFontSizeBody,
               color: Color(0xFF0F172A),
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               letterSpacing: -0.3),
           maxLines: 1,
           overflow: TextOverflow.ellipsis);
@@ -652,7 +652,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                 fontWeight: kFontWeightSemiBold,
                 fontSize: kFontSizeBody,
                 color: Color(0xFF0F172A),
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 letterSpacing: -0.3),
             children: spans));
   }
@@ -675,7 +675,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                 style: const TextStyle(
                     color: Colors.black,
                     fontSize: kFontSizeBodySmall,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightMedium),
                 items: items
                     .map((k) => DropdownMenuItem(value: k, child: Text(k)))
@@ -688,11 +688,11 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
         controller: ctrl,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         style: const TextStyle(
-            fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
+            fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
         decoration: InputDecoration(
             hintText: hint,
             hintStyle: const TextStyle(
-                color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall, fontFamily: 'Inter'),
+                color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             filled: true,

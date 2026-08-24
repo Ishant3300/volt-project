@@ -217,8 +217,8 @@ class _TransactionPageState extends State<TransactionPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Transactions', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
-                        Text(_targetName, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
+                        const Text('Transactions', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                        Text(_targetName, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
                       ],
                     ),
                   ),
@@ -271,7 +271,7 @@ class _TransactionPageState extends State<TransactionPage> {
             textAlign: TextAlign.center,
             style: TextStyle(
               color: selected ? Colors.white : const Color(0xFF94A3B8),
-              fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold,
+              fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold,
             ),
           ),
         ),
@@ -302,7 +302,7 @@ class _TransactionPageState extends State<TransactionPage> {
                     child: const Icon(Icons.receipt_long, size: 32, color: Color(0xFFCBD5E1)),
                   ),
                   const SizedBox(height: 20),
-                  const Text('No transactions yet', style: TextStyle(color: Color(0xFF475569), fontSize: kFontSizeSectionHeader, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                  const Text('No transactions yet', style: TextStyle(color: Color(0xFF475569), fontSize: kFontSizeSectionHeader, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                 ],
               ),
             ),
@@ -394,11 +394,11 @@ class _TransactionPageState extends State<TransactionPage> {
                   children: [
                     Text(
                       isCredit ? 'Credit' : 'Debit',
-                      style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold),
+                      style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
                     ),
                     Text(
                       '${isCredit ? '+' : '-'}${amount.toStringAsFixed(2)}',
-                      style: TextStyle(color: typeColor, fontSize: kFontSizeBody, fontFamily: 'Inter', fontWeight: kFontWeightBold),
+                      style: TextStyle(color: typeColor, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightBold),
                     ),
                   ],
                 ),
@@ -406,14 +406,14 @@ class _TransactionPageState extends State<TransactionPage> {
                 // Row 2: date + note
                 Row(
                   children: [
-                    Text(formattedDate, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
+                    Text(formattedDate, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
                     if (note.isNotEmpty) ...[
                       const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 5),
                         child: Text('·', style: TextStyle(fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1))),
                       ),
                       Flexible(
-                        child: Text(note, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: 'Inter', fontWeight: kFontWeightMedium), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        child: Text(note, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightMedium), maxLines: 1, overflow: TextOverflow.ellipsis),
                       ),
                     ],
                   ],
@@ -422,7 +422,7 @@ class _TransactionPageState extends State<TransactionPage> {
                 // Row 3: balance before → after
                 Text(
                   '${balBefore.toStringAsFixed(2)} → ${balAfter.toStringAsFixed(2)}',
-                  style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
+                  style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
                 ),
               ],
             ),
@@ -468,23 +468,23 @@ class _TransactionPageState extends State<TransactionPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Available Credit', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
-                Text('${_currentCredits.toStringAsFixed(2)}', style: const TextStyle(color: Colors.black, fontSize: kFontSizeButtonText, fontFamily: 'Inter', fontWeight: kFontWeightBold)),
+                const Text('Available Credit', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+                Text('${_currentCredits.toStringAsFixed(2)}', style: const TextStyle(color: Colors.black, fontSize: kFontSizeButtonText, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
               ],
             ),
           ),
           const SizedBox(height: 20),
 
           // Amount field
-          const Text('Amount', style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.3)),
+          const Text('Amount', style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.3)),
           const SizedBox(height: 8),
           TextField(
             controller: _amountController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: const TextStyle(fontSize: kFontSizeSectionHeader, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
+            style: const TextStyle(fontSize: kFontSizeSectionHeader, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
             decoration: InputDecoration(
               hintText: 'Enter amount',
-              hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeButtonText, fontFamily: 'Inter'),
+              hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeButtonText, fontFamily: kFontFamily),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               filled: true,
               fillColor: Colors.white,
@@ -496,15 +496,15 @@ class _TransactionPageState extends State<TransactionPage> {
           const SizedBox(height: 16),
 
           // Comment field
-          const Text('Comment', style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.3)),
+          const Text('Comment', style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.3)),
           const SizedBox(height: 8),
           TextField(
             controller: _commentController,
             maxLines: 3,
-            style: const TextStyle(fontSize: kFontSizeButtonText, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
+            style: const TextStyle(fontSize: kFontSizeButtonText, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
             decoration: InputDecoration(
               hintText: 'Add a note (optional)',
-              hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeButtonText, fontFamily: 'Inter'),
+              hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeButtonText, fontFamily: kFontFamily),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               filled: true,
               fillColor: Colors.white,
@@ -530,7 +530,7 @@ class _TransactionPageState extends State<TransactionPage> {
                   : Text(
                       _txnType == 0 ? 'Credit ${_amountController.text.isNotEmpty ? _amountController.text : "0"}' : 'Debit ${_amountController.text.isNotEmpty ? _amountController.text : "0"}',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white, fontSize: kFontSizeButtonText, fontFamily: 'Inter', fontWeight: kFontWeightBold),
+                      style: const TextStyle(color: Colors.white, fontSize: kFontSizeButtonText, fontFamily: kFontFamily, fontWeight: kFontWeightBold),
                     ),
             ),
           ),
@@ -557,7 +557,7 @@ class _TransactionPageState extends State<TransactionPage> {
             textAlign: TextAlign.center,
             style: TextStyle(
               color: selected ? Colors.white : const Color(0xFF94A3B8),
-              fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold,
+              fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold,
             ),
           ),
         ),

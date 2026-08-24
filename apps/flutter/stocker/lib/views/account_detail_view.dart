@@ -111,7 +111,7 @@ class _AccountDetailViewState extends State<AccountDetailView> {
                         style: TextStyle(
                           color: Color(0xFF0F172A),
                           fontSize: kFontSizePageTitle,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightBold,
                           letterSpacing: -0.5,
                         ),
@@ -207,7 +207,7 @@ class _AccountDetailViewState extends State<AccountDetailView> {
             style: const TextStyle(
               color: Color(0xFF64748B),
               fontSize: kFontSizeBody,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightRegular,
             ),
           ),
@@ -218,7 +218,7 @@ class _AccountDetailViewState extends State<AccountDetailView> {
               style: const TextStyle(
                 color: Color(0xFF1E293B),
                 fontSize: kFontSizeBody,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightMedium,
               ),
             ),

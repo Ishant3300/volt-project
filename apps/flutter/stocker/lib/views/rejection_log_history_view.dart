@@ -114,7 +114,7 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                         style: TextStyle(
                             color: Colors.black,
                             fontSize: kFontSizeViewTitle,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold)),
                   ),
                 ],
@@ -139,14 +139,14 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                 onSubmitted: (_) => _onSearch(),
                 style: const TextStyle(
                     fontSize: kFontSizeBody,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightMedium),
                 decoration: InputDecoration(
                   hintText: 'Search by script name...',
                   hintStyle: const TextStyle(
                       color: Color(0xFFCBD5E1),
                       fontSize: kFontSizeBody,
-                      fontFamily: 'Inter'),
+                      fontFamily: kFontFamily),
                   prefixIcon: const Icon(Icons.search,
                       color: Color(0xFF94A3B8), size: kIconSizeMedium),
                   suffixIcon: _searchController.text.isNotEmpty
@@ -179,7 +179,7 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                     style: const TextStyle(
                         color: Color(0xFF94A3B8),
                         fontSize: kFontSizeNavLabel,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium),
                   ),
                 ),
@@ -257,7 +257,7 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
               style: TextStyle(
                   color: Color(0xFF475569),
                   fontSize: kFontSizeButtonText,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightSemiBold)),
         ],
       ),
@@ -330,7 +330,7 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                           style: const TextStyle(
                               color: Colors.black,
                               fontSize: kFontSizeBody,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightSemiBold,
                               letterSpacing: -0.3),
                           maxLines: 1,
@@ -347,7 +347,7 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                           style: TextStyle(
                               color: sideColor,
                               fontSize: kFontSizeCaption,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightBold,
                               letterSpacing: 0.3)),
                     ),
@@ -369,7 +369,7 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                         style: TextStyle(
                             color: statusColor,
                             fontSize: kFontSizeCaption,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightBold,
                             letterSpacing: 0.3)),
                   ],
@@ -386,7 +386,7 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                   style: const TextStyle(
                       color: Color(0xFF94A3B8),
                       fontSize: kFontSizeNavLabel,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium)),
               const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 5),
@@ -397,7 +397,7 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                   style: const TextStyle(
                       color: Color(0xFF94A3B8),
                       fontSize: kFontSizeNavLabel,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium)),
             ],
           ),
@@ -410,7 +410,7 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                   style: const TextStyle(
                       color: Color(0xFFCBD5E1),
                       fontSize: kFontSizeCaption,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium)),
               if (!isUser && username.isNotEmpty) ...[
                 const Padding(
@@ -425,7 +425,7 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                     style: const TextStyle(
                         color: Color(0xFFCBD5E1),
                         fontSize: kFontSizeCaption,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium)),
               ],
             ],
@@ -450,7 +450,7 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                         style: TextStyle(
                             color: statusColor,
                             fontSize: kFontSizeNavLabel,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightMedium),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis),

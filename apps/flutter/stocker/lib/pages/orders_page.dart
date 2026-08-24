@@ -519,7 +519,7 @@ class _OrdersPageState extends State<OrdersPage> {
                               style: TextStyle(
                                   color: Color(0xFF64748B),
                                   fontSize: kFontSizeBodySmall,
-                                  fontFamily: 'Inter',
+                                  fontFamily: kFontFamily,
                                   fontWeight: kFontWeightMedium)),
                           Text(totalPnl.toStringAsFixed(2),
                               style: TextStyle(
@@ -527,7 +527,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                       ? const Color(0xFF22C55E)
                                       : const Color(0xFFEF4444),
                                   fontSize: kFontSizeBody,
-                                  fontFamily: 'Inter',
+                                  fontFamily: kFontFamily,
                                   fontWeight: kFontWeightBold)),
                         ],
                       ),
@@ -541,7 +541,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                   style: TextStyle(
                                       color: Color(0xFF64748B),
                                       fontSize: kFontSizeBodySmall,
-                                      fontFamily: 'Inter',
+                                      fontFamily: kFontFamily,
                                       fontWeight: kFontWeightMedium)),
                               GestureDetector(
                                 onTap: () => _showAdminWalletBreakdownSheet(
@@ -565,7 +565,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                       ? const Color(0xFF0F172A)
                                       : const Color(0xFFEF4444),
                                   fontSize: kFontSizeBody,
-                                  fontFamily: 'Inter',
+                                  fontFamily: kFontFamily,
                                   fontWeight: kFontWeightBold)),
                         ],
                       ),
@@ -611,7 +611,7 @@ class _OrdersPageState extends State<OrdersPage> {
                             style: TextStyle(
                               color: Color(0xFF94A3B8),
                               fontSize: kFontSizeBody,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                             ),
                           ),
                         ],
@@ -681,7 +681,7 @@ class _OrdersPageState extends State<OrdersPage> {
                   style: const TextStyle(
                     color: kBrandPrimary,
                     fontSize: kFontSizeViewTitle,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightBold,
                   ),
                 ),
@@ -699,7 +699,7 @@ class _OrdersPageState extends State<OrdersPage> {
                     style: const TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeTradeSymbol,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
                       letterSpacing: -0.3,
                     ),
@@ -714,7 +714,7 @@ class _OrdersPageState extends State<OrdersPage> {
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: kFontSizeSubtitle,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
                         ),
                       ),
@@ -733,7 +733,7 @@ class _OrdersPageState extends State<OrdersPage> {
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: kFontSizeSubtitle,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
                         ),
                       ),
@@ -751,7 +751,7 @@ class _OrdersPageState extends State<OrdersPage> {
                     ? const Color(0xFF22C55E)
                     : const Color(0xFFEF4444),
                 fontSize: kFontSizeBody,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightBold,
               ),
             ),
@@ -809,7 +809,7 @@ class _OrdersPageState extends State<OrdersPage> {
                             ? const Color(0xFF22C55E)
                             : const Color(0xFFEF4444),
                         fontSize: 20,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightBold,
                       ),
                     ),
@@ -837,7 +837,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                 style: TextStyle(
                                     color: Color(0xFF64748B),
                                     fontSize: kFontSizeBodySmall,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightMedium)),
                             Text(_masterRealisedPnl.toStringAsFixed(2),
                                 style: TextStyle(
@@ -845,7 +845,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                         ? const Color(0xFF22C55E)
                                         : const Color(0xFFEF4444),
                                     fontSize: kFontSizeBody,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightSemiBold)),
                           ],
                         ),
@@ -861,7 +861,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                 style: TextStyle(
                                     color: Color(0xFF64748B),
                                     fontSize: kFontSizeBodySmall,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightMedium)),
                             Text(_masterM2mPnl.toStringAsFixed(2),
                                 style: TextStyle(
@@ -869,7 +869,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                         ? const Color(0xFF22C55E)
                                         : const Color(0xFFEF4444),
                                     fontSize: kFontSizeBody,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightSemiBold)),
                           ],
                         ),
@@ -887,7 +887,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                     style: TextStyle(
                                         color: Color(0xFF64748B),
                                         fontSize: kFontSizeBodySmall,
-                                        fontFamily: 'Inter',
+                                        fontFamily: kFontFamily,
                                         fontWeight: kFontWeightMedium)),
                                 GestureDetector(
                                   onTap: () =>
@@ -911,7 +911,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                         ? const Color(0xFF0F172A)
                                         : const Color(0xFFEF4444),
                                     fontSize: kFontSizeBody,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightSemiBold)),
                           ],
                         ),
@@ -947,14 +947,14 @@ class _OrdersPageState extends State<OrdersPage> {
                           style: const TextStyle(
                             fontSize: kFontSizeBodySmall,
                             color: Color(0xFF0F172A),
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                           ),
                           decoration: const InputDecoration(
                             hintText: 'Search instrument...',
                             hintStyle: TextStyle(
                               color: Color(0xFF94A3B8),
                               fontSize: kFontSizeBodySmall,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                             ),
                             border: InputBorder.none,
                             isDense: true,
@@ -1009,7 +1009,7 @@ class _OrdersPageState extends State<OrdersPage> {
                             style: const TextStyle(
                               color: Color(0xFF94A3B8),
                               fontSize: kFontSizeBody,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                             ),
                           ),
                         ],
@@ -1088,7 +1088,7 @@ class _OrdersPageState extends State<OrdersPage> {
                     style: const TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeTradeSymbol,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
                       letterSpacing: -0.3,
                     ),
@@ -1103,7 +1103,7 @@ class _OrdersPageState extends State<OrdersPage> {
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: kFontSizeSubtitle,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
                         ),
                       ),
@@ -1122,7 +1122,7 @@ class _OrdersPageState extends State<OrdersPage> {
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: kFontSizeSubtitle,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
                         ),
                       ),
@@ -1146,7 +1146,7 @@ class _OrdersPageState extends State<OrdersPage> {
                 style: TextStyle(
                   color: sideColor,
                   fontSize: kFontSizeSubtitle,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightBold,
                   letterSpacing: 0.3,
                 ),
@@ -1333,7 +1333,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                   ? const Color(0xFF22C55E)
                                   : const Color(0xFFEF4444),
                               fontSize: kFontSizePageTitle,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightBold,
                             ),
                           ),
@@ -1454,7 +1454,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                   style: TextStyle(
                                     color: Color(0xFF374151),
                                     fontSize: kFontSizeSubtitle,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightSemiBold,
                                   ),
                                 ),
@@ -1468,7 +1468,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                   style: const TextStyle(
                                     color: Color(0xFF64748B),
                                     fontSize: kFontSizeSubtitle,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -1502,7 +1502,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                       style: const TextStyle(
                                         color: kBrandPrimary,
                                         fontSize: kFontSizeSubtitle,
-                                        fontFamily: 'Inter',
+                                        fontFamily: kFontFamily,
                                         fontWeight: kFontWeightSemiBold,
                                       ),
                                     ),
@@ -1529,7 +1529,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                             ? const Color(0xFF9CA3AF)
                                             : Colors.white,
                                         fontSize: kFontSizeSubtitle,
-                                        fontFamily: 'Inter',
+                                        fontFamily: kFontFamily,
                                         fontWeight: kFontWeightSemiBold,
                                       ),
                                     ),
@@ -1568,7 +1568,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                       style: TextStyle(
                                         color: kBrandPrimary,
                                         fontSize: kFontSizeSubtitle,
-                                        fontFamily: 'Inter',
+                                        fontFamily: kFontFamily,
                                         fontWeight: kFontWeightSemiBold,
                                       ),
                                     ),
@@ -1600,7 +1600,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                     style: TextStyle(
                                       color: Color(0xFF64748B),
                                       fontSize: kFontSizeSectionHeader,
-                                      fontFamily: 'Inter',
+                                      fontFamily: kFontFamily,
                                     ),
                                   ),
                                 ),
@@ -1693,7 +1693,7 @@ class _OrdersPageState extends State<OrdersPage> {
                 style: const TextStyle(
                   color: Color(0xFF64748B),
                   fontSize: kFontSizeBodySmall,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightMedium,
                 ),
               ),
@@ -1705,7 +1705,7 @@ class _OrdersPageState extends State<OrdersPage> {
             style: TextStyle(
               color: valueColor,
               fontSize: kFontSizeBody,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,
             ),
           ),
@@ -1751,7 +1751,7 @@ class _OrdersPageState extends State<OrdersPage> {
                       style: TextStyle(
                         color: Color(0xFF0F172A),
                         fontSize: kFontSizeViewTitle,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightBold,
                       ),
                     ),
@@ -1764,7 +1764,7 @@ class _OrdersPageState extends State<OrdersPage> {
                           style: TextStyle(
                             color: Color(0xFF94A3B8),
                             fontSize: kFontSizeBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightMedium,
                           ),
                         ),
@@ -1817,7 +1817,7 @@ class _OrdersPageState extends State<OrdersPage> {
                       style: TextStyle(
                         color: Color(0xFF0F172A),
                         fontSize: kFontSizeViewTitle,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightBold,
                       ),
                     ),
@@ -1830,7 +1830,7 @@ class _OrdersPageState extends State<OrdersPage> {
                           style: TextStyle(
                             color: Color(0xFF94A3B8),
                             fontSize: kFontSizeBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightMedium,
                           ),
                         ),
@@ -1884,7 +1884,7 @@ class _OrdersPageState extends State<OrdersPage> {
                       style: TextStyle(
                         color: Color(0xFF0F172A),
                         fontSize: kFontSizeViewTitle,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightBold,
                       ),
                     ),
@@ -1897,7 +1897,7 @@ class _OrdersPageState extends State<OrdersPage> {
                           style: TextStyle(
                             color: Color(0xFF94A3B8),
                             fontSize: kFontSizeBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightMedium,
                           ),
                         ),
@@ -1930,7 +1930,7 @@ class _OrdersPageState extends State<OrdersPage> {
             style: TextStyle(
               color: const Color(0xFF64748B),
               fontSize: kFontSizeBody,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: isTotal ? kFontWeightBold : kFontWeightMedium,
             ),
           ),
@@ -1939,7 +1939,7 @@ class _OrdersPageState extends State<OrdersPage> {
             style: TextStyle(
               color: const Color(0xFF0F172A),
               fontSize: kFontSizeBody,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: isTotal ? kFontWeightBold : kFontWeightSemiBold,
             ),
           ),
@@ -1976,7 +1976,7 @@ class _OrdersPageState extends State<OrdersPage> {
                   style: TextStyle(
                     color: Color(0xFF0F172A),
                     fontSize: kFontSizeViewTitle,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightBold,
                   ),
                 ),
@@ -2007,7 +2007,7 @@ class _OrdersPageState extends State<OrdersPage> {
             style: const TextStyle(
               color: Color(0xFF64748B),
               fontSize: kFontSizeBody,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightMedium,
             ),
           ),
@@ -2016,7 +2016,7 @@ class _OrdersPageState extends State<OrdersPage> {
             style: const TextStyle(
               color: Color(0xFF0F172A),
               fontSize: kFontSizeBody,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,
             ),
           ),
@@ -2150,7 +2150,7 @@ class _OrdersPageState extends State<OrdersPage> {
                     style: const TextStyle(
                       color: Color(0xFF0F172A),
                       fontSize: kFontSizePositionSymbol,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
                     ),
                   ),
@@ -2162,7 +2162,7 @@ class _OrdersPageState extends State<OrdersPage> {
                         style: const TextStyle(
                           color: Color(0xFF64748B),
                           fontSize: kFontSizePositionDetail,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightRegular,
                         ),
                       ),
@@ -2181,7 +2181,7 @@ class _OrdersPageState extends State<OrdersPage> {
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: kFontSizePositionDetail,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
                         ),
                       ),
@@ -2195,7 +2195,7 @@ class _OrdersPageState extends State<OrdersPage> {
                         style: TextStyle(
                           color: Color(0xFF64748B),
                           fontSize: kFontSizePositionDetail,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightRegular,
                         ),
                       ),
@@ -2204,7 +2204,7 @@ class _OrdersPageState extends State<OrdersPage> {
                         style: const TextStyle(
                           color: Color(0xFF64748B),
                           fontSize: kFontSizePositionDetail,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightRegular,
                         ),
                       ),
@@ -2214,7 +2214,7 @@ class _OrdersPageState extends State<OrdersPage> {
                         style: TextStyle(
                           color: Color(0xFF64748B),
                           fontSize: kFontSizePositionDetail,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightRegular,
                         ),
                       ),
@@ -2223,7 +2223,7 @@ class _OrdersPageState extends State<OrdersPage> {
                         style: const TextStyle(
                           color: Color(0xFF64748B),
                           fontSize: kFontSizePositionDetail,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightRegular,
                         ),
                       ),
@@ -2237,7 +2237,7 @@ class _OrdersPageState extends State<OrdersPage> {
               style: TextStyle(
                 color: valueColor,
                 fontSize: kFontSizePositionPnl,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightSemiBold,
               ),
             ),
@@ -2285,7 +2285,7 @@ class _OrdersPageState extends State<OrdersPage> {
                 style: TextStyle(
                   color: Color(0xFF0F172A),
                   fontSize: kFontSizeViewTitle,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightBold,
                 ),
               ),
@@ -2296,7 +2296,7 @@ class _OrdersPageState extends State<OrdersPage> {
                 style: const TextStyle(
                   color: Color(0xFF64748B),
                   fontSize: kFontSizeBody,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightRegular,
                   height: 1.5,
                 ),
@@ -2319,7 +2319,7 @@ class _OrdersPageState extends State<OrdersPage> {
                       style: TextStyle(
                         color: Color(0xFF64748B),
                         fontSize: kFontSizeBody,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
                       ),
                     ),
@@ -2340,7 +2340,7 @@ class _OrdersPageState extends State<OrdersPage> {
                       style: TextStyle(
                         color: Color(0xFFEF4444), // standard red
                         fontSize: kFontSizeBody,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
                       ),
                     ),
@@ -2496,7 +2496,7 @@ class _OrdersPageState extends State<OrdersPage> {
                       style: TextStyle(
                         color: Color(0xFF0F172A),
                         fontSize: kFontSizeViewTitle,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightBold,
                       ),
                     ),
@@ -2509,7 +2509,7 @@ class _OrdersPageState extends State<OrdersPage> {
                           style: const TextStyle(
                             color: Color(0xFF64748B),
                             fontSize: kFontSizeBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightRegular,
                             height: 1.5,
                           ),
@@ -2534,7 +2534,7 @@ class _OrdersPageState extends State<OrdersPage> {
                           style: TextStyle(
                             color: Color(0xFF0F172A),
                             fontSize: kFontSizeBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
                           ),
                         ),

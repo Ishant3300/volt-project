@@ -212,7 +212,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
                   style: TextStyle(
                     color: Colors.black,
                     fontSize: kFontSizeSheetTitle,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightSemiBold,
                   ),
                 ),
@@ -224,7 +224,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
                     style: const TextStyle(
                       color: Color(0xFF94A3B8),
                       fontSize: kFontSizeSubtitle,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium,
                     ),
                   ),
@@ -239,7 +239,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
                 style: TextStyle(
                   color: Color(0xFF94A3B8),
                   fontSize: kFontSizeSheetBody,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightMedium,
                 ),
               ),
@@ -269,7 +269,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
                 style: TextStyle(
                   color: Color(0xFF64748B),
                   fontSize: kFontSizeSheetLabel,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightSemiBold,
                   letterSpacing: 0.3,
                 ),
@@ -299,7 +299,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
                       style: const TextStyle(
                         color: Color(0xFF94A3B8),
                         fontSize: kFontSizeSheetLabel,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium,
                       ),
                     ),
@@ -308,7 +308,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
                       style: const TextStyle(
                         color: Colors.black,
                         fontSize: kFontSizeSheetBody,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightBold,
                       ),
                     ),
@@ -323,7 +323,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
                 style: TextStyle(
                   color: Color(0xFF64748B),
                   fontSize: kFontSizeSheetLabel,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightSemiBold,
                   letterSpacing: 0.3,
                 ),
@@ -347,7 +347,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
                   style: const TextStyle(
                     color: Colors.black,
                     fontSize: kFontSizeSheetBody,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightRegular,
                   ),
                   decoration: const InputDecoration(
@@ -357,7 +357,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
                     hintStyle: TextStyle(
                       color: Color(0xFF8E8E93),
                       fontSize: kFontSizeSheetHint,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightRegular,
                     ),
                   ),
@@ -375,7 +375,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
                     style: const TextStyle(
                       color: kBrandPrimary,
                       fontSize: 12,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -414,7 +414,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: kFontSizeButtonText,
-                                  fontFamily: 'Inter',
+                                  fontFamily: kFontFamily,
                                   fontWeight: kFontWeightSemiBold,
                                   height: 1.25,
                                 ),
@@ -447,7 +447,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
           style: TextStyle(
             color: Colors.black,
             fontSize: kFontSizeButtonText,
-            fontFamily: 'Inter',
+            fontFamily: kFontFamily,
             fontWeight: kFontWeightSemiBold,
             height: 1.25,
           ),
@@ -474,7 +474,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
             style: TextStyle(
               color: selected ? Colors.white : const Color(0xFF94A3B8),
               fontSize: kFontSizeBodySmall,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,
             ),
           ),
@@ -501,7 +501,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
           style: TextStyle(
             color: selected ? Colors.white : const Color(0xFF64748B),
             fontSize: kFontSizeBodySmall,
-            fontFamily: 'Inter',
+            fontFamily: kFontFamily,
             fontWeight: kFontWeightSemiBold,
           ),
         ),

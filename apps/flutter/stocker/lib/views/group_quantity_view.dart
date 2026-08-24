@@ -103,7 +103,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Create New Lot',
             style: TextStyle(
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightSemiBold,
                 fontSize: kFontSizeSectionHeader)),
         content: Column(
@@ -114,20 +114,20 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                   style: TextStyle(
                       fontSize: kFontSizeBodySmall,
                       color: Color(0xFF94A3B8),
-                      fontFamily: 'Inter')),
+                      fontFamily: kFontFamily)),
               const SizedBox(height: 14),
               TextField(
                 controller: controller,
                 style: const TextStyle(
                     fontSize: kFontSizeBody,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightMedium),
                 decoration: InputDecoration(
                   hintText: 'Lot name',
                   hintStyle: const TextStyle(
                       color: Color(0xFFCBD5E1),
                       fontSize: kFontSizeBodySmall,
-                      fontFamily: 'Inter'),
+                      fontFamily: kFontFamily),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   filled: true,
@@ -151,7 +151,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
               child: const Text('Cancel',
                   style: TextStyle(
                       color: Color(0xFF94A3B8),
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold))),
           GestureDetector(
             onTap: () {
@@ -175,7 +175,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
               child: const Text('Next',
                   style: TextStyle(
                       color: Colors.white,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
                       fontSize: kFontSizeBodySmall)),
             ),
@@ -217,7 +217,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                   style: TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeViewTitle,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold)),
             ])),
 
@@ -253,7 +253,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                               color:
                                   sel ? Colors.white : const Color(0xFF64748B),
                               fontSize: kFontSizeBodySmall,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightSemiBold)),
                     ),
                   );
@@ -283,7 +283,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                             style: TextStyle(
                                 color: Colors.white,
                                 fontSize: kFontSizeBody,
-                                fontFamily: 'Inter',
+                                fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold)),
                       ]),
                 ),
@@ -300,7 +300,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                       style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: kFontSizeNavLabel,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium)))),
         const SizedBox(height: 6),
 
@@ -319,7 +319,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                           style: const TextStyle(
                               color: Color(0xFF94A3B8),
                               fontSize: kFontSizeBodySmall,
-                              fontFamily: 'Inter')))
+                              fontFamily: kFontFamily)))
                   : RefreshIndicator(
                       onRefresh: _fetchGroupQuantities,
                       child: ListView.builder(
@@ -360,7 +360,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                                           style: const TextStyle(
                                               color: kBrandPrimary,
                                               fontSize: kFontSizeButtonText,
-                                              fontFamily: 'Inter',
+                                              fontFamily: kFontFamily,
                                               fontWeight: kFontWeightSemiBold,
                                               letterSpacing: -0.3)),
                                       const SizedBox(height: 4),
@@ -368,7 +368,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                                           style: const TextStyle(
                                               color: Color(0xFF94A3B8),
                                               fontSize: kFontSizeSubtitle,
-                                              fontFamily: 'Inter')),
+                                              fontFamily: kFontFamily)),
                                     ])),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
@@ -383,7 +383,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                                             style: TextStyle(
                                                 color: kBrandPrimary,
                                                 fontSize: kFontSizeNavLabel,
-                                                fontFamily: 'Inter',
+                                                fontFamily: kFontFamily,
                                                 fontWeight: kFontWeightBold,
                                                 letterSpacing: 0.3)),
                                         SizedBox(width: 2),

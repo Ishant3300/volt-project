@@ -170,14 +170,14 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
               Text(title,
                   style: const TextStyle(
                       fontSize: kFontSizeViewTitle,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightBold)),
               const SizedBox(height: 12),
               Text(message,
                   style: const TextStyle(
                       color: Color(0xFF64748B),
                       fontSize: kFontSizeBody,
-                      fontFamily: 'Inter'),
+                      fontFamily: kFontFamily),
                   textAlign: TextAlign.center),
               const SizedBox(height: 24),
               Row(
@@ -194,7 +194,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                             child: Text('Cancel',
                                 style: TextStyle(
                                     color: Color(0xFF64748B),
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightSemiBold))),
                       ),
                     ),
@@ -212,7 +212,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                             child: Text('Confirm',
                                 style: TextStyle(
                                     color: Colors.white,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightSemiBold))),
                       ),
                     ),
@@ -263,7 +263,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                         style: TextStyle(
                             color: Colors.black,
                             fontSize: kFontSizeViewTitle,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold)),
                   ],
                 ),
@@ -293,14 +293,14 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                                     style: TextStyle(
                                         color: Color(0xFF1E293B),
                                         fontSize: kFontSizeMenuItem,
-                                        fontFamily: 'Inter',
+                                        fontFamily: kFontFamily,
                                         fontWeight: kFontWeightMedium)),
                                 SizedBox(height: 2),
                                 Text('Authenticator app verification',
                                     style: TextStyle(
                                         color: Color(0xFF94A3B8),
                                         fontSize: kFontSizeSubtitle,
-                                        fontFamily: 'Inter')),
+                                        fontFamily: kFontFamily)),
                               ],
                             ),
                           ),
@@ -503,7 +503,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
           style: const TextStyle(
               color: Color(0xFF94A3B8),
               fontSize: kFontSizeNavLabel,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,
               letterSpacing: 0.5)),
     );
@@ -651,14 +651,14 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
               const Text('TOTP Activated!',
                   style: TextStyle(
                       fontSize: kFontSizeViewTitle,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightBold,
                       color: Color(0xFF10B981))),
             ] else ...[
               const Text('Setup Two-Factor Authentication',
                   style: TextStyle(
                       fontSize: kFontSizeViewTitle,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightBold,
                       color: Color(0xFF0F172A))),
               const SizedBox(height: 8),
@@ -667,7 +667,7 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                       fontSize: kFontSizeBodySmall,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       color: Color(0xFF64748B))),
               const SizedBox(height: 20),
               Container(
@@ -707,7 +707,7 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
                           child: Text(widget.secret,
                               style: const TextStyle(
                                   fontSize: kFontSizeBodySmall,
-                                  fontFamily: 'Inter',
+                                  fontFamily: kFontFamily,
                                   fontWeight: kFontWeightMedium,
                                   color: Color(0xFF64748B),
                                   letterSpacing: 1))),
@@ -722,7 +722,7 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
               const Text("Can't scan? Tap to copy the secret key",
                   style: TextStyle(
                       fontSize: kFontSizeSubtitle,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       color: Color(0xFF94A3B8))),
               const SizedBox(height: 24),
               const Align(
@@ -730,7 +730,7 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
                 child: Text('Enter the 6-digit code from your app',
                     style: TextStyle(
                         fontSize: kFontSizeBodySmall,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium,
                         color: Color(0xFF475569))),
               ),
@@ -742,7 +742,7 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                     fontSize: 24,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightBold,
                     letterSpacing: 8),
                 decoration: InputDecoration(
@@ -787,7 +787,7 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
                             style: TextStyle(
                                 color: Colors.white,
                                 fontSize: kFontSizeButtonText,
-                                fontFamily: 'Inter',
+                                fontFamily: kFontFamily,
                                 fontWeight: kFontWeightBold)),
                   ),
                 ),
@@ -799,7 +799,7 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
                     style: TextStyle(
                         color: Color(0xFF64748B),
                         fontSize: kFontSizeBody,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold)),
               ),
             ],

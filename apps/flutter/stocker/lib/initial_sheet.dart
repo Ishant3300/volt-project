@@ -300,7 +300,7 @@ class _SplashScreenState extends State<SplashScreen>
                         style: TextStyle(
                           color: Color(0xFF0F172A),
                           fontSize: kFontSizeDisplay,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightBold,
                           letterSpacing: 4,
                         ),
@@ -316,7 +316,7 @@ class _SplashScreenState extends State<SplashScreen>
                       style: TextStyle(
                         color: Color(0xFF64748B),
                         fontSize: kFontSizeSubtitle,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium,
                         letterSpacing: 1.5,
                       ),

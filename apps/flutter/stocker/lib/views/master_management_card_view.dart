@@ -161,7 +161,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                       style: TextStyle(
                         color: Color(0xFF0F172A),
                         fontSize: kFontSizeViewTitle,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightBold,
                       ),
                     ),
@@ -174,7 +174,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                           style: TextStyle(
                             color: Color(0xFF94A3B8),
                             fontSize: kFontSizeBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightMedium,
                           ),
                         ),
@@ -206,7 +206,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
             style: TextStyle(
               color: isTotal ? const Color(0xFF0F172A) : const Color(0xFF64748B),
               fontSize: kFontSizeSubtitle,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: isTotal ? kFontWeightBold : kFontWeightMedium,
             ),
           ),
@@ -215,7 +215,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
             style: TextStyle(
               color: const Color(0xFF0F172A),
               fontSize: kFontSizeSubtitle,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: isTotal ? kFontWeightBold : kFontWeightMedium,
             ),
           ),
@@ -248,7 +248,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                       style: TextStyle(
                         color: Colors.black,
                         fontSize: kFontSizeSectionHeader,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
                       ),
                     ),
@@ -280,7 +280,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: kFontSizeSubtitle,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
                         ),
                       ),
@@ -307,7 +307,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                     style: TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeSectionHeader,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightRegular,
                     ),
                   ),
@@ -316,7 +316,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                     style: TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeSectionHeader,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightRegular,
                     ),
                   ),
@@ -361,7 +361,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                           style: TextStyle(
                             color: Colors.black,
                             fontSize: kFontSizeBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightRegular,
                           ),
                         ),
@@ -429,7 +429,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                               style: TextStyle(
                                 color: Colors.black,
                                 fontSize: kFontSizeSectionHeader,
-                                fontFamily: 'Inter',
+                                fontFamily: kFontFamily,
                                 fontWeight: kFontWeightRegular,
                               ),
                             ),
@@ -450,7 +450,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                           style: TextStyle(
                             color: Colors.black,
                             fontSize: kFontSizeBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightRegular,
                           ),
                         ),
@@ -459,7 +459,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                           style: TextStyle(
                             color: Colors.black,
                             fontSize: kFontSizeSectionHeader,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightRegular,
                           ),
                         ),
@@ -485,7 +485,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                             style: TextStyle(
                               color: Colors.grey,
                               fontSize: kFontSizeBody,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                             ),
                           ),
                         )
@@ -542,7 +542,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                                     style: TextStyle(
                                                       color: Colors.black,
                                                       fontSize: kFontSizeBody,
-                                                      fontFamily: 'Inter',
+                                                      fontFamily: kFontFamily,
                                                       fontWeight:
                                                           kFontWeightRegular,
                                                     ),
@@ -574,7 +574,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                                         style: TextStyle(
                                                           color: Colors.white,
                                                           fontSize: kFontSizeCaption,
-                                                          fontFamily: 'Inter',
+                                                          fontFamily: kFontFamily,
                                                           fontWeight:
                                                               kFontWeightMedium,
                                                         ),
@@ -608,7 +608,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                                         style: TextStyle(
                                                           color: Colors.white,
                                                           fontSize: kFontSizeCaption,
-                                                          fontFamily: 'Inter',
+                                                          fontFamily: kFontFamily,
                                                           fontWeight:
                                                               kFontWeightRegular,
                                                         ),
@@ -642,7 +642,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                                         color: const Color(
                                                             0xFF007AFF),
                                                         fontSize: kFontSizeNavLabel,
-                                                        fontFamily: 'Inter',
+                                                        fontFamily: kFontFamily,
                                                         fontWeight:
                                                             kFontWeightMedium,
                                                       ),
@@ -657,7 +657,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                                       style: TextStyle(
                                                         color: Colors.black,
                                                         fontSize: kFontSizeNavLabel,
-                                                        fontFamily: 'Inter',
+                                                        fontFamily: kFontFamily,
                                                         fontWeight:
                                                             kFontWeightMedium,
                                                       ),
@@ -721,7 +721,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                                     style: TextStyle(
                                                       color: Colors.black,
                                                       fontSize: kFontSizeBody,
-                                                      fontFamily: 'Inter',
+                                                      fontFamily: kFontFamily,
                                                       fontWeight:
                                                           kFontWeightRegular,
                                                     ),
@@ -753,7 +753,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                                         style: TextStyle(
                                                           color: Colors.white,
                                                           fontSize: kFontSizeCaption,
-                                                          fontFamily: 'Inter',
+                                                          fontFamily: kFontFamily,
                                                           fontWeight:
                                                               kFontWeightMedium,
                                                         ),
@@ -787,7 +787,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                                         style: TextStyle(
                                                           color: Colors.white,
                                                           fontSize: kFontSizeCaption,
-                                                          fontFamily: 'Inter',
+                                                          fontFamily: kFontFamily,
                                                           fontWeight:
                                                               kFontWeightRegular,
                                                         ),
@@ -824,7 +824,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                                             style: TextStyle(
                                                               color: const Color(0xFF007AFF),
                                                               fontSize: kFontSizeNavLabel,
-                                                              fontFamily: 'Inter',
+                                                              fontFamily: kFontFamily,
                                                               fontWeight: kFontWeightMedium,
                                                             ),
                                                             overflow: TextOverflow.ellipsis,
@@ -849,7 +849,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
                                                       style: TextStyle(
                                                         color: Colors.black,
                                                         fontSize: kFontSizeNavLabel,
-                                                        fontFamily: 'Inter',
+                                                        fontFamily: kFontFamily,
                                                         fontWeight:
                                                             kFontWeightMedium,
                                                       ),
@@ -895,7 +895,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
             style: TextStyle(
               color: Colors.black,
               fontSize: kFontSizeBody,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightRegular,
             ),
           ),
@@ -904,7 +904,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
             style: TextStyle(
               color: Colors.black,
               fontSize: kFontSizeSectionHeader,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightRegular,
             ),
           ),

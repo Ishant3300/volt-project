@@ -218,7 +218,7 @@ class _MarginSquareoffBottomSheetState extends State<MarginSquareoffBottomSheet>
                           style: TextStyle(
                             color: Colors.black,
                             fontSize: kFontSizeSheetTitle,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
                           ),
                         ),
@@ -237,7 +237,7 @@ class _MarginSquareoffBottomSheetState extends State<MarginSquareoffBottomSheet>
                         style: TextStyle(
                           color: const Color(0xFF2B2B2B),
                           fontSize: kFontSizeSectionHeader,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
                         ),
                       ),
@@ -265,14 +265,14 @@ class _MarginSquareoffBottomSheetState extends State<MarginSquareoffBottomSheet>
                             hintStyle: TextStyle(
                               color: const Color(0xFF8E8E93),
                               fontSize: kFontSizeSheetHint,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightRegular,
                             ),
                           ),
                           style: TextStyle(
                             color: Colors.black,
                             fontSize: kFontSizeSheetBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightRegular,
                           ),
                         ),
@@ -300,7 +300,7 @@ class _MarginSquareoffBottomSheetState extends State<MarginSquareoffBottomSheet>
                               style: TextStyle(
                                 color: Colors.black,
                                 fontSize: kFontSizeButtonText,
-                                fontFamily: 'Inter',
+                                fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold,
                                 height: 1.25,
                               ),
@@ -335,7 +335,7 @@ class _MarginSquareoffBottomSheetState extends State<MarginSquareoffBottomSheet>
                                     style: TextStyle(
                                       color: Colors.white,
                                       fontSize: kFontSizeButtonText,
-                                      fontFamily: 'Inter',
+                                      fontFamily: kFontFamily,
                                       fontWeight: kFontWeightSemiBold,
                                       height: 1.25,
                                     ),

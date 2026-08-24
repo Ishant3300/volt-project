@@ -35,7 +35,7 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
             style: TextStyle(
               color: Colors.black,
               fontSize: kFontSizeSheetTitle,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,
             ),
           ),
@@ -61,7 +61,7 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
                   style: TextStyle(
                     color: const Color(0xFF8E8E93),
                     fontSize: kFontSizeSheetHint,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightRegular,
                   ),
                 ),
@@ -91,7 +91,7 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
                   style: TextStyle(
                     color: const Color(0xFF8E8E93),
                     fontSize: kFontSizeSheetHint,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightRegular,
                   ),
                 ),
@@ -126,7 +126,7 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
                       style: TextStyle(
                         color: _selectedTabIndex == 0 ? Colors.white : const Color(0xFF333333),
                         fontSize: kFontSizeSectionHeader,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium,
                       ),
                     ),
@@ -150,7 +150,7 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
                       style: TextStyle(
                         color: _selectedTabIndex == 1 ? Colors.white : const Color(0xFF333333),
                         fontSize: kFontSizeSectionHeader,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium,
                       ),
                     ),
@@ -178,7 +178,7 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
                       style: TextStyle(
                         color: _selectedTabIndex == 2 ? Colors.white : const Color(0xFF333333),
                         fontSize: kFontSizeSectionHeader,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium,
                       ),
                     ),
@@ -210,7 +210,7 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
                       style: TextStyle(
                         color: Colors.black,
                         fontSize: kFontSizeButtonText,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
                       ),
                     ),
@@ -236,7 +236,7 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: kFontSizeButtonText,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
                       ),
                     ),

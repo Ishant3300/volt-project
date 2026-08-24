@@ -655,7 +655,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                     style: const TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeViewTitle,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
                     ),
                   ),
@@ -747,7 +747,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                               style: const TextStyle(
                                   color: kBrandPrimary,
                                   fontSize: kFontSizeNavLabel,
-                                  fontFamily: 'Inter',
+                                  fontFamily: kFontFamily,
                                   fontWeight: kFontWeightSemiBold),
                             ),
                           ),
@@ -765,7 +765,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                 style: TextStyle(
                                     color: Color(0xFF94A3B8),
                                     fontSize: kFontSizeBodySmall,
-                                    fontFamily: 'Inter')),
+                                    fontFamily: kFontFamily)),
                           ),
                         ),
                       )
@@ -786,7 +786,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                               style: TextStyle(
                                                   color: Color(0xFF94A3B8),
                                                   fontSize: kFontSizeNavLabel,
-                                                  fontFamily: 'Inter',
+                                                  fontFamily: kFontFamily,
                                                   fontWeight:
                                                       kFontWeightSemiBold,
                                                   letterSpacing: 0.5)))),
@@ -797,7 +797,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                               style: TextStyle(
                                                   color: Color(0xFF94A3B8),
                                                   fontSize: kFontSizeNavLabel,
-                                                  fontFamily: 'Inter',
+                                                  fontFamily: kFontFamily,
                                                   fontWeight:
                                                       kFontWeightSemiBold,
                                                   letterSpacing: 0.5)))),
@@ -808,7 +808,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                               style: TextStyle(
                                                   color: Color(0xFF94A3B8),
                                                   fontSize: kFontSizeNavLabel,
-                                                  fontFamily: 'Inter',
+                                                  fontFamily: kFontFamily,
                                                   fontWeight:
                                                       kFontWeightSemiBold,
                                                   letterSpacing: 0.5)))),
@@ -819,7 +819,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                               style: TextStyle(
                                                   color: Color(0xFF94A3B8),
                                                   fontSize: kFontSizeNavLabel,
-                                                  fontFamily: 'Inter',
+                                                  fontFamily: kFontFamily,
                                                   fontWeight:
                                                       kFontWeightSemiBold,
                                                   letterSpacing: 0.5)))),
@@ -866,7 +866,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                               style: const TextStyle(
                                   color: kBrandPrimary,
                                   fontSize: kFontSizeNavLabel,
-                                  fontFamily: 'Inter',
+                                  fontFamily: kFontFamily,
                                   fontWeight: kFontWeightSemiBold),
                             ),
                           ),
@@ -884,7 +884,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                 style: TextStyle(
                                     color: Color(0xFF94A3B8),
                                     fontSize: kFontSizeBodySmall,
-                                    fontFamily: 'Inter')),
+                                    fontFamily: kFontFamily)),
                           ),
                         ),
                       )
@@ -918,7 +918,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                         ? Colors.white
                                         : const Color(0xFF64748B),
                                     fontSize: kFontSizeBodySmall,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightSemiBold,
                                   ),
                                 ),
@@ -947,7 +947,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                       style: TextStyle(
                                           color: Color(0xFF94A3B8),
                                           fontSize: kFontSizeNavLabel,
-                                          fontFamily: 'Inter',
+                                          fontFamily: kFontFamily,
                                           fontWeight: kFontWeightSemiBold,
                                           letterSpacing: 0.5)),
                                 ),
@@ -958,7 +958,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                         style: TextStyle(
                                             color: Color(0xFF94A3B8),
                                             fontSize: kFontSizeNavLabel,
-                                            fontFamily: 'Inter',
+                                            fontFamily: kFontFamily,
                                             fontWeight: kFontWeightSemiBold,
                                             letterSpacing: 0.5)),
                                   ),
@@ -970,7 +970,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                         style: TextStyle(
                                             color: Color(0xFF94A3B8),
                                             fontSize: kFontSizeNavLabel,
-                                            fontFamily: 'Inter',
+                                            fontFamily: kFontFamily,
                                             fontWeight: kFontWeightSemiBold,
                                             letterSpacing: 0.5)),
                                   ),
@@ -1043,7 +1043,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                   style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: kFontSizeButtonText,
-                                      fontFamily: 'Inter',
+                                      fontFamily: kFontFamily,
                                       fontWeight: kFontWeightSemiBold,
                                       letterSpacing: 0.3),
                                 ),
@@ -1070,7 +1070,7 @@ class _CreateUserViewState extends State<CreateUserView> {
       style: const TextStyle(
         color: Color(0xFF94A3B8),
         fontSize: kFontSizeNavLabel,
-        fontFamily: 'Inter',
+        fontFamily: kFontFamily,
         fontWeight: kFontWeightSemiBold,
         letterSpacing: 0.5,
       ),
@@ -1121,7 +1121,7 @@ class _CreateUserViewState extends State<CreateUserView> {
               style: const TextStyle(
                   color: Color(0xFF94A3B8),
                   fontSize: kFontSizeBodySmall,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightMedium),
             ),
           ),
@@ -1136,7 +1136,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                   : const TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeBody,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium,
                     ),
               decoration: InputDecoration(
@@ -1145,7 +1145,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                 hintStyle: const TextStyle(
                     color: Color(0xFFCBD5E1),
                     fontSize: kFontSizeBody,
-                    fontFamily: 'Inter'),
+                    fontFamily: kFontFamily),
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
               ),
@@ -1199,7 +1199,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                       style: const TextStyle(
                           color: Colors.black,
                           fontSize: kFontSizeBodySmall,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium),
                       overflow: TextOverflow.ellipsis),
                 ),
@@ -1305,7 +1305,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                   style: const TextStyle(
                       color: Color(0xFFCBD5E1),
                       fontSize: kFontSizeSubtitle,
-                      fontFamily: 'Inter'),
+                      fontFamily: kFontFamily),
                 ),
                 isExpanded: true,
                 icon: const Icon(Icons.keyboard_arrow_down,
@@ -1313,7 +1313,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                 style: const TextStyle(
                     color: Colors.black,
                     fontSize: kFontSizeSubtitle,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightMedium),
                 dropdownColor: Colors.white,
                 borderRadius: BorderRadius.circular(12),
@@ -1344,7 +1344,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                 style: const TextStyle(
                     color: Colors.black,
                     fontSize: kFontSizeBody,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightMedium)),
           ),
           GestureDetector(
@@ -1394,7 +1394,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                     style: TextStyle(
                         color: Color(0xFF94A3B8),
                         fontSize: kFontSizeBodySmall,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium),
                   ),
                 )
@@ -1427,7 +1427,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                   style: const TextStyle(
                       color: Color(0xFF94A3B8),
                       fontSize: kFontSizeBodySmall,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium),
                 ),
               ),
@@ -1440,7 +1440,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                   style: const TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeBody,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium),
                   decoration: const InputDecoration(
                     border: InputBorder.none,
@@ -1448,7 +1448,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                     hintStyle: TextStyle(
                         color: Color(0xFFCBD5E1),
                         fontSize: kFontSizeBody,
-                        fontFamily: 'Inter'),
+                        fontFamily: kFontFamily),
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
                   ),
@@ -1467,7 +1467,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                 style: const TextStyle(
                   color: kBrandPrimary,
                   fontSize: 11,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -1497,7 +1497,7 @@ class _CreateUserViewState extends State<CreateUserView> {
               style: const TextStyle(
                 color: Colors.black,
                 fontSize: kFontSizeBodySmall,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightMedium,
               ),
             ),
@@ -1528,7 +1528,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                         ? kBrandPrimary
                         : const Color(0xFF10B981),
                     fontSize: kFontSizeCaption,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightSemiBold,
                   ),
                 ),
@@ -1554,7 +1554,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                 style: const TextStyle(
                   color: Colors.black,
                   fontSize: kFontSizeBodySmall,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightMedium,
                 ),
                 decoration: const InputDecoration(

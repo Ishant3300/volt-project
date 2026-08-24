@@ -331,7 +331,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                           style: const TextStyle(
                             color: kBrandPrimary,
                             fontSize: kFontSizeSubtitle,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightMedium,
                           ),
                           maxLines: 1,
@@ -379,7 +379,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                           autofocus: true,
                           style: const TextStyle(
                             fontSize: kFontSizeBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightRegular,
                           ),
                           decoration: const InputDecoration(
@@ -387,7 +387,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                             hintStyle: TextStyle(
                               color: Color(0xFF94A3B8),
                               fontSize: kFontSizeBody,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                             ),
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.zero,
@@ -465,7 +465,7 @@ class _PortfolioPageState extends State<PortfolioPage>
               style: TextStyle(
                 color: isActive ? Colors.white : const Color(0xFF94A3B8),
                 fontSize: kFontSizeBody,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: isActive ? kFontWeightSemiBold : kFontWeightMedium,
               ),
             ),
@@ -530,7 +530,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                     style: const TextStyle(
                       color: Color(0xFF475569),
                       fontSize: kFontSizeSectionHeader,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
                     ),
                   ),
@@ -712,7 +712,7 @@ class _PortfolioPageState extends State<PortfolioPage>
               style: const TextStyle(
                 color: Color(0xFF475569),
                 fontSize: kFontSizeSectionHeader,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightSemiBold,
               ),
             ),
@@ -908,7 +908,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                               style: const TextStyle(
                                 color: Colors.black,
                                 fontSize: kFontSizeTradeSymbol,
-                                fontFamily: 'Inter',
+                                fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold,
                                 letterSpacing: -0.3,
                               ),
@@ -929,7 +929,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                               style: TextStyle(
                                 color: sideColor,
                                 fontSize: kFontSizeTradeBadge,
-                                fontFamily: 'Inter',
+                                fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold,
                                 letterSpacing: 0.3,
                               ),
@@ -949,7 +949,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                                 style: TextStyle(
                                   color: kBrandPrimary,
                                   fontSize: kFontSizeTradeBadge,
-                                  fontFamily: 'Inter',
+                                  fontFamily: kFontFamily,
                                   fontWeight: kFontWeightSemiBold,
                                   letterSpacing: 0.3,
                                 ),
@@ -964,7 +964,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                       style: TextStyle(
                         color: sideColor,
                         fontSize: kFontSizeTradePrice,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
                       ),
                     ),
@@ -983,7 +983,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                             style: const TextStyle(
                               color: Color(0xFF94A3B8),
                               fontSize: kFontSizeCaption,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium,
                             ),
                           ),
@@ -1001,7 +1001,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                                 style: const TextStyle(
                                   color: Color(0xFF94A3B8),
                                   fontSize: kFontSizeCaption,
-                                  fontFamily: 'Inter',
+                                  fontFamily: kFontFamily,
                                   fontWeight: kFontWeightMedium,
                                 ),
                                 maxLines: 1,
@@ -1023,7 +1023,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                             style: const TextStyle(
                               color: Color(0xFF94A3B8),
                               fontSize: kFontSizeCaption,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium,
                             ),
                           ),
@@ -1059,7 +1059,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                             style: const TextStyle(
                               color: Color(0xFF333333),
                               fontSize: kFontSizeCaption,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium,
                             ),
                             maxLines: 1,
@@ -1081,7 +1081,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                               style: const TextStyle(
                                 color: Color(0xFF64748B),
                                 fontSize: kFontSizeCaption,
-                                fontFamily: 'Inter',
+                                fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold,
                               ),
                             ),
@@ -1095,7 +1095,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                             style: const TextStyle(
                               color: Color(0xFF94A3B8),
                               fontSize: kFontSizeCaption,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium,
                             ),
                           ),
@@ -1114,7 +1114,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                             style: TextStyle(
                               color: Color(0xFF64748B),
                               fontSize: kFontSizeCaption,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightSemiBold,
                             ),
                           ),
@@ -1146,7 +1146,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                             style: TextStyle(
                               color: Color(0xFFEF4444),
                               fontSize: kFontSizeCaption,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightSemiBold,
                             ),
                           ),
@@ -1167,7 +1167,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                       style: TextStyle(
                         color: dealsColor,
                         fontSize: kFontSizeCaption,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
                       ),
                     ),
@@ -1216,7 +1216,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                           style: const TextStyle(
                             color: Colors.black,
                             fontSize: kFontSizeTradeSymbol,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
                             letterSpacing: -0.3,
                           ),
@@ -1239,7 +1239,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                                 style: TextStyle(
                                   color: sideColor,
                                   fontSize: kFontSizeTradeBadge,
-                                  fontFamily: 'Inter',
+                                  fontFamily: kFontFamily,
                                   fontWeight: kFontWeightSemiBold,
                                   letterSpacing: 0.3,
                                 ),
@@ -1260,7 +1260,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                                   style: const TextStyle(
                                     color: Color(0xFF94A3B8),
                                     fontSize: kFontSizeCaption,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightMedium,
                                   ),
                                   maxLines: 1,
@@ -1283,7 +1283,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                                   style: const TextStyle(
                                     color: Color(0xFFCBD5E1),
                                     fontSize: kFontSizeCaption,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightMedium,
                                   ),
                                   maxLines: 1,
@@ -1305,7 +1305,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                     style: const TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeTradePrice,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
                     ),
                   ),
@@ -1336,7 +1336,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                         style: const TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: kFontSizeCaption,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
                         ),
                       ),
@@ -1363,7 +1363,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                                 ? const Color(0xFFB45309)
                                 : const Color(0xFFEF4444),
                             fontSize: kFontSizeTradeBadge,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
                             letterSpacing: 0.3,
                           ),
@@ -1395,7 +1395,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                                       style: TextStyle(
                                         color: Color(0xFFEF4444),
                                         fontSize: kFontSizeSubtitle,
-                                        fontFamily: 'Inter',
+                                        fontFamily: kFontFamily,
                                         fontWeight: kFontWeightSemiBold,
                                       ),
                                     ),
@@ -1420,7 +1420,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                                   style: TextStyle(
                                     color: Color(0xFFEF4444),
                                     fontSize: kFontSizeSubtitle,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightSemiBold,
                                   ),
                                 ),
@@ -1467,7 +1467,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                       style: const TextStyle(
                         color: Colors.black,
                         fontSize: kFontSizePositionSymbol,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
                         letterSpacing: -0.3,
                       ),
@@ -1489,7 +1489,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                             style: TextStyle(
                               color: sideColor,
                               fontSize: kFontSizePositionDetail,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightSemiBold,
                               letterSpacing: 0.3,
                             ),
@@ -1510,7 +1510,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                           style: const TextStyle(
                             color: Color(0xFF94A3B8),
                             fontSize: kFontSizeCaption,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightMedium,
                           ),
                         ),
@@ -1533,7 +1533,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                     style: const TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizePositionPnl,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
                     ),
                   ),
@@ -1552,7 +1552,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                         style: TextStyle(
                           color: pnlColor,
                           fontSize: kFontSizeSubtitle,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold,
                         ),
                       ),
@@ -1579,7 +1579,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                     style: const TextStyle(
                       color: Color(0xFF94A3B8),
                       fontSize: kFontSizeCaption,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium,
                     ),
                   ),
@@ -1590,7 +1590,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                           ? const Color(0xFF10B981)
                           : const Color(0xFFEF4444),
                       fontSize: kFontSizeCaption,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
                     ),
                   ),
@@ -1686,25 +1686,25 @@ class _PortfolioPageState extends State<PortfolioPage>
         title: const Text(
           'Delete Trade',
           style:
-              TextStyle(fontFamily: 'Inter', fontWeight: kFontWeightSemiBold),
+              TextStyle(fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
         ),
         content: Text(
           'Are you sure you want to permanently delete this ${trade.transactionType} trade for ${trade.tradingSymbol}?',
-          style: const TextStyle(fontFamily: 'Inter'),
+          style: const TextStyle(fontFamily: kFontFamily),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('No',
                 style:
-                    TextStyle(color: Color(0xFF94A3B8), fontFamily: 'Inter')),
+                    TextStyle(color: Color(0xFF94A3B8), fontFamily: kFontFamily)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Yes, Delete',
                 style: TextStyle(
                     color: Color(0xFFEF4444),
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightSemiBold)),
           ),
         ],
@@ -1782,13 +1782,13 @@ class _PortfolioPageState extends State<PortfolioPage>
         title: const Text(
           'Cancel Order',
           style: TextStyle(
-            fontFamily: 'Inter',
+            fontFamily: kFontFamily,
             fontWeight: kFontWeightSemiBold,
           ),
         ),
         content: Text(
           'Are you sure you want to cancel this ${trade.transactionType} order for ${trade.tradingSymbol}?',
-          style: const TextStyle(fontFamily: 'Inter'),
+          style: const TextStyle(fontFamily: kFontFamily),
         ),
         actions: [
           TextButton(
@@ -1797,7 +1797,7 @@ class _PortfolioPageState extends State<PortfolioPage>
               'No',
               style: TextStyle(
                 color: Color(0xFF94A3B8),
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
               ),
             ),
           ),
@@ -1807,7 +1807,7 @@ class _PortfolioPageState extends State<PortfolioPage>
               'Yes, Cancel',
               style: TextStyle(
                 color: Color(0xFFEF4444),
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightSemiBold,
               ),
             ),

@@ -261,7 +261,7 @@ class _LoginPageState extends State<LoginPage> {
                     const Text('Verified ✓',
                         style: TextStyle(
                             fontSize: kFontSizeSectionHeader,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightBold,
                             color: Color(0xFF10B981))),
                     const SizedBox(height: 8),
@@ -269,7 +269,7 @@ class _LoginPageState extends State<LoginPage> {
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                             fontSize: kFontSizeBodySmall,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             color: Color(0xFF94A3B8))),
                   ],
                 ),
@@ -292,7 +292,7 @@ class _LoginPageState extends State<LoginPage> {
                   const Text('Two-Factor Authentication',
                       style: TextStyle(
                           fontSize: kFontSizeSectionHeader,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightBold,
                           color: Color(0xFF0F172A))),
                   const SizedBox(height: 8),
@@ -301,7 +301,7 @@ class _LoginPageState extends State<LoginPage> {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                           fontSize: kFontSizeBodySmall,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           color: Color(0xFF64748B))),
                   const SizedBox(height: 20),
                   TextField(
@@ -312,7 +312,7 @@ class _LoginPageState extends State<LoginPage> {
                     autofocus: true,
                     style: const TextStyle(
                         fontSize: 24,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightBold,
                         letterSpacing: 8),
                     decoration: InputDecoration(
@@ -486,7 +486,7 @@ class _LoginPageState extends State<LoginPage> {
                                 style: TextStyle(
                                     color: Colors.white,
                                     fontSize: kFontSizeButtonText,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightBold)),
                       ),
                     ),
@@ -498,7 +498,7 @@ class _LoginPageState extends State<LoginPage> {
                         style: TextStyle(
                             color: Color(0xFF64748B),
                             fontSize: kFontSizeBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold)),
                   ),
                 ],
@@ -528,7 +528,7 @@ class _LoginPageState extends State<LoginPage> {
                 'Important Notice',
                 style: TextStyle(
                   fontSize: kFontSizeSectionHeader,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightBold,
                   color: const Color(0xFF0F172A),
                 ),
@@ -539,7 +539,7 @@ class _LoginPageState extends State<LoginPage> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: kFontSizeBody,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightSemiBold,
                   color: const Color(0xFF334155),
                 ),
@@ -557,7 +557,7 @@ class _LoginPageState extends State<LoginPage> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: kFontSizeSubtitle,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightRegular,
                   color: const Color(0xFF64748B),
                 ),
@@ -595,7 +595,7 @@ class _LoginPageState extends State<LoginPage> {
                       style: TextStyle(
                           color: Colors.white,
                           fontSize: kFontSizeButtonText,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightBold),
                     ),
                   ),
@@ -618,7 +618,7 @@ class _LoginPageState extends State<LoginPage> {
                       style: TextStyle(
                           color: const Color(0xFF64748B),
                           fontSize: kFontSizeButtonText,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold),
                     ),
                   ),
@@ -644,7 +644,7 @@ class _LoginPageState extends State<LoginPage> {
               text,
               style: TextStyle(
                 fontSize: kFontSizeBodySmall,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightRegular,
                 color: const Color(0xFF64748B),
               ),
@@ -694,7 +694,7 @@ class _LoginPageState extends State<LoginPage> {
                           style: TextStyle(
                               color: Color(0xFF0F172A),
                               fontSize: kFontSizeLoginTitle,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightBold,
                               letterSpacing: 3)),
                       const SizedBox(height: 8),
@@ -704,7 +704,7 @@ class _LoginPageState extends State<LoginPage> {
                         style: TextStyle(
                             color: Color(0xFF94A3B8),
                             fontSize: kFontSizeBody,
-                            fontFamily: 'Inter',
+                            fontFamily: kFontFamily,
                             fontWeight: kFontWeightRegular),
                       ),
                       const SizedBox(height: 16),
@@ -760,7 +760,7 @@ class _LoginPageState extends State<LoginPage> {
                                     style: TextStyle(
                                         color: Colors.white,
                                         fontSize: kFontSizeButtonText,
-                                        fontFamily: 'Inter',
+                                        fontFamily: kFontFamily,
                                         fontWeight: kFontWeightBold)),
                           ),
                         ),
@@ -781,7 +781,7 @@ class _LoginPageState extends State<LoginPage> {
                           style: TextStyle(
                               color: Color(0xFF94A3B8),
                               fontSize: kFontSizeSubtitle,
-                              fontFamily: 'Inter')),
+                              fontFamily: kFontFamily)),
                       WidgetSpan(
                         child: GestureDetector(
                           onTap: () {
@@ -801,7 +801,7 @@ class _LoginPageState extends State<LoginPage> {
                             style: TextStyle(
                               color: Colors.black.withValues(alpha: 0.7),
                               fontSize: kFontSizeSubtitle,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium,
                               decoration: TextDecoration.underline,
                             ),
@@ -844,14 +844,14 @@ class _LoginPageState extends State<LoginPage> {
                   onChanged: (v) => _searchServers(v),
                   style: const TextStyle(
                       fontSize: kFontSizeButtonText,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium),
                   decoration: const InputDecoration(
                     hintText: 'Search server by name...',
                     hintStyle: TextStyle(
                         color: Color(0xFFCBD5E1),
                         fontSize: kFontSizeButtonText,
-                        fontFamily: 'Inter'),
+                        fontFamily: kFontFamily),
                     contentPadding:
                         EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     border: InputBorder.none,
@@ -939,7 +939,7 @@ class _LoginPageState extends State<LoginPage> {
                             style: const TextStyle(
                                 color: Colors.black,
                                 fontSize: kFontSizeBody,
-                                fontFamily: 'Inter',
+                                fontFamily: kFontFamily,
                                 fontWeight: kFontWeightMedium)),
                       ],
                     ),
@@ -959,7 +959,7 @@ class _LoginPageState extends State<LoginPage> {
           style: const TextStyle(
               color: Colors.black,
               fontSize: kFontSizeBodySmall,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,
               letterSpacing: 0.3)),
     );
@@ -972,14 +972,14 @@ class _LoginPageState extends State<LoginPage> {
       obscureText: obscure,
       style: const TextStyle(
           fontSize: kFontSizeButtonText,
-          fontFamily: 'Inter',
+          fontFamily: kFontFamily,
           fontWeight: kFontWeightMedium),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(
             color: Color(0xFFCBD5E1),
             fontSize: kFontSizeButtonText,
-            fontFamily: 'Inter'),
+            fontFamily: kFontFamily),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         filled: true,

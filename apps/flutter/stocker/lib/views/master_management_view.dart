@@ -136,7 +136,7 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                         style: TextStyle(
                           color: Colors.black,
                           fontSize: kFontSizeSectionHeader,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold,
                         ),
                       ),
@@ -181,7 +181,7 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                               hintStyle: TextStyle(
                                 color: const Color(0xFF8E8E93),
                                 fontSize: kFontSizeSectionHeader,
-                                fontFamily: 'Inter',
+                                fontFamily: kFontFamily,
                                 fontWeight: kFontWeightRegular,
                               ),
                               isDense: true,
@@ -228,7 +228,7 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                                 style: TextStyle(
                                   color: const Color(0xFF8E8E93),
                                   fontSize: kFontSizeSectionHeader,
-                                  fontFamily: 'Inter',
+                                  fontFamily: kFontFamily,
                                 ),
                               ),
                             )
@@ -287,7 +287,7 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                                                       style: TextStyle(
                                                         color: Colors.black,
                                                         fontSize: kFontSizeBody,
-                                                        fontFamily: 'Inter',
+                                                        fontFamily: kFontFamily,
                                                         fontWeight:
                                                             kFontWeightRegular,
                                                       ),
@@ -319,7 +319,7 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                                                           style: TextStyle(
                                                             color: Colors.white,
                                                             fontSize: kFontSizeCaption,
-                                                            fontFamily: 'Inter',
+                                                            fontFamily: kFontFamily,
                                                             fontWeight:
                                                                 kFontWeightMedium,
                                                           ),
@@ -353,7 +353,7 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                                                           style: TextStyle(
                                                             color: Colors.white,
                                                             fontSize: kFontSizeCaption,
-                                                            fontFamily: 'Inter',
+                                                            fontFamily: kFontFamily,
                                                             fontWeight:
                                                                 kFontWeightRegular,
                                                           ),
@@ -387,7 +387,7 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                                                           color: const Color(
                                                               0xFF007AFF),
                                                           fontSize: kFontSizeNavLabel,
-                                                          fontFamily: 'Inter',
+                                                          fontFamily: kFontFamily,
                                                           fontWeight:
                                                               kFontWeightMedium,
                                                         ),
@@ -402,7 +402,7 @@ class _MasterManagementViewState extends State<MasterManagementView> {
                                                         style: TextStyle(
                                                           color: Colors.black,
                                                           fontSize: kFontSizeNavLabel,
-                                                          fontFamily: 'Inter',
+                                                          fontFamily: kFontFamily,
                                                           fontWeight:
                                                               kFontWeightMedium,
                                                         ),

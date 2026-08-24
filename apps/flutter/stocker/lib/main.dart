@@ -129,6 +129,7 @@ class MyApp extends StatelessWidget {
           // Seeded from the active brand so Material-generated colours
           // (selection handles, ripples, date pickers) follow the flavour.
           colorScheme: ColorScheme.fromSeed(seedColor: kBrandPrimary),
+          fontFamily: kFontFamily,
           useMaterial3: true,
         ),
         debugShowCheckedModeBanner: false,

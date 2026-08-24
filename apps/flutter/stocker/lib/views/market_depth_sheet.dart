@@ -98,7 +98,7 @@ class _MarketDepthSheetState extends State<MarketDepthSheet> {
             style: TextStyle(
               color: Colors.black,
               fontSize: kFontSizeSheetTitle,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,
             ),
           ),
@@ -173,7 +173,7 @@ class _MarketDepthSheetState extends State<MarketDepthSheet> {
                   style: TextStyle(
                     color: Colors.black,
                     fontSize: kFontSizeButtonText,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightSemiBold,
                   ),
                 ),
@@ -196,7 +196,7 @@ class _MarketDepthSheetState extends State<MarketDepthSheet> {
           style: TextStyle(
             color: Colors.black,
             fontSize: kFontSizeBody,
-            fontFamily: 'Inter',
+            fontFamily: kFontFamily,
             fontWeight: kFontWeightSemiBold,
           ),
         ),
@@ -238,7 +238,7 @@ class _MarketDepthSheetState extends State<MarketDepthSheet> {
               style: TextStyle(
                 color: const Color(0xFF8E8E93),
                 fontSize: kFontSizeSheetLabel,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightRegular,
               ),
             ),
@@ -248,7 +248,7 @@ class _MarketDepthSheetState extends State<MarketDepthSheet> {
               style: TextStyle(
                 color: Colors.black,
                 fontSize: kFontSizeSectionHeader,
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontWeight: kFontWeightSemiBold,
               ),
             ),
@@ -275,7 +275,7 @@ class _MarketDepthSheetState extends State<MarketDepthSheet> {
             style: TextStyle(
               color: const Color(0xFF8E8E93),
               fontSize: kFontSizeBody,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightRegular,
             ),
           ),
@@ -284,7 +284,7 @@ class _MarketDepthSheetState extends State<MarketDepthSheet> {
             style: TextStyle(
               color: Colors.black,
               fontSize: kFontSizeViewTitle,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,
             ),
           ),

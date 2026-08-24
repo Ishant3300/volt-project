@@ -53,7 +53,7 @@ class _WebViewPageState extends State<WebViewPage> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Text(widget.title, style: const TextStyle(color: Color(0xFF0F172A), fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                  Text(widget.title, style: const TextStyle(color: Color(0xFF0F172A), fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                 ],
               ),
             ),

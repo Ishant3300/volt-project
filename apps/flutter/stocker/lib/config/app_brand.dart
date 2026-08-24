@@ -57,6 +57,12 @@ const LinearGradient kBrandGradient = LinearGradient(
   colors: [kBrandGradientStart, kBrandGradientEnd],
 );
 
+// ─── Typography ─────────────────────────────────────────────────────────────
+
+/// Font family applied app-wide via ThemeData and every explicit TextStyle.
+/// Apex uses Inter (loaded via google_fonts), Volt uses Manrope (bundled).
+const String kFontFamily = kIsVolt ? 'Manrope' : 'Inter';
+
 // ─── Menu row style (Profile / Settings / Admin Settings / Reports) ─────────
 //
 // Apex: small light-grey CIRCLE behind a brand-tinted icon, compact rows.

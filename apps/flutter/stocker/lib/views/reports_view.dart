@@ -111,7 +111,7 @@ class ReportsView extends StatelessWidget {
                     style: TextStyle(
                       color: Color(0xFF0F172A),
                       fontSize: kFontSizePageTitle,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightBold,
                       letterSpacing: -0.5,
                     ),
@@ -131,7 +131,7 @@ class ReportsView extends StatelessWidget {
                         style: TextStyle(
                           color: Color(0xFF94A3B8),
                           fontSize: kFontSizeBody,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                         ),
                       ),
                     )
@@ -377,14 +377,14 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
             const Text('PDF Generated',
                 style: TextStyle(
                     fontSize: kFontSizeViewTitle,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightBold,
                     color: Color(0xFF0F172A))),
             const SizedBox(height: 8),
             Text(fileName,
                 style: const TextStyle(
                     fontSize: kFontSizeSubtitle,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     color: Color(0xFF94A3B8))),
             const SizedBox(height: 24),
             Row(
@@ -435,7 +435,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                           Text('View PDF',
                               style: TextStyle(
                                   fontSize: kFontSizeBody,
-                                  fontFamily: 'Inter',
+                                  fontFamily: kFontFamily,
                                   fontWeight: kFontWeightSemiBold,
                                   color: kBrandPrimary)),
                         ],
@@ -481,7 +481,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                           Text('Share',
                               style: TextStyle(
                                   fontSize: kFontSizeBody,
-                                  fontFamily: 'Inter',
+                                  fontFamily: kFontFamily,
                                   fontWeight: kFontWeightSemiBold,
                                   color: Color(0xFF10B981))),
                         ],
@@ -768,7 +768,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                   style: TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeSheetTitle,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold)),
               const SizedBox(height: 16),
 
@@ -777,7 +777,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                   style: TextStyle(
                       color: Color(0xFF64748B),
                       fontSize: kFontSizeSheetLabel,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
                       letterSpacing: 0.5)),
               const SizedBox(height: 8),
@@ -810,7 +810,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                     style: TextStyle(
                         color: Color(0xFF64748B),
                         fontSize: kFontSizeSheetLabel,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
                         letterSpacing: 0.5)),
                 const SizedBox(height: 8),
@@ -842,7 +842,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                                   ? const Color(0xFF0F172A)
                                   : const Color(0xFF8E8E93),
                               fontSize: kFontSizeSheetBody,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightRegular,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -874,7 +874,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                             controller: _userSearchController,
                             style: const TextStyle(
                                 fontSize: kFontSizeSheetHint,
-                                fontFamily: 'Inter'),
+                                fontFamily: kFontFamily),
                             decoration: const InputDecoration(
                               hintText: 'Search by name...',
                               hintStyle: TextStyle(
@@ -929,7 +929,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                             style: TextStyle(
                                 color: Colors.black,
                                 fontSize: kFontSizeButtonText,
-                                fontFamily: 'Inter',
+                                fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold)),
                       ),
                     ),
@@ -958,7 +958,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                                 style: TextStyle(
                                     color: Colors.white,
                                     fontSize: kFontSizeButtonText,
-                                    fontFamily: 'Inter',
+                                    fontFamily: kFontFamily,
                                     fontWeight: kFontWeightSemiBold)),
                       ),
                     ),
@@ -999,7 +999,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
             style: TextStyle(
               color: isSelected ? kBrandPrimary : const Color(0xFF1E293B),
               fontSize: 13,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: isSelected ? kFontWeightSemiBold : kFontWeightRegular,
             )),
       ),
@@ -1027,7 +1027,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                   ? const Color(0xFF0F172A)
                   : const Color(0xFF8E8E93),
               fontSize: 15,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightRegular,
             ),
           ),
@@ -1054,7 +1054,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
           style: TextStyle(
             color: selected ? Colors.white : const Color(0xFF64748B),
             fontSize: 13,
-            fontFamily: 'Inter',
+            fontFamily: kFontFamily,
             fontWeight: kFontWeightSemiBold,
           ),
         ),

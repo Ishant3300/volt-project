@@ -39,7 +39,7 @@ class EditMasterView extends StatelessWidget {
                     style: TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeSectionHeader,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
                     ),
                   ),
@@ -94,7 +94,7 @@ class EditMasterView extends StatelessWidget {
                 style: TextStyle(
                   color: Colors.black,
                   fontSize: kFontSizeBody,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightRegular,
                 ),
               ),
@@ -109,7 +109,7 @@ class EditMasterView extends StatelessWidget {
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: kFontSizeCaption,
-                    fontFamily: 'Inter',
+                    fontFamily: kFontFamily,
                     fontWeight: kFontWeightRegular,
                   ),
                 ),
@@ -125,7 +125,7 @@ class EditMasterView extends StatelessWidget {
                 style: TextStyle(
                   color: const Color(0xFF999999),
                   fontSize: kFontSizeSubtitle,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightRegular,
                 ),
               ),
@@ -134,7 +134,7 @@ class EditMasterView extends StatelessWidget {
                 style: TextStyle(
                   color: const Color(0xFF999999),
                   fontSize: kFontSizeSubtitle,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightRegular,
                 ),
               ),
@@ -143,7 +143,7 @@ class EditMasterView extends StatelessWidget {
                 style: TextStyle(
                   color: const Color(0xFF999999),
                   fontSize: kFontSizeSubtitle,
-                  fontFamily: 'Inter',
+                  fontFamily: kFontFamily,
                   fontWeight: kFontWeightRegular,
                 ),
               ),

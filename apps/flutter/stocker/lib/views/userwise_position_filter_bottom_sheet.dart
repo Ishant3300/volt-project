@@ -149,7 +149,7 @@ class _UserwisePositionFilterBottomSheetState
           const SizedBox(height: 16),
           Text('Filter Positions',
             style: TextStyle(color: Colors.black, fontSize: kFontSizeSheetTitle,
-              fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+              fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
           const SizedBox(height: 16),
 
           // Exchange dropdown
@@ -206,7 +206,7 @@ class _UserwisePositionFilterBottomSheetState
                   ),
                   child: Text('Clear',
                     style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBody,
-                      fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                      fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                 ),
               ),
             ),
@@ -222,7 +222,7 @@ class _UserwisePositionFilterBottomSheetState
                   ),
                   child: Text('View',
                     style: TextStyle(color: Colors.white, fontSize: kFontSizeBody,
-                      fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                      fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                 ),
               ),
             ),
@@ -235,7 +235,7 @@ class _UserwisePositionFilterBottomSheetState
   Widget _buildLabel(String text) {
     return Text(text,
       style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSheetLabel,
-        fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: 0.5));
+        fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5));
   }
 
   Widget _buildExchangeDropdown() {
@@ -251,7 +251,7 @@ class _UserwisePositionFilterBottomSheetState
           value: _selectedExchange,
           isExpanded: true,
           icon: Icon(Icons.keyboard_arrow_down, size: kIconSizeDefault, color: Color(0xFF94A3B8)),
-          style: TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
+          style: TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
           items: _exchanges.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
           onChanged: (v) => setState(() {
             _selectedExchange = v!;
@@ -281,10 +281,10 @@ class _UserwisePositionFilterBottomSheetState
       child: TextField(
         controller: controller,
         onChanged: onChanged,
-        style: TextStyle(fontSize: kFontSizeBodySmall, fontFamily: 'Inter', fontWeight: kFontWeightMedium),
+        style: TextStyle(fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall, fontFamily: 'Inter'),
+          hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily),
           suffixIcon: isSearching
               ? const Padding(padding: EdgeInsets.all(12),
                   child: SizedBox(width: 16, height: 16,
@@ -330,13 +330,13 @@ class _UserwisePositionFilterBottomSheetState
               child: Row(children: [
                 Expanded(child: Text(inst['tradingsymbol'] ?? '',
                   style: TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall,
-                    fontFamily: 'Inter', fontWeight: kFontWeightSemiBold, letterSpacing: -0.3))),
+                    fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: -0.3))),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6)),
                   child: Text(inst['instrument_type'] ?? '',
                     style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeCaption,
-                      fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                      fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                 ),
               ]),
             ),
@@ -379,11 +379,11 @@ class _UserwisePositionFilterBottomSheetState
               child: Row(children: [
                 Text(uname,
                   style: TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall,
-                    fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                    fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                 if (name.isNotEmpty) ...[
                   const SizedBox(width: 8),
                   Text(name,
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: 'Inter')),
+                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily)),
                 ],
               ]),
             ),

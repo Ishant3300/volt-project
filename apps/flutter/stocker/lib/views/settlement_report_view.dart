@@ -145,7 +145,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
                       style: const TextStyle(
                         color: Colors.black,
                         fontSize: kFontSizeViewTitle,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -176,7 +176,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
                       style: const TextStyle(
                         color: Color(0xFF333333),
                         fontSize: kFontSizeBody,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightRegular,
                       ),
                     ),
@@ -206,7 +206,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
                     style: TextStyle(
                       color: Colors.black,
                       fontSize: kFontSizeBody,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightRegular,
                     ),
                   ),
@@ -226,7 +226,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
                             ? const Color(0xFF34C759)
                             : const Color(0xFFFF3B30),
                         fontSize: kFontSizeBody,
-                        fontFamily: 'Inter',
+                        fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
                       ),
                     ),
@@ -262,7 +262,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
                           style: TextStyle(
                               color: Color(0xFF8E8E93),
                               fontSize: kFontSizeCaption,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium))),
                   Expanded(
                       child: Text('P&L',
@@ -270,7 +270,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
                           style: TextStyle(
                               color: Color(0xFF8E8E93),
                               fontSize: kFontSizeCaption,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium))),
                   Expanded(
                       child: Text('BRK',
@@ -278,7 +278,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
                           style: TextStyle(
                               color: Color(0xFF8E8E93),
                               fontSize: kFontSizeCaption,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium))),
                   Expanded(
                       child: Text('TOTAL',
@@ -286,7 +286,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
                           style: TextStyle(
                               color: Color(0xFF8E8E93),
                               fontSize: kFontSizeCaption,
-                              fontFamily: 'Inter',
+                              fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium))),
                 ],
               ),
@@ -333,7 +333,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
               color:
                   selected ? Colors.white : const Color(0xFF333333),
               fontSize: kFontSizeBody,
-              fontFamily: 'Inter',
+              fontFamily: kFontFamily,
               fontWeight: kFontWeightMedium,
             ),
           ),
@@ -356,7 +356,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
                 style: const TextStyle(
                     color: Color(0xFF8E8E93),
                     fontSize: kFontSizeBody,
-                    fontFamily: 'Inter')),
+                    fontFamily: kFontFamily)),
             const SizedBox(height: 12),
             GestureDetector(
               onTap: _fetchReport,
@@ -364,7 +364,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
                   style: TextStyle(
                       color: kBrandPrimary,
                       fontSize: kFontSizeBody,
-                      fontFamily: 'Inter',
+                      fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold)),
             ),
           ],
@@ -380,7 +380,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
           style: const TextStyle(
               color: Color(0xFF8E8E93),
               fontSize: kFontSizeBody,
-              fontFamily: 'Inter'),
+              fontFamily: kFontFamily),
         ),
       );
     }
@@ -413,7 +413,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
                       style: const TextStyle(
                           color: Colors.black,
                           fontSize: kFontSizeBody,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightName)),
                 ),
                 Expanded(
@@ -424,7 +424,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
                               ? const Color(0xFF34C759)
                               : const Color(0xFFFF3B30),
                           fontSize: kFontSizeBody,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightRegular)),
                 ),
                 Expanded(
@@ -433,7 +433,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
                       style: const TextStyle(
                           color: Colors.black,
                           fontSize: kFontSizeBody,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightRegular)),
                 ),
                 Expanded(
@@ -444,7 +444,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
                               ? const Color(0xFF34C759)
                               : const Color(0xFFFF3B30),
                           fontSize: kFontSizeBody,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold)),
                 ),
               ],

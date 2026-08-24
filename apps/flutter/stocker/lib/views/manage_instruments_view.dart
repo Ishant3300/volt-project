@@ -137,24 +137,24 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Delete Instrument?', style: TextStyle(fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightBold)),
+              const Text('Delete Instrument?', style: TextStyle(fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
               const SizedBox(height: 12),
               Text('${inst['tradingsymbol']} will be deactivated.\nExisting positions can still be closed.',
-                  style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBody, fontFamily: 'Inter'), textAlign: TextAlign.center),
+                  style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBody, fontFamily: kFontFamily), textAlign: TextAlign.center),
               const SizedBox(height: 24),
               Row(children: [
                 Expanded(child: GestureDetector(
                   onTap: () => Navigator.pop(ctx, false),
                   child: Container(padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
-                    child: const Center(child: Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)))),
+                    child: const Center(child: Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)))),
                 )),
                 const SizedBox(width: 12),
                 Expanded(child: GestureDetector(
                   onTap: () => Navigator.pop(ctx, true),
                   child: Container(padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(12)),
-                    child: const Center(child: Text('Delete', style: TextStyle(color: Colors.white, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)))),
+                    child: const Center(child: Text('Delete', style: TextStyle(color: Colors.white, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)))),
                 )),
               ]),
             ],
@@ -236,8 +236,8 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Manage Instruments', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
-                  Text('$_total instruments', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: 'Inter')),
+                  const Text('Manage Instruments', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                  Text('$_total instruments', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
                 ])),
               ]),
             ),
@@ -249,10 +249,10 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
                   boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
                 child: TextField(
                   controller: _searchController,
-                  style: const TextStyle(fontSize: kFontSizeBody, fontFamily: 'Inter'),
+                  style: const TextStyle(fontSize: kFontSizeBody, fontFamily: kFontFamily),
                   decoration: InputDecoration(
                     hintText: 'Search by name or symbol...',
-                    hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: 'Inter'),
+                    hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: kFontFamily),
                     prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFF94A3B8)),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? GestureDetector(onTap: () { _searchController.clear(); _loadInstruments(); },
@@ -284,7 +284,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
                   : _instruments.isEmpty
-                      ? const Center(child: Text('No instruments found', style: TextStyle(color: Color(0xFF94A3B8), fontFamily: 'Inter')))
+                      ? const Center(child: Text('No instruments found', style: TextStyle(color: Color(0xFF94A3B8), fontFamily: kFontFamily)))
                       : ListView.builder(
                           controller: _scrollController,
                           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -317,7 +317,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
           border: active ? null : Border.all(color: const Color(0xFFE2E8F0)),
         ),
         child: Text(label, style: TextStyle(
-          fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold,
+          fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold,
           color: active ? Colors.white : const Color(0xFF64748B),
         )),
       ),
@@ -356,7 +356,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
             width: 36, padding: const EdgeInsets.symmetric(vertical: 4),
             decoration: BoxDecoration(color: typeColor.withValues(alpha: isDeleted ? 0.05 : 0.1), borderRadius: BorderRadius.circular(8)),
             child: Text(type.isNotEmpty ? type : 'IDX', textAlign: TextAlign.center,
-              style: TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: isDeleted ? const Color(0xFF94A3B8) : typeColor, fontFamily: 'Inter')),
+              style: TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: isDeleted ? const Color(0xFF94A3B8) : typeColor, fontFamily: kFontFamily)),
           ),
           const SizedBox(width: 10),
           // Info
@@ -364,14 +364,14 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 Flexible(child: Text(inst['display_name'] ?? inst['raw_name'] ?? inst['tradingsymbol'] ?? '',
-                  style: TextStyle(fontSize: kFontSizeBody, fontWeight: kFontWeightSemiBold, fontFamily: 'Inter',
+                  style: TextStyle(fontSize: kFontSizeBody, fontWeight: kFontWeightSemiBold, fontFamily: kFontFamily,
                     color: isDeleted ? const Color(0xFF94A3B8) : const Color(0xFF0F172A)),
                   overflow: TextOverflow.ellipsis)),
                 if (isDeleted) ...[
                   const SizedBox(width: 6),
                   Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(color: const Color(0xFFEF4444).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                    child: const Text('DELETED', style: TextStyle(fontSize: 8, fontWeight: kFontWeightBold, color: Color(0xFFEF4444), fontFamily: 'Inter'))),
+                    child: const Text('DELETED', style: TextStyle(fontSize: 8, fontWeight: kFontWeightBold, color: Color(0xFFEF4444), fontFamily: kFontFamily))),
                 ],
               ]),
               const SizedBox(height: 2),
@@ -381,16 +381,16 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
                 runSpacing: 2,
                 children: [
                   Text(inst['tradingsymbol'] ?? '', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: kFontSizeCaption,
-                    color: isDeleted ? const Color(0xFFCBD5E1) : const Color(0xFF94A3B8), fontFamily: 'Inter', fontWeight: kFontWeightMedium, letterSpacing: 0.3)),
+                    color: isDeleted ? const Color(0xFFCBD5E1) : const Color(0xFF94A3B8), fontFamily: kFontFamily, fontWeight: kFontWeightMedium, letterSpacing: 0.3)),
                   if ((inst['lot_size'] ?? 1) > 0) ...[
                     Text('·', style: TextStyle(color: Color(0xFFCBD5E1))),
                     Text('LOT ${inst['lot_size'] ?? 1}', style: TextStyle(fontSize: kFontSizeCaption,
-                      color: isDeleted ? const Color(0xFFCBD5E1) : const Color(0xFF94A3B8), fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
+                      color: isDeleted ? const Color(0xFFCBD5E1) : const Color(0xFF94A3B8), fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
                   ],
                   if (inst['expiry'] != null) ...[
                     Text('·', style: TextStyle(color: Color(0xFFCBD5E1))),
                     Text(_formatExpiry(inst['expiry']), style: TextStyle(fontSize: kFontSizeCaption,
-                      color: isDeleted ? const Color(0xFFCBD5E1) : const Color(0xFF94A3B8), fontFamily: 'Inter', fontWeight: kFontWeightMedium)),
+                      color: isDeleted ? const Color(0xFFCBD5E1) : const Color(0xFF94A3B8), fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
                   ],
                 ],
               ),
@@ -427,7 +427,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(color: const Color(0xFF10B981), borderRadius: BorderRadius.circular(8)),
-                child: const Text('Restore', style: TextStyle(color: Colors.white, fontSize: kFontSizeCaption, fontFamily: 'Inter', fontWeight: kFontWeightSemiBold)),
+                child: const Text('Restore', style: TextStyle(color: Colors.white, fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
               ),
             ),
           ],

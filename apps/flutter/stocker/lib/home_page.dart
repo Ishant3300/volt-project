@@ -63,7 +63,7 @@ class _MyHomePageState extends State<MyHomePage> {
             Text(
               label,
               style: TextStyle(
-                fontFamily: 'Inter',
+                fontFamily: kFontFamily,
                 fontSize: kFontSizeNavLabel,
                 fontWeight:
                     isSelected ? kFontWeightSemiBold : kFontWeightMedium,
@@ -103,7 +103,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 11,
-                          fontFamily: 'Inter',
+                          fontFamily: kFontFamily,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
