@@ -205,6 +205,25 @@ const startServer = async () => {
   // Initialize Redis and wait for readiness before selecting the order engine.
   try {
     redisService.init();
+
+    // When Redis recovers after a disconnection, immediately re-sync and audit
+    // This catches the exact bug: orders placed during brief Redis outage
+    redisService.on('availabilityChange', async ({ available, downtime }) => {
+      if (available) {
+        console.log(`🔄 [Redis Recovery] [${new Date().toISOString()}] Redis back online${downtime ? ` (was down ${downtime})` : ''} — triggering resync + audit...`);
+        try {
+          await orderBookService.syncFromDatabase();
+          const { runAudit } = require('./services/orderConsistencyAudit');
+          const result = await runAudit({ autoHeal: true, silent: false });
+          if (result.orphans?.length > 0) {
+            console.log(`🔄 [Redis Recovery] Post-recovery audit healed ${result.healed} orphan(s)`);
+          }
+        } catch (err) {
+          console.error(`❌ [Redis Recovery] Resync/audit failed: ${err.message}`);
+        }
+      }
+    });
+
     // Wait for Redis to be ready (up to 5 seconds)
     for (let i = 0; i < 10; i++) {
       await new Promise(resolve => setTimeout(resolve, 500));

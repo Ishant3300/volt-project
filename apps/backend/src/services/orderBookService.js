@@ -32,6 +32,9 @@
  */
 
 const redisService = require('./redisService');
+const { LOG_REDIS_ORDERS } = require('../config/logFlags');
+
+const _ts = () => new Date().toISOString();
 
 // ─── Key helpers ────────────────────────────────────────────────────────────
 
@@ -61,7 +64,7 @@ const _key = (instrumentToken, side, orderType) => {
  */
 const addOrder = async (tradeId, instrumentToken, limitPrice, side, orderType = 'LIMIT') => {
   if (!redisService.isAvailable()) {
-    console.log('⚠️  [OrderBook] Redis unavailable – skipping addOrder');
+    console.log(`🔴 [OrderBook] [${_ts()}] addOrder FAILED — Redis unavailable | tradeId=${tradeId} token=${instrumentToken} ${orderType} ${side} @ ${limitPrice} | diagnostics=${JSON.stringify(redisService.getDiagnostics())}`);
     return false;
   }
 
@@ -69,10 +72,12 @@ const addOrder = async (tradeId, instrumentToken, limitPrice, side, orderType = 
     const key = _key(instrumentToken, side, orderType);
     // Score = limitPrice/triggerPrice so we can range-query efficiently
     await redisService.getClient().zadd(key, limitPrice, tradeId);
-    console.log(`📗 [OrderBook] Added ${orderType} ${side} order ${tradeId} @ ${limitPrice} for token ${instrumentToken}`);
+    if (LOG_REDIS_ORDERS) {
+      console.log(`📗 [OrderBook] [${_ts()}] addOrder OK | tradeId=${tradeId} token=${instrumentToken} ${orderType} ${side} @ ${limitPrice} | key=${key}`);
+    }
     return true;
   } catch (err) {
-    console.error(`❌ [OrderBook] addOrder error: ${err.message}`);
+    console.error(`❌ [OrderBook] [${_ts()}] addOrder EXCEPTION | tradeId=${tradeId} token=${instrumentToken} ${orderType} ${side} @ ${limitPrice} | error=${err.message}`);
     return false;
   }
 };
@@ -81,15 +86,22 @@ const addOrder = async (tradeId, instrumentToken, limitPrice, side, orderType = 
  * Remove an order from the book (on cancel or execution).
  */
 const removeOrder = async (tradeId, instrumentToken, side, orderType = 'LIMIT') => {
-  if (!redisService.isAvailable()) return false;
+  if (!redisService.isAvailable()) {
+    if (LOG_REDIS_ORDERS) {
+      console.log(`⚠️  [OrderBook] [${_ts()}] removeOrder SKIPPED — Redis unavailable | tradeId=${tradeId} token=${instrumentToken} ${orderType} ${side}`);
+    }
+    return false;
+  }
 
   try {
     const key = _key(instrumentToken, side, orderType);
-    await redisService.getClient().zrem(key, tradeId);
-    console.log(`📕 [OrderBook] Removed ${orderType} ${side} order ${tradeId} for token ${instrumentToken}`);
+    const removed = await redisService.getClient().zrem(key, tradeId);
+    if (LOG_REDIS_ORDERS) {
+      console.log(`📕 [OrderBook] [${_ts()}] removeOrder | tradeId=${tradeId} token=${instrumentToken} ${orderType} ${side} | removed=${removed} key=${key}`);
+    }
     return true;
   } catch (err) {
-    console.error(`❌ [OrderBook] removeOrder error: ${err.message}`);
+    console.error(`❌ [OrderBook] [${_ts()}] removeOrder EXCEPTION | tradeId=${tradeId} token=${instrumentToken} ${orderType} ${side} | error=${err.message}`);
     return false;
   }
 };
@@ -108,9 +120,12 @@ const getMatchingBuyOrders = async (instrumentToken, livePrice) => {
     // BUY executes when livePrice <= limitPrice
     // So we want all orders with score (limitPrice) >= livePrice
     const tradeIds = await redisService.getClient().zrangebyscore(key, livePrice, '+inf');
+    if (LOG_REDIS_ORDERS && tradeIds.length > 0) {
+      console.log(`🔍 [OrderBook] [${_ts()}] getMatchingBuyOrders | token=${instrumentToken} livePrice=${livePrice} | matched=${tradeIds.length} ids=[${tradeIds.join(',')}]`);
+    }
     return tradeIds;
   } catch (err) {
-    console.error(`❌ [OrderBook] getMatchingBuyOrders error: ${err.message}`);
+    console.error(`❌ [OrderBook] [${_ts()}] getMatchingBuyOrders error | token=${instrumentToken} livePrice=${livePrice} | ${err.message}`);
     return [];
   }
 };
@@ -129,9 +144,12 @@ const getMatchingSellOrders = async (instrumentToken, livePrice) => {
     // SELL executes when livePrice >= limitPrice
     // So we want all orders with score (limitPrice) <= livePrice
     const tradeIds = await redisService.getClient().zrangebyscore(key, '-inf', livePrice);
+    if (LOG_REDIS_ORDERS && tradeIds.length > 0) {
+      console.log(`🔍 [OrderBook] [${_ts()}] getMatchingSellOrders | token=${instrumentToken} livePrice=${livePrice} | matched=${tradeIds.length} ids=[${tradeIds.join(',')}]`);
+    }
     return tradeIds;
   } catch (err) {
-    console.error(`❌ [OrderBook] getMatchingSellOrders error: ${err.message}`);
+    console.error(`❌ [OrderBook] [${_ts()}] getMatchingSellOrders error | token=${instrumentToken} livePrice=${livePrice} | ${err.message}`);
     return [];
   }
 };
@@ -151,9 +169,12 @@ const getMatchingStopBuyOrders = async (instrumentToken, livePrice) => {
   try {
     const key = _stopBuyKey(instrumentToken);
     const tradeIds = await redisService.getClient().zrangebyscore(key, '-inf', livePrice);
+    if (LOG_REDIS_ORDERS && tradeIds.length > 0) {
+      console.log(`🔍 [OrderBook] [${_ts()}] getMatchingStopBuyOrders | token=${instrumentToken} livePrice=${livePrice} | matched=${tradeIds.length} ids=[${tradeIds.join(',')}]`);
+    }
     return tradeIds;
   } catch (err) {
-    console.error(`❌ [OrderBook] getMatchingStopBuyOrders error: ${err.message}`);
+    console.error(`❌ [OrderBook] [${_ts()}] getMatchingStopBuyOrders error | token=${instrumentToken} livePrice=${livePrice} | ${err.message}`);
     return [];
   }
 };
@@ -173,9 +194,12 @@ const getMatchingStopSellOrders = async (instrumentToken, livePrice) => {
   try {
     const key = _stopSellKey(instrumentToken);
     const tradeIds = await redisService.getClient().zrangebyscore(key, livePrice, '+inf');
+    if (LOG_REDIS_ORDERS && tradeIds.length > 0) {
+      console.log(`🔍 [OrderBook] [${_ts()}] getMatchingStopSellOrders | token=${instrumentToken} livePrice=${livePrice} | matched=${tradeIds.length} ids=[${tradeIds.join(',')}]`);
+    }
     return tradeIds;
   } catch (err) {
-    console.error(`❌ [OrderBook] getMatchingStopSellOrders error: ${err.message}`);
+    console.error(`❌ [OrderBook] [${_ts()}] getMatchingStopSellOrders error | token=${instrumentToken} livePrice=${livePrice} | ${err.message}`);
     return [];
   }
 };
@@ -189,8 +213,11 @@ const removeMany = async (instrumentToken, side, tradeIds, orderType = 'LIMIT') 
   try {
     const key = _key(instrumentToken, side, orderType);
     await redisService.getClient().zrem(key, ...tradeIds);
+    if (LOG_REDIS_ORDERS) {
+      console.log(`📕 [OrderBook] [${_ts()}] removeMany | token=${instrumentToken} ${orderType} ${side} | removed=${tradeIds.length} ids=[${tradeIds.join(',')}]`);
+    }
   } catch (err) {
-    console.error(`❌ [OrderBook] removeMany error: ${err.message}`);
+    console.error(`❌ [OrderBook] [${_ts()}] removeMany error | token=${instrumentToken} ${orderType} ${side} | ${err.message}`);
   }
 };
 
@@ -200,7 +227,7 @@ const removeMany = async (instrumentToken, side, tradeIds, orderType = 'LIMIT') 
  */
 const syncFromDatabase = async () => {
   if (!redisService.isAvailable()) {
-    console.log('⚠️  [OrderBook] Redis unavailable – skipping bootstrap sync');
+    console.log(`⚠️  [OrderBook] [${_ts()}] Redis unavailable – skipping bootstrap sync`);
     return;
   }
 
@@ -216,7 +243,7 @@ const syncFromDatabase = async () => {
     });
 
     if (pendingTrades.length === 0) {
-      console.log('📗 [OrderBook] No pending orders to sync');
+      console.log(`📗 [OrderBook] [${_ts()}] No pending orders to sync`);
       return;
     }
 
@@ -228,9 +255,51 @@ const syncFromDatabase = async () => {
     }
 
     await pipeline.exec();
-    console.log(`📗 [OrderBook] Synced ${pendingTrades.length} pending orders into Redis`);
+    console.log(`📗 [OrderBook] [${_ts()}] Synced ${pendingTrades.length} pending orders into Redis`);
+
+    if (LOG_REDIS_ORDERS) {
+      // Log each synced order for full traceability
+      for (const trade of pendingTrades) {
+        console.log(`   ↳ [OrderBook] synced tradeId=${trade._id} ${trade.order_type} ${trade.transaction_type} ${trade.tradingsymbol} @ ${trade.price} token=${trade.instrument_token}`);
+      }
+    }
   } catch (err) {
-    console.error(`❌ [OrderBook] syncFromDatabase error: ${err.message}`);
+    console.error(`❌ [OrderBook] [${_ts()}] syncFromDatabase error: ${err.message}`);
+  }
+};
+
+/**
+ * Verify a specific order exists in the Redis order book.
+ * Useful for debugging "order placed but never triggered" issues.
+ */
+const verifyOrderExists = async (tradeId, instrumentToken, side, orderType = 'LIMIT') => {
+  if (!redisService.isAvailable()) return { exists: false, reason: 'redis_unavailable' };
+
+  try {
+    const key = _key(instrumentToken, side, orderType);
+    const score = await redisService.getClient().zscore(key, tradeId);
+    const exists = score !== null;
+    if (LOG_REDIS_ORDERS) {
+      console.log(`🔎 [OrderBook] [${_ts()}] verifyOrderExists | tradeId=${tradeId} token=${instrumentToken} ${orderType} ${side} | exists=${exists} score=${score}`);
+    }
+    return { exists, score: score ? parseFloat(score) : null, key };
+  } catch (err) {
+    console.error(`❌ [OrderBook] [${_ts()}] verifyOrderExists error | tradeId=${tradeId} | ${err.message}`);
+    return { exists: false, reason: 'error', error: err.message };
+  }
+};
+
+/**
+ * Get count of all orders in a specific key (for diagnostics).
+ */
+const getOrderCount = async (instrumentToken, side, orderType = 'LIMIT') => {
+  if (!redisService.isAvailable()) return 0;
+
+  try {
+    const key = _key(instrumentToken, side, orderType);
+    return await redisService.getClient().zcard(key);
+  } catch (err) {
+    return 0;
   }
 };
 
@@ -243,4 +312,6 @@ module.exports = {
   getMatchingStopSellOrders,
   removeMany,
   syncFromDatabase,
+  verifyOrderExists,
+  getOrderCount,
 };

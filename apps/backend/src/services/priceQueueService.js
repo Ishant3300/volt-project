@@ -11,7 +11,7 @@ const ScriptQuantity = require('../models/ScriptQuantity');
 const Trade = require('../models/Trade');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
-const { LOG_PRICE_QUEUE } = require('../config/logFlags');
+const { LOG_PRICE_QUEUE, LOG_REDIS_ORDERS } = require('../config/logFlags');
 const { beginTradeWrite } = require('./tradeWriteFenceService');
 const { calculateMargin } = require('./marginService');
 const walletService = require('./walletService');
@@ -25,6 +25,11 @@ const redisService = require('./redisService');
 const QUEUE_NAME = 'price-updates';
 let queue = null;
 let worker = null;
+let _jobsProcessed = 0;
+let _lastHeartbeat = Date.now();
+const HEARTBEAT_INTERVAL_MS = 60000; // Log heartbeat every 60s
+
+const _ts = () => new Date().toISOString();
 
 const publishPriceUpdate = async (instrumentToken, livePrice) => {
   if (!queue) return;
@@ -458,7 +463,16 @@ async function notifyOutcome(outcome, livePrice) {
 }
 
 const _processJob = async job => {
-  const { instrument_token, live_price } = job.data;
+  const { instrument_token, live_price, timestamp: tickTimestamp } = job.data;
+  _jobsProcessed++;
+
+  // Periodic heartbeat — confirms worker is alive and processing
+  const now = Date.now();
+  if (LOG_REDIS_ORDERS && (now - _lastHeartbeat) >= HEARTBEAT_INTERVAL_MS) {
+    console.log(`💓 [PriceQueue] [${_ts()}] Worker heartbeat | jobsProcessed=${_jobsProcessed} | queueActive=true`);
+    _lastHeartbeat = now;
+  }
+
   if (LOG_PRICE_QUEUE) console.log(`🔄 [PriceQueue] Processing price update: Token ${instrument_token} @ ${live_price}`);
 
   const [matchingBuys, matchingSells, matchingStopBuys, matchingStopSells] = await Promise.all([
@@ -467,6 +481,24 @@ const _processJob = async job => {
     orderBookService.getMatchingStopBuyOrders(instrument_token, live_price),
     orderBookService.getMatchingStopSellOrders(instrument_token, live_price),
   ]);
+
+  // Log near-misses: check if there are ANY orders for this token that didn't match
+  // This helps trace "price crossed but order didn't fire" issues
+  if (LOG_REDIS_ORDERS && matchingBuys.length === 0 && matchingSells.length === 0 &&
+      matchingStopBuys.length === 0 && matchingStopSells.length === 0) {
+    // Check if there are any orders at all for this instrument in the book
+    const [buyCount, sellCount, stopBuyCount, stopSellCount] = await Promise.all([
+      orderBookService.getOrderCount(instrument_token, 'BUY', 'LIMIT'),
+      orderBookService.getOrderCount(instrument_token, 'SELL', 'LIMIT'),
+      orderBookService.getOrderCount(instrument_token, 'BUY', 'SL'),
+      orderBookService.getOrderCount(instrument_token, 'SELL', 'SL'),
+    ]);
+    const totalPending = buyCount + sellCount + stopBuyCount + stopSellCount;
+    if (totalPending > 0) {
+      // There ARE pending orders for this token but none matched — log near-miss
+      console.log(`🔸 [PriceQueue] [${_ts()}] NEAR-MISS | token=${instrument_token} livePrice=${live_price} | pendingOrders: limitBuy=${buyCount} limitSell=${sellCount} stopBuy=${stopBuyCount} stopSell=${stopSellCount} | tickAge=${now - (tickTimestamp || now)}ms`);
+    }
+  }
   // orderType is tagged per match so cleanup below removes each executed
   // order from the RIGHT Redis set — LIMIT and stop orders live in separate
   // key pairs (see orderBookService.js) since they trigger on opposite
@@ -479,7 +511,12 @@ const _processJob = async job => {
   ];
   if (matches.length === 0) return;
 
-  console.log(`⚡ [PriceQueue] Token ${instrument_token} @ ${live_price} → ${matches.length} order(s) to execute`);
+  console.log(`⚡ [PriceQueue] [${_ts()}] Token ${instrument_token} @ ${live_price} → ${matches.length} order(s) to execute | limitBuy=${matchingBuys.length} limitSell=${matchingSells.length} stopBuy=${matchingStopBuys.length} stopSell=${matchingStopSells.length}`);
+  if (LOG_REDIS_ORDERS) {
+    for (const match of matches) {
+      console.log(`   ↳ [PriceQueue] executing tradeId=${match.id} ${match.orderType} ${match.side} | livePrice=${live_price}`);
+    }
+  }
   const executedBuys = [];
   const executedSells = [];
   const executedStopBuys = [];
@@ -505,11 +542,16 @@ const _processJob = async job => {
       if (['unchanged', 'cancelled', 'rejected', 'completed'].includes(outcome.kind)) {
         addCleanupId(match, executedBuys, executedSells, executedStopBuys, executedStopSells);
       }
+      if (LOG_REDIS_ORDERS && outcome.kind === 'unchanged') {
+        console.log(`   ↳ [PriceQueue] [${_ts()}] tradeId=${match.id} outcome=unchanged (already not pending or deleted)`);
+      }
       await notifyOutcome(outcome, live_price);
     } catch (error) {
       failedCount++;
       if (error.code !== 'SETTLEMENT_IN_PROGRESS') {
-        console.error(`❌ [PriceQueue] Execution error for trade ${match.id}: ${error.message}`);
+        console.error(`❌ [PriceQueue] [${_ts()}] Execution error for trade ${match.id} (${match.orderType} ${match.side}): ${error.message}`);
+      } else if (LOG_REDIS_ORDERS) {
+        console.log(`⏸️  [PriceQueue] [${_ts()}] tradeId=${match.id} skipped — settlement in progress`);
       }
     }
   }
@@ -525,7 +567,7 @@ const _processJob = async job => {
 
 const init = () => {
   if (!redisService.isAvailable()) {
-    console.log('⚠️  [PriceQueue] Redis unavailable – queue not started');
+    console.log(`⚠️  [PriceQueue] [${_ts()}] Redis unavailable – queue not started`);
     return;
   }
   if (queue || worker) return;
@@ -542,13 +584,21 @@ const init = () => {
     limiter: { max: 100, duration: 1000 },
   });
   worker.on('failed', (job, error) => {
-    console.error(`❌ [PriceQueue] Job ${job?.id} failed: ${error.message}`);
+    console.error(`❌ [PriceQueue] [${_ts()}] Job ${job?.id} failed: ${error.message}`);
   });
-  console.log('✅ [PriceQueue] Queue and worker initialised');
+  worker.on('error', (error) => {
+    console.error(`❌ [PriceQueue] [${_ts()}] Worker error: ${error.message}`);
+  });
+  if (LOG_REDIS_ORDERS) {
+    worker.on('stalled', (jobId) => {
+      console.log(`⚠️  [PriceQueue] [${_ts()}] Job stalled: ${jobId}`);
+    });
+  }
+  console.log(`✅ [PriceQueue] [${_ts()}] Queue and worker initialised | concurrency=5, limiter=100/s`);
 };
 
 const shutdown = async () => {
-  console.log('🛑 [PriceQueue] Shutting down...');
+  console.log(`🛑 [PriceQueue] [${_ts()}] Shutting down... | totalJobsProcessed=${_jobsProcessed}`);
   if (worker) await worker.close();
   if (queue) await queue.close();
   worker = null;

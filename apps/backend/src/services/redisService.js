@@ -8,11 +8,19 @@
  */
 
 const Redis = require('ioredis');
+const EventEmitter = require('events');
+const { LOG_REDIS_ORDERS } = require('../config/logFlags');
 
-class RedisService {
+const _ts = () => new Date().toISOString();
+
+class RedisService extends EventEmitter {
   constructor() {
+    super();
     this.client = null;
     this.isConnected = false;
+    this._lastAvailableState = null; // Track state transitions
+    this._lastStateChangeAt = null;
+    this._disconnectCount = 0;
   }
 
   /**
@@ -29,41 +37,81 @@ class RedisService {
       enableReadyCheck: true,
       retryStrategy: (times) => {
         if (times > 10) {
-          console.error('❌ [Redis] Max reconnect attempts reached');
+          console.error(`❌ [Redis] [${_ts()}] Max reconnect attempts reached`);
           return null;                // Stop retrying
         }
         const delay = Math.min(times * 500, 5000);
-        console.log(`🔄 [Redis] Reconnecting in ${delay}ms (attempt ${times})`);
+        console.log(`🔄 [Redis] [${_ts()}] Reconnecting in ${delay}ms (attempt ${times})`);
         return delay;
       },
     });
 
     this.client.on('connect', () => {
-      console.log('✅ [Redis] Connected');
+      console.log(`✅ [Redis] [${_ts()}] Connected`);
       this.isConnected = true;
+      this._emitStateChange(true);
     });
 
     this.client.on('ready', () => {
-      console.log('✅ [Redis] Ready');
+      console.log(`✅ [Redis] [${_ts()}] Ready`);
       this.isConnected = true;
+      this._emitStateChange(true);
     });
 
     this.client.on('error', (err) => {
-      console.error('❌ [Redis] Error:', err.message);
+      console.error(`❌ [Redis] [${_ts()}] Error: ${err.message}`);
       this.isConnected = false;
+      this._emitStateChange(false);
     });
 
     this.client.on('close', () => {
-      console.log('⚠️  [Redis] Connection closed');
+      console.log(`⚠️  [Redis] [${_ts()}] Connection closed`);
       this.isConnected = false;
+      this._disconnectCount++;
+      this._emitStateChange(false);
     });
 
     return this.client;
   }
 
+  /**
+   * Emit 'availabilityChange' event when Redis state transitions.
+   * Logs prominently so it's visible in server logs for debugging.
+   */
+  _emitStateChange(nowAvailable) {
+    const wasAvailable = this._lastAvailableState;
+    if (wasAvailable === nowAvailable) return; // No actual transition
+
+    const previousChangeAt = this._lastStateChangeAt;
+    this._lastAvailableState = nowAvailable;
+    this._lastStateChangeAt = new Date();
+
+    const downtime = previousChangeAt && nowAvailable
+      ? `${((this._lastStateChangeAt - previousChangeAt) / 1000).toFixed(1)}s`
+      : null;
+
+    if (nowAvailable) {
+      console.log(`🟢 [Redis] [${_ts()}] STATE CHANGE: UNAVAILABLE → AVAILABLE${downtime ? ` (was down for ${downtime})` : ''} | Total disconnects: ${this._disconnectCount}`);
+    } else {
+      console.log(`🔴 [Redis] [${_ts()}] STATE CHANGE: AVAILABLE → UNAVAILABLE | Total disconnects: ${this._disconnectCount}`);
+    }
+
+    this.emit('availabilityChange', {
+      available: nowAvailable,
+      timestamp: this._lastStateChangeAt,
+      downtime,
+      disconnectCount: this._disconnectCount,
+    });
+  }
+
   /** Quick health check */
   isAvailable() {
-    return this.isConnected && this.client && this.client.status === 'ready';
+    const available = this.isConnected && this.client && this.client.status === 'ready';
+    // Log when callers check availability and it's DOWN (helps trace silent failures)
+    if (!available && LOG_REDIS_ORDERS) {
+      console.log(`⚠️  [Redis] [${_ts()}] isAvailable() → false | isConnected=${this.isConnected}, status=${this.client?.status || 'no-client'}`);
+    }
+    return available;
   }
 
   /** Return the raw IORedis instance (for BullMQ, etc.) */
@@ -71,10 +119,21 @@ class RedisService {
     return this.client;
   }
 
+  /** Get Redis health diagnostics for logging */
+  getDiagnostics() {
+    return {
+      isConnected: this.isConnected,
+      clientStatus: this.client?.status || 'no-client',
+      isAvailable: this.isAvailable(),
+      lastStateChangeAt: this._lastStateChangeAt,
+      disconnectCount: this._disconnectCount,
+    };
+  }
+
   /** Graceful shutdown */
   async shutdown() {
     if (this.client) {
-      console.log('🛑 [Redis] Shutting down...');
+      console.log(`🛑 [Redis] [${_ts()}] Shutting down...`);
       await this.client.quit();
       this.isConnected = false;
     }

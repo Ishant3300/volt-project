@@ -7,4 +7,5 @@ module.exports = {
   LOG_PRICE_QUEUE: false,      // "📤 [PriceQueue] Published", "🔄 Processing", "ℹ️ No matching orders"
   LOG_MARGIN_CALC: false,       // "💰 [Margin]" lines in marginService
   LOG_WS_BROADCAST: false,      // "🔔 [WS] broadcastToUser", "📤 [WS] Sent" lines in livePriceService
+  LOG_REDIS_ORDERS: true,      // Redis order lifecycle: addOrder, removeOrder, state transitions, matching, consistency checks
 };

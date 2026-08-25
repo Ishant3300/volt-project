@@ -81,6 +81,21 @@ class CronService {
 
         this.jobs.push(limitOrderCheck);
 
+        // ── Redis-vs-MongoDB Order Consistency Audit ──────────────────────
+        // Every 2 minutes, verify all pending orders in MongoDB are also in
+        // the Redis order book. Detects and auto-heals the exact bug where
+        // Redis was briefly down when addOrder() was called, leaving the order
+        // in Mongo but never registered for live price matching.
+        const orderConsistencyAudit = cron.schedule('*/2 * * * *', async () => {
+            try {
+                const { runAudit } = require('./orderConsistencyAudit');
+                await runAudit({ autoHeal: true, silent: false });
+            } catch (error) {
+                console.error('❌ [CRON] Error during order consistency audit:', error.message);
+            }
+        });
+        this.jobs.push(orderConsistencyAudit);
+
         // ── Kite Token Refresh ─────────────────────────────────────────
         // Check every hour if the Kite access token is still valid.
         // If expired or expiring soon, perform automated login (same as server startup).

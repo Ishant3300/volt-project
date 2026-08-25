@@ -13,6 +13,9 @@ const { computeWalletSplit } = require('../utils/walletSplit');
 const firebaseService = require('./firebaseService');
 const { beginTradeWrite } = require('./tradeWriteFenceService');
 const { calculateBrokerage } = require('./brokerageService');
+const { LOG_REDIS_ORDERS } = require('../config/logFlags');
+
+const _ts = () => new Date().toISOString();
 
 /**
  * Fetches live prices from Kite for a list of instrument tokens.
@@ -45,7 +48,14 @@ const _getLivePrices = async (instrumentTokens) => {
  */
 const processPendingOrders = async () => {
     // Skip if Redis + BullMQ are handling execution
-    if (redisService.isAvailable()) return;
+    if (redisService.isAvailable()) {
+        if (LOG_REDIS_ORDERS) {
+            console.log(`⏭️  [OrderExecution] [${_ts()}] processPendingOrders SKIPPED — Redis available (BullMQ handling execution)`);
+        }
+        return;
+    }
+
+    console.log(`🟠 [OrderExecution] [${_ts()}] processPendingOrders ACTIVE — Redis UNAVAILABLE, DB fallback running | diagnostics=${JSON.stringify(redisService.getDiagnostics())}`);
 
     try {
         // Previously 'LIMIT' only — SL/SL-M orders were accepted at
@@ -62,7 +72,14 @@ const processPendingOrders = async () => {
             deleted_at: null,
         });
 
-        if (pendingTrades.length === 0) return;
+        if (pendingTrades.length === 0) {
+            if (LOG_REDIS_ORDERS) {
+                console.log(`   ↳ [OrderExecution] [${_ts()}] No pending orders found in DB`);
+            }
+            return;
+        }
+
+        console.log(`   ↳ [OrderExecution] [${_ts()}] Found ${pendingTrades.length} pending order(s) in DB`);
 
         // Collect distinct instrument tokens
         const tokenSet = new Set(pendingTrades.map(t => parseInt(t.instrument_token)));
@@ -72,7 +89,12 @@ const processPendingOrders = async () => {
 
         if (ltpMap.size === 0) {
             // Could not fetch any prices, skip this cycle
+            console.log(`   ↳ [OrderExecution] [${_ts()}] Could not fetch ANY live prices (${tokenArray.length} tokens requested) — skipping cycle`);
             return;
+        }
+
+        if (LOG_REDIS_ORDERS) {
+            console.log(`   ↳ [OrderExecution] [${_ts()}] Fetched LTP for ${ltpMap.size}/${tokenArray.length} tokens`);
         }
 
         let executedCount = 0;
@@ -100,6 +122,9 @@ const processPendingOrders = async () => {
             }
 
             if (shouldExecute) {
+                if (LOG_REDIS_ORDERS) {
+                    console.log(`   ↳ [OrderExecution] [${_ts()}] TRIGGERING tradeId=${trade._id} ${trade.order_type} ${trade.transaction_type} ${trade.tradingsymbol} @ ${trade.price} | livePrice=${livePrice}`);
+                }
                 const session = await mongoose.startSession();
                 let tradeWriteLease = null;
                 try {
@@ -390,7 +415,7 @@ const processPendingOrders = async () => {
                     tradeWriteLease = null;
 
                     executedCount++;
-                    console.log(`✅ [OrderExecution/Fallback] Executed ${trade.transaction_type} LIMIT for ${trade.tradingsymbol} @ ${trade.price} (live: ${livePrice})`);
+                    console.log(`✅ [OrderExecution/Fallback] [${_ts()}] Executed ${trade.transaction_type} ${trade.order_type} for ${trade.tradingsymbol} @ ${trade.price} (live: ${livePrice}) | tradeId=${trade._id}`);
 
                     // Notify the user's Flutter client via WebSocket
                     const livePriceService = require('./livePriceService');
@@ -416,17 +441,21 @@ const processPendingOrders = async () => {
                     session.endSession();
                     await tradeWriteLease?.release();
                     if (sessionErr.code !== 'SETTLEMENT_IN_PROGRESS') {
-                        console.error(`❌ [OrderExecution] Session error for trade ${trade._id}:`, sessionErr.message);
+                        console.error(`❌ [OrderExecution] [${_ts()}] Session error for trade ${trade._id} (${trade.tradingsymbol}): ${sessionErr.message}`);
+                    } else if (LOG_REDIS_ORDERS) {
+                        console.log(`⏸️  [OrderExecution] [${_ts()}] tradeId=${trade._id} skipped — settlement in progress`);
                     }
                 }
             }
         }
 
         if (executedCount > 0) {
-            console.log(`📊 [OrderExecution/Fallback] Executed ${executedCount} pending limit order(s) this cycle.`);
+            console.log(`📊 [OrderExecution/Fallback] [${_ts()}] Executed ${executedCount} pending limit order(s) this cycle.`);
+        } else if (LOG_REDIS_ORDERS) {
+            console.log(`   ↳ [OrderExecution] [${_ts()}] Cycle complete — 0 orders triggered out of ${pendingTrades.length} pending`);
         }
     } catch (error) {
-        console.error('[OrderExecution] Error processing pending orders:', error.message);
+        console.error(`❌ [OrderExecution] [${_ts()}] Error processing pending orders: ${error.message}`);
     }
 };
 
