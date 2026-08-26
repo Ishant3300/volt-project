@@ -1063,6 +1063,24 @@ const createBrokerageSettings = async (req, res) => {
       });
     }
 
+    // Floor validation: a master creating their own rate cannot go below
+    // their parent's rate — same rule already enforced on updateBrokerageSettings
+    // (and the bulk-update route), just missing here. This was the actual gap:
+    // a master's own rate set can be created below the floor in one call via
+    // this endpoint even though editing it afterward would be blocked. Admin
+    // bypasses this, same as the update path (admin can set any rate on
+    // their children).
+    if (user_id && !req.admin) {
+      const { validateBrokerageFloor } = require('../services/brokerageCopyService');
+      const User = require('../models/User');
+      const ownerUser = await User.findById(user_id).select('_id').lean();
+      const ownerType = ownerUser ? 'User' : 'Master';
+      const floorError = await validateBrokerageFloor(user_id, ownerType, exchange_name, script_name, type, brk_value);
+      if (floorError) {
+        return res.status(422).json({ success: false, message: floorError, data: null });
+      }
+    }
+
     const newBrokerageSettings = await BrokerageSettings.findOneAndUpdate(
       { type, exchange_name, script_name, user_id: user_id || null, deleted_at: null },
       // effective_from stamps the moment this rate takes effect (insert or update).

@@ -245,9 +245,22 @@ const getWeeklyAdminReport = async (req, res) => {
 
     if (role === 'admin') {
       for (const master of topEntities) {
+        // Admin's "own rate" is NOT one flat global default shared by every
+        // master — admin assigns each top-level master its own base rate
+        // (stored as that master's own BrokerageSettings rows, same as any
+        // other owner), and different masters are routinely given different
+        // rates. Using the single request-wide `callerRules` (always
+        // resolved to global for role==='admin', see callerRuleOwnerId
+        // above) here meant every master's row was priced at the flat
+        // global default regardless of what admin actually assigned that
+        // specific master — inflating (or deflating) Master Brk for every
+        // master whose own assigned rate differs from the global default.
+        // Resolve per-master here instead, falling back to global only if
+        // this master has no rate of their own.
+        const masterOwnRules = brkRulesByUser[master._id.toString()] || globalBrkRules;
         const entry = _getAggregatedEntryBatched(
           master._id.toString(), master, metricsEngine, callerId, 'admin',
-          masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, callerRules
+          masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, masterOwnRules
         );
         entry.parent_username = 'ADMIN';
         entry.type = 'master';

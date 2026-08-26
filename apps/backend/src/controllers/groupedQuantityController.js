@@ -306,6 +306,7 @@ const bulkCreateBrokerage = async (req, res) => {
       return res.status(400).json({ success: false, message: 'exchange_name, type, and default_brk_value are required', data: null });
     }
     const normalizedExchange = exchange_name.toUpperCase();
+    const normalizedType = type.toUpperCase();
     const filter = buildSegmentFilter(normalizedExchange);
     const results = await KiteInstrument.aggregate([
       { $match: filter },
@@ -315,6 +316,50 @@ const bulkCreateBrokerage = async (req, res) => {
     if (results.length === 0) {
       return res.status(404).json({ success: false, message: `No instruments found for ${normalizedExchange}`, data: null });
     }
+
+    // Floor validation: a master's own rate set (this endpoint's normal use
+    // — creating a whole script list for one user_id in one call) cannot go
+    // below their parent's rate, same rule already enforced when editing a
+    // single row via updateBrokerageSettings. This endpoint had no floor
+    // check at all — the most direct way for a master's own rate set to end
+    // up below the platform floor from the start. Admin bypasses this, same
+    // as the single-create/update paths (admin can set any rate on their
+    // children). Batched (not per-script) since this writes the SAME
+    // default_brk_value across every script in the exchange in one call —
+    // fetch the parent's + global rows for this exchange/type once, resolve
+    // each script's floor in-memory, and reject the whole batch if the
+    // uniform value would violate ANY script's floor (a partial apply would
+    // leave some scripts non-compliant with no indication which).
+    if (user_id && !req.admin) {
+      const Master = require('../models/Master');
+      const ownerUser = await User.findById(user_id).select('master_id').lean();
+      const ownerMaster = ownerUser ? null : await Master.findById(user_id).select('master_id').lean();
+      const parentId = ownerUser ? ownerUser.master_id?.toString() : ownerMaster?.master_id?.toString();
+
+      const parentRules = parentId
+        ? await BrokerageSettings.find({ user_id: parentId, exchange_name: normalizedExchange, type: normalizedType, deleted_at: null }).lean()
+        : [];
+      const globalRules = await BrokerageSettings.find({ user_id: null, exchange_name: normalizedExchange, type: normalizedType, deleted_at: null }).lean();
+      const parentByScript = new Map(parentRules.map(r => [r.script_name, r.brk_value]));
+      const globalByScript = new Map(globalRules.map(r => [r.script_name, r.brk_value]));
+
+      const violations = [];
+      for (const r of results) {
+        const floor = parentByScript.get(r._id) ?? globalByScript.get(r._id);
+        if (floor !== undefined && default_brk_value < floor) {
+          violations.push({ script: r._id, floor });
+        }
+      }
+      if (violations.length > 0) {
+        const sample = violations.slice(0, 5).map(v => `${v.script} (floor ${v.floor})`).join(', ');
+        return res.status(422).json({
+          success: false,
+          message: `Brokerage cannot be less than the parent limit for ${violations.length} script(s), e.g. ${sample}`,
+          data: null
+        });
+      }
+    }
+
     const bulkOps = results.map(r => ({
       updateOne: {
         filter: { type: type.toUpperCase(), exchange_name: normalizedExchange, script_name: r._id, user_id: user_id || null, deleted_at: null },
