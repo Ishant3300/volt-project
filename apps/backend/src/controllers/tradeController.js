@@ -890,11 +890,15 @@ const placeTrade = async (req, res) => {
                 const newMargin = Math.abs(newNetQty) > 0
                     ? await calculateMargin(normalizedExchange, Math.abs(newNetQty), executedPrice, { rawName: instrumentRawName, instrumentToken: instrument_token, tradingsymbol })
                     : 0;
-                // NOTE: marginDelta is now notional (see spec Task 5 flag) — persisted equity
-                // interaction pending review. After Task 3, calculateMargin returns the full
-                // |qty|×price notional, so this term now subtracts notional-sized amounts from
-                // the PERSISTED user.equity running balance (design D2 describes persisted equity
-                // as credit+realised only). Left unchanged per Task 5; flagged for user review.
+                // marginDelta is notional (calculateMargin returns full |qty|×price since
+                // Task 3), computed here for the transaction metadata only. It is NOT
+                // subtracted from persisted user.equity below — wallet.block/release
+                // above already reserves/frees this exact notional from the
+                // user's wallet balance, so subtracting it again here was double-
+                // counting the same margin against two different balance fields
+                // (design D2: persisted equity = credit + realised P&L only, same
+                // as marginSquareOffService's square-off path, which computes no
+                // marginDelta for the same reason).
                 const marginDelta = newMargin - prevMargin; // +ve = more margin needed
 
                 // #7 FIX: Block if free margin goes negative (balance - currentMargin - newMarginDelta < 0)
@@ -934,7 +938,7 @@ const placeTrade = async (req, res) => {
                 }
 
                 const balanceBefore = user.equity;
-                const balanceChange = tradeRealisedPnl - marginDelta - brokerage;
+                const balanceChange = tradeRealisedPnl - brokerage;
 
                 user.equity = user.equity + balanceChange;
                 newTrade.brokerage = brokerage;

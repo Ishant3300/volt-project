@@ -90,6 +90,15 @@ const runAudit = async (options = {}) => {
 
       // Auto-heal: re-register orphans into Redis
       if (autoHeal) {
+        // Re-registering the order into Redis alone isn't enough: price
+        // ticks only reach the matcher for instruments actually subscribed
+        // on the Kite feed, and the ONLY thing that adds an instrument to
+        // that subscription is livePriceService.addPendingToken(), normally
+        // called once at fresh order placement. A healed order that skips
+        // this call sits correctly in Redis but never receives a tick, so
+        // it can still never trigger — while this audit reports it as
+        // healed, masking the exact failure this service exists to catch.
+        const livePriceService = require('./livePriceService');
         for (const orphan of orphans) {
           const success = await orderBookService.addOrder(
             orphan.tradeId,
@@ -99,8 +108,9 @@ const runAudit = async (options = {}) => {
             orphan.orderType
           );
           if (success) {
+            livePriceService.addPendingToken(orphan.instrumentToken);
             healed++;
-            console.log(`   🟢 [OrderAudit] [${_ts()}] HEALED: tradeId=${orphan.tradeId} re-registered in Redis`);
+            console.log(`   🟢 [OrderAudit] [${_ts()}] HEALED: tradeId=${orphan.tradeId} re-registered in Redis + re-subscribed on Kite feed`);
           } else {
             console.log(`   ❌ [OrderAudit] [${_ts()}] HEAL FAILED: tradeId=${orphan.tradeId} — Redis still unavailable or error`);
           }

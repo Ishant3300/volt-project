@@ -84,12 +84,34 @@ const getAccountSummary = async (req, res) => {
     // Group by instrument — use pre-computed pnl from trade engine, recalculate brokerage
     const BrokerageSettings = require('../models/BrokerageSettings');
     const KiteInstrument = require('../models/KiteInstrument');
-    
-    // Load user-specific brokerage rules first, fall back to global
-    const targetUserId = req.query.user_id || req.user?.id || req.master?.id || req.admin?.id;
-    let brkRules = await BrokerageSettings.find({ user_id: targetUserId, deleted_at: null }).lean();
-    if (brkRules.length === 0) {
-      brkRules = await BrokerageSettings.find({ user_id: null, deleted_at: null }).lean();
+
+    // Load brokerage rules for EVERY user actually being summarized
+    // (targetUserIds, plural — can be a whole master's team or the whole
+    // platform for admin), not a single id. The old code looked up rules
+    // for a single `targetUserId` that fell back to the CALLER's own id
+    // (req.master?.id / req.admin?.id) whenever no explicit ?user_id= was
+    // given — which is exactly the multi-user default case — so it almost
+    // never matched any real user's rules and silently fell back to the
+    // global rate for everyone, or applied the master's own rate uniformly
+    // to every client's trades regardless of that client's real override.
+    // Build a per-user rule map here instead, same pattern as
+    // weeklyAdminController.js.
+    const allBrkSettings = await BrokerageSettings.find({
+      $or: [
+        { user_id: { $in: targetUserIds }, deleted_at: null },
+        { user_id: null, deleted_at: null }
+      ]
+    }).lean();
+    const brkRulesByUser = {};
+    const globalBrkRules = [];
+    for (const r of allBrkSettings) {
+      if (!r.user_id) {
+        globalBrkRules.push(r);
+      } else {
+        const uid = r.user_id.toString();
+        if (!brkRulesByUser[uid]) brkRulesByUser[uid] = [];
+        brkRulesByUser[uid].push(r);
+      }
     }
 
     // Build instrument info map for lot_size + segment
@@ -130,6 +152,13 @@ const getAccountSummary = async (req, res) => {
       const seg = ki?.segment || t.exchange;
       const rawName = ki?.raw_name || '';
       const lotSize = ki?.lot_size || 1;
+
+      // This trade's own user's rules (falling back to global) — not a
+      // single shared rule set for the whole summary.
+      const tUid = t.user_id.toString();
+      const brkRules = brkRulesByUser[tUid] && brkRulesByUser[tUid].length > 0
+        ? brkRulesByUser[tUid]
+        : globalBrkRules;
 
       let brkRule = null;
       if (rawName) {

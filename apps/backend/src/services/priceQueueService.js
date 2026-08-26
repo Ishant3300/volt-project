@@ -329,13 +329,16 @@ async function executeMatchedOrder(match, livePrice, options = {}) {
       const marginPerUnit = await calculateMargin(trade.exchange, 1, trade.price);
       const previousMargin = Math.abs(previousNetQty) * marginPerUnit;
       const newMargin = Math.abs(afterNetQty) * marginPerUnit;
-      // NOTE: marginDelta is now notional — persisted equity interaction pending
-      // review (see Task 5 flag). calculateMargin returns |qty|×price after Task 3,
-      // so this still subtracts a notional-sized amount from the PERSISTED
-      // user.equity running balance. Kept byte-for-byte for parity with placeTrade;
-      // flagged for user review.
+      // marginDelta is notional (calculateMargin returns |qty|×price since Task 3),
+      // computed here for transaction metadata only — NOT subtracted from
+      // persisted user.equity below. wallet.block/release above already
+      // reserves/frees this exact notional from the wallet balance, so
+      // subtracting it again here double-counted the same margin against two
+      // balance fields (design D2: persisted equity = credit + realised P&L
+      // only, matching placeTrade's fix and marginSquareOffService's
+      // no-marginDelta square-off path).
       const marginDelta = newMargin - previousMargin;
-      const balanceChange = realisedPnl - marginDelta - brokerage;
+      const balanceChange = realisedPnl - brokerage;
       const user = await User.findById(trade.user_id).session(session);
       if (!user) throw new Error(`Pending-order user ${trade.user_id} not found`);
       const currentEquity = Number(user.equity || 0);

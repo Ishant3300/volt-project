@@ -257,6 +257,19 @@ const syncFromDatabase = async () => {
     await pipeline.exec();
     console.log(`📗 [OrderBook] [${_ts()}] Synced ${pendingTrades.length} pending orders into Redis`);
 
+    // Being present in the Redis sorted set is not enough on its own — price
+    // ticks only reach the matcher for instruments actually subscribed on
+    // the Kite feed, and the only thing that adds one is
+    // livePriceService.addPendingToken() (normally called once at fresh
+    // order placement). Without this, an order synced here after a restart
+    // sits correctly in Redis but never receives a tick and can never
+    // trigger, while orderConsistencyAudit reports it as consistent since
+    // it IS in Redis — masking the exact gap this sync exists to close.
+    const livePriceService = require('./livePriceService');
+    for (const trade of pendingTrades) {
+      livePriceService.addPendingToken(trade.instrument_token);
+    }
+
     if (LOG_REDIS_ORDERS) {
       // Log each synced order for full traceability
       for (const trade of pendingTrades) {

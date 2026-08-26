@@ -697,7 +697,7 @@ const deleteMaster = async (req, res) => {
     );
     // Also cascade soft-delete to sub-masters
     await Master.updateMany(
-      { _id: { $in: allHierarchyMasterIds }, _id: { $ne: id }, deleted_at: null },
+      { _id: { $in: allHierarchyMasterIds, $ne: id }, deleted_at: null },
       { $set: { deleted_at: new Date() } }
     );
 
@@ -1047,6 +1047,22 @@ const getMasterPosition = async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Was previously reachable by any authenticated master for any master's
+    // id — no ownership check at all — leaking P&L/brokerage/equity across
+    // unrelated hierarchies. Admin is unrestricted; a master may only view
+    // their own subtree.
+    if (req.master) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allowedSubMasters = await getAllSubMasterIds(req.master.id);
+      if (!allowedSubMasters.includes(id)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Not authorized to view this master',
+          data: null
+        });
+      }
+    }
+
     const master = await Master.findOne({
       _id: id,
       deleted_at: null
@@ -1222,6 +1238,18 @@ const sendMessageToMaster = async (req, res) => {
       });
     }
 
+    // Was previously reachable by any authenticated master for any master's
+    // id — no ownership check — plus `req.admin.id` unconditionally, which
+    // throws (TypeError, 500) whenever a master calls this route since
+    // req.admin is null for a master caller.
+    if (req.master) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allowedSubMasters = await getAllSubMasterIds(req.master.id);
+      if (!allowedSubMasters.includes(id)) {
+        return res.status(403).json({ success: false, message: 'Not authorized to message this master', data: null });
+      }
+    }
+
     const master = await Master.findOne({
       _id: id,
       deleted_at: null
@@ -1236,8 +1264,8 @@ const sendMessageToMaster = async (req, res) => {
     }
 
     const newMessage = await Message.create({
-      sender_id: req.admin.id,
-      sender_type: 'Admin',
+      sender_id: req.admin ? req.admin.id : req.master.id,
+      sender_type: req.admin ? 'Admin' : 'Master',
       recipient_id: master._id,
       recipient_type: 'Master',
       subject: subject || '',
@@ -1263,6 +1291,17 @@ const updateMasterIntradaySquareoff = async (req, res) => {
   try {
     const { id } = req.params;
     const { intraday_squareoff } = req.body;
+
+    // Was previously reachable by any authenticated master for any master's
+    // id — no ownership check — letting one master silently rewrite an
+    // unrelated master's (and its whole cascade's) risk settings.
+    if (req.master) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allowedSubMasters = await getAllSubMasterIds(req.master.id);
+      if (!allowedSubMasters.includes(id)) {
+        return res.status(403).json({ success: false, message: 'Not authorized to update this master', data: null });
+      }
+    }
 
     const master = await Master.findOne({ _id: id, deleted_at: null });
     if (!master) {
@@ -1379,6 +1418,17 @@ const updateMasterMarginSquareoffPercentage = async (req, res) => {
       });
     }
 
+    // Was previously reachable by any authenticated master for any master's
+    // id — no ownership check — letting one master silently rewrite an
+    // unrelated master's margin square-off setting.
+    if (req.master) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allowedSubMasters = await getAllSubMasterIds(req.master.id);
+      if (!allowedSubMasters.includes(id)) {
+        return res.status(403).json({ success: false, message: 'Not authorized to update this master', data: null });
+      }
+    }
+
     const master = await Master.findOne({
       _id: id,
       deleted_at: null
@@ -1413,6 +1463,17 @@ const updateMasterMarginSquareoffPercentage = async (req, res) => {
 const getAccountLimit = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Was previously reachable by any authenticated master for any master's
+    // id — no ownership check.
+    if (req.master) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allowedSubMasters = await getAllSubMasterIds(req.master.id);
+      if (!allowedSubMasters.includes(id)) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view this master', data: null });
+      }
+    }
+
     const master = await Master.findOne({ _id: id, deleted_at: null });
     if (!master) {
       return res.status(404).json({ success: false, message: 'Master not found', data: null });
@@ -1459,6 +1520,17 @@ const getAccountLimit = async (req, res) => {
 const getMasterBaseRates = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Was previously reachable by any authenticated master for any master's
+    // id — no ownership check.
+    if (req.master) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allowedSubMasters = await getAllSubMasterIds(req.master.id);
+      if (!allowedSubMasters.includes(id)) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view this master', data: null });
+      }
+    }
+
     const master = await Master.findOne({ _id: id, deleted_at: null }).select('_id');
     if (!master) {
       return res.status(404).json({ success: false, message: 'Master not found', data: null });
@@ -1480,6 +1552,17 @@ const updateMasterBaseRates = async (req, res) => {
   try {
     const { id } = req.params;
     const { base_rates } = req.body;
+
+    // Was previously reachable by any authenticated master for any master's
+    // id — no ownership check — letting one master silently rewrite an
+    // unrelated master's base brokerage rates.
+    if (req.master) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allowedSubMasters = await getAllSubMasterIds(req.master.id);
+      if (!allowedSubMasters.includes(id)) {
+        return res.status(403).json({ success: false, message: 'Not authorized to update this master', data: null });
+      }
+    }
 
     const master = await Master.findOne({ _id: id, deleted_at: null }).select('_id');
     if (!master) {
@@ -1522,6 +1605,17 @@ const updateAccountLimit = async (req, res) => {
   try {
     const { id } = req.params;
     const { enabled, max_masters, max_users } = req.body;
+
+    // Was previously reachable by any authenticated master for any master's
+    // id — no ownership check — letting one master silently rewrite an
+    // unrelated master's account limits.
+    if (req.master) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allowedSubMasters = await getAllSubMasterIds(req.master.id);
+      if (!allowedSubMasters.includes(id)) {
+        return res.status(403).json({ success: false, message: 'Not authorized to update this master', data: null });
+      }
+    }
 
     const master = await Master.findOne({ _id: id, deleted_at: null });
     if (!master) {

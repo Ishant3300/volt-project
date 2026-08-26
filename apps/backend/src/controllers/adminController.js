@@ -50,6 +50,30 @@ const createUser = async (req, res) => {
       const master = await Master.findById(master_id).session(session);
       if (!master) throw new Error('Master not found');
 
+      // This route is mounted with authenticateMaster only (never admin), so
+      // req.master is always set here. Without this check, a master could
+      // plant a user under ANY master_id in the request body — including an
+      // unrelated master's hierarchy — and the new user's initial credit was
+      // never debited from anyone, i.e. free unlimited balance created from
+      // nothing. Require master_id to be the caller's own hierarchy, and
+      // debit the caller for the initial credit, same as masterUserController
+      // .createUser (the other, correctly-guarded path to this same action).
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allMasterIds = req.master ? await getAllSubMasterIds(req.master.id) : null;
+      if (allMasterIds && !allMasterIds.includes(master_id)) {
+        throw new Error('Not authorized to create a user under that master');
+      }
+
+      const initialCredit = credit || 0;
+
+      if (req.master) {
+        const parentMaster = await Master.findById(req.master.id).session(session);
+        if (!parentMaster) throw new Error('Calling master not found');
+        if (parentMaster.equity < initialCredit) {
+          throw new Error(`Insufficient balance. Available: ${parentMaster.equity}, Required: ${initialCredit}`);
+        }
+      }
+
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -59,8 +83,6 @@ const createUser = async (req, res) => {
         if (investor_password === password) throw new Error('Investor password must be different from the main password');
         hashedInvestorPassword = await bcrypt.hash(investor_password, 10);
       }
-
-      const initialCredit = credit || 0;
 
       const user = new User({
         username,
@@ -85,13 +107,38 @@ const createUser = async (req, res) => {
           type: 'CREDIT',
           status: 'SUCCESS',
           amount: initialCredit,
-          referenceId: req.admin ? req.admin.id : null,
-          referenceModel: 'Admin',
+          referenceId: req.admin ? req.admin.id : req.master.id,
+          referenceModel: req.admin ? 'Admin' : 'Master',
           balanceBefore: 0,
           balanceAfter: user.equity,
-          metadata: { note: 'Admin created user with initial credit' }
+          metadata: { note: req.admin ? 'Admin created user with initial credit' : 'Master created user with initial credit' }
         });
         await tx.save({ session });
+
+        // Debit the calling master's own equity for the credit just granted
+        // to the new user — the debit half of the transfer that was
+        // previously missing entirely.
+        if (req.master) {
+          const parentMaster = await Master.findById(req.master.id).session(session);
+          const prevMasterBalance = parentMaster.equity;
+          parentMaster.equity -= initialCredit;
+          await parentMaster.save({ session });
+
+          const masterTx = new Transaction({
+            transactionId: `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 6)}_M`,
+            userId: parentMaster._id,
+            userModel: 'Master',
+            type: 'DEBIT',
+            status: 'SUCCESS',
+            amount: initialCredit,
+            referenceId: user._id,
+            referenceModel: 'User',
+            balanceBefore: prevMasterBalance,
+            balanceAfter: parentMaster.equity,
+            metadata: { note: `Debited for new user ${username}'s initial credit` }
+          });
+          await masterTx.save({ session });
+        }
       }
 
       resultData = user.toJSON();
@@ -231,7 +278,18 @@ const updateUser = async (req, res) => {
       status
     } = req.body;
 
-    const user = await User.findById(id);
+    // Scope to the caller's own hierarchy when a master calls this endpoint
+    // (mounted with authenticateAdminOrMaster) — without this, any master
+    // could edit any user on the platform, including reassigning them into
+    // their own hierarchy via master_id below. Admins are unrestricted.
+    let user;
+    if (req.master) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allMasterIds = await getAllSubMasterIds(req.master.id);
+      user = await User.findOne({ _id: id, master_id: { $in: allMasterIds } });
+    } else {
+      user = await User.findById(id);
+    }
 
     if (!user) {
       return res.status(404).json({
@@ -298,11 +356,29 @@ const updateUser = async (req, res) => {
           data: null
         });
       }
+      // A master can only reassign a user to another master within their
+      // own hierarchy — otherwise they could move a user out to an
+      // unrelated master (or an admin could still reassign anywhere).
+      if (req.master) {
+        const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+        const allMasterIds = await getAllSubMasterIds(req.master.id);
+        if (!allMasterIds.includes(master_id)) {
+          return res.status(403).json({
+            success: false,
+            message: 'Not authorized to reassign this user to that master',
+            data: null
+          });
+        }
+      }
       user.master_id = master_id;
     }
 
     if (name) user.name = name;
-    if (credits !== undefined) user.credits = credits;
+    // credits is intentionally NOT settable here — a direct overwrite with
+    // no balance check, no parent debit, and no audit record (the same bug
+    // already fixed on masterUserController.updateUserDetails/updateMaster/
+    // updateChildMasterDetails). credits is what metricsEngine reads as the
+    // live trading balance. Use the dedicated credit/debit endpoints instead.
     if (note !== undefined) user.note = note;
     if (margin_square_off !== undefined) user.margin_square_off = margin_square_off;
     if (change_pass_on_first_login !== undefined) user.change_pass_on_first_login = change_pass_on_first_login;

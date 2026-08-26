@@ -362,13 +362,16 @@ const processPendingOrders = async () => {
                         const marginPerUnit = await calculateMargin(freshTrade.exchange, 1, freshTrade.price);
                         const prevMargin = Math.abs(prevNetQtyForMargin) * marginPerUnit;
                         const newMargin = Math.abs(newNetQty) * marginPerUnit;
-                        // NOTE: marginDelta is now notional — persisted equity interaction
-                        // pending review (see Task 5 flag). calculateMargin returns |qty|×price
-                        // after Task 3, so this still subtracts a notional-sized amount from the
-                        // PERSISTED user.equity running balance. Kept byte-for-byte for parity
-                        // with placeTrade / priceQueueService; flagged for user review.
+                        // marginDelta is notional (calculateMargin returns |qty|×price since
+                        // Task 3), computed here for transaction metadata only — NOT
+                        // subtracted from persisted user.equity below. wallet.block/release
+                        // (this path's DB-fallback equivalent) already reserves/frees this
+                        // exact notional from the wallet balance, so subtracting it again
+                        // here double-counted the same margin against two balance fields
+                        // (design D2: persisted equity = credit + realised P&L only,
+                        // matching the same fix in placeTrade / priceQueueService).
                         const marginDelta = newMargin - prevMargin;
-                        const balanceChange = realisedPnl - marginDelta - brokerage;
+                        const balanceChange = realisedPnl - brokerage;
 
                         const user = await User.findById(freshTrade.user_id).session(session);
                         if (user) {
