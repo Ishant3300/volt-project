@@ -216,6 +216,37 @@ async function release(ownerModel, ownerId, category, amount, session = null) {
 }
 
 /**
+ * Look up a prior Transaction by idempotencyKey, if one is supplied and
+ * already exists — used by assign()/withdraw() to make a retried request a
+ * safe no-op instead of double-applying the same funding/withdrawal.
+ *
+ * This is a pre-check, not a lock: it closes the common case (a caller
+ * retries after a network timeout, well after the first attempt's own
+ * request finished). A genuinely simultaneous double-submit with the same
+ * key can still race past this check; the unique index on
+ * `Transaction.idempotencyKey` is the backstop for that case — the second
+ * writeFundingAudit's insert fails with a duplicate-key error rather than
+ * silently creating two records, so the transaction aborts and the caller
+ * sees an error instead of a double-applied balance change.
+ *
+ * @param {string|null} idempotencyKey
+ * @param {import('mongoose').ClientSession} session
+ * @returns {Promise<{category:string, amount:number, actor:string, targetModel:string, replayed:true}|null>}
+ */
+async function checkIdempotentReplay(idempotencyKey, session) {
+  if (!idempotencyKey) return null;
+  const existing = await Transaction.findOne({ idempotencyKey }).session(session).lean();
+  if (!existing) return null;
+  return {
+    category: existing.metadata?.category,
+    amount: existing.amount,
+    actor: existing.metadata?.actor?.type,
+    targetModel: existing.userModel,
+    replayed: true,
+  };
+}
+
+/**
  * Write a wallet-funding audit record (design §5, Requirement 5.5). Captures the
  * actor, target, category, amount, direction and before/after balances so every
  * assign/withdraw is fully traceable.
@@ -233,17 +264,19 @@ async function release(ownerModel, ownerId, category, amount, session = null) {
  * @param {number|null} params.actorBefore
  * @param {number|null} params.actorAfter
  * @param {import('mongoose').ClientSession|null} params.session
+ * @param {string|null} [params.idempotencyKey]
  */
 async function writeFundingAudit(params) {
   const {
     type, direction, actor, targetModel, targetId, category, amount,
-    targetBefore, targetAfter, actorBefore, actorAfter, session,
+    targetBefore, targetAfter, actorBefore, actorAfter, session, idempotencyKey,
   } = params;
 
   const transactionId = `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 6)}_W`;
 
   const doc = {
     transactionId,
+    ...(idempotencyKey ? { idempotencyKey } : {}),
     userId: targetId,
     userModel: targetModel,
     type,
@@ -286,9 +319,14 @@ async function writeFundingAudit(params) {
  * @param {'NSE'|'MCX'|'GLOBAL'} category
  * @param {number} amount
  * @param {import('mongoose').ClientSession|null} [session]
- * @returns {Promise<{category:string, amount:number, actor:string, targetModel:string}>}
+ * @param {string|null} [idempotencyKey] - if supplied and a Transaction with
+ *   this key already exists, the call is a no-op replay: no balance mutation
+ *   runs and the previously-recorded result is returned instead. Lets a
+ *   retried request (e.g. a network timeout after the first attempt actually
+ *   committed) be sent again safely without double-applying.
+ * @returns {Promise<{category:string, amount:number, actor:string, targetModel:string, replayed?:boolean}>}
  */
-async function assign(actor, targetModel, targetId, category, amount, session = null) {
+async function assign(actor, targetModel, targetId, category, amount, session = null, idempotencyKey = null) {
   if (!actor || (actor.type !== 'Master' && actor.type !== 'Admin')) {
     throw new Error(`walletService.assign: actor.type must be 'Master' or 'Admin'`);
   }
@@ -297,6 +335,9 @@ async function assign(actor, targetModel, targetId, category, amount, session = 
   resolveModel(targetModel); // validate early
 
   return withOptionalSession(session, async (s) => {
+    const replay = await checkIdempotentReplay(idempotencyKey, s);
+    if (replay) return replay;
+
     const targetBefore = (await readWallet(resolveModel(targetModel), targetId, s))[category];
 
     let actorBefore = null;
@@ -327,6 +368,7 @@ async function assign(actor, targetModel, targetId, category, amount, session = 
       actorBefore,
       actorAfter,
       session: s,
+      idempotencyKey,
     });
 
     return { category, amount: rounded, actor: actor.type, targetModel };
@@ -350,10 +392,11 @@ async function assign(actor, targetModel, targetId, category, amount, session = 
  * @param {'NSE'|'MCX'|'GLOBAL'} category
  * @param {number} amount
  * @param {import('mongoose').ClientSession|null} [session]
- * @returns {Promise<{category:string, amount:number, actor:string, targetModel:string}>}
+ * @param {string|null} [idempotencyKey] - see assign()'s doc for semantics.
+ * @returns {Promise<{category:string, amount:number, actor:string, targetModel:string, replayed?:boolean}>}
  * @throws error tagged `code: 'INSUFFICIENT_WALLET'` when the target cannot cover it.
  */
-async function withdraw(actor, targetModel, targetId, category, amount, session = null) {
+async function withdraw(actor, targetModel, targetId, category, amount, session = null, idempotencyKey = null) {
   if (!actor || (actor.type !== 'Master' && actor.type !== 'Admin')) {
     throw new Error(`walletService.withdraw: actor.type must be 'Master' or 'Admin'`);
   }
@@ -362,6 +405,9 @@ async function withdraw(actor, targetModel, targetId, category, amount, session 
   resolveModel(targetModel); // validate early
 
   return withOptionalSession(session, async (s) => {
+    const replay = await checkIdempotentReplay(idempotencyKey, s);
+    if (replay) return replay;
+
     const targetBefore = (await readWallet(resolveModel(targetModel), targetId, s))[category];
 
     // Debit the target first (guarded) — rejects an over-withdrawal before the
@@ -390,6 +436,7 @@ async function withdraw(actor, targetModel, targetId, category, amount, session 
       actorBefore,
       actorAfter,
       session: s,
+      idempotencyKey,
     });
 
     return { category, amount: rounded, actor: actor.type, targetModel };

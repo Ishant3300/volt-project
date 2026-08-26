@@ -23,6 +23,7 @@
  * @module controllers/walletController
  */
 
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const Master = require('../models/Master');
 const walletService = require('../services/walletService');
@@ -81,8 +82,12 @@ function httpError(status, message) {
  * non-finite or `<= 0` amount is skipped (a create/edit only funds the categories
  * the caller actually specified). When a `session` is passed the funding runs
  * inside the caller's Mongo transaction so it commits/aborts atomically with the
- * account write; without one, `walletService.assign` opens its own transaction
- * per category.
+ * account write. Without one, this helper opens and owns its own transaction
+ * covering ALL categories in the map together — so a request funding e.g.
+ * {NSE, MCX} either applies both or neither; a mid-loop INSUFFICIENT_WALLET on
+ * a later category can no longer leave an earlier category committed while the
+ * request as a whole reports failure (which previously invited an admin/master
+ * retry to double-fund the already-committed category).
  *
  * @param {object} params
  * @param {import('express').Request} params.req            - the authenticated request (actor source)
@@ -93,7 +98,8 @@ function httpError(status, message) {
  * @returns {Promise<{funded: Array<{category:string, amount:number}>}>}   - summary of applied funding
  * @throws {Error & {status:number}} 401-style error when the request carries no actor
  * @throws error tagged `code:'INSUFFICIENT_WALLET'` (propagated from `walletService.assign`)
- *         when a master over-funds — the surrounding transaction should abort.
+ *         when a master over-funds — the surrounding transaction (caller's, or
+ *         this helper's own when none was passed) aborts as a whole.
  */
 async function applyWalletFunding({ req, targetType, targetId, walletMap, session = null }) {
   const actor = resolveActor(req);
@@ -102,19 +108,42 @@ async function applyWalletFunding({ req, targetType, targetId, walletMap, sessio
     throw httpError(401, 'Authentication required to fund a wallet');
   }
 
-  const funded = [];
-  for (const category of walletService.CATEGORIES) {
+  const categoriesToFund = walletService.CATEGORIES.filter((category) => {
     const amount = Number(walletMap && walletMap[category]);
     // Only fund categories the caller explicitly specified with a positive amount;
     // skip missing/zero/negative/NaN entries.
-    if (!Number.isFinite(amount) || amount <= 0) continue;
+    return Number.isFinite(amount) && amount > 0;
+  });
 
-    // Master → transfer (guarded debit of the master's own pool); Admin → grant.
-    // A master over-funding throws INSUFFICIENT_WALLET, which we let propagate so
-    // a create transaction aborts (Requirement 5.3). Pass the session through so
-    // the move is atomic with the account write when one is provided.
-    await walletService.assign(actor, targetType, targetId, category, amount, session);
-    funded.push({ category, amount });
+  const fundAll = async (s) => {
+    const funded = [];
+    for (const category of categoriesToFund) {
+      const amount = Number(walletMap[category]);
+      // Master → transfer (guarded debit of the master's own pool); Admin → grant.
+      // A master over-funding throws INSUFFICIENT_WALLET, which we let propagate
+      // so the transaction aborts (Requirement 5.3).
+      await walletService.assign(actor, targetType, targetId, category, amount, s);
+      funded.push({ category, amount });
+    }
+    return funded;
+  };
+
+  if (session) {
+    return { funded: await fundAll(session) };
+  }
+  if (categoriesToFund.length === 0) {
+    return { funded: [] };
+  }
+
+  const ownSession = await mongoose.startSession();
+  try {
+    let funded;
+    await ownSession.withTransaction(async () => {
+      funded = await fundAll(ownSession);
+    });
+    return { funded };
+  } finally {
+    ownSession.endSession();
   }
 
   return { funded };

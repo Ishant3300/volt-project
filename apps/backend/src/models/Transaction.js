@@ -6,6 +6,15 @@ const transactionSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
+    // Optional client/caller-supplied key for retry-safety (e.g. a network
+    // retry of the same funding request shouldn't apply twice). Sparse so
+    // rows that don't supply one (the vast majority, pre-existing) never
+    // collide with each other on the unique constraint.
+    idempotencyKey: {
+        type: String,
+        unique: true,
+        sparse: true
+    },
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         required: true,

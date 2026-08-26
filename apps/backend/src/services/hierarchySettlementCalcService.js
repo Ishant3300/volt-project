@@ -186,14 +186,19 @@ async function resolveHierarchyRates(userId, exchangeName, scriptName, brokerage
 
   // Walk every master from the client's immediate master up to the
   // top-level master (master_id === null) — an arbitrary number of levels,
-  // not hardcoded to exactly two. Guards against a circular master_id
-  // reference the same way weeklyAdminController.js's per-user walks do
-  // (bounded iteration count rather than trusting the data is acyclic).
+  // not hardcoded to exactly two. No fixed depth cap: real hierarchies on
+  // this platform run 50-60+ tiers deep (see weeklyAdminController.js's
+  // _getPnlUnpassedMultiplierForUserBatched), and a fixed cap would
+  // silently truncate the cascade for anything deeper, attributing the
+  // wrong share to every tier above the cap instead of continuing to the
+  // real top. The only guard is cycle detection via `seen` — a `master_id`
+  // reference that revisits an already-seen master can only happen from a
+  // corrupted circular reference (impossible in a valid tree), and without
+  // this guard it would spin this loop forever.
   const tiers = [];
   let currentId = user.master_id ? user.master_id.toString() : null;
   const seen = new Set();
-  const MAX_DEPTH = 25;
-  while (currentId && !seen.has(currentId) && tiers.length < MAX_DEPTH) {
+  while (currentId && !seen.has(currentId)) {
     seen.add(currentId);
     const master = await Master.findById(currentId).select('master_id pnl_sharing brokerage_sharing').lean();
     if (!master) break;

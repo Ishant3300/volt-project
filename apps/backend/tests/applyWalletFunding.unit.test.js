@@ -10,8 +10,15 @@
 // walletService and the User/Master models walletController pulls in are all
 // mocked — no DB. applyWalletFunding is pure actor-resolution + per-category
 // iteration over walletService.assign, so we assert exactly which assign calls it
-// makes (and with which actor/session). The full create-with-funding DB flow
-// (atomic abort on over-fund) is covered by the Task 20 e2e harness.
+// makes (and with which actor/session).
+//
+// When no session is supplied, applyWalletFunding now opens and owns its own
+// mongoose transaction covering ALL categories in one request together (fixed:
+// previously each category fell through to walletService.assign's own internal
+// per-call transaction fallback, so a partial failure — e.g. NSE commits, MCX
+// then hits INSUFFICIENT_WALLET — could leave NSE funded while the request
+// reported failure, inviting a retry that double-funds NSE). mongoose.startSession
+// is mocked below to a fake session whose withTransaction just invokes the callback.
 
 jest.mock('../src/services/walletService', () => ({
   assign: jest.fn(),
@@ -25,7 +32,19 @@ jest.mock('../src/models/User', () => ({ findById: jest.fn() }));
 jest.mock('../src/models/Master', () => ({ findById: jest.fn() }));
 
 const walletService = require('../src/services/walletService');
+const mongoose = require('mongoose');
 const { applyWalletFunding } = require('../src/controllers/walletController');
+
+// Fake session: withTransaction just runs the callback (no real DB), endSession
+// is a no-op. Lets us assert applyWalletFunding forwards THIS session object to
+// every walletService.assign call in the batch, proving they share one transaction.
+function fakeSession() {
+  return {
+    id: 'own-session',
+    withTransaction: async (fn) => fn(),
+    endSession: () => {},
+  };
+}
 
 const MASTER_REQ = (wallet) => ({ master: { id: 'master1', role: 'master' }, admin: null, body: { wallet } });
 const ADMIN_REQ = (wallet) => ({ master: null, admin: { id: 'admin1', role: 'admin' }, body: { wallet } });
@@ -38,9 +57,13 @@ function insufficientWallet(category) {
   return err;
 }
 
+let ownSession;
+
 beforeEach(() => {
   jest.clearAllMocks();
   walletService.assign.mockResolvedValue({ category: 'NSE', amount: 0 });
+  ownSession = fakeSession();
+  jest.spyOn(mongoose, 'startSession').mockResolvedValue(ownSession);
 });
 
 describe('applyWalletFunding — master actor (transfer, Requirement 5.1)', () => {
@@ -72,20 +95,37 @@ describe('applyWalletFunding — master actor (transfer, Requirement 5.1)', () =
 
     expect(walletService.assign).toHaveBeenCalledTimes(1);
     expect(walletService.assign).toHaveBeenCalledWith(
-      { type: 'Master', id: 'master1' }, 'Master', 'sub1', 'MCX', 2000, null
+      { type: 'Master', id: 'master1' }, 'Master', 'sub1', 'MCX', 2000, ownSession
     );
   });
 });
 
 describe('applyWalletFunding — admin actor (grant, Requirement 5.2)', () => {
-  test('resolves an Admin actor and forwards a null session when none is given', async () => {
+  test('resolves an Admin actor and opens its own transaction when no session is given', async () => {
     const req = ADMIN_REQ({ GLOBAL: 9000 });
 
     await applyWalletFunding({ req, targetType: 'User', targetId: 'u1', walletMap: req.body.wallet });
 
+    expect(mongoose.startSession).toHaveBeenCalledTimes(1);
     expect(walletService.assign).toHaveBeenCalledTimes(1);
     expect(walletService.assign).toHaveBeenCalledWith(
-      { type: 'Admin', id: 'admin1' }, 'User', 'u1', 'GLOBAL', 9000, null
+      { type: 'Admin', id: 'admin1' }, 'User', 'u1', 'GLOBAL', 9000, ownSession
+    );
+  });
+
+  test('multiple categories with no caller session all share the SAME owned transaction', async () => {
+    const req = ADMIN_REQ({ NSE: 1000, MCX: 5000 });
+
+    await applyWalletFunding({ req, targetType: 'User', targetId: 'u1', walletMap: req.body.wallet });
+
+    // Only one transaction opened for the whole batch, not one per category.
+    expect(mongoose.startSession).toHaveBeenCalledTimes(1);
+    expect(walletService.assign).toHaveBeenCalledTimes(2);
+    expect(walletService.assign).toHaveBeenNthCalledWith(
+      1, { type: 'Admin', id: 'admin1' }, 'User', 'u1', 'NSE', 1000, ownSession
+    );
+    expect(walletService.assign).toHaveBeenNthCalledWith(
+      2, { type: 'Admin', id: 'admin1' }, 'User', 'u1', 'MCX', 5000, ownSession
     );
   });
 });
@@ -97,18 +137,22 @@ describe('applyWalletFunding — no-op / skip cases', () => {
     });
 
     expect(walletService.assign).not.toHaveBeenCalled();
+    // No categories to fund — never opens a transaction at all.
+    expect(mongoose.startSession).not.toHaveBeenCalled();
     expect(summary).toEqual({ funded: [] });
   });
 
   test('empty walletMap makes no assign calls', async () => {
     await applyWalletFunding({ req: MASTER_REQ({}), targetType: 'User', targetId: 'u1', walletMap: {} });
     expect(walletService.assign).not.toHaveBeenCalled();
+    expect(mongoose.startSession).not.toHaveBeenCalled();
   });
 
   test('negative, NaN and zero amounts are all skipped', async () => {
     const walletMap = { NSE: -100, MCX: 'not-a-number', GLOBAL: 0 };
     await applyWalletFunding({ req: MASTER_REQ(walletMap), targetType: 'User', targetId: 'u1', walletMap });
     expect(walletService.assign).not.toHaveBeenCalled();
+    expect(mongoose.startSession).not.toHaveBeenCalled();
   });
 });
 
@@ -120,6 +164,27 @@ describe('applyWalletFunding — over-funding propagates (Requirement 5.3)', () 
     await expect(
       applyWalletFunding({ req: MASTER_REQ(walletMap), targetType: 'User', targetId: 'u1', walletMap })
     ).rejects.toMatchObject({ code: 'INSUFFICIENT_WALLET', category: 'NSE' });
+  });
+
+  test('a later category failing rolls the whole owned transaction back (nothing partially applied)', async () => {
+    walletService.assign
+      .mockResolvedValueOnce({ category: 'NSE', amount: 1000 })
+      .mockRejectedValueOnce(insufficientWallet('MCX'));
+    const walletMap = { NSE: 1000, MCX: 999999 };
+
+    await expect(
+      applyWalletFunding({ req: MASTER_REQ(walletMap), targetType: 'User', targetId: 'u1', walletMap })
+    ).rejects.toMatchObject({ code: 'INSUFFICIENT_WALLET', category: 'MCX' });
+
+    // Both calls happened inside the SAME owned transaction/session — a real
+    // mongoose withTransaction would abort NSE's write too when MCX throws.
+    expect(mongoose.startSession).toHaveBeenCalledTimes(1);
+    expect(walletService.assign).toHaveBeenNthCalledWith(
+      1, { type: 'Master', id: 'master1' }, 'User', 'u1', 'NSE', 1000, ownSession
+    );
+    expect(walletService.assign).toHaveBeenNthCalledWith(
+      2, { type: 'Master', id: 'master1' }, 'User', 'u1', 'MCX', 999999, ownSession
+    );
   });
 
   test('a request carrying no actor throws before any funding is attempted', async () => {
