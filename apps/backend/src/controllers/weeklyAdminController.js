@@ -190,17 +190,31 @@ const getWeeklyAdminReport = async (req, res) => {
     }
     _mark('5_instruments');
 
-    // 7. Load ALL BrokerageSettings (user-specific + global)
+    // 7. Load ALL BrokerageSettings (user-specific + caller's own + global)
+    //
+    // BUG (confirmed live, 2026-08-19 to 2026-08-26): this query's $in list
+    // was built from allUserIds alone — every CLIENT under scope, but never
+    // the CALLING MASTER's own id. callerRuleOwnerId (below) needs the
+    // caller's own rows to compute their real per-instrument brokerage
+    // rate, but since those rows were never fetched, brkRulesByUser[caller]
+    // was always empty, silently falling back to the global platform rate
+    // for every caller's "own rate" — inflating (or deflating) caller_brk/
+    // total_caller for every master with a real custom rate, platform-wide,
+    // since the batch-loading optimization (5c017b1b) introduced this
+    // query. callerRuleOwnerId is computed here (moved up from just below)
+    // so it can be included in the fetch, not just the later lookup.
+    const callerRuleOwnerId = role === 'admin' ? null : callerId;
+    const brkSettingsOwnerIds = callerRuleOwnerId
+      ? [...allUserIds, callerRuleOwnerId]
+      : allUserIds;
     const allBrkSettings = await BrokerageSettings.find({
       $or: [
-        { user_id: { $in: allUserIds }, deleted_at: null },
+        { user_id: { $in: brkSettingsOwnerIds }, deleted_at: null },
         { user_id: null, deleted_at: null }
       ]
     }).lean();
     _mark('6_brokerageSettings');
 
-    // Also load caller's brokerage rules
-    const callerRuleOwnerId = role === 'admin' ? null : callerId;
     // Group brokerage rules by user_id
     const brkRulesByUser = {};   // userId → rules[]
     const globalBrkRules = [];
