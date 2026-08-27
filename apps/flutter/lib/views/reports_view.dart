@@ -23,6 +23,7 @@ import 'userwise_position_view.dart';
 import 'script_quantity_detail_view.dart';
 import 'deleted_trade_view.dart';
 import 'rejection_log_history_view.dart';
+import 'settlement_report_view.dart';
 
 class ReportsView extends StatelessWidget {
   const ReportsView({super.key});
@@ -190,6 +191,12 @@ class ReportsView extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const WeeklyAdminView()),
+          );
+        } else if (title == 'Settlement Report') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const SettlementReportView()),
           );
         } else if (title == 'Intraday History') {
           Navigator.push(
