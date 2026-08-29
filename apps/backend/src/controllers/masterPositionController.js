@@ -631,6 +631,27 @@ const getLiveMetrics = async (req, res) => {
     // worker's _appliedSettlementRunId already matches).
     await metricsEngine.synchronizeSettlementGeneration({ maxAgeMs: 0 });
 
+    // A master-supplied user_id/master_id must be within the caller's own
+    // subtree — found via the web portal's client-side security audit: this
+    // endpoint had zero ownership check, unlike the sibling getUserMetrics/
+    // getAdminMasterMetrics above which were already fixed. Admin unrestricted.
+    if (req.master && (user_id || master_id)) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allowedMasterIds = await getAllSubMasterIds(req.master.id);
+
+      if (user_id) {
+        const User = require('../models/User');
+        const targetUser = await User.findById(user_id).select('master_id').lean();
+        if (!targetUser || !allowedMasterIds.includes(targetUser.master_id?.toString())) {
+          return res.status(403).json({ success: false, message: 'Not authorized to view this user\'s metrics', data: null });
+        }
+      }
+
+      if (master_id && !allowedMasterIds.includes(master_id.toString())) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view this master\'s metrics', data: null });
+      }
+    }
+
     if (user_id) {
       // Try cache first; if empty (user has no active trades post-settlement),
       // build a fresh response from DB so the Position tab shows correct equity.

@@ -14,6 +14,31 @@ const getTransactionHistory = async (req, res) => {
       return res.status(400).json({ success: false, message: 'target_id is required' });
     }
 
+    // Found via the web portal's client-side security audit: this endpoint
+    // had zero ownership check — any master could pass any target_id/
+    // target_model and read that account's full credit/debit ledger,
+    // including targeting 'Admin'. Admin unrestricted; master scoped to
+    // their own subtree, and can never target an Admin's ledger.
+    if (req.master) {
+      if (target_model === 'Admin') {
+        return res.status(403).json({ success: false, message: 'Not authorized to view this transaction history' });
+      }
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allowedMasterIds = await getAllSubMasterIds(req.master.id);
+
+      if (target_model === 'Master') {
+        if (!allowedMasterIds.includes(target_id.toString())) {
+          return res.status(403).json({ success: false, message: 'Not authorized to view this transaction history' });
+        }
+      } else {
+        const User = require('../models/User');
+        const targetUser = await User.findById(target_id).select('master_id').lean();
+        if (!targetUser || !allowedMasterIds.includes(targetUser.master_id?.toString())) {
+          return res.status(403).json({ success: false, message: 'Not authorized to view this transaction history' });
+        }
+      }
+    }
+
     const filter = {
       userId: new mongoose.Types.ObjectId(target_id),
       userModel: target_model,
