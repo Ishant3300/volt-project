@@ -87,14 +87,60 @@ class ApiService {
     return headers;
   }
 
+  /// Keys whose values must never reach the device log — request bodies
+  /// carry plaintext passwords (login, change-password, create-user,
+  /// investor_password) and response bodies carry freshly issued JWTs.
+  static const _sensitiveLogKeys = {
+    'password',
+    'investor_password',
+    'current_password',
+    'new_password',
+    'confirm_password',
+    'token',
+    'active_token',
+    'access_token',
+    'jwt',
+  };
+
+  static dynamic _redactSensitive(dynamic value) {
+    if (value is Map) {
+      return value.map((k, v) {
+        final key = k.toString().toLowerCase();
+        final isSensitive = _sensitiveLogKeys.any((s) => key.contains(s));
+        return MapEntry(k, isSensitive ? '<redacted>' : _redactSensitive(v));
+      });
+    }
+    if (value is List) {
+      return value.map(_redactSensitive).toList();
+    }
+    return value;
+  }
+
+  /// Redacted rendering of a request body for logging.
+  static String _loggableBody(dynamic body) {
+    try {
+      return jsonEncode(_redactSensitive(body));
+    } catch (_) {
+      return '<unloggable>';
+    }
+  }
+
+  /// Redacted rendering of a raw JSON response body for logging. Falls back
+  /// to the raw string when the response isn't JSON (nothing structured to redact).
+  static String _loggableResponseBody(String responseBody) {
+    try {
+      final decoded = jsonDecode(responseBody);
+      return jsonEncode(_redactSensitive(decoded));
+    } catch (_) {
+      return responseBody;
+    }
+  }
+
   Future<http.Response> get(String endpoint, {String? token}) async {
     final url = "$baseUrl/api$endpoint";
     log('📡 GET Request');
     log('   URL: $url');
     log('   Has Token: ${token != null}');
-    if (token != null) {
-      log('   Token: ${token.substring(0, 20)}...');
-    }
 
     try {
       final response = await http
@@ -106,7 +152,8 @@ class ApiService {
 
       log('   ✅ Response: ${response.statusCode}');
       log('   Body length: ${response.body.length}');
-      log('   Body preview: ${response.body.substring(0, response.body.length > 200 ? 200 : response.body.length)}');
+      final preview = _loggableResponseBody(response.body);
+      log('   Body preview: ${preview.substring(0, preview.length > 200 ? 200 : preview.length)}');
 
       // Handle 401 Unauthorized
       if (response.statusCode == 401) {
@@ -127,7 +174,7 @@ class ApiService {
     log('📡 POST Request');
     log('   URL: $url');
     log('   Has Token: ${token != null}');
-    log('   Body: ${jsonEncode(body)}');
+    log('   Body: ${_loggableBody(body)}');
 
     try {
       final response = await http
@@ -139,7 +186,7 @@ class ApiService {
           .timeout(const Duration(seconds: 10));
 
       log('   ✅ Response: ${response.statusCode}');
-      log('   Body: ${response.body}');
+      log('   Body: ${_loggableResponseBody(response.body)}');
 
       // Handle 401 Unauthorized
       if (response.statusCode == 401) {
@@ -160,7 +207,7 @@ class ApiService {
     log('📡 PUT Request');
     log('   URL: $url');
     log('   Has Token: ${token != null}');
-    log('   Body: ${jsonEncode(body)}');
+    log('   Body: ${_loggableBody(body)}');
 
     try {
       final response = await http
@@ -172,7 +219,7 @@ class ApiService {
           .timeout(const Duration(seconds: 10));
 
       log('   ✅ Response: ${response.statusCode}');
-      log('   Body: ${response.body}');
+      log('   Body: ${_loggableResponseBody(response.body)}');
 
       // Handle 401 Unauthorized
       if (response.statusCode == 401) {
@@ -204,7 +251,7 @@ class ApiService {
       final response = await http.Response.fromStream(streamedResponse);
 
       log('   ✅ Response: ${response.statusCode}');
-      log('   Body: ${response.body}');
+      log('   Body: ${_loggableResponseBody(response.body)}');
 
       // Handle 401 Unauthorized
       if (response.statusCode == 401) {
