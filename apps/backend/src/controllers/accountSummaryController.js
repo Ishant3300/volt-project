@@ -4,6 +4,7 @@ const Master = require('../models/Master');
 const Transaction = require('../models/Transaction');
 const BrokerageSettings = require('../models/BrokerageSettings');
 const mongoose = require('mongoose');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 /**
  * GET /api/account-summary
@@ -30,6 +31,17 @@ const getAccountSummary = async (req, res) => {
     if (role === 'user') {
       targetUserIds = [new mongoose.Types.ObjectId(callerId)];
     } else if (user_id) {
+      // A master-supplied user_id must be in the caller's own subtree —
+      // without this, any master could pull any user's account summary
+      // platform-wide. Admin unrestricted.
+      if (role === 'master') {
+        const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+        const allowedMasterIds = await getAllSubMasterIds(callerId);
+        const targetUser = await User.findById(user_id).select('master_id').lean();
+        if (!targetUser || !allowedMasterIds.includes(targetUser.master_id?.toString())) {
+          return res.status(403).json({ success: false, message: 'Not authorized to view this user\'s account summary' });
+        }
+      }
       targetUserIds = [new mongoose.Types.ObjectId(user_id)];
     } else if (role === 'master') {
       const { getAllSubMasterIds } = require('../services/masterHierarchyService');
@@ -297,7 +309,7 @@ const getAccountSummary = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 

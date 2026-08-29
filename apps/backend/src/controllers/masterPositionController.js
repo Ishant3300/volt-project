@@ -1,6 +1,7 @@
 const Trade = require('../models/Trade');
 const User = require('../models/User');
 const Master = require('../models/Master');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 /**
  * Get aggregated positions across all child users of the logged-in master.
@@ -144,7 +145,7 @@ const getAggregatedPositions = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -272,7 +273,7 @@ const getInstrumentUserBreakdown = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -312,7 +313,17 @@ const getUserMetrics = async (req, res) => {
     let childUsers;
     if (singleUserId) {
       const user = await User.findOne({ _id: singleUserId, deleted_at: null })
-        .select('_id name username credits balance wallet exchanges_allowed');
+        .select('_id name username credits balance wallet exchanges_allowed master_id');
+      // A master caller's ?user_id= must still resolve to a user in their own
+      // subtree — this branch previously bypassed masterId scoping entirely,
+      // letting any master read any user's full financial metrics by id.
+      if (req.master && user) {
+        const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+        const allowedMasterIds = await getAllSubMasterIds(req.master.id);
+        if (!allowedMasterIds.includes(user.master_id?.toString())) {
+          return res.status(403).json({ success: false, message: 'Not authorized to view this user\'s metrics', data: null });
+        }
+      }
       childUsers = user ? [user] : [];
     } else if (masterId) {
       // Get all users under this master AND all sub-masters (full hierarchy)
@@ -395,7 +406,7 @@ const getUserMetrics = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -407,6 +418,14 @@ const getUserMetrics = async (req, res) => {
  */
 const getAdminMasterMetrics = async (req, res) => {
   try {
+    // This is a platform-wide dump across every top-level master's siblings —
+    // mounted under authenticateAdminOrMaster with no per-function gate, so
+    // any master could see every other master's aggregated financials.
+    // Genuinely admin-only, per its name and purpose.
+    if (req.master) {
+      return res.status(403).json({ success: false, message: 'Admin access required', data: null });
+    }
+
     const metricsEngine = require('../services/metricsEngine');
     // Only fetch top-level masters (master_id: null) — same hierarchy as user management
     const masters = await Master.find({ master_id: null, deleted_at: null }).select('_id name username');
@@ -512,7 +531,7 @@ const getAdminMasterMetrics = async (req, res) => {
 
     res.status(200).json({ success: true, data: result });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 
@@ -581,7 +600,7 @@ const getBulkEquity = async (req, res) => {
       data: { users: userEquityMap, masters: masterEquityMap }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 
@@ -664,7 +683,7 @@ const getLiveMetrics = async (req, res) => {
 
     res.status(200).json({ success: true, data: [] });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 

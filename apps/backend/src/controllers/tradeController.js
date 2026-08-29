@@ -1,6 +1,7 @@
 const Trade = require('../models/Trade');
 const User = require('../models/User');
 const Master = require('../models/Master');
+const { escapeRegex } = require('../utils/escapeRegex');
 const KiteInstrument = require('../models/KiteInstrument');
 const BrokerageSettings = require('../models/BrokerageSettings');
 const kiteService = require('../services/kiteService');
@@ -15,6 +16,7 @@ const { categoryForSegment } = require('../utils/walletCategory');
 const { computeWalletSplit, computeFlatResetState } = require('../utils/walletSplit');
 const firebaseService = require('../services/firebaseService');
 const { beginTradeWrite, withTradeWriteLease } = require('../services/tradeWriteFenceService');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 const _getLivePricesFromKite = async (instrumentTokens) => {
     if (!instrumentTokens || instrumentTokens.length === 0) return new Map();
@@ -102,7 +104,14 @@ const placeTrade = async (req, res) => {
         // #8 FIX: When admin/master places trade for a user, use req.body.user_id as the target, not the caller's own ID.
         const callerId = req.user?.id || req.master?.id || req.admin?.id;
         const isAdminOrMaster = !!(req.admin || req.master);
-        const targetUserId = (req.body.user_id && isAdminOrMaster) ? req.body.user_id : (req.body.user_id || callerId);
+        // A plain user (req.user) is ALWAYS forced to their own id, full stop —
+        // req.body.user_id must never be honoured for that role. Previously
+        // `req.body.user_id || callerId` still picked the body value whenever
+        // it was present, even for a plain user, since the `isAdminOrMaster`
+        // check only gated which branch's RESULT got used, not whether the
+        // body value was eligible in the first place. Any logged-in user
+        // could place a real trade on any other account by supplying its id.
+        const targetUserId = isAdminOrMaster ? (req.body.user_id || callerId) : callerId;
         if (!targetUserId) {
             return res.status(401).json({ success: false, message: 'Unauthorized / User ID missing' });
         }
@@ -1176,7 +1185,7 @@ const placeTrade = async (req, res) => {
 
         res.status(statusCode).json({
             success: false,
-            message: error.message,
+            message: sanitizeErrorMessage(error),
             data: null
         });
     }
@@ -1246,7 +1255,7 @@ const getAccountMetrics = async (req, res) => {
     } catch (error) {
         res.status(500).json({
             success: false,
-            message: error.message,
+            message: sanitizeErrorMessage(error),
             data: null
         });
     }
@@ -1282,7 +1291,7 @@ const saveClientMetrics = async (req, res) => {
 
         res.status(200).json({ success: true, message: 'Metrics saved' });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
     }
 };
 
@@ -1296,9 +1305,22 @@ getPositions = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Unauthorized' });
         }
 
-        // For master/admin, optionally filter by user_id query param, otherwise show own trades
+        // For master/admin, optionally filter by user_id query param, otherwise show own trades.
+        // A master must only be able to read positions for users in their own
+        // subtree — previously any master could pass any user_id and read a
+        // completely unrelated user's full trade/position history. Admin
+        // remains unrestricted by design.
         let targetUserId = userId;
-        if ((req.master || req.admin) && req.query.user_id) {
+        if (req.admin && req.query.user_id) {
+            targetUserId = req.query.user_id;
+        } else if (req.master && req.query.user_id) {
+            const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+            const allowedMasterIds = await getAllSubMasterIds(req.master.id);
+            const targetUser = await User.findById(req.query.user_id).select('master_id').lean();
+            const targetMasterId = targetUser?.master_id?.toString();
+            if (!targetUser || !targetMasterId || !allowedMasterIds.includes(targetMasterId)) {
+                return res.status(403).json({ success: false, message: 'Not authorized to view this user\'s positions' });
+            }
             targetUserId = req.query.user_id;
         }
 
@@ -1351,7 +1373,7 @@ getPositions = async (req, res) => {
     } catch (error) {
         res.status(500).json({
             success: false,
-            message: error.message,
+            message: sanitizeErrorMessage(error),
             data: null
         });
     }
@@ -1423,7 +1445,7 @@ const cancelTrade = async (req, res) => {
     } catch (error) {
         res.status(error.status || 500).json({
             success: false,
-            message: error.message,
+            message: sanitizeErrorMessage(error),
             data: null
         });
     }
@@ -1555,7 +1577,7 @@ const deleteTrade = async (req, res) => {
             console.error('⚠️  [FCM] deleteTrade notification error:', fcmErr.message);
         }
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, message: error.message });
+        res.status(error.status || 500).json({ success: false, message: sanitizeErrorMessage(error) });
     }
 };
 
@@ -1578,7 +1600,7 @@ const getBrokerageRules = async (req, res) => {
     } catch (error) {
         res.status(500).json({
             success: false,
-            message: error.message,
+            message: sanitizeErrorMessage(error),
             data: null
         });
     }
@@ -1722,7 +1744,7 @@ const autoSquareOffExpired = async (req, res) => {
                 }
             } catch (error) {
                 if (error.code === 'TRADE_WRITE_LEASE_LOST') throw error;
-                errors.push({ token, message: error.message });
+                errors.push({ token, message: sanitizeErrorMessage(error) });
             } finally {
                 await session.endSession();
             }
@@ -1734,7 +1756,7 @@ const autoSquareOffExpired = async (req, res) => {
             data: { carried_forward: results, errors },
         });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, message: error.message, data: null });
+        res.status(error.status || 500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
     } finally {
         await tradeWriteLease?.release();
     }
@@ -1768,8 +1790,8 @@ const getInstrumentInfo = async (req, res) => {
         async function findBrkRule(uid) {
             const uidFilter = { user_id: uid, deleted_at: null };
             let r = null;
-            if (rawName && seg) r = await BrokerageSettings.findOne({ ...uidFilter, script_name: { $regex: new RegExp(`^${rawName}$`, 'i') }, exchange_name: seg.toUpperCase() }).lean();
-            if (!r && rawName) r = await BrokerageSettings.findOne({ ...uidFilter, script_name: { $regex: new RegExp(`^${rawName}$`, 'i') } }).lean();
+            if (rawName && seg) r = await BrokerageSettings.findOne({ ...uidFilter, script_name: { $regex: new RegExp(`^${escapeRegex(rawName)}$`, 'i') }, exchange_name: seg.toUpperCase() }).lean();
+            if (!r && rawName) r = await BrokerageSettings.findOne({ ...uidFilter, script_name: { $regex: new RegExp(`^${escapeRegex(rawName)}$`, 'i') } }).lean();
             if (!r && seg) r = await BrokerageSettings.findOne({ ...uidFilter, exchange_name: seg.toUpperCase(), script_name: { $in: [null, ''] } }).lean();
             if (!r) r = await BrokerageSettings.findOne({ ...uidFilter, exchange_name: exchange.toUpperCase(), script_name: { $in: [null, ''] } }).lean();
             return r;
@@ -1795,7 +1817,7 @@ const getInstrumentInfo = async (req, res) => {
             }
         });
     } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
+        res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
     }
 };
 

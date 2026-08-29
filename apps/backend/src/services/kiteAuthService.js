@@ -18,6 +18,7 @@ const path = require('path');
 const base32 = require('hi-base32');
 const kiteService = require('./kiteService');
 const { AccessToken } = require('../models/KiteConfig');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 // ==================== HELPERS ====================
 
@@ -187,7 +188,7 @@ class KiteAuthService {
     } catch (error) {
       return {
         status: 'error',
-        message: error.message,
+        message: sanitizeErrorMessage(error),
         requiresLogin: true
       };
     }

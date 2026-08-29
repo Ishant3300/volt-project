@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const { escapeRegex } = require('../utils/escapeRegex');
 const User = require('../models/User');
 const Master = require('../models/Master');
 const Server = require('../models/Server');
@@ -8,6 +9,7 @@ const BrokerageSettings = require('../models/BrokerageSettings');
 const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
 const { applyWalletFunding } = require('./walletController');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 // Create User
 const createUser = async (req, res) => {
@@ -160,7 +162,7 @@ const createUser = async (req, res) => {
 
     res.status(statusCode).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -175,20 +177,35 @@ const getAllUsers = async (req, res) => {
     if (status) filter.status = status;
     if (server_id) filter.server_id = server_id;
 
-    // If master_id is provided, get all users under that master's hierarchy
-    if (master_id) {
+    // A master caller is always scoped to their own subtree — master_id from
+    // the query is only honoured as an additional narrowing filter WITHIN
+    // that subtree, never to reach outside it. Admin is unrestricted.
+    if (req.admin) {
+      if (master_id) {
+        const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+        const allMasterIds = await getAllSubMasterIds(master_id);
+        filter.master_id = { $in: allMasterIds };
+      }
+    } else if (req.master) {
       const { getAllSubMasterIds } = require('../services/masterHierarchyService');
-      const allMasterIds = await getAllSubMasterIds(master_id);
-      filter.master_id = { $in: allMasterIds };
+      const callerSubtreeIds = await getAllSubMasterIds(req.master.id);
+      if (master_id) {
+        const requestedIds = await getAllSubMasterIds(master_id);
+        const allowedIds = requestedIds.filter(id => callerSubtreeIds.includes(id));
+        filter.master_id = { $in: allowedIds };
+      } else {
+        filter.master_id = { $in: callerSubtreeIds };
+      }
     }
 
     filter.deleted_at = null;
 
     // Search by username or name
     if (search) {
+      const safeSearch = escapeRegex(search);
       filter.$or = [
-        { username: { $regex: search, $options: 'i' } },
-        { name: { $regex: search, $options: 'i' } },
+        { username: { $regex: safeSearch, $options: 'i' } },
+        { name: { $regex: safeSearch, $options: 'i' } },
       ];
     }
 
@@ -214,7 +231,7 @@ const getAllUsers = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -238,6 +255,19 @@ const getUserById = async (req, res) => {
       });
     }
 
+    if (req.master) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allowedMasterIds = await getAllSubMasterIds(req.master.id);
+      const userMasterId = user.master_id?._id?.toString() || user.master_id?.toString();
+      if (!userMasterId || !allowedMasterIds.includes(userMasterId)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Not authorized to view this user',
+          data: null
+        });
+      }
+    }
+
     res.status(200).json({
       success: true,
       message: 'User retrieved successfully',
@@ -246,7 +276,7 @@ const getUserById = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -432,7 +462,7 @@ const updateUser = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -453,6 +483,20 @@ const deleteUser = async (req, res) => {
       });
     }
 
+    // This route is authenticateMaster-only (req.admin never reaches here),
+    // so a caller-scoped subtree check applies unconditionally — previously
+    // missing entirely, letting any master soft-delete any other master's
+    // client with a single request.
+    const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+    const allowedMasterIds = await getAllSubMasterIds(req.master.id);
+    if (!user.master_id || !allowedMasterIds.includes(user.master_id.toString())) {
+      return res.status(403).json({
+        success: false,
+        message: 'Not authorized to delete this user',
+        data: null
+      });
+    }
+
     user.deleted_at = new Date();
     await user.save();
 
@@ -464,7 +508,7 @@ const deleteUser = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -520,7 +564,7 @@ const creditUserByAdmin = async (req, res) => {
     res.status(200).json({ success: true, message: 'Amount credited successfully', data: result });
   } catch (error) {
     session.endSession();
-    res.status(error.message === 'User not found' ? 404 : 500).json({ success: false, message: error.message, data: null });
+    res.status(error.message === 'User not found' ? 404 : 500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 
@@ -570,7 +614,7 @@ const debitUserByAdmin = async (req, res) => {
     res.status(200).json({ success: true, message: 'Amount debited successfully', data: result });
   } catch (error) {
     session.endSession();
-    res.status(error.message === 'User not found' ? 404 : 500).json({ success: false, message: error.message, data: null });
+    res.status(error.message === 'User not found' ? 404 : 500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 
@@ -635,7 +679,7 @@ const createGroupedQuantity = async (req, res) => {
     console.error('❌ Error creating grouped quantity:', error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -668,7 +712,7 @@ const getAllGroupedQuantities = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -697,7 +741,7 @@ const getGroupedQuantityById = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -737,7 +781,7 @@ const updateGroupedQuantity = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -769,7 +813,7 @@ const deleteGroupedQuantity = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -859,7 +903,7 @@ const createScriptQuantity = async (req, res) => {
 
     res.status(201).json({ success: true, message: 'Script quantity saved successfully', data: scriptQty.toJSON() });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 
@@ -890,7 +934,7 @@ const getAllScriptQuantities = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -919,7 +963,7 @@ const getScriptQuantityById = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -999,7 +1043,7 @@ const updateScriptQuantity = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Script quantity updated successfully', data: scriptQty.toJSON() });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 
@@ -1044,13 +1088,28 @@ const deleteScriptQuantity = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Script quantity deleted successfully', data: null });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 
 // ==================== BROKERAGE SETTINGS ====================
 
 // Create Brokerage Settings
+/**
+ * BrokerageSettings.user_id is misleadingly named — it can hold either a
+ * User._id or a Master._id (global/default rules use null). Resolves it to
+ * the master_id whose subtree the record actually belongs to, so callers
+ * can check it against getAllSubMasterIds(caller). Returns null if the id
+ * doesn't resolve to either (record already invalid/orphaned).
+ */
+async function resolveBrokerageOwnerMasterId(ownerId) {
+  if (!ownerId) return null;
+  const User = require('../models/User');
+  const owner = await User.findById(ownerId).select('master_id').lean();
+  if (owner) return owner.master_id?.toString() || null;
+  return ownerId.toString(); // not a User — assume Master, id is its own subtree root
+}
+
 const createBrokerageSettings = async (req, res) => {
   try {
     const { type, exchange_name, script_name, brk_value, user_id } = req.body;
@@ -1070,7 +1129,14 @@ const createBrokerageSettings = async (req, res) => {
     // this endpoint even though editing it afterward would be blocked. Admin
     // bypasses this, same as the update path (admin can set any rate on
     // their children).
-    if (user_id && !req.admin) {
+    if (user_id && req.master) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allowedMasterIds = await getAllSubMasterIds(req.master.id);
+      const ownerMasterId = await resolveBrokerageOwnerMasterId(user_id);
+      if (!ownerMasterId || !allowedMasterIds.includes(ownerMasterId)) {
+        return res.status(403).json({ success: false, message: 'Not authorized to set brokerage for this account', data: null });
+      }
+
       const { validateBrokerageFloor } = require('../services/brokerageCopyService');
       const User = require('../models/User');
       const ownerUser = await User.findById(user_id).select('_id').lean();
@@ -1100,7 +1166,7 @@ const createBrokerageSettings = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -1110,6 +1176,18 @@ const createBrokerageSettings = async (req, res) => {
 const getAllBrokerageSettings = async (req, res) => {
   try {
     const { page = 1, limit = 20, user_id } = req.query;
+
+    // A master requesting another account's specific rules must own that
+    // account; requesting no user_id (global/default rules, user_id: null)
+    // is unrestricted since those aren't account-specific data.
+    if (user_id && req.master) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allowedMasterIds = await getAllSubMasterIds(req.master.id);
+      const ownerMasterId = await resolveBrokerageOwnerMasterId(user_id);
+      if (!ownerMasterId || !allowedMasterIds.includes(ownerMasterId)) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view brokerage settings for this account', data: null });
+      }
+    }
 
     const filter = { user_id: user_id || null, deleted_at: null };
 
@@ -1133,7 +1211,7 @@ const getAllBrokerageSettings = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -1154,6 +1232,15 @@ const getBrokerageSettingsById = async (req, res) => {
       });
     }
 
+    if (brokerageSettings.user_id && req.master) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allowedMasterIds = await getAllSubMasterIds(req.master.id);
+      const ownerMasterId = await resolveBrokerageOwnerMasterId(brokerageSettings.user_id);
+      if (!ownerMasterId || !allowedMasterIds.includes(ownerMasterId)) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view this brokerage setting', data: null });
+      }
+    }
+
     res.status(200).json({
       success: true,
       message: 'Brokerage settings retrieved successfully',
@@ -1162,7 +1249,7 @@ const getBrokerageSettingsById = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -1182,6 +1269,15 @@ const updateBrokerageSettings = async (req, res) => {
         message: 'Brokerage settings not found',
         data: null
       });
+    }
+
+    if (brokerageSettings.user_id && req.master) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allowedMasterIds = await getAllSubMasterIds(req.master.id);
+      const ownerMasterId = await resolveBrokerageOwnerMasterId(brokerageSettings.user_id);
+      if (!ownerMasterId || !allowedMasterIds.includes(ownerMasterId)) {
+        return res.status(403).json({ success: false, message: 'Not authorized to update this brokerage setting', data: null });
+      }
     }
 
     // Floor validation: if this record belongs to a user/master, ensure new rate >= parent's rate
@@ -1247,7 +1343,7 @@ const updateBrokerageSettings = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -1268,6 +1364,15 @@ const deleteBrokerageSettings = async (req, res) => {
       });
     }
 
+    if (brokerageSettings.user_id && req.master) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allowedMasterIds = await getAllSubMasterIds(req.master.id);
+      const ownerMasterId = await resolveBrokerageOwnerMasterId(brokerageSettings.user_id);
+      if (!ownerMasterId || !allowedMasterIds.includes(ownerMasterId)) {
+        return res.status(403).json({ success: false, message: 'Not authorized to delete this brokerage setting', data: null });
+      }
+    }
+
     brokerageSettings.deleted_at = new Date();
     await brokerageSettings.save();
 
@@ -1282,7 +1387,7 @@ const deleteBrokerageSettings = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -1296,6 +1401,7 @@ module.exports = {
   deleteUser,
   creditUserByAdmin,
   debitUserByAdmin,
+  resolveBrokerageOwnerMasterId,
   // Grouped Quantity
   createGroupedQuantity,
   getAllGroupedQuantities,

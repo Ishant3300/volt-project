@@ -1,5 +1,6 @@
 const kiteService = require('../services/kiteService');
 const kiteAuthService = require('../services/kiteAuthService');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 // ==================== AUTHENTICATION ====================
 
@@ -13,7 +14,7 @@ const initiateLogin = (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -58,7 +59,7 @@ const handleCallback = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -78,7 +79,7 @@ const checkAuthStatus = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -97,7 +98,7 @@ const getDetailedAuthStatus = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -126,7 +127,7 @@ const triggerAutoLogin = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -146,7 +147,7 @@ const logout = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -171,7 +172,7 @@ const fetchInstruments = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -208,7 +209,7 @@ const getInstrumentsInfo = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -241,7 +242,7 @@ const searchInstruments = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -279,7 +280,7 @@ const smartSearchInstruments = async (req, res) => {
     console.error('❌ Smart search error:', error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -357,7 +358,7 @@ const browseInstruments = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Browse instruments error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 
@@ -377,7 +378,7 @@ const getSearchCategories = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -414,7 +415,7 @@ const fetchQuotes = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -445,7 +446,7 @@ const getLatestQuotes = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -476,7 +477,7 @@ const getLTPByToken = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -499,7 +500,7 @@ const getProfile = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -604,7 +605,7 @@ const getOptionChain = async (req, res) => {
     console.error('❌ Error fetching option chain:', error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -672,7 +673,7 @@ const getMarketDepth = async (req, res) => {
     console.error('❌ Error fetching market depth:', error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -721,7 +722,7 @@ const getHistoricalData = async (req, res) => {
     console.error('❌ Error fetching historical data:', error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }

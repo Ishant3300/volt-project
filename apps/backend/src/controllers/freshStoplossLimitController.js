@@ -1,5 +1,6 @@
 const FreshStoplossLimit = require('../models/FreshStoplossLimit');
 const KiteInstrument = require('../models/KiteInstrument');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 /**
  * GET /admin/fresh-stoploss-limits
@@ -18,7 +19,7 @@ const getAllFreshStoplossLimits = async (req, res) => {
 
     res.status(200).json({ success: true, data: docs });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 
@@ -95,7 +96,7 @@ const bulkCreateFreshStoplossLimits = async (req, res) => {
       data: { created, updated, total: rawNames.length }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 
@@ -117,7 +118,7 @@ const updateFreshStoplossLimit = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Updated', data: doc });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 
@@ -136,7 +137,7 @@ const deleteFreshStoplossLimit = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Deleted' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 
@@ -168,7 +169,7 @@ const bulkUpdateFreshStoplossLimits = async (req, res) => {
       data: { modified: result.modifiedCount }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 

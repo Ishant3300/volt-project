@@ -1,6 +1,8 @@
 const Trade = require('../models/Trade');
 const User = require('../models/User');
 const mongoose = require('mongoose');
+const { escapeRegex } = require('../utils/escapeRegex');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 /**
  * GET /api/trade/rejection-log
@@ -41,7 +43,7 @@ const getRejectionLog = async (req, res) => {
     // admin without user_id: no user filter — sees all
 
     if (search) {
-      filter.tradingsymbol = { $regex: search, $options: 'i' };
+      filter.tradingsymbol = { $regex: escapeRegex(search), $options: 'i' };
     }
 
     const [trades, total] = await Promise.all([
@@ -74,7 +76,7 @@ const getRejectionLog = async (req, res) => {
 
     res.status(200).json({ success: true, data, total, page: parseInt(page) });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 

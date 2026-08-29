@@ -13,11 +13,18 @@ const redisService = require('./services/redisService');
 const orderBookService = require('./services/orderBookService');
 const priceQueueService = require('./services/priceQueueService');
 const firebaseService = require('./services/firebaseService');
+const { sanitizeErrorMessage } = require('./utils/sanitizeError');
 
 const app = express();
 
-// Trust proxy so req.ip returns real client IP behind nginx/load balancer
-app.set('trust proxy', true);
+// Trust proxy so req.ip returns real client IP behind nginx/load balancer.
+// `true` trusted X-Forwarded-For unconditionally — an attacker could put any
+// arbitrary IP in that header on every request and get a fresh rate-limit
+// bucket each time, making IP-keyed login throttling a no-op. `1` trusts
+// exactly one hop (the single reverse proxy in front of this process), so
+// only the IP THAT proxy reports is honoured — a client-supplied
+// X-Forwarded-For beyond that hop is ignored.
+app.set('trust proxy', 1);
 
 const server = http.createServer(app);
 
@@ -35,12 +42,27 @@ app.use(skipForWs(helmet({
   crossOriginEmbedderPolicy: false,
 })));
 
-// CORS — restrict origins in production
+// CORS — restrict origins in production.
+// An unset ALLOWED_ORIGINS previously defaulted to '*', which the cors
+// middleware maps to `origin: true` — reflecting ANY requesting origin back
+// with credentials: true. Not currently exploitable (auth here is
+// Bearer-token, not cookie-based) but a latent trap if that ever changes,
+// and reflect-any-origin is bad practice regardless. Falls back to the
+// known production web portal + local dev ports instead of a wildcard, and
+// warns loudly if this is reached in production so the gap is visible
+// instead of silent.
 const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['*'];
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
+  : [
+      'https://apex-web-portal.vercel.app',
+      'http://localhost:5173',
+      'http://localhost:3000',
+    ];
+if (!process.env.ALLOWED_ORIGINS && process.env.NODE_ENV === 'production') {
+  console.warn('⚠️  ALLOWED_ORIGINS is not set — falling back to a hardcoded default origin list. Set ALLOWED_ORIGINS explicitly in production.');
+}
 app.use(cors({
-  origin: allowedOrigins.includes('*') ? true : allowedOrigins,
+  origin: allowedOrigins,
   credentials: true,
 }));
 
@@ -103,6 +125,15 @@ app.get('/', (req, res) => {
   });
 });
 
+// Enforces a pending first-login password reset server-side, not just via
+// the Flutter app's own client-side check of the login response's
+// requires_password_change flag — this middleware existed fully written but
+// was never actually mounted anywhere, so the block never fired for anyone.
+// Whitelists its own required paths (login, logout, change-password)
+// internally, so it's safe to apply globally to every /api/* route.
+const { requirePasswordChanged } = require('./middlewares/requirePasswordChange');
+app.use('/api', requirePasswordChanged);
+
 app.use('/api/auth', authRoutes);
 
 app.use('/api/admin', adminRoutes);
@@ -146,7 +177,7 @@ app.get('/api/my/login-history', authenticateAny, async (req, res) => {
 
     res.status(200).json({ success: true, data, total });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 

@@ -2,6 +2,8 @@ const User = require('../models/User');
 const Master = require('../models/Master');
 const Trade = require('../models/Trade');
 const KiteInstrument = require('../models/KiteInstrument');
+const { escapeRegex } = require('../utils/escapeRegex');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 // Enrich trades with correct lot_size from KiteInstrument
 const enrichTradesWithLotSize = async (trades) => {
@@ -80,7 +82,7 @@ const getUserProfile = async (req, res) => {
     } catch (error) {
         res.status(500).json({
             success: false,
-            message: error.message,
+            message: sanitizeErrorMessage(error),
             data: null
         });
     }
@@ -105,7 +107,7 @@ const getUserTrades = async (req, res) => {
         const filter = { user_id: id };
         if (status) filter.status = status;
         if (exchange) filter.exchange = exchange;
-        if (tradingsymbol) filter.tradingsymbol = { $regex: tradingsymbol, $options: 'i' };
+        if (tradingsymbol) filter.tradingsymbol = { $regex: escapeRegex(tradingsymbol), $options: 'i' };
 
         if (date_from || date_to) {
             filter.createdAt = {};
@@ -133,7 +135,7 @@ const getUserTrades = async (req, res) => {
     } catch (error) {
         res.status(500).json({
             success: false,
-            message: error.message,
+            message: sanitizeErrorMessage(error),
             data: null
         });
     }

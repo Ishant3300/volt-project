@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const GroupedQuantity = require('../models/GroupedQuantity');
 const KiteInstrument = require('../models/KiteInstrument');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 // Get lot names by exchange
 const getLotNamesByExchange = async (req, res) => {
@@ -28,7 +29,7 @@ const getLotNamesByExchange = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -106,7 +107,7 @@ const getUniqueRawNamesBySegment = async (req, res) => {
     console.error('Error fetching unique raw names:', error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -219,7 +220,7 @@ const bulkCreateGroup = async (req, res) => {
     console.error('Error bulk creating group:', error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -268,7 +269,7 @@ const getGroupInstruments = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -377,7 +378,7 @@ const bulkCreateBrokerage = async (req, res) => {
       data: { exchange_name: normalizedExchange, type, total: results.length, inserted: bulkResult.upsertedCount, existing: results.length - bulkResult.upsertedCount }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 
@@ -398,7 +399,7 @@ const getBrokerageByExchange = async (req, res) => {
       success: true, data: { items: items.map(i => i.toJSON()), total: count, page: parseInt(page), pages: Math.ceil(count / parseInt(limit)) }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 
@@ -521,7 +522,7 @@ const bulkCreateScriptQuantity = async (req, res) => {
       data: { exchange_name: normalizedExchange, total: results.length, inserted: bulkResult.upsertedCount, existing: results.length - bulkResult.upsertedCount }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 
@@ -594,7 +595,7 @@ const getScriptQuantityByExchange = async (req, res) => {
       success: true, data: { items, total, page: parseInt(page), pages: Math.ceil(total / parseInt(limit)) }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 

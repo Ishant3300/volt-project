@@ -1,4 +1,5 @@
 const Message = require('../models/Message');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 // Get Messages (Inbox)
 const getMessages = async (req, res) => {
@@ -47,7 +48,7 @@ const getMessages = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -84,7 +85,7 @@ const getMessageById = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -131,7 +132,7 @@ const markMessageAsRead = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -171,7 +172,7 @@ const deleteMessage = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }

@@ -1,4 +1,5 @@
 const express = require('express');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 const router = express.Router();
 const {
   createUser,
@@ -29,6 +30,8 @@ const {
 } = require('../controllers/adminController');
 const { getLotNamesByExchange, getUniqueRawNamesBySegment, bulkCreateGroup, getGroupInstruments, bulkCreateBrokerage, getBrokerageByExchange, bulkCreateScriptQuantity, getScriptQuantityByExchange } = require('../controllers/groupedQuantityController');
 const { authenticateAdmin, authenticateAdminOrMaster, authenticateMaster, authenticateAny } = require('../middlewares/auth');
+const { rejectIfInvestor } = require('../middlewares/rejectIfInvestor');
+const { escapeRegex } = require('../utils/escapeRegex');
 
 // Category trade-wallet funding (Task 12 / Requirements 5.1–5.7)
 const {
@@ -42,11 +45,11 @@ const {
 
 
 // User CRUD operations
-router.post('/users', authenticateMaster, createUser);
+router.post('/users', authenticateMaster, rejectIfInvestor, createUser);
 router.get('/users', authenticateAdminOrMaster, getAllUsers);
 router.get('/users/:id', authenticateAdminOrMaster, getUserById);
-router.put('/users/:id', authenticateAdminOrMaster, updateUser);
-router.delete('/users/:id', authenticateMaster, deleteUser);
+router.put('/users/:id', authenticateAdminOrMaster, rejectIfInvestor, updateUser);
+router.delete('/users/:id', authenticateMaster, rejectIfInvestor, deleteUser);
 router.post('/users/:id/credit', authenticateAdmin, creditUserByAdmin);
 router.post('/users/:id/debit', authenticateAdmin, debitUserByAdmin);
 
@@ -72,28 +75,45 @@ router.put('/grouped-quantities/:id', authenticateAdmin, updateGroupedQuantity);
 router.delete('/grouped-quantities/:id', authenticateAdmin, deleteGroupedQuantity);
 
 // Script Quantity CRUD operations
-router.post('/script-quantities/bulk-create', authenticateAdminOrMaster, bulkCreateScriptQuantity);
+router.post('/script-quantities/bulk-create', authenticateAdminOrMaster, rejectIfInvestor, bulkCreateScriptQuantity);
 router.get('/script-quantities/exchange/:exchange_name', authenticateAdminOrMaster, getScriptQuantityByExchange);
-router.post('/script-quantities', authenticateAdminOrMaster, createScriptQuantity);
+router.post('/script-quantities', authenticateAdminOrMaster, rejectIfInvestor, createScriptQuantity);
 router.get('/script-quantities', authenticateAdminOrMaster, getAllScriptQuantities);
 router.get('/script-quantities/:id', authenticateAdminOrMaster, getScriptQuantityById);
-router.put('/script-quantities/:id', authenticateAdminOrMaster, updateScriptQuantity);
-router.delete('/script-quantities/:id', authenticateAdminOrMaster, deleteScriptQuantity);
+router.put('/script-quantities/:id', authenticateAdminOrMaster, rejectIfInvestor, updateScriptQuantity);
+router.delete('/script-quantities/:id', authenticateAdminOrMaster, rejectIfInvestor, deleteScriptQuantity);
 
 // Brokerage Settings CRUD operations
-router.post('/brokerage-settings/bulk-create', authenticateAdminOrMaster, bulkCreateBrokerage);
+router.post('/brokerage-settings/bulk-create', authenticateAdminOrMaster, rejectIfInvestor, bulkCreateBrokerage);
 router.get('/brokerage-settings/exchange/:exchange_name', authenticateAdminOrMaster, getBrokerageByExchange);
-router.post('/brokerage-settings', authenticateAdminOrMaster, createBrokerageSettings);
+router.post('/brokerage-settings', authenticateAdminOrMaster, rejectIfInvestor, createBrokerageSettings);
 router.get('/brokerage-settings', authenticateAdminOrMaster, getAllBrokerageSettings);
 router.get('/brokerage-settings/:id', authenticateAdminOrMaster, getBrokerageSettingsById);
 // Bulk update brokerage settings (update multiple IDs with same value)
-router.put('/brokerage-settings/bulk-update', authenticateAdminOrMaster, async (req, res) => {
+router.put('/brokerage-settings/bulk-update', authenticateAdminOrMaster, rejectIfInvestor, async (req, res) => {
   try {
     const { ids, brk_value, type } = req.body;
     if (!ids || !Array.isArray(ids) || ids.length === 0 || brk_value === undefined) {
       return res.status(400).json({ success: false, message: 'ids array and brk_value are required', data: null });
     }
     const BrokerageSettings = require('../models/BrokerageSettings');
+
+    // Ownership check: every id in the batch must belong to the caller's own
+    // subtree, not just the sample record used for the floor check below —
+    // without this, a master could smuggle in ids belonging to unrelated
+    // accounts platform-wide via this one bulk endpoint. Admin unrestricted.
+    if (req.master) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const { resolveBrokerageOwnerMasterId } = require('../controllers/adminController');
+      const allowedMasterIds = await getAllSubMasterIds(req.master.id);
+      const records = await BrokerageSettings.find({ _id: { $in: ids }, deleted_at: null }).select('user_id').lean();
+      for (const record of records) {
+        const ownerMasterId = record.user_id ? await resolveBrokerageOwnerMasterId(record.user_id) : null;
+        if (!ownerMasterId || !allowedMasterIds.includes(ownerMasterId)) {
+          return res.status(403).json({ success: false, message: 'Not authorized to update one or more of these brokerage settings', data: null });
+        }
+      }
+    }
 
     // Floor validation: check the first record to determine owner, then validate
     // Admin bypasses this — admin can set any rate on their children
@@ -152,11 +172,11 @@ router.put('/brokerage-settings/bulk-update', authenticateAdminOrMaster, async (
 
     res.json({ success: true, message: `Updated ${result.modifiedCount} brokerage setting(s)`, data: { modified: result.modifiedCount } });
   } catch (e) {
-    res.status(500).json({ success: false, message: e.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
   }
 });
-router.put('/brokerage-settings/:id', authenticateAdminOrMaster, updateBrokerageSettings);
-router.delete('/brokerage-settings/:id', authenticateAdminOrMaster, deleteBrokerageSettings);
+router.put('/brokerage-settings/:id', authenticateAdminOrMaster, rejectIfInvestor, updateBrokerageSettings);
+router.delete('/brokerage-settings/:id', authenticateAdminOrMaster, rejectIfInvestor, deleteBrokerageSettings);
 
 // Refresh close prices (admin-only, for testing / manual trigger)
 router.post('/refresh-close-prices', authenticateAdmin, async (req, res) => {
@@ -165,7 +185,7 @@ router.post('/refresh-close-prices', authenticateAdmin, async (req, res) => {
     const result = await livePriceService.refreshClosePrices();
     res.json({ success: true, message: 'Close prices refreshed', ...result });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -176,7 +196,7 @@ router.post('/refresh-settlement-prices', authenticateAdmin, async (req, res) =>
     const result = await livePriceService.refreshSettlementPrices();
     res.json({ success: true, message: 'Settlement prices refreshed', ...result });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -203,7 +223,7 @@ router.get('/totp/status', authenticateAdmin, async (req, res) => {
     if (!status) return res.status(404).json({ success: false, message: 'Admin not found', data: null });
     res.json({ success: true, data: status });
   } catch (e) {
-    res.status(500).json({ success: false, message: e.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
   }
 });
 
@@ -212,7 +232,7 @@ router.post('/totp/generate', authenticateAdmin, async (req, res) => {
     const result = await totpService.generateSecret(req.admin.id);
     res.json({ success: true, data: { qr_data_url: result.qrDataUrl, secret: result.secret } });
   } catch (e) {
-    res.status(500).json({ success: false, message: e.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
   }
 });
 
@@ -224,7 +244,7 @@ router.post('/totp/verify-setup', authenticateAdmin, async (req, res) => {
     if (!verified) return res.status(400).json({ success: false, message: 'Invalid TOTP code', data: null });
     res.json({ success: true, message: 'TOTP activated successfully' });
   } catch (e) {
-    res.status(500).json({ success: false, message: e.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
   }
 });
 
@@ -235,7 +255,7 @@ router.post('/totp/toggle', authenticateAdmin, async (req, res) => {
     await totpService.toggleTotp(req.admin.id, enabled);
     res.json({ success: true, message: `TOTP ${enabled ? 'enabled' : 'disabled'}` });
   } catch (e) {
-    res.status(500).json({ success: false, message: e.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
   }
 });
 
@@ -244,7 +264,7 @@ router.post('/totp/reset', authenticateAdmin, async (req, res) => {
     await totpService.resetTotp(req.admin.id);
     res.json({ success: true, message: 'TOTP reset successfully' });
   } catch (e) {
-    res.status(500).json({ success: false, message: e.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
   }
 });
 
@@ -317,7 +337,7 @@ router.get('/instruments/segments', authenticateAdmin, async (req, res) => {
     const segments = await KiteInstrument.distinct('segment', { deleted_at: null });
     res.json({ success: true, data: segments.sort() });
   } catch (e) {
-    res.status(500).json({ success: false, message: e.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
   }
 });
 
@@ -344,7 +364,7 @@ router.put('/instruments/bulk-toggle', authenticateAdmin, async (req, res) => {
 
     res.json({ success: true, message: `${result.modifiedCount} instrument(s) ${enabled ? 'enabled' : 'disabled'}`, data: { modified: result.modifiedCount } });
   } catch (e) {
-    res.status(500).json({ success: false, message: e.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
   }
 });
 
@@ -370,7 +390,7 @@ router.get('/instruments', authenticateAdmin, async (req, res) => {
     }
 
     if (segment) filter.segment = segment;
-    if (raw_name) filter.raw_name = { $regex: raw_name, $options: 'i' };
+    if (raw_name) filter.raw_name = { $regex: escapeRegex(raw_name), $options: 'i' };
     if (expiry) {
       // Override default expiry filter with specific date
       delete filter.$and;
@@ -382,10 +402,11 @@ router.get('/instruments', authenticateAdmin, async (req, res) => {
     if (enabled === 'true') filter.enabled = true;
     if (enabled === 'false') filter.enabled = false;
     if (search) {
+      const safeSearch = escapeRegex(search);
       const searchOr = [
-        { tradingsymbol: { $regex: search, $options: 'i' } },
-        { raw_name: { $regex: search, $options: 'i' } },
-        { display_name: { $regex: search, $options: 'i' } },
+        { tradingsymbol: { $regex: safeSearch, $options: 'i' } },
+        { raw_name: { $regex: safeSearch, $options: 'i' } },
+        { display_name: { $regex: safeSearch, $options: 'i' } },
       ];
       if (filter.$and) {
         filter.$and.push({ $or: searchOr });
@@ -411,7 +432,7 @@ router.get('/instruments', authenticateAdmin, async (req, res) => {
       pagination: { page: parseInt(page), limit: parseInt(limit), total, pages: Math.ceil(total / parseInt(limit)) },
     });
   } catch (e) {
-    res.status(500).json({ success: false, message: e.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
   }
 });
 
@@ -437,7 +458,7 @@ router.put('/instruments/:id/toggle', authenticateAdmin, async (req, res) => {
 
     res.json({ success: true, message: `Instrument ${enabled ? 'enabled' : 'disabled'}`, data: inst });
   } catch (e) {
-    res.status(500).json({ success: false, message: e.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
   }
 });
 
@@ -456,7 +477,7 @@ router.delete('/instruments/:id', authenticateAdmin, async (req, res) => {
 
     res.json({ success: true, message: 'Instrument deleted', data: inst });
   } catch (e) {
-    res.status(500).json({ success: false, message: e.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
   }
 });
 
@@ -473,7 +494,7 @@ router.put('/instruments/:id/restore', authenticateAdmin, async (req, res) => {
 
     res.json({ success: true, message: 'Instrument restored', data: inst });
   } catch (e) {
-    res.status(500).json({ success: false, message: e.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
   }
 });
 
@@ -495,7 +516,7 @@ router.post('/bhavcopy/fetch', authenticateAdmin, async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -532,7 +553,7 @@ router.get('/profile', authenticateAdmin, async (req, res) => {
       }
     });
   } catch (e) {
-    res.status(500).json({ success: false, message: e.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
   }
 });
 

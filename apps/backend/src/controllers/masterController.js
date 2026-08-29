@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const { escapeRegex } = require('../utils/escapeRegex');
 const Master = require('../models/Master');
 const Server = require('../models/Server');
 const Message = require('../models/Message');
@@ -8,6 +9,7 @@ const User = require('../models/User');
 const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
 const { applyWalletFunding } = require('./walletController');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 // Create Master
 const createMaster = async (req, res) => {
@@ -203,7 +205,7 @@ const createMaster = async (req, res) => {
 
     res.status(isClientError ? 400 : 500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -227,6 +229,16 @@ const getAllMasters = async (req, res) => {
     if (status) filter.status = status;
     if (server_id) filter.server_id = server_id;
 
+    // A master caller only ever sees their own subtree — without this,
+    // any master could list every master on the platform (including
+    // unrelated top-level masters) via this endpoint. Admin unrestricted.
+    if (req.master) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allowedMasterIds = await getAllSubMasterIds(req.master.id);
+      filter._id = { $in: allowedMasterIds };
+      delete filter.master_id; // subtree membership already implies this; a top-level filter would wrongly exclude the caller's own sub-masters
+    }
+
     const masters = await Master.find(filter)
       .populate('server_id', 'name')
       .populate('admin_id', 'username')
@@ -249,7 +261,7 @@ const getAllMasters = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -299,7 +311,7 @@ const getMasterById = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -333,6 +345,19 @@ const updateMaster = async (req, res) => {
 
     const query = { _id: id, deleted_at: null };
     if (req.master) {
+      // This endpoint edits privilege/limit fields (add_master, pnl_sharing,
+      // brokerage_sharing, exchanges_allowed, trade_limit, status,
+      // active_status) that only a PARENT should set on a child — it must
+      // never be reachable by a master targeting themselves.
+      // getAllSubMasterIds is inclusive of the caller's own id (by design,
+      // for direct-child checks elsewhere), so that check alone isn't enough.
+      if (id === req.master.id) {
+        return res.status(403).json({
+          success: false,
+          message: 'Not authorized to update your own account via this endpoint',
+          data: null
+        });
+      }
       const { getAllSubMasterIds } = require('../services/masterHierarchyService');
       const allowedSubMasters = await getAllSubMasterIds(req.master.id);
       if (!allowedSubMasters.includes(id)) {
@@ -472,7 +497,7 @@ const updateMaster = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -536,7 +561,7 @@ const updateMasterStatus = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -647,7 +672,7 @@ const updateMasterPermissions = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -709,7 +734,7 @@ const deleteMaster = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -835,7 +860,7 @@ const creditMaster = async (req, res) => {
 
     res.status(isClientError ? 404 : 500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -961,7 +986,7 @@ const debitMaster = async (req, res) => {
 
     res.status(statusCode).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -980,7 +1005,35 @@ const getAllTrades = async (req, res) => {
     if (user_id) filter.user_id = user_id;
     if (status) filter.status = status;
     if (exchange) filter.exchange = exchange;
-    if (tradingsymbol) filter.tradingsymbol = { $regex: tradingsymbol, $options: 'i' };
+    if (tradingsymbol) filter.tradingsymbol = { $regex: escapeRegex(tradingsymbol), $options: 'i' };
+
+    // A master caller is always scoped to their own subtree — without this,
+    // a master calling with no filters at all got every trade on the
+    // platform. Admin unrestricted. A supplied master_id/user_id narrows
+    // further but is validated against the subtree, never trusted outright.
+    if (req.master) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allowedMasterIds = await getAllSubMasterIds(req.master.id);
+
+      if (master_id) {
+        if (!allowedMasterIds.includes(master_id.toString())) {
+          return res.status(403).json({ success: false, message: 'Not authorized to view trades for this master', data: null });
+        }
+        filter.master_id = master_id;
+      } else {
+        filter.master_id = { $in: allowedMasterIds };
+      }
+
+      if (user_id) {
+        const User = require('../models/User');
+        const targetUser = await User.findById(user_id).select('master_id').lean();
+        const targetMasterId = targetUser?.master_id?.toString();
+        if (!targetUser || !targetMasterId || !allowedMasterIds.includes(targetMasterId)) {
+          return res.status(403).json({ success: false, message: 'Not authorized to view trades for this user', data: null });
+        }
+      }
+    }
+
     if (date_from || date_to) {
       filter.created_at = {};
       if (date_from) filter.created_at.$gte = new Date(date_from);
@@ -1036,7 +1089,7 @@ const getAllTrades = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -1119,7 +1172,7 @@ const getMasterPosition = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -1218,7 +1271,7 @@ const updateMasterDetails = async (req, res) => {
     }
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -1280,7 +1333,7 @@ const sendMessageToMaster = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -1392,7 +1445,7 @@ const updateMasterIntradaySquareoff = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Intraday squareoff settings updated successfully', data: master.toJSON() });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 
@@ -1453,7 +1506,7 @@ const updateMasterMarginSquareoffPercentage = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -1508,7 +1561,7 @@ const getAccountLimit = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 
@@ -1541,7 +1594,7 @@ const getMasterBaseRates = async (req, res) => {
 
     res.status(200).json({ success: true, data: rates });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 
@@ -1556,7 +1609,14 @@ const updateMasterBaseRates = async (req, res) => {
     // Was previously reachable by any authenticated master for any master's
     // id — no ownership check — letting one master silently rewrite an
     // unrelated master's base brokerage rates.
+    // getAllSubMasterIds is inclusive of the caller's own id (by design, for
+    // every other subtree check in this file) — so it alone would let a
+    // master target THEMSELVES here too, self-editing their own base rate
+    // below whatever floor their parent set. Explicitly excluded.
     if (req.master) {
+      if (id === req.master.id) {
+        return res.status(403).json({ success: false, message: 'Not authorized to update your own base rates', data: null });
+      }
       const { getAllSubMasterIds } = require('../services/masterHierarchyService');
       const allowedSubMasters = await getAllSubMasterIds(req.master.id);
       if (!allowedSubMasters.includes(id)) {
@@ -1596,7 +1656,7 @@ const updateMasterBaseRates = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Base rates updated', data: saved });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 
@@ -1609,7 +1669,13 @@ const updateAccountLimit = async (req, res) => {
     // Was previously reachable by any authenticated master for any master's
     // id — no ownership check — letting one master silently rewrite an
     // unrelated master's account limits.
+    // getAllSubMasterIds is inclusive of the caller's own id — so it alone
+    // would let a master target THEMSELVES here too, self-granting a higher
+    // max_masters/max_users limit than their parent set. Explicitly excluded.
     if (req.master) {
+      if (id === req.master.id) {
+        return res.status(403).json({ success: false, message: 'Not authorized to update your own account limit', data: null });
+      }
       const { getAllSubMasterIds } = require('../services/masterHierarchyService');
       const allowedSubMasters = await getAllSubMasterIds(req.master.id);
       if (!allowedSubMasters.includes(id)) {
@@ -1635,7 +1701,7 @@ const updateAccountLimit = async (req, res) => {
       data: master.account_limit
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 

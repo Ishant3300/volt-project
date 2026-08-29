@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Admin = require('../models/Admin');
 const Master = require('../models/Master');
 const LoginHistory = require('../models/LoginHistory');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 const _getClientIp = (req) => {
   // X-Forwarded-For can be comma-separated list; first entry is the real client
@@ -34,8 +35,13 @@ const _logLogin = async (req, userId, userModel, username, name) => {
 };
 
 // Generate JWT Token
+// Tokens previously never expired — a leaked token worked forever unless the
+// account happened to log in again elsewhere (which overwrites active_token).
+// 30 days balances security with not forcing active users to re-login
+// unexpectedly; session revocation on password change is handled separately
+// (see changePassword rotating active_token).
 const generateToken = (id, role, investor = false) => {
-  return jwt.sign({ id, role, investor }, process.env.JWT_SECRET);
+  return jwt.sign({ id, role, investor }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
 // User Login
@@ -110,7 +116,7 @@ const userLogin = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -129,7 +135,9 @@ const adminLogin = async (req, res) => {
       });
     }
 
-    const admin = await Admin.findOne({ username });
+    // +totp_secret — schema now defaults this field to select: false; this
+    // login flow needs it for the totp_configured flag below.
+    const admin = await Admin.findOne({ username }).select('+totp_secret');
 
     if (!admin || admin.deleted_at) {
       return res.status(401).json({
@@ -193,7 +201,7 @@ const adminLogin = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -224,7 +232,7 @@ const userLogout = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -255,7 +263,7 @@ const adminLogout = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -333,7 +341,7 @@ const masterLogin = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -364,7 +372,7 @@ const masterLogout = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -387,10 +395,12 @@ const universalLogin = async (req, res) => {
     let roleType = null;
     let isInvestorLogin = false;
 
-    console.log(`🔐 [LOGIN] Attempt: username="${username}", password length=${password.length}`);
+    console.log(`🔐 [LOGIN] Attempt: username="${username}"`);
 
     // Check Admin (admins don't have investor password)
-    const admin = await Admin.findOne({ username });
+    // +totp_secret — schema now defaults this field to select: false; this
+    // login flow needs it for the totp_configured flag below.
+    const admin = await Admin.findOne({ username }).select('+totp_secret');
     console.log(`🔐 [LOGIN] Admin lookup: found=${!!admin}, deleted=${admin?.deleted_at || 'N/A'}`);
     if (admin && !admin.deleted_at && await bcrypt.compare(password, admin.password)) {
       console.log(`🔐 [LOGIN] Admin password matched`);
@@ -543,7 +553,7 @@ const universalLogin = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -588,9 +598,18 @@ const changePassword = async (req, res) => {
       account.change_pass_on_first_login = false;
     }
 
+    // Rotate active_token so a stolen/leaked token from before this password
+    // change stops working immediately, instead of remaining valid until the
+    // account's next login overwrites it. Issue a fresh token for the
+    // caller's own now-authenticated request so their current session isn't
+    // logged out by their own password change.
+    const role = req.admin ? 'admin' : req.master ? 'master' : 'user';
+    const newToken = generateToken(account._id.toString(), role, false);
+    account.active_token = newToken;
+
     await account.save();
 
-    return res.status(200).json({ success: true, message: 'Password changed successfully' });
+    return res.status(200).json({ success: true, message: 'Password changed successfully', data: { token: newToken } });
   } catch (error) {
     console.error('❌ Change password error:', error);
     return res.status(500).json({ success: false, message: 'Server error' });
@@ -764,7 +783,7 @@ const deleteAccount = async (req, res) => {
     res.status(200).json({ success: true, message: 'Account deleted successfully' });
   } catch (error) {
     console.error('❌ Delete account error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 

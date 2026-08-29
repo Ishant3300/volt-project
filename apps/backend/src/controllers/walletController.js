@@ -1,4 +1,5 @@
 'use strict';
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 /**
  * walletController — HTTP surface for the category trade-wallet funding flow
@@ -272,9 +273,9 @@ async function assign(req, res) {
       });
     }
     if (err && err.status) {
-      return res.status(err.status).json({ success: false, message: err.message, data: null });
+      return res.status(err.status).json({ success: false, message: sanitizeErrorMessage(err), data: null });
     }
-    return res.status(500).json({ success: false, message: err.message, data: null });
+    return res.status(500).json({ success: false, message: sanitizeErrorMessage(err), data: null });
   }
 }
 
@@ -321,9 +322,9 @@ async function withdraw(req, res) {
       });
     }
     if (err && err.status) {
-      return res.status(err.status).json({ success: false, message: err.message, data: null });
+      return res.status(err.status).json({ success: false, message: sanitizeErrorMessage(err), data: null });
     }
-    return res.status(500).json({ success: false, message: err.message, data: null });
+    return res.status(500).json({ success: false, message: sanitizeErrorMessage(err), data: null });
   }
 }
 
@@ -370,9 +371,9 @@ async function getWallet(req, res) {
     });
   } catch (err) {
     if (err && err.status) {
-      return res.status(err.status).json({ success: false, message: err.message, data: null });
+      return res.status(err.status).json({ success: false, message: sanitizeErrorMessage(err), data: null });
     }
-    return res.status(500).json({ success: false, message: err.message, data: null });
+    return res.status(500).json({ success: false, message: sanitizeErrorMessage(err), data: null });
   }
 }
 
@@ -401,7 +402,7 @@ async function reconcile(req, res) {
     const data = await walletService.reconcile(owner_type, owner_id);
     return res.status(200).json({ success: true, message: 'Wallet reconciliation', data });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message, data: null });
+    return res.status(500).json({ success: false, message: sanitizeErrorMessage(err), data: null });
   }
 }
 

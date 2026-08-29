@@ -1,4 +1,5 @@
 const Server = require('../models/Server');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 // Get All Servers
 const getAllServers = async (req, res) => {
@@ -28,7 +29,7 @@ const getAllServers = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -57,7 +58,7 @@ const getServerById = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -96,7 +97,7 @@ const createServer = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -141,7 +142,7 @@ const updateServer = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -172,7 +173,7 @@ const deleteServer = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }

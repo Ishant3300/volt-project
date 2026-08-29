@@ -8,6 +8,7 @@
  */
 
 const KiteInstrument = require('../models/KiteInstrument');
+const { escapeRegex } = require('../utils/escapeRegex');
 
 // Allowed exchanges for derivatives
 const ALLOWED_EXCHANGES = ['BFO', 'NFO', 'MCX'];
@@ -40,7 +41,7 @@ class InstrumentQueryService {
     };
 
     if (symbol) {
-      matchStage.name = { $regex: `^${symbol}`, $options: 'i' };
+      matchStage.name = { $regex: `^${escapeRegex(symbol)}`, $options: 'i' };
     }
 
     // For FUT: Group by symbol, get nearest expiry
@@ -81,7 +82,7 @@ class InstrumentQueryService {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escapedQuery = escapeRegex(query);
 
     // Build match stage
     const matchStage = {
@@ -122,7 +123,7 @@ class InstrumentQueryService {
    */
   async getAllExpiriesForSymbol(symbol, instrumentType = null) {
     const filter = {
-      name: { $regex: `^${symbol}$`, $options: 'i' }
+      name: { $regex: `^${escapeRegex(symbol)}$`, $options: 'i' }
     };
 
     if (instrumentType) {
@@ -191,7 +192,7 @@ class InstrumentQueryService {
     // If no expiry specified, find the nearest one
     if (!targetExpiry) {
       const nearestExpiry = await KiteInstrument.findOne({
-        name: { $regex: `^${symbol}$`, $options: 'i' },
+        name: { $regex: `^${escapeRegex(symbol)}$`, $options: 'i' },
         instrument_type: { $in: ['CE', 'PE'] },
         exchange,
         expiry: { $gte: today }
@@ -210,7 +211,7 @@ class InstrumentQueryService {
     // Get all options for this expiry
     const [calls, puts] = await Promise.all([
       KiteInstrument.find({
-        name: { $regex: `^${symbol}$`, $options: 'i' },
+        name: { $regex: `^${escapeRegex(symbol)}$`, $options: 'i' },
         instrument_type: 'CE',
         exchange,
         expiry: targetExpiry
@@ -218,7 +219,7 @@ class InstrumentQueryService {
         .sort({ strike: 1 })
         .lean(),
       KiteInstrument.find({
-        name: { $regex: `^${symbol}$`, $options: 'i' },
+        name: { $regex: `^${escapeRegex(symbol)}$`, $options: 'i' },
         instrument_type: 'PE',
         exchange,
         expiry: targetExpiry
@@ -242,7 +243,7 @@ class InstrumentQueryService {
     today.setHours(0, 0, 0, 0);
 
     const filter = {
-      name: { $regex: `^${symbol}$`, $options: 'i' },
+      name: { $regex: `^${escapeRegex(symbol)}$`, $options: 'i' },
       expiry: { $gte: today }
     };
 

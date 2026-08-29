@@ -1,4 +1,5 @@
 const Announcement = require('../models/Announcement');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 /** Admin: create/update the active announcement */
 const setAnnouncement = async (req, res) => {
@@ -17,7 +18,7 @@ const setAnnouncement = async (req, res) => {
     });
     res.status(201).json({ success: true, message: 'Announcement set', data: announcement });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 
@@ -27,7 +28,7 @@ const clearAnnouncement = async (req, res) => {
     await Announcement.updateMany({ is_active: true }, { $set: { is_active: false } });
     res.status(200).json({ success: true, message: 'Announcement cleared' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 
@@ -40,7 +41,7 @@ const getActiveAnnouncement = async (req, res) => {
       data: announcement ? { id: announcement._id, message: announcement.message, created_at: announcement.createdAt } : null,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 

@@ -1,4 +1,5 @@
 'use strict';
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 /**
  * Atomic weekly settlement.
@@ -874,7 +875,7 @@ async function runSettlement(options = {}) {
         success: false,
         started: true,
         completed: false,
-        message: error.message,
+        message: sanitizeErrorMessage(error),
         periodKey: acquisition.run.period_key,
         runId: acquisition.run._id.toString(),
       };

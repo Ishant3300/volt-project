@@ -3,6 +3,7 @@ const Master = require('../models/Master');
 const GroupedQuantity = require('../models/GroupedQuantity');
 const ScriptQuantity = require('../models/ScriptQuantity');
 const redisService = require('../services/redisService');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 /**
  * GET /api/trade/script-qty-details
@@ -102,7 +103,7 @@ const getScriptQtyDetails = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 
@@ -229,7 +230,7 @@ const getInstrumentLimit = async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 
@@ -317,7 +318,7 @@ const getAllLots = async (req, res) => {
 
     res.status(200).json(response);
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 

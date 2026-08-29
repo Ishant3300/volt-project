@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const { escapeRegex } = require('../utils/escapeRegex');
 const User = require('../models/User');
 const Master = require('../models/Master');
 const Server = require('../models/Server');
@@ -13,6 +14,7 @@ const walletService = require('../services/walletService');
 const { categoryForSegment } = require('../utils/walletCategory');
 const { applyWalletFunding } = require('./walletController');
 const { calculateBrokerage } = require('../services/brokerageService');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 /**
  * Square off all open positions for a user in the given segments.
@@ -404,7 +406,7 @@ const createUser = async (req, res) => {
 
     res.status(statusCode).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -426,9 +428,10 @@ const getAllUsers = async (req, res) => {
 
     // Search by username or name
     if (search) {
+      const safeSearch = escapeRegex(search);
       filter.$or = [
-        { username: { $regex: search, $options: 'i' } },
-        { name: { $regex: search, $options: 'i' } },
+        { username: { $regex: safeSearch, $options: 'i' } },
+        { name: { $regex: safeSearch, $options: 'i' } },
       ];
     }
 
@@ -454,7 +457,7 @@ const getAllUsers = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -489,7 +492,7 @@ const getUserById = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -749,7 +752,7 @@ const updateUserDetails = async (req, res) => {
     }
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -910,7 +913,7 @@ const creditUser = async (req, res) => {
 
     res.status(statusCode).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -1064,7 +1067,7 @@ const debitUser = async (req, res) => {
 
     res.status(statusCode).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -1128,7 +1131,7 @@ const getUserPosition = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -1181,7 +1184,7 @@ const sendMessageToUser = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -1216,7 +1219,7 @@ const deleteUser = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -1259,7 +1262,7 @@ const updateUserIntradaySquareoff = async (req, res) => {
 
     res.status(200).json({ success: true, message: 'Intraday squareoff settings updated successfully', data: user.toJSON() });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 
@@ -1324,7 +1327,7 @@ const updateUserMarginSquareoffPercentage = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -1415,7 +1418,7 @@ const updateUserReportPermissions = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }

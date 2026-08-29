@@ -1,6 +1,7 @@
 const Trade = require('../models/Trade');
 const User = require('../models/User');
 const Master = require('../models/Master');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 /**
  * GET /api/master/pnl-summary
@@ -96,7 +97,7 @@ const getPnlSummary = async (req, res) => {
       totals: { realised: r2(totals.realised), position: r2(totals.position), m2m: r2(totals.m2m) },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 

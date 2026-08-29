@@ -2,6 +2,8 @@ const Trade = require('../models/Trade');
 const User = require('../models/User');
 const Master = require('../models/Master');
 const mongoose = require('mongoose');
+const { escapeRegex } = require('../utils/escapeRegex');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 /**
  * GET /api/trade/deleted-trades
@@ -34,7 +36,7 @@ const getDeletedTrades = async (req, res) => {
 
     if (search) {
       filter.$or = [
-        { tradingsymbol: { $regex: search, $options: 'i' } },
+        { tradingsymbol: { $regex: escapeRegex(search), $options: 'i' } },
       ];
     }
 
@@ -83,7 +85,7 @@ const getDeletedTrades = async (req, res) => {
 
     res.status(200).json({ success: true, data, total, page: parseInt(page) });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 

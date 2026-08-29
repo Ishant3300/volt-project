@@ -4,6 +4,7 @@ const BrokerageSettings = require('../models/BrokerageSettings');
 const KiteInstrument = require('../models/KiteInstrument');
 const SettlementHistory = require('../models/SettlementHistory');
 const mongoose = require('mongoose');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 /**
  * GET /api/trade/report
@@ -40,9 +41,21 @@ const getTradeReport = async (req, res) => {
     // User scope (applied to both the live Trade collection and the ledger)
     const userScope = {};
     if (targetUserId) {
+      // A master-supplied user_id/master_id must resolve within the caller's
+      // own subtree — without this, any master could pull a full trade
+      // report for any account on the platform. Admin unrestricted.
+      let callerSubtreeIds = null;
+      if (role === 'master') {
+        const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+        callerSubtreeIds = await getAllSubMasterIds(callerId);
+      }
+
       // Check if the target is a User or a Master
-      const targetUser = await User.findById(targetUserId).select('_id username name').lean();
+      const targetUser = await User.findById(targetUserId).select('_id username name master_id').lean();
       if (targetUser) {
+        if (callerSubtreeIds && !callerSubtreeIds.includes(targetUser.master_id?.toString())) {
+          return res.status(403).json({ success: false, message: 'Not authorized to view this user\'s trade report' });
+        }
         // It's a user — scope to this single user
         userScope.user_id = targetUserId;
       } else {
@@ -51,6 +64,9 @@ const getTradeReport = async (req, res) => {
         const Master = require('../models/Master');
         const targetMaster = await Master.findById(targetUserId).select('_id username name').lean();
         if (targetMaster) {
+          if (callerSubtreeIds && !callerSubtreeIds.includes(targetUserId.toString())) {
+            return res.status(403).json({ success: false, message: 'Not authorized to view this master\'s trade report' });
+          }
           targetIsMaster = true;
           const directChildUsers = await User.find({ master_id: targetUserId, deleted_at: null }).distinct('_id');
           if (directChildUsers.length > 0) {
@@ -59,6 +75,9 @@ const getTradeReport = async (req, res) => {
             userScope.user_id = targetUserId; // fallback (will return empty)
           }
         } else {
+          if (callerSubtreeIds) {
+            return res.status(403).json({ success: false, message: 'Not authorized to view this trade report' });
+          }
           userScope.user_id = targetUserId;
         }
       }
@@ -549,7 +568,7 @@ const getTradeReport = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 
@@ -572,6 +591,17 @@ const getOpenPositions = async (req, res) => {
       targetUserId = new mongoose.Types.ObjectId(user_id);
     } else {
       return res.status(400).json({ success: false, message: 'user_id is required' });
+    }
+
+    // A master-supplied user_id must be in the caller's own subtree —
+    // without this, any master could read any user's open positions platform-wide.
+    if (role === 'master' && user_id) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allowedMasterIds = await getAllSubMasterIds(callerId);
+      const targetUser = await User.findById(targetUserId).select('master_id').lean();
+      if (!targetUser || !allowedMasterIds.includes(targetUser.master_id?.toString())) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view this user\'s open positions' });
+      }
     }
 
     // All active (non-deleted) completed trades — no date filter
@@ -630,7 +660,7 @@ const getOpenPositions = async (req, res) => {
 
     res.status(200).json({ success: true, data: openPositions });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 
@@ -657,6 +687,17 @@ const getSettlementHistory = async (req, res) => {
       return res.status(400).json({ success: false, message: 'user_id is required' });
     }
 
+    // A master-supplied user_id must be in the caller's own subtree —
+    // without this, any master could read any user's settlement history platform-wide.
+    if (role === 'master' && user_id) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allowedMasterIds = await getAllSubMasterIds(callerId);
+      const targetUser = await User.findById(targetUserId).select('master_id').lean();
+      if (!targetUser || !allowedMasterIds.includes(targetUser.master_id?.toString())) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view this user\'s settlement history' });
+      }
+    }
+
     const q = { user_id: targetUserId };
     if (from || to) {
       q.period_to = {};
@@ -670,7 +711,7 @@ const getSettlementHistory = async (req, res) => {
 
     res.status(200).json({ success: true, data: snapshots });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 

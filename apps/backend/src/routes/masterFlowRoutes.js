@@ -1,7 +1,9 @@
 const express = require('express');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 const router = express.Router();
 const { authenticateAdminOrMaster } = require('../middlewares/auth');
 const { rejectIfInvestor } = require('../middlewares/rejectIfInvestor');
+const { escapeRegex } = require('../utils/escapeRegex');
 const User = require('../models/User');
 const Master = require('../models/Master');
 const LoginHistory = require('../models/LoginHistory');
@@ -266,7 +268,7 @@ router.get('/sharing-details', async (req, res) => {
 
     res.status(200).json({ success: true, data });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -293,9 +295,10 @@ router.get('/login-history', async (req, res) => {
     }
 
     if (search) {
+      const safeSearch = escapeRegex(search);
       filter.$or = [
-        { username: { $regex: search, $options: 'i' } },
-        { name: { $regex: search, $options: 'i' } },
+        { username: { $regex: safeSearch, $options: 'i' } },
+        { name: { $regex: safeSearch, $options: 'i' } },
       ];
     }
 
@@ -320,7 +323,7 @@ router.get('/login-history', async (req, res) => {
 
     res.status(200).json({ success: true, data, total, page: parseInt(page), limit: parseInt(limit) });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 

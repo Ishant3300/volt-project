@@ -2,6 +2,7 @@ const settlementService = require('../services/settlementService');
 const User = require('../models/User');
 const Master = require('../models/Master');
 const { buildSettlementReport } = require('../services/settlementReportService');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 /**
  * GET /master/settlement-report
@@ -81,7 +82,7 @@ const getSettlementReport = async (req, res) => {
     const report = await buildSettlementReport(targetType, targetDoc, fromDate, toDate, withOpening);
     res.status(200).json({ success: true, message: 'Settlement report', data: report });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 
@@ -91,7 +92,7 @@ const startSettlement = async (req, res) => {
     const result = await settlementService.runSettlement({ trigger: 'manual' });
     res.status(result.success ? 200 : 409).json({ success: result.success, message: result.message, data: { ...settlementService.getState(), run_id: result.runId, period_key: result.periodKey, already_completed: result.alreadyCompleted || false } });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 
@@ -102,7 +103,7 @@ const getSettlementStatus = async (req, res) => {
     const pct = state.total > 0 ? Math.round((state.processed / state.total) * 100) : 0;
     res.status(200).json({ success: true, message: 'Settlement status', data: { ...state, percentage: pct } });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message, data: null });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 

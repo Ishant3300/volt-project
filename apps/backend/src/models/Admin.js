@@ -36,7 +36,13 @@ const adminSchema = new mongoose.Schema({
   },
   totp_secret: {
     type: String,
-    default: null
+    default: null,
+    // Never returned by a plain query (find/findById/.lean()) — the toJSON
+    // transform already strips it, but that only runs on a hydrated
+    // document's .toJSON()/.toObject(), not on .lean() reads. Callers that
+    // legitimately need it (adminOtpService.js) already explicitly opt in
+    // via .select('+totp_secret').
+    select: false
   }
 }, {
   timestamps: true

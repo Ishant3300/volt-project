@@ -1,6 +1,8 @@
 const express = require('express');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 const router = express.Router();
 const { authenticateAdmin, authenticateAdminOrMaster, authenticateAny } = require('../middlewares/auth');
+const { escapeRegex } = require('../utils/escapeRegex');
 
 const {
   getAllServers,
@@ -19,11 +21,11 @@ router.get('/search', async (req, res) => {
     }
     const Server = require('../models/Server');
     const servers = await Server.find({
-      name: { $regex: q.trim(), $options: 'i' }
+      name: { $regex: escapeRegex(q.trim()), $options: 'i' }
     }).select('name').limit(10).lean();
     res.json({ success: true, data: servers.map(s => ({ id: s._id, name: s.name })) });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 

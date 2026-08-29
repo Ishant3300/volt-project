@@ -2,6 +2,7 @@ const Watchlist = require('../models/Watchlist');
 const KiteInstrument = require('../models/KiteInstrument');
 const User = require('../models/User');
 const Master = require('../models/Master');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 /**
  * Get user's or admin's watchlist with populated instrument data.
@@ -92,7 +93,7 @@ const getWatchlist = async (req, res) => {
     console.error('Error getting watchlist:', error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null,
     });
   }
@@ -173,7 +174,7 @@ const addToWatchlist = async (req, res) => {
     console.error('Error adding to watchlist:', error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null,
     });
   }
@@ -218,7 +219,7 @@ const removeFromWatchlist = async (req, res) => {
     console.error('Error removing from watchlist:', error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null,
     });
   }

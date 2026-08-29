@@ -1,5 +1,6 @@
 const Transaction = require('../models/Transaction');
 const mongoose = require('mongoose');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 /**
  * Get transaction history for a user or master.
@@ -39,7 +40,7 @@ const getTransactionHistory = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 

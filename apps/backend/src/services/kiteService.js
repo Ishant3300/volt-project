@@ -14,6 +14,7 @@ const { promisify } = require('util');
 const { gunzip: gunzipCallback } = require('zlib');
 const gunzip = promisify(gunzipCallback);
 const { AccessToken } = require('../models/KiteConfig');
+const { escapeRegex } = require('../utils/escapeRegex');
 const KiteInstrument = require('../models/KiteInstrument');
 const KiteMarketQuote = require('../models/KiteMarketQuote');
 
@@ -382,7 +383,7 @@ class KiteService {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const escapedQuery = escapeRegex(query);
 
         // Build match stage for aggregation
         const matchStage = {

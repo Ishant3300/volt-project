@@ -8,6 +8,7 @@ const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
 const { applyWalletFunding } = require('./walletController');
 const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 // Create Child Master
 const createChildMaster = async (req, res) => {
@@ -293,7 +294,7 @@ const createChildMaster = async (req, res) => {
 
     res.status(statusCode).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -304,10 +305,19 @@ const getAllChildMasters = async (req, res) => {
   try {
     const { page = 1, limit = 20, status, server_id, parent_id } = req.query;
 
-    // Support both: master viewing own children, or admin viewing a specific master's children
-    const parentMasterId = parent_id || (req.master ? req.master.id : null);
+    // Support both: master viewing own children, or admin viewing a specific master's children.
+    // A master-supplied parent_id must be within their own subtree — otherwise
+    // any master could view any other master's direct children by ID. Admin unrestricted.
+    let parentMasterId = parent_id || (req.master ? req.master.id : null);
     if (!parentMasterId) {
       return res.status(400).json({ success: false, message: 'parent_id is required for admin' });
+    }
+    if (req.master && parent_id) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const allowedMasterIds = await getAllSubMasterIds(req.master.id);
+      if (!allowedMasterIds.includes(parent_id.toString())) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view this master\'s children', data: null });
+      }
     }
 
     const filter = {
@@ -340,7 +350,7 @@ const getAllChildMasters = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -375,7 +385,7 @@ const getChildMasterById = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -466,7 +476,7 @@ const updateChildMasterPermissions = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -566,7 +576,7 @@ const updateChildMasterDetails = async (req, res) => {
     }
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -689,7 +699,7 @@ const creditChildMaster = async (req, res) => {
 
     res.status(statusCode).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -806,7 +816,7 @@ const debitChildMaster = async (req, res) => {
 
     res.status(statusCode).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -873,7 +883,7 @@ const getChildMasterPosition = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -927,7 +937,7 @@ const sendMessageToChildMaster = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }
@@ -986,7 +996,7 @@ const deleteChildMaster = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }

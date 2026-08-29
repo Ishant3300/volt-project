@@ -1,6 +1,8 @@
 const Trade = require('../models/Trade');
 const Master = require('../models/Master');
 const KiteInstrument = require('../models/KiteInstrument');
+const { escapeRegex } = require('../utils/escapeRegex');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 // Enrich trades with correct lot_size from KiteInstrument
 const enrichTradesWithLotSize = async (trades) => {
@@ -89,7 +91,7 @@ const getAllTrades = async (req, res) => {
     if (user_id) filter.user_id = user_id;
     if (status) filter.status = status;
     if (exchange) filter.exchange = exchange;
-    if (tradingsymbol) filter.tradingsymbol = { $regex: tradingsymbol, $options: 'i' };
+    if (tradingsymbol) filter.tradingsymbol = { $regex: escapeRegex(tradingsymbol), $options: 'i' };
     if (date_from || date_to) {
       filter.createdAt = {};
       if (date_from) filter.createdAt.$gte = new Date(date_from);
@@ -148,7 +150,7 @@ const getAllTrades = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
       data: null
     });
   }

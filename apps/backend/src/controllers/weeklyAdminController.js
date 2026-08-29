@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Master = require('../models/Master');
 const BrokerageSettings = require('../models/BrokerageSettings');
 const KiteInstrument = require('../models/KiteInstrument');
+const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 /**
  * GET /api/master/weekly-admin-report
@@ -303,7 +304,7 @@ const getWeeklyAdminReport = async (req, res) => {
     res.json({ success: true, data, totals: _sumTotals(data) });
   } catch (error) {
     console.error('[WeeklyAdminReport] Error:', error.message);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 
