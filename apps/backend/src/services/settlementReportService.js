@@ -23,48 +23,45 @@ function r2(n) {
   return Math.round((Number(n) || 0) * 100) / 100;
 }
 
-/** Monday 00:00 of the current settlement week — same boundary used platform-wide. */
-function currentWeekStart() {
-  const now = new Date();
-  const dayOfWeek = now.getDay();
-  const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  const weekStart = new Date(now);
-  weekStart.setDate(now.getDate() - diffToMonday);
-  weekStart.setHours(0, 0, 0, 0);
-  return weekStart;
-}
-
 /**
  * A single user's own raw realised P&L + brokerage for a date range.
- * Past-only range -> SettlementHistory (immutable ledger). Range touching
- * the current period -> live Trade collection. Same split threshold
- * accountSummaryController.js already uses (isPastPeriod), reimplemented
- * locally so this module has no dependency on that file's internals.
+ *
+ * Queries SettlementHistory (immutable ledger) AND live Trade unconditionally
+ * and sums both, rather than picking one source via a coarse "is this range
+ * in the past" check. A trade is captured by exactly one of the two sources
+ * at any moment — settlement soft-deletes the source Trade the instant it
+ * snapshots it into SettlementHistory — so summing both is always safe and
+ * never double-counts.
+ *
+ * The previous isPastPeriod check (comparing `to` against the current
+ * settlement week's Monday) broke as soon as a period's settlement actually
+ * ran: requesting "this week" right after this week's own settlement
+ * completed still has `to` past that boundary, so it took the live-Trade
+ * branch — but settlement had already swept every real trade for that week
+ * into SettlementHistory, leaving the live query with nothing (deleted_at:
+ * null matches none of them). Confirmed against a real report: this week's
+ * real total (-1,63,318.50) went missing entirely, and "With Opening"
+ * showed only the PRIOR settled period's total instead.
  */
 async function getUserPnlAndBrokerage(userId, from, to) {
-  const isPastPeriod = to <= currentWeekStart();
-
-  if (isPastPeriod) {
-    const rows = await SettlementHistory.find({
-      user_id: userId,
-      period_from: { $lte: to },
-      period_to: { $gte: from },
-    }).select('total_pnl brokerage').lean();
-    let pnl = 0, brokerage = 0;
-    for (const r of rows) {
-      pnl += r.total_pnl || 0;
-      brokerage += r.brokerage || 0;
-    }
-    return { pnl, brokerage };
+  const settledRows = await SettlementHistory.find({
+    user_id: userId,
+    period_from: { $lte: to },
+    period_to: { $gte: from },
+  }).select('total_pnl brokerage').lean();
+  let pnl = 0, brokerage = 0;
+  for (const r of settledRows) {
+    pnl += r.total_pnl || 0;
+    brokerage += r.brokerage || 0;
   }
 
   const trades = await Trade.find({
     user_id: userId,
     status: 'completed',
     deleted_at: null,
+    trade_type: { $ne: 'carry_forward' },
     executed_at: { $gte: from, $lte: to },
   }).select('pnl brokerage').lean();
-  let pnl = 0, brokerage = 0;
   for (const t of trades) {
     pnl += t.pnl || 0;
     brokerage += t.brokerage || 0;
