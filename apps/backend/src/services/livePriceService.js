@@ -27,6 +27,18 @@ class LivePriceService {
       this._consecutiveFails = 0;
       this._lastErrorWas403 = false;
       this.pendingTokensCache = new Set();
+
+      // ── Tick watchdog ──────────────────────────────────────────────
+      // Detects a "zombie" Kite connection: the socket is still OPEN (so the
+      // 'close'/'error' handlers never fire and the normal reconnect never
+      // triggers) but no ticks are arriving. Kite streams a heartbeat roughly
+      // every second while connected, so a multi-second silence during a
+      // trading session reliably means the feed is dead even though TCP is up.
+      this._lastTickAt = 0;                  // epoch ms of last tick received
+      this._watchdogTimer = null;            // setInterval handle
+      this._watchdogRecovering = false;      // guard against overlapping forced reconnects
+      this.TICK_STALE_MS = 15000;            // no tick for 15s → treat as dead
+      this.WATCHDOG_INTERVAL_MS = 5000;      // check every 5s
     }
 
   /**
@@ -233,6 +245,11 @@ class LivePriceService {
           this.isKiteConnected = true;
           this.autoLoginAttempted = false; // Reset for next disconnect
           this._consecutiveFails = 0;
+          this._watchdogRecovering = false;
+          // Seed last-tick time so the watchdog gives the feed a full stale
+          // window to start flowing before considering it dead.
+          this._lastTickAt = Date.now();
+          this._startTickWatchdog();
           this._broadcastToClients({
             type: 'kite_status',
             connected: true,
@@ -241,6 +258,7 @@ class LivePriceService {
         });
 
         this.kiteTicker.on('message', (data) => {
+          this._lastTickAt = Date.now();
           this._processKiteTick(data);
         });
 
@@ -300,6 +318,57 @@ class LivePriceService {
         this.reconnectTimer = setTimeout(() => this._connectToKite(), 10000);
       }
     }
+
+  /**
+   * Start (or restart) the tick watchdog. Periodically checks whether ticks
+   * are still flowing on a socket that reports OPEN. If the feed has gone
+   * silent past TICK_STALE_MS during a trading session, the connection is a
+   * zombie — force a clean reconnect that the normal close/error path missed.
+   */
+  _startTickWatchdog() {
+    if (this._watchdogTimer) clearInterval(this._watchdogTimer);
+    this._watchdogTimer = setInterval(() => this._checkTickFreshness(), this.WATCHDOG_INTERVAL_MS);
+  }
+
+  _stopTickWatchdog() {
+    if (this._watchdogTimer) {
+      clearInterval(this._watchdogTimer);
+      this._watchdogTimer = null;
+    }
+  }
+
+  _checkTickFreshness() {
+    // Only meaningful when the socket claims to be open.
+    if (!this.kiteTicker || this.kiteTicker.readyState !== WebSocket.OPEN) return;
+    // Nothing subscribed → no ticks expected, silence is normal.
+    if (this.subscribedTokens.size === 0 && this.pendingTokensCache.size === 0) return;
+    // No market on weekends → don't churn the connection pointlessly.
+    // (Weekday holidays still fall through, but a reconnect then is harmless.)
+    if (isWeekendInIndia()) return;
+    // Avoid stacking forced reconnects while one is already in flight.
+    if (this._watchdogRecovering) return;
+
+    const age = Date.now() - this._lastTickAt;
+    if (age <= this.TICK_STALE_MS) return;
+
+    console.log(`🚨 [TickWatchdog] No Kite ticks for ${(age / 1000).toFixed(1)}s while socket reports OPEN — forcing reconnect (zombie connection).`);
+    this._watchdogRecovering = true;
+    this._stopTickWatchdog();
+    this.isKiteConnected = false;
+    this._broadcastToClients({ type: 'kite_status', connected: false });
+
+    try {
+      // Terminate the dead socket. If 'close' fires it will schedule its own
+      // reconnect; the explicit reconnect below covers the case where the
+      // zombie socket never emits 'close' at all.
+      this.kiteTicker.terminate();
+    } catch (err) {
+      console.log(`   ⚠️  [TickWatchdog] terminate() error: ${err.message}`);
+    }
+
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = setTimeout(() => this._connectToKite(), 1000);
+  }
 
   /**
    * Add a pending limit order token to the cache so it receives price updates
@@ -686,6 +755,7 @@ class LivePriceService {
   shutdown() {
     console.log('🛑 Shutting down LivePriceService...');
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this._stopTickWatchdog();
     if (this.kiteTicker) this.kiteTicker.close();
     if (this.wss) this.wss.close();
   }
