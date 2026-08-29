@@ -162,6 +162,11 @@ const getWeeklyAdminReport = async (req, res) => {
         user_id: { $in: usersNeedingLiveQuery },
         status: 'completed',
         deleted_at: null,
+        // carry_forward is a synthetic settlement marker with no real
+        // brokerage — same exclusion as weeklyReportCache.js's cache path,
+        // kept consistent so a cache miss doesn't silently bill brokerage
+        // on a carried position's reopen leg that the cache path wouldn't.
+        trade_type: { $ne: 'carry_forward' },
         executed_at: executedAtFilter
       }).select('user_id instrument_token executed_price executed_quantity pnl').lean();
 

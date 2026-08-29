@@ -58,6 +58,13 @@ async function computeUserWeeklyAggregate(userId) {
     user_id: userId,
     status: 'completed',
     deleted_at: null,
+    // carry_forward is a synthetic settlement marker, not a real trade — it
+    // has no real brokerage (settlementService.js, metricsEngine.js, and
+    // settlementReportService.js all already exclude it the same way).
+    // Without this filter, a carried position's reopen leg contributed its
+    // full notional to turnover, and weeklyAdminController.js's brokerage
+    // cascade billed real brokerage on a trade that never happened.
+    trade_type: { $ne: 'carry_forward' },
     executed_at: { $gte: weekStart },
   }).select('instrument_token executed_price executed_quantity pnl').lean();
 
