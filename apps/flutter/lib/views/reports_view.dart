@@ -664,11 +664,27 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
         }
         if (instrumentToken != null && instrumentToken.isNotEmpty) {
           final depth = await kite.getMarketDepth(instrumentToken);
-          if (depth != null) livePrice = depth.lastPrice;
+          // depth.lastPrice reads straight from KiteInstrument.last_price,
+          // which is exactly 0 (not null) whenever no live tick has arrived
+          // yet — e.g. the weekend gap right after settlement, before
+          // Monday's first tick. Treating that as a real price produced a
+          // huge bogus unrealized P&L computed against a phantom ₹0 market
+          // price. watchlist_provider.dart already uses `> 0` for this exact
+          // "is this price real" check elsewhere in this codebase.
+          if (depth != null && (depth.lastPrice ?? 0) > 0) {
+            livePrice = depth.lastPrice;
+          }
         }
       } catch (e) {
         log('⚠️ Could not fetch live price for $symbol: $e');
       }
+
+      // No real live price available — right after settlement a carried
+      // position's true price equals its own average entry price (ATP =
+      // CMP is settlement's own invariant), so fall back to that instead of
+      // silently dropping the LIVE row; it nets to a correct 0 unrealized
+      // P&L rather than inventing one from a ₹0 reference.
+      livePrice ??= avgEntryPrice > 0 ? avgEntryPrice : null;
 
       if (livePrice != null) {
         final allTrades = List<Map<String, dynamic>>.from(
