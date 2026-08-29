@@ -463,6 +463,13 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                           [XFile(file.path)],
                           text: 'Trade Report - $userName',
                         );
+                        // Financial report PDFs shouldn't linger in app cache
+                        // after the share sheet is done with them — a lost/
+                        // resold device could otherwise leak old bills from
+                        // temp storage indefinitely.
+                        try {
+                          if (await file.exists()) await file.delete();
+                        } catch (_) {}
                       } catch (e) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(

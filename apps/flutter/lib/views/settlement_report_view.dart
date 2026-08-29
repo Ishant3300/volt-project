@@ -398,6 +398,13 @@ class _SettlementReportViewState extends State<SettlementReportView> {
                         final file = File('${dir.path}/$fileName');
                         await file.writeAsBytes(bytes);
                         await Share.shareXFiles([XFile(file.path)], text: 'Settlement Report - $targetName');
+                        // Financial report PDFs shouldn't linger in app cache
+                        // after the share sheet is done with them — a lost/
+                        // resold device could otherwise leak old bills from
+                        // temp storage indefinitely.
+                        try {
+                          if (await file.exists()) await file.delete();
+                        } catch (_) {}
                       } catch (e) {
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Share failed: $e'), backgroundColor: Colors.red));
