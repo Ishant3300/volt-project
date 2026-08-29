@@ -1456,7 +1456,14 @@ const deleteTrade = async (req, res) => {
         // Before soft-deleting, release/adjust the wallet to undo the margin impact
         if (trade.status === 'completed' && trade.executed_quantity > 0) {
             try {
-                const walletCategory = categoryForSegment(trade.exchange || '');
+                // trade.exchange holds the coarse exchange (NFO/MCX), not the
+                // segment (NFO-FUT/NFO-OPT) — categoryForSegment needs the
+                // segment or every derivative here resolves to GLOBAL instead
+                // of NSE/MCX, releasing this trade's margin into the wrong
+                // wallet pool. Same trap already documented and avoided in
+                // priceQueueService.js; resolve segment from the instrument here too.
+                const deletedInstrument = await KiteInstrument.findOne({ instrument_token: trade.instrument_token }).select('segment').lean();
+                const walletCategory = categoryForSegment(deletedInstrument?.segment || trade.exchange || '');
                 const userId = trade.user_id;
 
                 // Fetch every completed trade for this (user, instrument) once,
