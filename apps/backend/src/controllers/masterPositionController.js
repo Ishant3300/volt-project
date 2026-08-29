@@ -595,6 +595,23 @@ const getLiveMetrics = async (req, res) => {
     const metricsEngine = require('../services/metricsEngine');
     const { user_id, master_id } = req.query;
 
+    // A settlement's price lock (metricsEngine._ltpMap) is applied only on
+    // the single PM2 worker that executed commitSettlementTransaction — it
+    // is in-memory, per-process state with no cross-worker broadcast. This
+    // endpoint reads getCachedMetrics()/getMasterUserMetrics() directly with
+    // no freshness check, so on any OTHER worker it kept serving whatever
+    // was cached before that worker ever synced, showing a carried position
+    // with a stale/zero live price and a huge bogus floating_pnl computed
+    // against it — confirmed via a real Live M2M export where every open
+    // position's rate read 0 and PnL matched (0 - avg entry) x qty exactly.
+    // getUserMetrics (below) already self-heals every call via
+    // getFreshMetrics's synchronizeSettlementGeneration({maxAgeMs:0}); doing
+    // the same check once here (not per-user) brings this endpoint's worker
+    // up to date the same way before it reads the cache, at the cost of one
+    // cheap indexed SettlementRun lookup per request (a no-op once this
+    // worker's _appliedSettlementRunId already matches).
+    await metricsEngine.synchronizeSettlementGeneration({ maxAgeMs: 0 });
+
     if (user_id) {
       // Try cache first; if empty (user has no active trades post-settlement),
       // build a fresh response from DB so the Position tab shows correct equity.
