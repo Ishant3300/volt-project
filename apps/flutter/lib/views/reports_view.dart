@@ -11,7 +11,6 @@ import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import '../providers/user_profile_provider.dart';
 import '../services/api_service.dart';
-import '../services/kite_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../services/pdf_report_service.dart';
 import '../utils/contants.dart';
@@ -589,7 +588,6 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
     final bool hasSpecificUser = _isUser || _selectedUser != null;
     if (!hasSpecificUser) return reportData;
 
-    final kite = KiteService(api);
     final instruments = List<Map<String, dynamic>>.from(
       (reportData['instruments'] as List?)
               ?.map((e) => Map<String, dynamic>.from(e)) ??
@@ -622,6 +620,64 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
       log('⚠️ Could not fetch open positions: $e');
     }
 
+    // ── Step 1b: Fetch live price per instrument from metricsEngine (the
+    // settlement-aware source), not a raw Kite quote. Kite's own market-depth
+    // endpoint returns whatever it has for the instrument — including a
+    // stale last-session price from before the market closed — with zero
+    // awareness of this platform's own settlement price lock. Right after
+    // settlement, a carried position's live price should read exactly its
+    // own average entry price (ATP = CMP is settlement's own invariant,
+    // confirmed in settlementService.js's verifySettlementInvariants), the
+    // same way the Open Position tab already correctly shows it — that tab
+    // reads from this same metricsEngine-backed source, not Kite directly.
+    // Confirmed against a real export: Kite's raw quote for VBL read 417.65
+    // (Friday's last tick) against a settlement price of 417.50, inventing a
+    // ₹225 "live" swing that hadn't actually happened since settlement.
+    //
+    // One upfront batch fetch instead of a per-instrument Kite lookup, same
+    // shape as Step 1's own single call.
+    final Map<String, double> livePriceMap = {};
+    try {
+      if (_isUser) {
+        final res = await api.get('/trade/metrics', token: token);
+        if (res.statusCode == 200) {
+          final body = jsonDecode(res.body);
+          if (body['success'] == true) {
+            final positions = (body['data']?['positions'] as List?) ?? [];
+            for (final p in positions) {
+              final ltp = (p['ltp'] as num?)?.toDouble() ?? 0;
+              if (ltp > 0) {
+                livePriceMap['${p['exchange']}::${p['tradingsymbol']}'] = ltp;
+              }
+            }
+          }
+        }
+      } else if (_selectedUser != null) {
+        final uid = _selectedUser!['id'] ?? _selectedUser!['_id'] ?? '';
+        final res = await api.get(
+          '/master/positions/live-metrics?user_id=$uid',
+          token: token,
+        );
+        if (res.statusCode == 200) {
+          final body = jsonDecode(res.body);
+          if (body['success'] == true) {
+            final data = (body['data'] as List?) ?? [];
+            if (data.isNotEmpty) {
+              final positions = (data.first['positions'] as List?) ?? [];
+              for (final p in positions) {
+                final ltp = (p['ltp'] as num?)?.toDouble() ?? 0;
+                if (ltp > 0) {
+                  livePriceMap['${p['exchange']}::${p['tradingsymbol']}'] = ltp;
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      log('⚠️ Could not fetch live metrics: $e');
+    }
+
     // ── Step 2: Add LIVE rows for instruments in the report that have open positions ──
     for (int i = 0; i < instruments.length; i++) {
       final instr = Map<String, dynamic>.from(instruments[i]);
@@ -645,39 +701,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
         continue;
       }
 
-      // Fetch live price for this instrument
-      double? livePrice;
-      try {
-        final searchResults = await kite.searchInstruments(
-          symbol,
-          exchange: exchange,
-          limit: 5,
-        );
-        String? instrumentToken;
-        for (final result in searchResults) {
-          final rSymbol = (result['tradingsymbol'] ?? '').toString();
-          final rExchange = (result['exchange'] ?? '').toString();
-          if (rSymbol == symbol && rExchange == exchange) {
-            instrumentToken = (result['instrument_token'] ?? '').toString();
-            break;
-          }
-        }
-        if (instrumentToken != null && instrumentToken.isNotEmpty) {
-          final depth = await kite.getMarketDepth(instrumentToken);
-          // depth.lastPrice reads straight from KiteInstrument.last_price,
-          // which is exactly 0 (not null) whenever no live tick has arrived
-          // yet — e.g. the weekend gap right after settlement, before
-          // Monday's first tick. Treating that as a real price produced a
-          // huge bogus unrealized P&L computed against a phantom ₹0 market
-          // price. watchlist_provider.dart already uses `> 0` for this exact
-          // "is this price real" check elsewhere in this codebase.
-          if (depth != null && (depth.lastPrice ?? 0) > 0) {
-            livePrice = depth.lastPrice;
-          }
-        }
-      } catch (e) {
-        log('⚠️ Could not fetch live price for $symbol: $e');
-      }
+      double? livePrice = livePriceMap[key];
 
       // No real live price available — right after settlement a carried
       // position's true price equals its own average entry price (ATP =
