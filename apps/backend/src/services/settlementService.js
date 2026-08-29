@@ -1102,9 +1102,19 @@ function buildSnapshot({ group, instrument, settlementPrice, settlementPriceDate
   const fillDocs = group.fills.map(fill => {
     const quantity = Number(fill.executed_quantity || 0);
     const price = Number(fill.executed_price || 0);
-    const fillBrokerage = ['carry_forward', 'margin_square_off'].includes(fill.trade_type)
+    // A margin square-off already has real brokerage computed and billed at
+    // execution time (marginSquareOffService.js's own calculateBrokerage
+    // call), and the client's wallet was already debited that real amount —
+    // trust the stored value rather than recomputing (which could diverge
+    // from what was actually billed if the rate has since changed) or
+    // zeroing it out, which previously made the settlement ledger silently
+    // under-report a real, already-charged cost. Only carry_forward is a
+    // synthetic marker with genuinely no brokerage.
+    const fillBrokerage = fill.trade_type === 'carry_forward'
       ? 0
-      : computeBrokerage(brokerageRules, instrument, quantity, price);
+      : fill.trade_type === 'margin_square_off'
+        ? Number(fill.brokerage || 0)
+        : computeBrokerage(brokerageRules, instrument, quantity, price);
     realizedPnl += Number(fill.pnl || 0);
     brokerage += fillBrokerage;
     return {

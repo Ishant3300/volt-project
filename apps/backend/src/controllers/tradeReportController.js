@@ -82,11 +82,17 @@ const getTradeReport = async (req, res) => {
 
     // ── Trade-table sources (response shape unchanged) ──
     // (1) Current/unsettled period: LIVE active regular fills within the window.
+    // margin_square_off is a real, billable trade (marginSquareOffService.js
+    // computes and stores real brokerage on it at execution time, and debits
+    // the wallet for it immediately) — only carry_forward is a synthetic
+    // marker with genuinely no brokerage. Excluding margin_square_off here
+    // silently dropped a client's real forced-liquidation brokerage from
+    // ever appearing in this report.
     const liveRegular = await Trade.find({
       ...userScope,
       status: 'completed',
       deleted_at: null,
-      trade_type: { $nin: ['carry_forward', 'margin_square_off'] },
+      trade_type: { $ne: 'carry_forward' },
       executed_at: { $gte: fromDate, $lte: toDate },
     }).sort({ executed_at: 1 }).lean();
 
@@ -110,9 +116,10 @@ const getTradeReport = async (req, res) => {
         if (!f.executed_at) continue;
         const at = new Date(f.executed_at);
         if (at < fromDate || at > toDate) continue;
-        // Only actual market trades belong in the table; carry_forward/margin
-        // markers are represented via the Carry Forward section, not as fills.
-        if (f.trade_type === 'carry_forward' || f.trade_type === 'margin_square_off') continue;
+        // Only carry_forward is a synthetic marker (represented via the Carry
+        // Forward section, not as a fill) — margin_square_off is a real,
+        // billed trade and belongs in the table like any other fill.
+        if (f.trade_type === 'carry_forward') continue;
         ledgerRows.push({
           exchange: s.exchange,
           tradingsymbol: s.tradingsymbol,
@@ -349,11 +356,20 @@ const getTradeReport = async (req, res) => {
       const instrTrades = trades.filter(t => `${t.exchange}::${t.tradingsymbol}` === key);
       let brokerage = 0;
       for (const t of instrTrades) {
-        if (t.trade_type === 'carry_forward' || t.trade_type === 'margin_square_off') continue;
+        if (t.trade_type === 'carry_forward') continue;
 
         // Settled/historical fills: trust the brokerage stored in the ledger.
         if (t._is_ledger) {
           brokerage += t._stored_brokerage || 0;
+          continue;
+        }
+
+        // A margin square-off already has real brokerage computed and billed
+        // at execution time (marginSquareOffService.js) — trust it directly
+        // rather than recalculating against whatever the CURRENT rate is,
+        // same reasoning as not recomputing a stored ledger value.
+        if (t.trade_type === 'margin_square_off') {
+          brokerage += t.brokerage || 0;
           continue;
         }
 
@@ -388,7 +404,7 @@ const getTradeReport = async (req, res) => {
       const lotSize = ki.lot_size || 1;
 
       for (const at of g.all_trades) {
-        if (at.trade_type === 'carry_forward' || at.trade_type === 'margin_square_off') continue;
+        if (at.trade_type === 'carry_forward') continue;
 
         // Ledger (settled) fill: use brokerage stored at settlement time — no recalculation.
         if (at._is_ledger) {
@@ -397,7 +413,9 @@ const getTradeReport = async (req, res) => {
         }
 
         // Live fill: use the brokerage already stored on the trade (calculated at execution time).
-        // Only recalculate if the stored value is 0 and we can find an effective rule.
+        // Only recalculate if the stored value is 0 and we can find an effective rule. A margin
+        // square-off already has real brokerage from marginSquareOffService.js, so it naturally
+        // takes this same "already >0, leave it alone" path — no separate case needed.
         if (at.brokerage > 0) continue;
 
         if (at.rate && (at.buy_qty || at.sell_qty)) {
