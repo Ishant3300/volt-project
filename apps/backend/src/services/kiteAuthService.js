@@ -279,7 +279,7 @@ class KiteAuthService {
 
       const requestId = loginData.data?.request_id;
       const twoFaType = loginData.data?.twofa_type || 'totp';
-      console.log(`✅ Credentials accepted. request_id: ${requestId}, twofa_type: ${twoFaType}`);
+      console.log(`✅ Credentials accepted. twofa_type: ${twoFaType}`);
 
       // ── Step 2: Submit TOTP — try prev/current/next time windows ──
       console.log('🔐 Generating TOTP and posting to twofa API...');
@@ -287,7 +287,7 @@ class KiteAuthService {
       let twoFaRes = null;
       let twoFaData = null;
       const totp = this.generateTOTP(this.totpSecret, 0);
-      console.log(`   TOTP: ${totp}`);
+      console.log('   TOTP generated (redacted)');
 
       const twoFaParams = new URLSearchParams({
         user_id: this.userId,
@@ -386,7 +386,7 @@ class KiteAuthService {
         throw new Error('Could not extract request_token from redirect after successful login');
       }
 
-      console.log(`🎫 Request token: ${requestToken}`);
+      console.log(`🎫 Request token obtained (redacted, length: ${requestToken?.length || 0})`);
 
       // ── Step 4: Exchange request_token for access_token ──
       console.log('🔄 Exchanging request token for access token...');
@@ -411,7 +411,13 @@ class KiteAuthService {
       console.error('❌ Login error:', error.message);
       if (error.response) {
         console.error('   HTTP status:', error.response.status);
-        console.error('   Response body:', JSON.stringify(error.response.data));
+        // Log only the safe status/message fields — never the full body, which
+        // can carry request_token/session data.
+        console.error('   Response:', JSON.stringify({
+          status: error.response.data?.status,
+          message: error.response.data?.message,
+          error_type: error.response.data?.error_type,
+        }));
 
         // Zerodha has flagged this IP/account - retrying makes it worse
         if (error.response.data?.data?.captcha === true) {

@@ -36,12 +36,18 @@ class RedisService extends EventEmitter {
       maxRetriesPerRequest: null,   // Required by BullMQ
       enableReadyCheck: true,
       retryStrategy: (times) => {
-        if (times > 10) {
-          console.error(`❌ [Redis] [${_ts()}] Max reconnect attempts reached`);
-          return null;                // Stop retrying
-        }
+        // Never give up: keep retrying with capped backoff forever. Previously
+        // this returned null after 10 attempts (~30s), which permanently
+        // stopped reconnection — if Redis recovered after that window the
+        // client never came back to 'ready', so the app was stuck in the
+        // slower DB-fallback path until a manual restart. Now it retries
+        // indefinitely (capped at 5s) like the rest of the codebase.
         const delay = Math.min(times * 500, 5000);
-        console.log(`🔄 [Redis] [${_ts()}] Reconnecting in ${delay}ms (attempt ${times})`);
+        // Log loudly the first few attempts, then throttle to avoid log spam
+        // during a long outage.
+        if (times <= 10 || times % 12 === 0) {
+          console.log(`🔄 [Redis] [${_ts()}] Reconnecting in ${delay}ms (attempt ${times})`);
+        }
         return delay;
       },
     });

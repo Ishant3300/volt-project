@@ -288,18 +288,8 @@ class CronService {
 
         // GLOBAL/INDICES: no fixed close — skip for now (24hr market)
 
-        // ── Weekend Carry Forward (DISABLED — admin triggers manually via Settlement UI) ──
-        // const weekendCarryForward = cron.schedule('55 11 * * 0', async () => {
-        //     console.log('🔄 [CRON] Starting Weekend Carry Forward...');
-        //     try {
-        //         const { runWeekendCarryForward } = require('./weekendCarryForwardService');
-        //         await runWeekendCarryForward();
-        //         console.log('✅ [CRON] Weekend Carry Forward completed.');
-        //     } catch (error) {
-        //         console.error('❌ [CRON] Error during Weekend Carry Forward:', error);
-        //     }
-        // }, { timezone: 'Asia/Kolkata' });
-        // this.jobs.push(weekendCarryForward);
+        // Weekend carry-forward is handled by settlementService.js (durable,
+        // transactional). The old weekendCarryForwardService module was removed.
 
         const engineMode = redisService.isAvailable()
             ? 'Redis + BullMQ (cron fallback standby)'
