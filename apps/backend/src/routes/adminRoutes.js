@@ -552,6 +552,14 @@ router.get('/profile', authenticateAdmin, async (req, res) => {
         server_id: serverName || 'N/A',
         last_login: admin.last_login || null,
         created_at: admin.createdAt,
+        // Added for the mobile app's Super Admin / permissions UI — the
+        // login response already carries these (admin.toJSON()), but this
+        // separate profile fetch (used to refresh/re-derive admin state
+        // without a fresh login, e.g. after app restart) didn't.
+        is_super_admin: !!admin.is_super_admin,
+        watch_only: !!admin.watch_only,
+        permissions: admin.permissions || [],
+        active_status: admin.active_status !== false,
       }
     });
   } catch (e) {
