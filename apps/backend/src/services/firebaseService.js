@@ -26,30 +26,72 @@ const init = () => {
     const path = require('path');
     const fs = require('fs');
 
-    // Try loading service account from file first
-    const saPath = path.resolve(__dirname, '../firebase/firebase-service-account.json');
-    if (fs.existsSync(saPath)) {
-      const serviceAccount = require(saPath);
+    // Priority 1: full service-account JSON in an env var (FIREBASE_SERVICE_ACCOUNT).
+    // Keeps the secret in .env (already gitignored + rsync-excluded) so there's
+    // only one secret file to manage — no separate key file on disk.
+    const saEnv = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (saEnv && saEnv.trim()) {
+      const serviceAccount = _parseServiceAccountEnv(saEnv);
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
       });
-      console.log('🔥 [Firebase] Initialized with service account file');
-    } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-      admin.initializeApp({
-        credential: admin.credential.applicationDefault(),
-      });
-      console.log('🔥 [Firebase] Initialized with GOOGLE_APPLICATION_CREDENTIALS');
+      console.log('🔥 [Firebase] Initialized from FIREBASE_SERVICE_ACCOUNT env var');
     } else {
-      console.log('⚠️  [Firebase] No service account found. Push notifications disabled.');
-      console.log('   Place firebase-service-account.json in stocker-backend-node/ root');
-      console.log('   OR set GOOGLE_APPLICATION_CREDENTIALS env var');
-      return;
+      // Priority 2: service-account file on disk (legacy).
+      const saPath = path.resolve(__dirname, '../firebase/firebase-service-account.json');
+      if (fs.existsSync(saPath)) {
+        const serviceAccount = require(saPath);
+        admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount),
+        });
+        console.log('🔥 [Firebase] Initialized with service account file');
+      } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+        // Priority 3: Google's standard env var pointing to a file path.
+        admin.initializeApp({
+          credential: admin.credential.applicationDefault(),
+        });
+        console.log('🔥 [Firebase] Initialized with GOOGLE_APPLICATION_CREDENTIALS');
+      } else {
+        console.log('⚠️  [Firebase] No service account found. Push notifications disabled.');
+        console.log('   Set FIREBASE_SERVICE_ACCOUNT env var (JSON string)');
+        console.log('   OR place firebase-service-account.json in src/firebase/');
+        console.log('   OR set GOOGLE_APPLICATION_CREDENTIALS to a file path');
+        return;
+      }
     }
 
     _initialized = true;
   } catch (err) {
     console.error('❌ [Firebase] Init error:', err.message);
   }
+};
+
+/**
+ * Parse the FIREBASE_SERVICE_ACCOUNT env var into a service-account object.
+ *
+ * Accepts either:
+ *   • raw JSON string (the whole service-account file on one line), or
+ *   • base64-encoded JSON (recommended for .env — avoids newline/quote issues).
+ *
+ * Also normalizes the private_key: values stored in .env commonly have the PEM
+ * line breaks written as the two-character sequence backslash-n; the Firebase
+ * SDK needs real newline characters, so we convert them.
+ */
+const _parseServiceAccountEnv = (raw) => {
+  let jsonStr = raw.trim();
+
+  // If it doesn't look like JSON, assume it's base64-encoded.
+  if (!jsonStr.startsWith('{')) {
+    jsonStr = Buffer.from(jsonStr, 'base64').toString('utf8');
+  }
+
+  const sa = JSON.parse(jsonStr);
+
+  if (sa.private_key && sa.private_key.includes('\\n')) {
+    sa.private_key = sa.private_key.replace(/\\n/g, '\n');
+  }
+
+  return sa;
 };
 
 const isAvailable = () => _initialized;
