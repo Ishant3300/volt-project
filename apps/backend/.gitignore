@@ -107,3 +107,8 @@ temp/
 # Backup files
 *.bak
 *.backup
+
+# Secrets — never commit service-account keys / credentials
+src/firebase/firebase-service-account.json
+firebase-service-account.json
+*-service-account*.json
