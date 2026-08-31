@@ -54,7 +54,8 @@ class WatchlistProvider with ChangeNotifier {
 
       // Send to Metrics Provider for realtime calculation
       if (price != null) {
-        tradeMetricsProvider?.updateLtp(token, price, bid: bidPrice, ask: askPrice);
+        tradeMetricsProvider?.updateLtp(token, price,
+            bid: bidPrice, ask: askPrice);
       }
 
       // log('💰 Price update for token $token: LTP=$price, Change=$change, Change%=$changePercent');
@@ -102,7 +103,9 @@ class WatchlistProvider with ChangeNotifier {
       // Only apply metrics for the currently logged-in user (not other users'
       // metrics that admins/masters receive via the broadcast)
       final metricsUserId = data['user_id']?.toString() ?? '';
-      if (metricsUserId.isNotEmpty && _authenticatedUserId != null && metricsUserId != _authenticatedUserId) {
+      if (metricsUserId.isNotEmpty &&
+          _authenticatedUserId != null &&
+          metricsUserId != _authenticatedUserId) {
         return; // Ignore metrics for other users
       }
       tradeMetricsProvider?.applyServerMetrics(data);
@@ -145,11 +148,12 @@ class WatchlistProvider with ChangeNotifier {
       if (token != null) {
         final payload = Jwt.parseJwt(token);
         final userId = payload['id'] as String?;
-        final role = payload['role'] as String?;
         if (userId != null) {
+          // Keep the local id only to filter incoming metrics; identity on the
+          // server comes from the verified token, not this value.
           _authenticatedUserId = userId;
-          log('🔐 Authenticating WebSocket as userId: "$userId" role: "$role"');
-          _livePriceService.authenticate(userId, role: role);
+          log('🔐 Authenticating WebSocket via token');
+          _livePriceService.authenticate(token);
         } else {
           log('⚠️  JWT payload has no "id" field – auth skipped. Payload keys: ${payload.keys.join(', ')}');
         }
@@ -401,7 +405,8 @@ class WatchlistProvider with ChangeNotifier {
       // log('   ✅ Updated: ${_items[index].instrument.tradingsymbol} -> Price: $price');
       notifyListeners();
     } else {
-      if (kLogTokenWarnings) log('⚠️  Token $instrumentToken not found in watchlist');
+      if (kLogTokenWarnings)
+        log('⚠️  Token $instrumentToken not found in watchlist');
     }
   }
 

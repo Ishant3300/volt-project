@@ -2,7 +2,6 @@ import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:jwt_decode/jwt_decode.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
@@ -218,12 +217,8 @@ class _OrdersPageState extends State<OrdersPage> {
       final storage = SecureStorageService();
       final token = await storage.getToken();
       if (token != null) {
-        final payload = Jwt.parseJwt(token);
-        final userId = payload['id'] as String?;
-        final role = payload['role'] as String?;
-        if (userId != null) {
-          _livePriceService.authenticate(userId, role: role);
-        }
+        // Backend derives identity from the verified token; no client-claimed id.
+        _livePriceService.authenticate(token);
       }
     } catch (e) {
       log('⚠️ Failed to authenticate WebSocket: $e');
@@ -361,8 +356,8 @@ class _OrdersPageState extends State<OrdersPage> {
       context: context,
       barrierDismissible: false,
       builder: (_) => const Center(
-        child: CircularProgressIndicator(
-            color: kBrandPrimary, strokeWidth: 2.5),
+        child:
+            CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5),
       ),
     );
     try {
@@ -1490,8 +1485,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 10, vertical: 5),
                                     decoration: BoxDecoration(
-                                      color: kBrandPrimary
-                                          .withOpacity(0.1),
+                                      color: kBrandPrimary.withOpacity(0.1),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(

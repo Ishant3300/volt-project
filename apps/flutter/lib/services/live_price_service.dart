@@ -140,19 +140,25 @@ class LivePriceService {
     }
   }
 
-  /// Authenticate this WebSocket connection with the user's ID
-  /// so the backend can send targeted trade_executed events
-  void authenticate(String userId, {String? role}) {
+  /// Authenticate this WebSocket connection with the user's signed JWT.
+  ///
+  /// The backend derives identity (id + role) from the verified token — it no
+  /// longer trusts a client-supplied userId/role (that was a security hole).
+  ///
+  /// [viewAsUserId] is optional: a master/admin can request to receive a
+  /// specific downstream account's live stream. The backend authorizes this
+  /// against the caller's own hierarchy and ignores it if not permitted.
+  void authenticate(String token, {String? viewAsUserId}) {
     if (!_isConnected || _channel == null) {
       log('⚠️  Cannot authenticate, not connected');
       return;
     }
 
-    log('🔐 Authenticating WebSocket as user: $userId${role != null ? ' ($role)' : ''}');
+    log('🔐 Authenticating WebSocket via token${viewAsUserId != null ? ' (viewAs: $viewAsUserId)' : ''}');
     final message = jsonEncode({
       'type': 'auth',
-      'userId': userId,
-      if (role != null) 'role': role,
+      'token': token,
+      if (viewAsUserId != null) 'viewAsUserId': viewAsUserId,
     });
     _channel!.sink.add(message);
   }

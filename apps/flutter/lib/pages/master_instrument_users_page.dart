@@ -1,7 +1,6 @@
 ﻿import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
-import 'package:jwt_decode/jwt_decode.dart';
 import 'package:stocker/models/user.dart' as user_model;
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/live_price_service.dart';
@@ -117,11 +116,8 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
     try {
       final token = await _storage.getToken();
       if (token != null) {
-        final payload = Jwt.parseJwt(token);
-        final userId = payload['id'] as String?;
-        if (userId != null) {
-          _livePriceService.authenticate(userId);
-        }
+        // Backend derives identity from the verified token; no client-claimed id.
+        _livePriceService.authenticate(token);
       }
     } catch (e) {
       log('⚠️ Failed to authenticate WebSocket: $e');
@@ -354,13 +350,13 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                           ),
                           const SizedBox(height: 1),
                           Text(
-                          _ltp!.toStringAsFixed(2),
+                            _ltp!.toStringAsFixed(2),
                             style: const TextStyle(
                               color: kBrandPrimary,
                               fontSize: kFontSizeBody,
                               fontFamily: kFontFamily,
                               fontWeight: kFontWeightBold,
-                          ),
+                            ),
                           ),
                         ],
                       ),
@@ -457,9 +453,10 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
     final Color sideColor =
         isBuy ? const Color(0xFF10B981) : const Color(0xFFEF4444);
     final double avgPrice = (isBuy
-            ? (user['avg_buy_price'] as num?)
-            : (user['avg_sell_price'] as num?))
-        ?.toDouble() ?? 0.0;
+                ? (user['avg_buy_price'] as num?)
+                : (user['avg_sell_price'] as num?))
+            ?.toDouble() ??
+        0.0;
 
     // Floating P&L for THIS instrument from metricsEngine (single source of truth)
     double? instrumentPnl;
@@ -492,144 +489,143 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
         if (userId.isNotEmpty) _openUserProfile(userId);
       },
       child: Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // User header row
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-            child: Row(
-              children: [
-                // Avatar
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: kBrandPrimary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: Text(
-                      (user['name'] ?? 'U')[0].toUpperCase(),
-                      style: const TextStyle(
-                        color: kBrandPrimary,
-                        fontSize: kFontSizeSectionHeader,
-                        fontFamily: kFontFamily,
-                        fontWeight: kFontWeightBold,
-                      ),
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // User header row
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+              child: Row(
+                children: [
+                  // Avatar
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: kBrandPrimary.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user['name'] ?? 'Unknown',
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: kFontSizeName,
-                          fontFamily: kFontFamily,
-                          fontWeight: kFontWeightName,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '@${user['username'] ?? ''}',
-                        style: const TextStyle(
-                          color: Color(0xFF94A3B8),
-                          fontSize: kFontSizeSubtitle,
-                          fontFamily: kFontFamily,
-                          fontWeight: kFontWeightRegular,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Side badge + instrument P&L
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: sideColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                    child: Center(
                       child: Text(
-                        '$side ${netQty.abs()} QTY',
-                        style: TextStyle(
-                          color: sideColor,
-                          fontSize: kFontSizeNavLabel,
+                        (user['name'] ?? 'U')[0].toUpperCase(),
+                        style: const TextStyle(
+                          color: kBrandPrimary,
+                          fontSize: kFontSizeSectionHeader,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightBold,
-                          letterSpacing: 0.5,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Avg: ',
+                          user['name'] ?? 'Unknown',
                           style: const TextStyle(
-                            color: Color(0xFF94A3B8),
-                            fontSize: kFontSizeNavLabel,
+                            color: Colors.black,
+                            fontSize: kFontSizeName,
                             fontFamily: kFontFamily,
-                            fontWeight: kFontWeightMedium,
+                            fontWeight: kFontWeightName,
+                            letterSpacing: -0.3,
                           ),
                         ),
+                        const SizedBox(height: 2),
                         Text(
-                            avgPrice.toStringAsFixed(2),
-                            style: const TextStyle(
+                          '@${user['username'] ?? ''}',
+                          style: const TextStyle(
                             color: Color(0xFF94A3B8),
-                            fontSize: kFontSizeNavLabel,
+                            fontSize: kFontSizeSubtitle,
                             fontFamily: kFontFamily,
-                            fontWeight: kFontWeightMedium,
+                            fontWeight: kFontWeightRegular,
                           ),
                         ),
                       ],
                     ),
-                    if (instrumentPnl != null) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        '${instrumentPnl >= 0 ? '+' : ''}${instrumentPnl.toStringAsFixed(2)}',
-                        style: TextStyle(
-                          color: instrumentPnl >= 0
-                              ? const Color(0xFF10B981)
-                              : const Color(0xFFEF4444),
-                          fontSize: kFontSizeSubtitle,
-                          fontFamily: kFontFamily,
-                          fontWeight: kFontWeightBold,
+                  ),
+                  // Side badge + instrument P&L
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: sideColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '$side ${netQty.abs()} QTY',
+                          style: TextStyle(
+                            color: sideColor,
+                            fontSize: kFontSizeNavLabel,
+                            fontFamily: kFontFamily,
+                            fontWeight: kFontWeightBold,
+                            letterSpacing: 0.5,
+                          ),
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Avg: ',
+                            style: const TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: kFontSizeNavLabel,
+                              fontFamily: kFontFamily,
+                              fontWeight: kFontWeightMedium,
+                            ),
+                          ),
+                          Text(
+                            avgPrice.toStringAsFixed(2),
+                            style: const TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: kFontSizeNavLabel,
+                              fontFamily: kFontFamily,
+                              fontWeight: kFontWeightMedium,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (instrumentPnl != null) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          '${instrumentPnl >= 0 ? '+' : ''}${instrumentPnl.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            color: instrumentPnl >= 0
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFFEF4444),
+                            fontSize: kFontSizeSubtitle,
+                            fontFamily: kFontFamily,
+                            fontWeight: kFontWeightBold,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
-          ),
 
-          const SizedBox(height: 4),
-        ],
+            const SizedBox(height: 4),
+          ],
+        ),
       ),
-    ),
     );
   }
-
 }

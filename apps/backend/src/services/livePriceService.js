@@ -4,6 +4,7 @@
  */
 
 const WebSocket = require('ws');
+const jwt = require('jsonwebtoken');
 const kiteService = require('./kiteService');
 const priceQueueService = require('./priceQueueService');
 const syntheticInstrumentService = require('./syntheticInstrumentService');
@@ -138,16 +139,107 @@ class LivePriceService {
   }
 
   /**
+   * Authenticate a WS client from its signed JWT.
+   *
+   * Security model (fixes the auth-bypass where the client could claim any
+   * userId/role):
+   *   • Identity (id + role) ALWAYS comes from a verified JWT, never from the
+   *     client's message body.
+   *   • A plain user's stream is always their own id.
+   *   • A master/admin may request to VIEW a specific downstream account's
+   *     stream via `viewAsUserId` — but only if that target is within their
+   *     own hierarchy. Otherwise the request is refused and they stay on their
+   *     own id.
+   */
+  async _authenticateClient(ws, data) {
+    const token = data.token;
+    if (!token) {
+      console.log('⚠️  [WS] auth rejected — no token provided');
+      try { ws.send(JSON.stringify({ type: 'auth_error', message: 'Authentication token required' })); } catch (_) {}
+      return;
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      console.log(`⚠️  [WS] auth rejected — invalid token: ${err.message}`);
+      try { ws.send(JSON.stringify({ type: 'auth_error', message: 'Invalid or expired token' })); } catch (_) {}
+      return;
+    }
+
+    const callerId = decoded.id?.toString();
+    const callerRole = decoded.role; // 'user' | 'master' | 'admin'
+    if (!callerId) {
+      try { ws.send(JSON.stringify({ type: 'auth_error', message: 'Malformed token' })); } catch (_) {}
+      return;
+    }
+
+    // Default: the connection represents the caller themselves.
+    ws.authUserId = callerId;
+    ws.role = callerRole;
+    ws.isAdmin = callerRole === 'admin';
+
+    // Optional impersonation for the master/admin dashboards: view a specific
+    // downstream account's live stream. Must be authorized against the caller's
+    // own hierarchy — a user can never view anyone else.
+    const target = data.viewAsUserId?.toString();
+    if (target && target !== callerId) {
+      const allowed = await this._canView(callerId, callerRole, target);
+      if (allowed) {
+        ws.userId = target;
+        console.log(`✅ [WS] ${callerRole} ${callerId} authenticated, viewing downstream account ${target}`);
+      } else {
+        // Refuse the impersonation but keep them authenticated as themselves.
+        ws.userId = callerId;
+        console.log(`🚫 [WS] ${callerRole} ${callerId} DENIED view of ${target} (outside hierarchy) — defaulting to self`);
+        try { ws.send(JSON.stringify({ type: 'auth_error', message: 'Not authorized to view that account' })); } catch (_) {}
+      }
+    } else {
+      ws.userId = callerId;
+    }
+
+    console.log(`✅ [WS] Authenticated: ${callerId} (${callerRole})${ws.isAdmin ? ' [admin]' : ''} → stream userId=${ws.userId}`);
+    try { ws.send(JSON.stringify({ type: 'auth_ok', userId: ws.userId })); } catch (_) {}
+  }
+
+  /**
+   * Can `callerId` (role) receive the live stream of `targetUserId`?
+   *   • admin  → anyone
+   *   • master → any User or Master within their own sub-tree
+   *   • user   → only themselves (handled by caller; returns false here)
+   */
+  async _canView(callerId, callerRole, targetUserId) {
+    try {
+      if (callerRole === 'admin') return true;
+      if (callerRole !== 'master') return false; // users cannot view others
+
+      const { getAllSubMasterIds } = require('./masterHierarchyService');
+      const subtreeMasterIds = await getAllSubMasterIds(callerId); // includes callerId
+
+      // Target is a master within the sub-tree?
+      if (subtreeMasterIds.includes(targetUserId)) return true;
+
+      // Target is a user whose master is within the sub-tree?
+      const User = require('../models/User');
+      const target = await User.findById(targetUserId).select('master_id deleted_at').lean();
+      if (!target || target.deleted_at) return false;
+      return !!target.master_id && subtreeMasterIds.includes(target.master_id.toString());
+    } catch (err) {
+      console.log(`⚠️  [WS] _canView error: ${err.message}`);
+      return false; // fail closed
+    }
+  }
+
+  /**
    * Handle messages from Flutter clients
    */
   _handleClientMessage(ws, data) {
     switch (data.type) {
       case 'auth':
-        if (data.userId) {
-          ws.userId = data.userId;
-          if (data.role === 'admin') ws.isAdmin = true;
-          console.log(`✅ Client authenticated for WS metrics as user: ${data.userId}${ws.isAdmin ? ' (admin)' : ''}`);
-        }
+        // Auth is verified against the signed JWT — never the client's claim.
+        // Runs async; errors are swallowed inside _authenticateClient.
+        this._authenticateClient(ws, data);
         break;
 
       case 'subscribe':

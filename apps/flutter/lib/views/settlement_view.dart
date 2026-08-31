@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:jwt_decode/jwt_decode.dart';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/live_price_service.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
@@ -55,12 +54,8 @@ class _SettlementViewState extends State<SettlementView> {
     try {
       final token = await SecureStorageService().getToken();
       if (token != null) {
-        final payload = Jwt.parseJwt(token);
-        final userId = payload['id'] as String?;
-        final role = payload['role'] as String?;
-        if (userId != null) {
-          _livePriceService.authenticate(userId, role: role);
-        }
+        // Backend derives identity from the verified token; no client-claimed id.
+        _livePriceService.authenticate(token);
       }
     } catch (_) {}
   }
@@ -68,7 +63,8 @@ class _SettlementViewState extends State<SettlementView> {
   Future<void> _fetchStatus() async {
     try {
       final token = await SecureStorageService().getToken();
-      final res = await ApiService(backendUrl).get('/admin/settlement/status', token: token);
+      final res = await ApiService(backendUrl)
+          .get('/admin/settlement/status', token: token);
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         if (body['success'] == true && mounted) {
@@ -82,13 +78,22 @@ class _SettlementViewState extends State<SettlementView> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Start Settlement?', style: TextStyle(fontFamily: kFontFamily, fontSize: kFontSizeViewTitle, fontWeight: kFontWeightSemiBold)),
+        title: const Text('Start Settlement?',
+            style: TextStyle(
+                fontFamily: kFontFamily,
+                fontSize: kFontSizeViewTitle,
+                fontWeight: kFontWeightSemiBold)),
         content: const Text(
           'This will close all open positions at settlement price and re-open them for the new week. This action cannot be undone.',
-          style: TextStyle(fontFamily: kFontFamily, fontSize: kFontSizeBody, fontWeight: kFontWeightRegular),
+          style: TextStyle(
+              fontFamily: kFontFamily,
+              fontSize: kFontSizeBody,
+              fontWeight: kFontWeightRegular),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Start', style: TextStyle(color: Colors.red)),
@@ -101,14 +106,17 @@ class _SettlementViewState extends State<SettlementView> {
     setState(() => _isLoading = true);
     try {
       final token = await SecureStorageService().getToken();
-      final res = await ApiService(backendUrl).post('/admin/settlement/start', {}, token: token);
+      final res = await ApiService(backendUrl)
+          .post('/admin/settlement/start', {}, token: token);
       final body = jsonDecode(res.body);
       if (body['success'] == true) {
         setState(() => _status = body['data']);
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(body['message'] ?? 'Failed'), backgroundColor: Colors.red),
+            SnackBar(
+                content: Text(body['message'] ?? 'Failed'),
+                backgroundColor: Colors.red),
           );
         }
       }
@@ -124,12 +132,18 @@ class _SettlementViewState extends State<SettlementView> {
 
   String _phaseLabel(String? phase) {
     switch (phase) {
-      case 'fetching_prices': return 'Fetching close prices...';
-      case 'cancelling_pending': return 'Cancelling pending orders...';
-      case 'processing': return 'Settling positions...';
-      case 'done': return 'Settlement complete';
-      case 'error': return 'Settlement failed';
-      default: return 'Idle';
+      case 'fetching_prices':
+        return 'Fetching close prices...';
+      case 'cancelling_pending':
+        return 'Cancelling pending orders...';
+      case 'processing':
+        return 'Settling positions...';
+      case 'done':
+        return 'Settlement complete';
+      case 'error':
+        return 'Settlement failed';
+      default:
+        return 'Idle';
     }
   }
 
@@ -157,13 +171,27 @@ class _SettlementViewState extends State<SettlementView> {
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child: Container(
-                      width: 40, height: 40,
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4)]),
-                      child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.02),
+                                blurRadius: 4)
+                          ]),
+                      child: const Icon(Icons.arrow_back,
+                          color: Colors.black, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 16),
-                  const Text('Settlement', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                  const Text('Settlement',
+                      style: TextStyle(
+                          color: Colors.black,
+                          fontSize: kFontSizeViewTitle,
+                          fontFamily: kFontFamily,
+                          fontWeight: kFontWeightSemiBold)),
                 ],
               ),
             ),
@@ -179,15 +207,29 @@ class _SettlementViewState extends State<SettlementView> {
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                      decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16)),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
                               Icon(
-                                isDone ? Icons.check_circle : isError ? Icons.error : isRunning ? Icons.sync : Icons.schedule,
-                                color: isDone ? const Color(0xFF10B981) : isError ? const Color(0xFFEF4444) : isRunning ? kBrandPrimary : const Color(0xFF94A3B8),
+                                isDone
+                                    ? Icons.check_circle
+                                    : isError
+                                        ? Icons.error
+                                        : isRunning
+                                            ? Icons.sync
+                                            : Icons.schedule,
+                                color: isDone
+                                    ? const Color(0xFF10B981)
+                                    : isError
+                                        ? const Color(0xFFEF4444)
+                                        : isRunning
+                                            ? kBrandPrimary
+                                            : const Color(0xFF94A3B8),
                                 size: kIconSizeLarge,
                               ),
                               const SizedBox(width: 12),
@@ -195,14 +237,19 @@ class _SettlementViewState extends State<SettlementView> {
                                 child: Text(
                                   _phaseLabel(phase),
                                   style: TextStyle(
-                                    color: isDone ? const Color(0xFF10B981) : isError ? const Color(0xFFEF4444) : Colors.black,
-                                    fontSize: kFontSizeSectionHeader, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold,
+                                    color: isDone
+                                        ? const Color(0xFF10B981)
+                                        : isError
+                                            ? const Color(0xFFEF4444)
+                                            : Colors.black,
+                                    fontSize: kFontSizeSectionHeader,
+                                    fontFamily: kFontFamily,
+                                    fontWeight: kFontWeightSemiBold,
                                   ),
                                 ),
                               ),
                             ],
                           ),
-
                           if (isRunning || isDone) ...[
                             const SizedBox(height: 16),
                             // Show phase-specific info during fetching (before positions are counted)
@@ -217,56 +264,91 @@ class _SettlementViewState extends State<SettlementView> {
                                 child: const Row(
                                   children: [
                                     SizedBox(
-                                      width: 16, height: 16,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: kBrandPrimary),
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2, color: kBrandPrimary),
                                     ),
                                     SizedBox(width: 12),
                                     Expanded(
                                       child: Text(
                                         'Loading settlement prices from database...',
-                                        style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightMedium, height: 1.4),
+                                        style: TextStyle(
+                                            color: Color(0xFF64748B),
+                                            fontSize: kFontSizeCaption,
+                                            fontFamily: kFontFamily,
+                                            fontWeight: kFontWeightMedium,
+                                            height: 1.4),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
                             ] else ...[
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: LinearProgressIndicator(
-                                value: total > 0 ? processed / total : 0,
-                                minHeight: 8,
-                                backgroundColor: const Color(0xFFF1F5F9),
-                                valueColor: AlwaysStoppedAnimation<Color>(isDone ? const Color(0xFF10B981) : kBrandPrimary),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: LinearProgressIndicator(
+                                  value: total > 0 ? processed / total : 0,
+                                  minHeight: 8,
+                                  backgroundColor: const Color(0xFFF1F5F9),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      isDone
+                                          ? const Color(0xFF10B981)
+                                          : kBrandPrimary),
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text('$processed / $total positions', style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightRegular)),
-                                Text('$pct%', style: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
-                              ],
-                            ),
-                            if (currentInst.isNotEmpty) ...[
                               const SizedBox(height: 8),
-                              Text(currentInst, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightRegular), maxLines: 1, overflow: TextOverflow.ellipsis),
-                            ],
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('$processed / $total positions',
+                                      style: const TextStyle(
+                                          color: Color(0xFF64748B),
+                                          fontSize: kFontSizeCaption,
+                                          fontFamily: kFontFamily,
+                                          fontWeight: kFontWeightRegular)),
+                                  Text('$pct%',
+                                      style: const TextStyle(
+                                          color: kBrandPrimary,
+                                          fontSize: kFontSizeCaption,
+                                          fontFamily: kFontFamily,
+                                          fontWeight: kFontWeightSemiBold)),
+                                ],
+                              ),
+                              if (currentInst.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                Text(currentInst,
+                                    style: const TextStyle(
+                                        color: Color(0xFF94A3B8),
+                                        fontSize: kFontSizeCaption,
+                                        fontFamily: kFontFamily,
+                                        fontWeight: kFontWeightRegular),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
+                              ],
                             ],
                           ],
-
                           if (isDone) ...[
                             const SizedBox(height: 16),
-                            _statRow('Positions closed', '${_status?['closedTrades'] ?? 0}'),
-                            _statRow('Positions re-opened', '${_status?['reopenedTrades'] ?? 0}'),
-                            _statRow('Users affected', '${_status?['usersAffected'] ?? 0}'),
-                            _statRow('Prices fetched', '${_status?['pricesFetched'] ?? 0}'),
-                            _statRow('Active trades in DB', '${_status?['activeTradesInDb'] ?? '?'}'),
+                            _statRow('Positions closed',
+                                '${_status?['closedTrades'] ?? 0}'),
+                            _statRow('Positions re-opened',
+                                '${_status?['reopenedTrades'] ?? 0}'),
+                            _statRow('Users affected',
+                                '${_status?['usersAffected'] ?? 0}'),
+                            _statRow('Prices fetched',
+                                '${_status?['pricesFetched'] ?? 0}'),
+                            _statRow('Active trades in DB',
+                                '${_status?['activeTradesInDb'] ?? '?'}'),
                           ],
-
                           if (isError) ...[
                             const SizedBox(height: 12),
-                            Text(_status?['error'] ?? 'Unknown error', style: const TextStyle(color: Color(0xFFEF4444), fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
+                            Text(_status?['error'] ?? 'Unknown error',
+                                style: const TextStyle(
+                                    color: Color(0xFFEF4444),
+                                    fontSize: kFontSizeCaption,
+                                    fontFamily: kFontFamily)),
                           ],
                         ],
                       ),
@@ -277,7 +359,9 @@ class _SettlementViewState extends State<SettlementView> {
                     // Start button
                     if (!isRunning)
                       Padding(
-                        padding: EdgeInsets.only(bottom: 24 + MediaQuery.of(context).viewPadding.bottom),
+                        padding: EdgeInsets.only(
+                            bottom:
+                                24 + MediaQuery.of(context).viewPadding.bottom),
                         child: SizedBox(
                           width: double.infinity,
                           height: 52,
@@ -285,11 +369,22 @@ class _SettlementViewState extends State<SettlementView> {
                             onPressed: _isLoading ? null : _startSettlement,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: kBrandPrimary,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
                             ),
                             child: _isLoading
-                                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                : Text(isDone ? 'Run Again' : 'Start Settlement', style: const TextStyle(color: Colors.white, fontSize: kFontSizeButtonText, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.white))
+                                : Text(
+                                    isDone ? 'Run Again' : 'Start Settlement',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: kFontSizeButtonText,
+                                        fontFamily: kFontFamily,
+                                        fontWeight: kFontWeightSemiBold)),
                           ),
                         ),
                       ),
@@ -309,8 +404,18 @@ class _SettlementViewState extends State<SettlementView> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightRegular)),
-          Text(value, style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+          Text(label,
+              style: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: kFontSizeBody,
+                  fontFamily: kFontFamily,
+                  fontWeight: kFontWeightRegular)),
+          Text(value,
+              style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: kFontSizeBody,
+                  fontFamily: kFontFamily,
+                  fontWeight: kFontWeightSemiBold)),
         ],
       ),
     );

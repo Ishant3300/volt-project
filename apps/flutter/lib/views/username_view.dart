@@ -5,7 +5,6 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
-import 'package:jwt_decode/jwt_decode.dart';
 import '../models/master.dart';
 import '../models/user.dart';
 import '../models/trade.dart';
@@ -248,18 +247,16 @@ class _UsernameViewState extends State<UsernameView> {
     try {
       final token = await _storage.getToken();
       if (token != null) {
-        final payload = Jwt.parseJwt(token);
-        final callerRole = payload['role'] as String?;
-
-        // Authenticate as the VIEWED user/master so the server pushes their metrics to this connection
+        // Authenticate with our own verified token. To view a downstream
+        // account's metrics, request it via viewAsUserId — the backend
+        // authorizes it against our hierarchy (a plain user can't view others).
         if (_currentUser != null) {
-          _livePriceService.authenticate(_currentUser!.id, role: 'user');
+          _livePriceService.authenticate(token, viewAsUserId: _currentUser!.id);
         } else if (_currentMaster != null) {
-          _livePriceService.authenticate(_currentMaster!.id, role: 'master');
+          _livePriceService.authenticate(token,
+              viewAsUserId: _currentMaster!.id);
         } else {
-          final userId = payload['id'] as String?;
-          if (userId != null)
-            _livePriceService.authenticate(userId, role: callerRole);
+          _livePriceService.authenticate(token);
         }
       }
     } catch (e) {
@@ -2777,8 +2774,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color:
-                              kBrandPrimary.withValues(alpha: 0.06),
+                          color: kBrandPrimary.withValues(alpha: 0.06),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
