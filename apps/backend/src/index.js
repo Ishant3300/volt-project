@@ -55,6 +55,13 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
   : [
       'https://apex-web-portal.vercel.app',
+      // Volt-branded deploys — both domains, since volt-web-portal.vercel.app
+      // (bare) turned out to belong to a Vercel account this project doesn't
+      // control, and volt-web-portal-eta.vercel.app is the one actually
+      // deployed from here. Whichever one is really being used, both must
+      // be allowed rather than guessing.
+      'https://volt-web-portal.vercel.app',
+      'https://volt-web-portal-eta.vercel.app',
       'http://localhost:5173',
       'http://localhost:3000',
     ];
