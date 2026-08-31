@@ -31,6 +31,8 @@ const {
 const { getLotNamesByExchange, getUniqueRawNamesBySegment, bulkCreateGroup, getGroupInstruments, bulkCreateBrokerage, getBrokerageByExchange, bulkCreateScriptQuantity, getScriptQuantityByExchange } = require('../controllers/groupedQuantityController');
 const { authenticateAdmin, authenticateAdminOrMaster, authenticateMaster, authenticateAny } = require('../middlewares/auth');
 const { rejectIfInvestor } = require('../middlewares/rejectIfInvestor');
+const { requireAdminPermission } = require('../middlewares/requireAdminPermission');
+const { rejectIfAdminWatchOnly } = require('../middlewares/rejectIfAdminWatchOnly');
 const { escapeRegex } = require('../utils/escapeRegex');
 
 // Category trade-wallet funding (Task 12 / Requirements 5.1–5.7)
@@ -48,49 +50,49 @@ const {
 router.post('/users', authenticateMaster, rejectIfInvestor, createUser);
 router.get('/users', authenticateAdminOrMaster, getAllUsers);
 router.get('/users/:id', authenticateAdminOrMaster, getUserById);
-router.put('/users/:id', authenticateAdminOrMaster, rejectIfInvestor, updateUser);
+router.put('/users/:id', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, updateUser);
 router.delete('/users/:id', authenticateMaster, rejectIfInvestor, deleteUser);
-router.post('/users/:id/credit', authenticateAdmin, creditUserByAdmin);
-router.post('/users/:id/debit', authenticateAdmin, debitUserByAdmin);
+router.post('/users/:id/credit', authenticateAdmin, rejectIfAdminWatchOnly, creditUserByAdmin);
+router.post('/users/:id/debit', authenticateAdmin, rejectIfAdminWatchOnly, debitUserByAdmin);
 
 // ==================== WALLET FUNDING ROUTES (admin grant/remove) ====================
 // Admin is the root of funds: assign is a grant (credit only, no debit source),
 // withdraw removes funds from the target. The walletController resolves req.admin
 // as the actor; walletService owns the Mongo transaction + Transaction audit.
-router.post('/wallet/assign', authenticateAdmin, walletAssign);
-router.post('/wallet/withdraw', authenticateAdmin, walletWithdraw);
+router.post('/wallet/assign', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('WALLET_MANAGE'), walletAssign);
+router.post('/wallet/withdraw', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('WALLET_MANAGE'), walletWithdraw);
 router.get('/wallet', authenticateAdmin, walletGet);
 // Drift audit: per-category { available, blocked, total } from open positions
 router.get('/wallet/reconcile', authenticateAdmin, walletReconcile);
 
 // Grouped Quantity CRUD operations
-router.post('/grouped-quantities', authenticateAdmin, createGroupedQuantity);
-router.post('/grouped-quantities/bulk-create', authenticateAdmin, bulkCreateGroup);
+router.post('/grouped-quantities', authenticateAdmin, rejectIfAdminWatchOnly, createGroupedQuantity);
+router.post('/grouped-quantities/bulk-create', authenticateAdmin, rejectIfAdminWatchOnly, bulkCreateGroup);
 router.get('/grouped-quantities/unique-raw-names/:segment', authenticateAdminOrMaster, getUniqueRawNamesBySegment);
 router.get('/grouped-quantities/group/:exchange_name/:lot_name', authenticateAdminOrMaster, getGroupInstruments);
 router.get('/grouped-quantities/exchange/:exchange_name/lot-names', authenticateAdminOrMaster, getLotNamesByExchange);
 router.get('/grouped-quantities', authenticateAdminOrMaster, getAllGroupedQuantities);
 router.get('/grouped-quantities/:id', authenticateAdminOrMaster, getGroupedQuantityById);
-router.put('/grouped-quantities/:id', authenticateAdmin, updateGroupedQuantity);
-router.delete('/grouped-quantities/:id', authenticateAdmin, deleteGroupedQuantity);
+router.put('/grouped-quantities/:id', authenticateAdmin, rejectIfAdminWatchOnly, updateGroupedQuantity);
+router.delete('/grouped-quantities/:id', authenticateAdmin, rejectIfAdminWatchOnly, deleteGroupedQuantity);
 
 // Script Quantity CRUD operations
-router.post('/script-quantities/bulk-create', authenticateAdminOrMaster, rejectIfInvestor, bulkCreateScriptQuantity);
+router.post('/script-quantities/bulk-create', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, bulkCreateScriptQuantity);
 router.get('/script-quantities/exchange/:exchange_name', authenticateAdminOrMaster, getScriptQuantityByExchange);
-router.post('/script-quantities', authenticateAdminOrMaster, rejectIfInvestor, createScriptQuantity);
+router.post('/script-quantities', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, createScriptQuantity);
 router.get('/script-quantities', authenticateAdminOrMaster, getAllScriptQuantities);
 router.get('/script-quantities/:id', authenticateAdminOrMaster, getScriptQuantityById);
-router.put('/script-quantities/:id', authenticateAdminOrMaster, rejectIfInvestor, updateScriptQuantity);
-router.delete('/script-quantities/:id', authenticateAdminOrMaster, rejectIfInvestor, deleteScriptQuantity);
+router.put('/script-quantities/:id', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, updateScriptQuantity);
+router.delete('/script-quantities/:id', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, deleteScriptQuantity);
 
 // Brokerage Settings CRUD operations
-router.post('/brokerage-settings/bulk-create', authenticateAdminOrMaster, rejectIfInvestor, bulkCreateBrokerage);
+router.post('/brokerage-settings/bulk-create', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, requireAdminPermission('BROKERAGE_MANAGE'), bulkCreateBrokerage);
 router.get('/brokerage-settings/exchange/:exchange_name', authenticateAdminOrMaster, getBrokerageByExchange);
-router.post('/brokerage-settings', authenticateAdminOrMaster, rejectIfInvestor, createBrokerageSettings);
+router.post('/brokerage-settings', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, requireAdminPermission('BROKERAGE_MANAGE'), createBrokerageSettings);
 router.get('/brokerage-settings', authenticateAdminOrMaster, getAllBrokerageSettings);
 router.get('/brokerage-settings/:id', authenticateAdminOrMaster, getBrokerageSettingsById);
 // Bulk update brokerage settings (update multiple IDs with same value)
-router.put('/brokerage-settings/bulk-update', authenticateAdminOrMaster, rejectIfInvestor, async (req, res) => {
+router.put('/brokerage-settings/bulk-update', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, requireAdminPermission('BROKERAGE_MANAGE'), async (req, res) => {
   try {
     const { ids, brk_value, type } = req.body;
     if (!ids || !Array.isArray(ids) || ids.length === 0 || brk_value === undefined) {
@@ -175,8 +177,8 @@ router.put('/brokerage-settings/bulk-update', authenticateAdminOrMaster, rejectI
     res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
   }
 });
-router.put('/brokerage-settings/:id', authenticateAdminOrMaster, rejectIfInvestor, updateBrokerageSettings);
-router.delete('/brokerage-settings/:id', authenticateAdminOrMaster, rejectIfInvestor, deleteBrokerageSettings);
+router.put('/brokerage-settings/:id', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, requireAdminPermission('BROKERAGE_MANAGE'), updateBrokerageSettings);
+router.delete('/brokerage-settings/:id', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, requireAdminPermission('BROKERAGE_MANAGE'), deleteBrokerageSettings);
 
 // Refresh close prices (admin-only, for testing / manual trigger)
 router.post('/refresh-close-prices', authenticateAdmin, async (req, res) => {
@@ -202,17 +204,17 @@ router.post('/refresh-settlement-prices', authenticateAdmin, async (req, res) =>
 
 // ==================== ANNOUNCEMENT ROUTES ====================
 const { setAnnouncement, clearAnnouncement, getActiveAnnouncement } = require('../controllers/announcementController');
-router.post('/announcements', authenticateAdmin, setAnnouncement);
-router.delete('/announcements', authenticateAdmin, clearAnnouncement);
+router.post('/announcements', authenticateAdmin, rejectIfAdminWatchOnly, setAnnouncement);
+router.delete('/announcements', authenticateAdmin, rejectIfAdminWatchOnly, clearAnnouncement);
 router.get('/announcements/active', authenticateAny, getActiveAnnouncement);
 
 // ==================== FRESH STOPLOSS LIMIT ROUTES ====================
 const { getAllFreshStoplossLimits, bulkCreateFreshStoplossLimits, updateFreshStoplossLimit, deleteFreshStoplossLimit, bulkUpdateFreshStoplossLimits } = require('../controllers/freshStoplossLimitController');
 router.get('/fresh-stoploss-limits', authenticateAdmin, getAllFreshStoplossLimits);
-router.post('/fresh-stoploss-limits/bulk-create', authenticateAdmin, bulkCreateFreshStoplossLimits);
-router.put('/fresh-stoploss-limits/bulk-update', authenticateAdmin, bulkUpdateFreshStoplossLimits);
-router.put('/fresh-stoploss-limits/:id', authenticateAdmin, updateFreshStoplossLimit);
-router.delete('/fresh-stoploss-limits/:id', authenticateAdmin, deleteFreshStoplossLimit);
+router.post('/fresh-stoploss-limits/bulk-create', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('FRESH_STOPLOSS_MANAGE'), bulkCreateFreshStoplossLimits);
+router.put('/fresh-stoploss-limits/bulk-update', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('FRESH_STOPLOSS_MANAGE'), bulkUpdateFreshStoplossLimits);
+router.put('/fresh-stoploss-limits/:id', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('FRESH_STOPLOSS_MANAGE'), updateFreshStoplossLimit);
+router.delete('/fresh-stoploss-limits/:id', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('FRESH_STOPLOSS_MANAGE'), deleteFreshStoplossLimit);
 
 // ==================== TOTP ROUTES ====================
 const totpService = require('../services/adminOtpService');
@@ -342,7 +344,7 @@ router.get('/instruments/segments', authenticateAdmin, async (req, res) => {
 });
 
 // PUT /admin/instruments/bulk-toggle — enable/disable multiple instruments
-router.put('/instruments/bulk-toggle', authenticateAdmin, async (req, res) => {
+router.put('/instruments/bulk-toggle', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('INSTRUMENT_MANAGE'), async (req, res) => {
   try {
     const { ids, enabled } = req.body;
     if (!ids || !Array.isArray(ids) || enabled === undefined) {
@@ -437,7 +439,7 @@ router.get('/instruments', authenticateAdmin, async (req, res) => {
 });
 
 // PUT /admin/instruments/:id/toggle — enable/disable an instrument
-router.put('/instruments/:id/toggle', authenticateAdmin, async (req, res) => {
+router.put('/instruments/:id/toggle', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('INSTRUMENT_MANAGE'), async (req, res) => {
   try {
     const { enabled } = req.body;
     if (enabled === undefined) {
@@ -463,7 +465,7 @@ router.put('/instruments/:id/toggle', authenticateAdmin, async (req, res) => {
 });
 
 // DELETE /admin/instruments/:id — soft delete an instrument
-router.delete('/instruments/:id', authenticateAdmin, async (req, res) => {
+router.delete('/instruments/:id', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('INSTRUMENT_MANAGE'), async (req, res) => {
   try {
     const inst = await KiteInstrument.findByIdAndUpdate(req.params.id, { deleted_at: new Date(), enabled: false }, { new: true });
     if (!inst) return res.status(404).json({ success: false, message: 'Instrument not found', data: null });
@@ -482,7 +484,7 @@ router.delete('/instruments/:id', authenticateAdmin, async (req, res) => {
 });
 
 // PUT /admin/instruments/:id/restore — restore a soft-deleted instrument
-router.put('/instruments/:id/restore', authenticateAdmin, async (req, res) => {
+router.put('/instruments/:id/restore', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('INSTRUMENT_MANAGE'), async (req, res) => {
   try {
     const inst = await KiteInstrument.findByIdAndUpdate(req.params.id, { deleted_at: null, enabled: true }, { new: true });
     if (!inst) return res.status(404).json({ success: false, message: 'Instrument not found', data: null });
@@ -522,7 +524,7 @@ router.post('/bhavcopy/fetch', authenticateAdmin, async (req, res) => {
 
 // Settlement
 const { startSettlement, getSettlementStatus } = require('../controllers/settlementController');
-router.post('/settlement/start', authenticateAdmin, startSettlement);
+router.post('/settlement/start', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('SETTLEMENT_TRIGGER'), startSettlement);
 router.get('/settlement/status', authenticateAdmin, getSettlementStatus);
 
 // ==================== ADMIN PROFILE ROUTE ====================

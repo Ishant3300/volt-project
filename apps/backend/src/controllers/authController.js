@@ -157,6 +157,14 @@ const adminLogin = async (req, res) => {
       });
     }
 
+    if (admin.active_status === false) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not allowed to login',
+        data: null
+      });
+    }
+
     // Check if TOTP is enabled for this admin
     if (admin.totp_enabled) {
       if (!totp_code) {
@@ -404,6 +412,13 @@ const universalLogin = async (req, res) => {
     console.log(`🔐 [LOGIN] Admin lookup: found=${!!admin}, deleted=${admin?.deleted_at || 'N/A'}`);
     if (admin && !admin.deleted_at && await bcrypt.compare(password, admin.password)) {
       console.log(`🔐 [LOGIN] Admin password matched`);
+      if (admin.active_status === false) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not allowed to login',
+          data: null
+        });
+      }
       userAccount = admin;
       roleType = 'admin';
     }

@@ -239,6 +239,17 @@ const getAllMasters = async (req, res) => {
       delete filter.master_id; // subtree membership already implies this; a top-level filter would wrongly exclude the caller's own sub-masters
     }
 
+    // Per-admin master-visibility restriction (Super Admin toggles masters
+    // off for a regular Admin) — hides the master record itself, not just
+    // its downstream data. No-op for Super Admin / an admin with nothing hidden.
+    const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+    const hiddenMasterIds = await resolveHiddenMasterIds(req);
+    if (hiddenMasterIds) {
+      filter._id = filter._id
+        ? { $in: filter._id.$in.filter((id) => !hiddenMasterIds.has(id.toString())) }
+        : { $nin: [...hiddenMasterIds] };
+    }
+
     const masters = await Master.find(filter)
       .populate('server_id', 'name')
       .populate('admin_id', 'username')
@@ -294,6 +305,16 @@ const getMasterById = async (req, res) => {
     const master = await Master.findOne(query)
       .populate('server_id', '_id name')
       .populate('admin_id', '_id username');
+
+    // A hidden master must never be reachable by direct ID either — only
+    // filtering list endpoints would leave this one gap.
+    if (master) {
+      const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+      const hiddenMasterIds = await resolveHiddenMasterIds(req);
+      if (hiddenMasterIds && hiddenMasterIds.has(master._id.toString())) {
+        return res.status(404).json({ success: false, message: 'Master not found', data: null });
+      }
+    }
 
     if (!master) {
       return res.status(404).json({
@@ -1031,6 +1052,21 @@ const getAllTrades = async (req, res) => {
         if (!targetUser || !targetMasterId || !allowedMasterIds.includes(targetMasterId)) {
           return res.status(403).json({ success: false, message: 'Not authorized to view trades for this user', data: null });
         }
+      }
+    }
+
+    // Per-admin master-visibility restriction — hidden masters' trades
+    // never appear, whether reached via a bare list or a supplied master_id.
+    const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+    const hiddenMasterIds = await resolveHiddenMasterIds(req);
+    if (hiddenMasterIds) {
+      if (master_id && hiddenMasterIds.has(master_id.toString())) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view trades for this master', data: null });
+      }
+      if (filter.master_id && filter.master_id.$in) {
+        filter.master_id.$in = filter.master_id.$in.filter((id) => !hiddenMasterIds.has(id.toString()));
+      } else if (!filter.master_id) {
+        filter.master_id = { $nin: [...hiddenMasterIds] };
       }
     }
 

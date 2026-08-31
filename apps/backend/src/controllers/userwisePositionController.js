@@ -37,6 +37,9 @@ const getUserwisePositions = async (req, res) => {
       // admin
       userFilter = { deleted_at: null };
       if (search) userFilter.username = { $regex: escapeRegex(search), $options: 'i' };
+      const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+      const hiddenMasterIds = await resolveHiddenMasterIds(req);
+      if (hiddenMasterIds) userFilter.master_id = { $nin: [...hiddenMasterIds] };
       users = await User.find(userFilter).select('_id name username master_id');
     }
 

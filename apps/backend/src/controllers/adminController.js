@@ -209,6 +209,18 @@ const getAllUsers = async (req, res) => {
       ];
     }
 
+    // Per-admin master-visibility restriction — a hidden master's users
+    // never appear, whether reached via a bare list or a supplied master_id.
+    const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+    const hiddenMasterIds = await resolveHiddenMasterIds(req);
+    if (hiddenMasterIds) {
+      if (filter.master_id && filter.master_id.$in) {
+        filter.master_id.$in = filter.master_id.$in.filter((id) => !hiddenMasterIds.has(id.toString()));
+      } else {
+        filter.master_id = { $nin: [...hiddenMasterIds] };
+      }
+    }
+
     const users = await User.find(filter)
       .populate('server_id', 'name')
       .populate('master_id', 'username')
@@ -265,6 +277,17 @@ const getUserById = async (req, res) => {
           message: 'Not authorized to view this user',
           data: null
         });
+      }
+    }
+
+    // Per-admin master-visibility restriction — direct-ID access to a
+    // hidden master's user must fail the same way a nonexistent user does.
+    const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+    const hiddenMasterIds = await resolveHiddenMasterIds(req);
+    if (hiddenMasterIds) {
+      const userMasterId = user.master_id?._id?.toString() || user.master_id?.toString();
+      if (userMasterId && hiddenMasterIds.has(userMasterId)) {
+        return res.status(404).json({ success: false, message: 'User not found', data: null });
       }
     }
 

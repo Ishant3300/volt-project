@@ -3,6 +3,7 @@ const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 const router = express.Router();
 const { authenticateAdminOrMaster } = require('../middlewares/auth');
 const { rejectIfInvestor } = require('../middlewares/rejectIfInvestor');
+const { requireAdminPermission } = require('../middlewares/requireAdminPermission');
 const { escapeRegex } = require('../utils/escapeRegex');
 const User = require('../models/User');
 const Master = require('../models/Master');
@@ -215,10 +216,10 @@ router.get('/positions/live-metrics', getLiveMetrics);
 router.get('/pnl-summary', getPnlSummary);
 
 // Weekly admin report: Master sees per-user, Admin sees per-master
-router.get('/weekly-admin-report', getWeeklyAdminReport);
+router.get('/weekly-admin-report', requireAdminPermission('REPORTS_ACCESS'), getWeeklyAdminReport);
 
 // Settlement report: per-user P&L + brokerage for a given date
-router.get('/settlement-report', getSettlementReport);
+router.get('/settlement-report', requireAdminPermission('REPORTS_ACCESS'), getSettlementReport);
 
 // ============================================
 // Sharing Details Route

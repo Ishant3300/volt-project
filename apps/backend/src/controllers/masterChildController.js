@@ -320,10 +320,23 @@ const getAllChildMasters = async (req, res) => {
       }
     }
 
+    // Per-admin master-visibility restriction — a hidden parent (or an
+    // individually-hidden child, even under a visible parent) must never
+    // surface here.
+    const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+    const hiddenMasterIds = await resolveHiddenMasterIds(req);
+    if (hiddenMasterIds && hiddenMasterIds.has(parentMasterId.toString())) {
+      return res.status(403).json({ success: false, message: 'Not authorized to view this master\'s children', data: null });
+    }
+
     const filter = {
       master_id: parentMasterId,
       deleted_at: null
     };
+
+    if (hiddenMasterIds) {
+      filter._id = { $nin: [...hiddenMasterIds] };
+    }
 
     if (status) filter.status = status;
     if (server_id) filter.server_id = server_id;
@@ -375,6 +388,12 @@ const getChildMasterById = async (req, res) => {
         message: 'Child master not found',
         data: null
       });
+    }
+
+    const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+    const hiddenMasterIds = await resolveHiddenMasterIds(req);
+    if (hiddenMasterIds && hiddenMasterIds.has(master._id.toString())) {
+      return res.status(404).json({ success: false, message: 'Child master not found', data: null });
     }
 
     res.status(200).json({

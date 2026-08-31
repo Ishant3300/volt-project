@@ -134,8 +134,11 @@ async function buildRow(username, userIds, from, to, withOpening) {
  * @param {Date} from
  * @param {Date} to
  * @param {boolean} withOpening
+ * @param {Set<string>|null} hiddenMasterIds - per-admin master-visibility
+ *   restriction (already expanded to include hidden masters' full
+ *   subtrees); only meaningful when targetType === 'Admin'.
  */
-async function buildSettlementReport(targetType, targetDoc, from, to, withOpening) {
+async function buildSettlementReport(targetType, targetDoc, from, to, withOpening, hiddenMasterIds = null) {
   const rows = [];
 
   if (targetType === 'User') {
@@ -148,7 +151,7 @@ async function buildSettlementReport(targetType, targetDoc, from, to, withOpenin
     let directUsers, directSubMasters;
     if (targetType === 'Admin') {
       directUsers = [];
-      directSubMasters = allMasters.filter((m) => !m.master_id);
+      directSubMasters = allMasters.filter((m) => !m.master_id && !(hiddenMasterIds && hiddenMasterIds.has(m._id.toString())));
     } else {
       directUsers = await User.find({ master_id: targetDoc._id, deleted_at: null }).select('_id name username').lean();
       directSubMasters = allMasters.filter((m) => m.master_id && m.master_id.toString() === targetDoc._id.toString());

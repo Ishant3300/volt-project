@@ -598,7 +598,12 @@ const placeTrade = async (req, res) => {
             // Runs for ALL LIMIT orders from non-admin users, regardless of whether an FSL limit exists.
             // If the user's trade_limit does NOT include this segment (button OFF),
             // Buy Limit must be below Day Low - offset, Sell Limit must be above Day High + offset.
-            if (!req.admin && order_type === 'LIMIT' && price > 0) {
+            // The admin bypass here IS "custom-price order placement" from the
+            // permissions plan — gated behind TRADE_CUSTOM for a regular Admin;
+            // Super Admin and Master/User callers are unaffected (Master/User
+            // never had req.admin set, so they always hit this check regardless).
+            const adminCanCustomPrice = !!req.admin && (req.admin.isSuperAdmin || (req.admin.permissions || []).includes('TRADE_CUSTOM'));
+            if (!adminCanCustomPrice && order_type === 'LIMIT' && price > 0) {
                 // Resolve segment independently
                 let hlSegment = (segment || '').toUpperCase();
                 if (!hlSegment || hlSegment === exchange?.toUpperCase()) {

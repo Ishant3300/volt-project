@@ -50,11 +50,19 @@ const getTradeReport = async (req, res) => {
         callerSubtreeIds = await getAllSubMasterIds(callerId);
       }
 
+      // Per-admin master-visibility restriction (independent of the master
+      // subtree check above, which only applies to role === 'master').
+      const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+      const hiddenMasterIds = await resolveHiddenMasterIds(req);
+
       // Check if the target is a User or a Master
       const targetUser = await User.findById(targetUserId).select('_id username name master_id').lean();
       if (targetUser) {
         if (callerSubtreeIds && !callerSubtreeIds.includes(targetUser.master_id?.toString())) {
           return res.status(403).json({ success: false, message: 'Not authorized to view this user\'s trade report' });
+        }
+        if (hiddenMasterIds && hiddenMasterIds.has(targetUser.master_id?.toString())) {
+          return res.status(404).json({ success: false, message: 'User not found' });
         }
         // It's a user — scope to this single user
         userScope.user_id = targetUserId;
@@ -66,6 +74,9 @@ const getTradeReport = async (req, res) => {
         if (targetMaster) {
           if (callerSubtreeIds && !callerSubtreeIds.includes(targetUserId.toString())) {
             return res.status(403).json({ success: false, message: 'Not authorized to view this master\'s trade report' });
+          }
+          if (hiddenMasterIds && hiddenMasterIds.has(targetUserId.toString())) {
+            return res.status(404).json({ success: false, message: 'Master not found' });
           }
           targetIsMaster = true;
           const directChildUsers = await User.find({ master_id: targetUserId, deleted_at: null }).distinct('_id');
@@ -84,6 +95,15 @@ const getTradeReport = async (req, res) => {
     } else if (role === 'master') {
       const childIds = await User.find({ master_id: callerId, deleted_at: null }).distinct('_id');
       userScope.user_id = { $in: childIds };
+    } else if (role === 'admin') {
+      // No target specified — "all users" for admin. A hidden master's
+      // users must still be excluded from that platform-wide view.
+      const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+      const hiddenMasterIds = await resolveHiddenMasterIds(req);
+      if (hiddenMasterIds) {
+        const hiddenUserIds = await User.find({ master_id: { $in: [...hiddenMasterIds] } }).distinct('_id');
+        userScope.user_id = { $nin: hiddenUserIds };
+      }
     }
 
     // Fetch user/master name for the PDF header
@@ -604,6 +624,18 @@ const getOpenPositions = async (req, res) => {
       }
     }
 
+    // Per-admin master-visibility restriction.
+    if (role === 'admin') {
+      const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+      const hiddenMasterIds = await resolveHiddenMasterIds(req);
+      if (hiddenMasterIds) {
+        const targetUser = await User.findById(targetUserId).select('master_id').lean();
+        if (targetUser && hiddenMasterIds.has(targetUser.master_id?.toString())) {
+          return res.status(404).json({ success: false, message: 'User not found' });
+        }
+      }
+    }
+
     // All active (non-deleted) completed trades — no date filter
     const trades = await Trade.find({
       user_id: targetUserId,
@@ -695,6 +727,18 @@ const getSettlementHistory = async (req, res) => {
       const targetUser = await User.findById(targetUserId).select('master_id').lean();
       if (!targetUser || !allowedMasterIds.includes(targetUser.master_id?.toString())) {
         return res.status(403).json({ success: false, message: 'Not authorized to view this user\'s settlement history' });
+      }
+    }
+
+    // Per-admin master-visibility restriction.
+    if (role === 'admin') {
+      const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+      const hiddenMasterIds = await resolveHiddenMasterIds(req);
+      if (hiddenMasterIds) {
+        const targetUser = await User.findById(targetUserId).select('master_id').lean();
+        if (targetUser && hiddenMasterIds.has(targetUser.master_id?.toString())) {
+          return res.status(404).json({ success: false, message: 'User not found' });
+        }
       }
     }
 

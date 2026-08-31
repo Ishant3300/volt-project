@@ -31,8 +31,15 @@ const getDeletedTrades = async (req, res) => {
     } else if (role === 'master') {
       const childIds = await User.find({ master_id: callerId, deleted_at: null }).distinct('_id');
       filter.user_id = { $in: childIds };
+    } else {
+      // admin: no user_id filter, except to exclude hidden masters' users.
+      const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+      const hiddenMasterIds = await resolveHiddenMasterIds(req);
+      if (hiddenMasterIds) {
+        const hiddenUserIds = await User.find({ master_id: { $in: [...hiddenMasterIds] } }).distinct('_id');
+        filter.user_id = { $nin: hiddenUserIds };
+      }
     }
-    // admin: no user_id filter
 
     if (search) {
       filter.$or = [

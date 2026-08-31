@@ -88,6 +88,21 @@ const getAllTrades = async (req, res) => {
       }
     }
 
+    // Per-admin master-visibility restriction — hidden masters' trades
+    // never appear here, whether reached via a bare list or a supplied master_id.
+    const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+    const hiddenMasterIds = await resolveHiddenMasterIds(req);
+    if (hiddenMasterIds) {
+      if (master_id && hiddenMasterIds.has(master_id.toString())) {
+        return res.status(404).json({ success: false, message: 'Master not found', data: null });
+      }
+      if (filter.master_id && filter.master_id.$in) {
+        filter.master_id.$in = filter.master_id.$in.filter((id) => !hiddenMasterIds.has(id.toString()));
+      } else if (!filter.master_id) {
+        filter.master_id = { $nin: [...hiddenMasterIds] };
+      }
+    }
+
     if (user_id) filter.user_id = user_id;
     if (status) filter.status = status;
     if (exchange) filter.exchange = exchange;
