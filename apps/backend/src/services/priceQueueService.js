@@ -242,7 +242,7 @@ async function executeMatchedOrder(match, livePrice, options = {}) {
       //    segment, so categoryForSegment('NFO')→GLOBAL / ('MCX')→GLOBAL would be
       //    wrong. Resolving from segment maps 'NFO-FUT'→NSE, 'MCX-FUT'→MCX, etc.
       const walletInstrument = await KiteInstrument.findOne({ instrument_token: trade.instrument_token })
-        .select('segment enabled deleted_at').session(session).lean();
+        .select('segment enabled deleted_at instrument_type').session(session).lean();
       const walletCategory = categoryForSegment(walletInstrument?.segment || trade.exchange || '');
 
       const { closingQty: walletClosingQty, openingQty: walletOpeningQty } =
@@ -284,6 +284,45 @@ async function executeMatchedOrder(match, livePrice, options = {}) {
         outcome = { kind: 'rejected', trade: trade.toObject(), message: instrumentRejectRemark };
         return;
       }
+
+      // Naked-option-short gate at FILL time — mirrors placeTrade's
+      // placement-time check (tradeController.js), which only runs once, at
+      // the moment the order is PLACED. A pending SELL LIMIT/SL/SL-M order
+      // placed while the user still held the option stays queued even if
+      // that position gets closed by some other trade before this one
+      // fills — without re-checking here, it fills anyway and opens a fresh
+      // naked short the placement-time check exists specifically to
+      // prevent. Same rejection shape as the instrument-blocked gate above.
+      const isOptionInstrument = ['CE', 'PE'].includes(walletInstrument?.instrument_type);
+      const nakedOptionShort = isOptionInstrument
+        && trade.transaction_type === 'SELL'
+        && previousNetQty <= 0;
+      if (nakedOptionShort) {
+        const nakedShortRejectRemark = 'Option selling is not allowed. You must own this option before you can sell it.';
+        trade.status = 'rejected';
+        trade.pnl = 0;
+        trade.net_amount = 0;
+        trade.remarks = nakedShortRejectRemark;
+        await trade.save({ session });
+        await Trade.create([{
+          user_id: trade.user_id,
+          master_id: trade.master_id,
+          admin_id: trade.admin_id || null,
+          instrument_token: trade.instrument_token,
+          tradingsymbol: trade.tradingsymbol,
+          exchange: trade.exchange,
+          transaction_type: trade.transaction_type,
+          quantity: trade.quantity,
+          price: trade.price,
+          order_type: trade.order_type,
+          status: 'rejected',
+          remarks: nakedShortRejectRemark,
+        }], { session });
+        await lease.assertActive({ session });
+        outcome = { kind: 'rejected', trade: trade.toObject(), message: nakedShortRejectRemark };
+        return;
+      }
+
       const walletAvgBuy = state.totalBuyQty > 0 ? state.totalBuyValue / state.totalBuyQty : 0;
       const walletAvgSell = state.totalSellQty > 0 ? state.totalSellValue / state.totalSellQty : 0;
       // Closed long lots release at avgBuy; closed short lots at avgSell (entry basis).

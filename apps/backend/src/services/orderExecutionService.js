@@ -242,7 +242,7 @@ const processPendingOrders = async () => {
                         //    `freshTrade.exchange` (which carries no segment), so 'NFO-FUT'
                         //    maps to NSE and 'MCX-FUT' to MCX rather than GLOBAL.
                         const walletInstrument = await KiteInstrument.findOne({ instrument_token: freshTrade.instrument_token })
-                            .select('segment enabled deleted_at').session(session).lean();
+                            .select('segment enabled deleted_at instrument_type').session(session).lean();
                         const walletCategory = categoryForSegment(walletInstrument?.segment || freshTrade.exchange || '');
 
                         const { closingQty: walletClosingQty, openingQty: walletOpeningQty } =
@@ -280,6 +280,45 @@ const processPendingOrders = async () => {
                                 }], { session });
                             } catch (_) {}
                             console.log(`⚠️ [OrderExecution] Rejected ${freshTrade.tradingsymbol} — ${instrumentRejectRemark}`);
+                            return;
+                        }
+
+                        // Naked-option-short gate at FILL time — mirrors placeTrade's
+                        // placement-time check (tradeController.js), which only runs once,
+                        // at the moment the order is PLACED. A pending SELL LIMIT/SL/SL-M
+                        // order placed while the user still held the option stays queued
+                        // even if that position gets closed by some other trade before this
+                        // one fills — without re-checking here, it fills anyway and opens a
+                        // fresh naked short the placement-time check exists specifically to
+                        // prevent. Same rejection shape as the instrument-blocked gate above.
+                        const isOptionInstrument = ['CE', 'PE'].includes(walletInstrument?.instrument_type);
+                        const nakedOptionShort = isOptionInstrument
+                            && freshTrade.transaction_type === 'SELL'
+                            && prevNetQtyCheck <= 0;
+                        if (nakedOptionShort) {
+                            const nakedShortRejectRemark = 'Option selling is not allowed. You must own this option before you can sell it.';
+                            freshTrade.status = 'rejected';
+                            freshTrade.pnl = 0;
+                            freshTrade.net_amount = 0;
+                            freshTrade.remarks = nakedShortRejectRemark;
+                            await freshTrade.save({ session });
+                            try {
+                                await Trade.create([{
+                                    user_id: freshTrade.user_id,
+                                    master_id: freshTrade.master_id,
+                                    admin_id: freshTrade.admin_id || null,
+                                    instrument_token: freshTrade.instrument_token,
+                                    tradingsymbol: freshTrade.tradingsymbol,
+                                    exchange: freshTrade.exchange,
+                                    transaction_type: freshTrade.transaction_type,
+                                    quantity: freshTrade.quantity,
+                                    price: freshTrade.price,
+                                    order_type: freshTrade.order_type,
+                                    status: 'rejected',
+                                    remarks: nakedShortRejectRemark,
+                                }], { session });
+                            } catch (_) {}
+                            console.log(`⚠️ [OrderExecution] Rejected ${freshTrade.tradingsymbol} — ${nakedShortRejectRemark}`);
                             return;
                         }
 
