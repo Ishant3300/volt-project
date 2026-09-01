@@ -1506,6 +1506,33 @@ class _OrdersPageState extends State<OrdersPage> {
                                 GestureDetector(
                                   onTap: _selectedPositionTokens.isEmpty
                                       ? null
+                                      : () => _rolloverSelected(openPositions),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: _selectedPositionTokens.isEmpty
+                                          ? const Color(0xFFE2E8F0)
+                                          : kBrandPrimary,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      'Rollover',
+                                      style: TextStyle(
+                                        color: _selectedPositionTokens.isEmpty
+                                            ? const Color(0xFF9CA3AF)
+                                            : Colors.white,
+                                        fontSize: kFontSizeSubtitle,
+                                        fontFamily: kFontFamily,
+                                        fontWeight: kFontWeightSemiBold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                GestureDetector(
+                                  onTap: _selectedPositionTokens.isEmpty
+                                      ? null
                                       : () => _squareOffSelected(openPositions),
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
@@ -2487,6 +2514,300 @@ class _OrdersPageState extends State<OrdersPage> {
                   children: [
                     const Text(
                       'Square Off Errors',
+                      style: TextStyle(
+                        color: Color(0xFF0F172A),
+                        fontSize: kFontSizeViewTitle,
+                        fontFamily: kFontFamily,
+                        fontWeight: kFontWeightBold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 200),
+                      child: SingleChildScrollView(
+                        child: Text(
+                          errors.join('\n'),
+                          style: const TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: kFontSizeBody,
+                            fontFamily: kFontFamily,
+                            fontWeight: kFontWeightRegular,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: TextButton.styleFrom(
+                          backgroundColor: const Color(0xFFF1F5F9),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 24, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: const Text(
+                          'OK',
+                          style: TextStyle(
+                            color: Color(0xFF0F172A),
+                            fontSize: kFontSizeBody,
+                            fontFamily: kFontFamily,
+                            fontWeight: kFontWeightSemiBold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Close loading dialog if open
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: const Color(0xFFFF3B30),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _rolloverSelected(List<PositionAgg> allPositions) async {
+    // Block in investor mode
+    final investorMode =
+        Provider.of<InvestorModeProvider>(context, listen: false);
+    if (investorMode.isInvestor) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Rollover is not available in investor mode'),
+            backgroundColor: Color(0xFF64748B)),
+      );
+      return;
+    }
+
+    final selectedPositions = allPositions
+        .where((p) => _selectedPositionTokens.contains(p.instrumentToken))
+        .toList();
+
+    if (selectedPositions.isEmpty) return;
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        backgroundColor: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Rollover Positions',
+                style: TextStyle(
+                  color: Color(0xFF0F172A),
+                  fontSize: kFontSizeViewTitle,
+                  fontFamily: kFontFamily,
+                  fontWeight: kFontWeightBold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'This will square off ${selectedPositions.length} position(s) '
+                'and immediately reopen the same qty and direction on the '
+                'next expiry contract.\n\n'
+                'Brokerage is charged on both the close and the reopen leg. '
+                'A short option position cannot be rolled over — it must be '
+                'squared off manually instead.',
+                style: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontSize: kFontSizeBody,
+                  fontFamily: kFontFamily,
+                  fontWeight: kFontWeightRegular,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: kFontSizeBody,
+                        fontFamily: kFontFamily,
+                        fontWeight: kFontWeightSemiBold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    style: TextButton.styleFrom(
+                      backgroundColor: kBrandPrimary.withOpacity(0.1),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text(
+                      'Rollover',
+                      style: TextStyle(
+                        color: kBrandPrimary,
+                        fontSize: kFontSizeBody,
+                        fontFamily: kFontFamily,
+                        fontWeight: kFontWeightSemiBold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final storage = SecureStorageService();
+      final token = await storage.getToken();
+
+      if (token == null) {
+        throw Exception('Not authenticated');
+      }
+
+      // Show loading indicator
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
+
+      final apiService = ApiService(backendUrl);
+      final response = await apiService.post(
+        '/trade/rollover',
+        {
+          'instrument_tokens':
+              selectedPositions.map((p) => p.instrumentToken).toList(),
+        },
+        token: token,
+      );
+
+      int successCount = 0;
+      int failCount = 0;
+      final List<String> errors = [];
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        final data = body['data'] ?? {};
+        successCount = (data['rolled_over'] as List?)?.length ?? 0;
+        final errList = (data['errors'] as List?) ?? [];
+        failCount = errList.length;
+        for (final e in errList) {
+          errors.add('${e['token'] ?? ''}: ${e['message'] ?? 'Failed'}');
+        }
+      } else {
+        failCount = selectedPositions.length;
+        try {
+          final body = jsonDecode(response.body);
+          errors.add(body['message'] ?? 'Rollover failed');
+        } catch (_) {
+          errors.add('Rollover failed');
+        }
+      }
+
+      // Close loading dialog
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
+      // Refresh data
+      if (mounted) {
+        try {
+          final metricsProvider =
+              Provider.of<TradeMetricsProvider>(context, listen: false);
+          await metricsProvider.fetchBaseData();
+        } catch (_) {}
+      }
+
+      // Exit selection mode
+      if (mounted) {
+        setState(() {
+          _isSelectionMode = false;
+          _selectedPositionTokens.clear();
+        });
+      }
+
+      // Show result
+      if (mounted) {
+        String message = '';
+        if (successCount > 0 && failCount == 0) {
+          message = 'Rolled over $successCount position(s)';
+        } else if (successCount > 0 && failCount > 0) {
+          message = 'Rolled over $successCount position(s), $failCount failed';
+        } else {
+          message = 'Failed to roll over positions';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: failCount == 0
+                ? const Color(0xFF34C759)
+                : const Color(0xFFFF9500),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+
+        if (errors.isNotEmpty && mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              backgroundColor: Colors.white,
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Rollover Errors',
                       style: TextStyle(
                         color: Color(0xFF0F172A),
                         fontSize: kFontSizeViewTitle,
