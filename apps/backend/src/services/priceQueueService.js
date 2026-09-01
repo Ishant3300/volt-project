@@ -285,6 +285,46 @@ async function executeMatchedOrder(match, livePrice, options = {}) {
         return;
       }
 
+      // Bet / close-only gate at FILL time — mirrors placeTrade's
+      // placement-time checks (tradeController.js). An admin flips bet=false
+      // or close_only=true specifically to stop a user opening further risk
+      // right now; a LIMIT/SL/SL-M order already pending at that moment
+      // would otherwise still fill and open a fresh position, bypassing the
+      // admin's intent entirely — same shape as the instrument-blocked gate
+      // above. Same rejection shape.
+      const gateUser = await User.findById(trade.user_id).select('bet close_only').session(session).lean();
+      const isClosingForCloseOnly = (trade.transaction_type === 'SELL' && previousNetQty > 0)
+        || (trade.transaction_type === 'BUY' && previousNetQty < 0);
+      const betBlocked = gateUser?.bet === false;
+      const closeOnlyBlocked = gateUser?.close_only === true && !isClosingForCloseOnly;
+      if (betBlocked || closeOnlyBlocked) {
+        const userGateRejectRemark = betBlocked
+          ? 'Trading is currently disabled for your account.'
+          : 'Your account is in close-only mode. You can only close existing positions.';
+        trade.status = 'rejected';
+        trade.pnl = 0;
+        trade.net_amount = 0;
+        trade.remarks = userGateRejectRemark;
+        await trade.save({ session });
+        await Trade.create([{
+          user_id: trade.user_id,
+          master_id: trade.master_id,
+          admin_id: trade.admin_id || null,
+          instrument_token: trade.instrument_token,
+          tradingsymbol: trade.tradingsymbol,
+          exchange: trade.exchange,
+          transaction_type: trade.transaction_type,
+          quantity: trade.quantity,
+          price: trade.price,
+          order_type: trade.order_type,
+          status: 'rejected',
+          remarks: userGateRejectRemark,
+        }], { session });
+        await lease.assertActive({ session });
+        outcome = { kind: 'rejected', trade: trade.toObject(), message: userGateRejectRemark };
+        return;
+      }
+
       // Naked-option-short gate at FILL time — mirrors placeTrade's
       // placement-time check (tradeController.js), which only runs once, at
       // the moment the order is PLACED. A pending SELL LIMIT/SL/SL-M order

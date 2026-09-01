@@ -283,6 +283,48 @@ const processPendingOrders = async () => {
                             return;
                         }
 
+                        // Bet / close-only gate at FILL time — mirrors placeTrade's
+                        // placement-time checks (tradeController.js) and priceQueueService's
+                        // primary-path fill gate. An admin flips bet=false or
+                        // close_only=true specifically to stop a user opening further risk
+                        // right now; a LIMIT/SL/SL-M order already pending at that moment
+                        // would otherwise still fill and open a fresh position, bypassing
+                        // the admin's intent entirely. Same rejection shape as the
+                        // instrument-blocked gate above.
+                        const gateUser = await User.findById(freshTrade.user_id).select('bet close_only').session(session).lean();
+                        const isClosingForCloseOnly = (freshTrade.transaction_type === 'SELL' && prevNetQtyCheck > 0)
+                            || (freshTrade.transaction_type === 'BUY' && prevNetQtyCheck < 0);
+                        const betBlocked = gateUser?.bet === false;
+                        const closeOnlyBlocked = gateUser?.close_only === true && !isClosingForCloseOnly;
+                        if (betBlocked || closeOnlyBlocked) {
+                            const userGateRejectRemark = betBlocked
+                                ? 'Trading is currently disabled for your account.'
+                                : 'Your account is in close-only mode. You can only close existing positions.';
+                            freshTrade.status = 'rejected';
+                            freshTrade.pnl = 0;
+                            freshTrade.net_amount = 0;
+                            freshTrade.remarks = userGateRejectRemark;
+                            await freshTrade.save({ session });
+                            try {
+                                await Trade.create([{
+                                    user_id: freshTrade.user_id,
+                                    master_id: freshTrade.master_id,
+                                    admin_id: freshTrade.admin_id || null,
+                                    instrument_token: freshTrade.instrument_token,
+                                    tradingsymbol: freshTrade.tradingsymbol,
+                                    exchange: freshTrade.exchange,
+                                    transaction_type: freshTrade.transaction_type,
+                                    quantity: freshTrade.quantity,
+                                    price: freshTrade.price,
+                                    order_type: freshTrade.order_type,
+                                    status: 'rejected',
+                                    remarks: userGateRejectRemark,
+                                }], { session });
+                            } catch (_) {}
+                            console.log(`⚠️ [OrderExecution] Rejected ${freshTrade.tradingsymbol} — ${userGateRejectRemark}`);
+                            return;
+                        }
+
                         // Naked-option-short gate at FILL time — mirrors placeTrade's
                         // placement-time check (tradeController.js), which only runs once,
                         // at the moment the order is PLACED. A pending SELL LIMIT/SL/SL-M
