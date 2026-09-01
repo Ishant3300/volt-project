@@ -1931,6 +1931,60 @@ const rolloverPositions = async (req, res) => {
                         throw new Error('Option selling is not allowed. You must own this option before you can sell it — a short option position cannot be rolled over.');
                     }
 
+                    // Script-quantity max_qty gate. Unlike a normal trade (which only
+                    // blocks the INCREMENTAL increase beyond the limit — closing/reducing
+                    // is always allowed regardless of a lowered limit, so an already-open
+                    // position that now exceeds a since-lowered max_qty is grandfathered
+                    // in place), the reopen leg here is a genuinely FRESH position on the
+                    // new contract with zero prior qty — so the entire absQty counts as
+                    // new exposure. A position that grew under an old, higher limit and
+                    // now exceeds a since-lowered one cannot roll over automatically; it
+                    // must be squared off (or partially reduced) manually first. This is
+                    // deliberately all-or-nothing per position — other selected positions
+                    // in the same rollover batch are unaffected (each runs in its own
+                    // transaction, see the per-token loop below).
+                    {
+                        const rawSegment = (newInstrument.segment || newInstrument.exchange || '').toUpperCase();
+                        const normalizedExchangeForQty = rawSegment === 'GLOBAL' ? 'INDICES' : rawSegment;
+                        const userExchangeCfg = user.exchanges_allowed?.find(
+                            ex => ex.exchange_name.toUpperCase() === normalizedExchangeForQty
+                        );
+                        const isTurnover = userExchangeCfg?.turnover === true;
+                        const isLotMode = userExchangeCfg?.lot === true;
+
+                        if (isTurnover || isLotMode) {
+                            const newRawName = newInstrument.raw_name || newInstrument.name || null;
+                            let scriptQty = newRawName
+                                ? await ScriptQuantity.findOne({
+                                    owner_id: user._id,
+                                    exchange_name: normalizedExchangeForQty,
+                                    script_name: newRawName,
+                                    deleted_at: null,
+                                }).session(session)
+                                : null;
+                            if (!scriptQty) {
+                                scriptQty = await ScriptQuantity.findOne({
+                                    owner_id: user._id,
+                                    exchange_name: normalizedExchangeForQty,
+                                    script_name: newInstrument.tradingsymbol,
+                                    deleted_at: null,
+                                }).session(session);
+                            }
+
+                            const limitValue = scriptQty?.max_qty ?? null;
+                            if (limitValue !== null && limitValue > 0) {
+                                const qtyLotSize = scriptQty?.lot_size || newInstrument.lot_size || 1;
+                                const requested = isLotMode ? Math.ceil(absQty / qtyLotSize) : absQty;
+                                if (requested > limitValue) {
+                                    const unit = isLotMode ? 'lot(s)' : 'qty';
+                                    throw new Error(
+                                        `Rollover exceeds the current maximum position limit for ${newInstrument.tradingsymbol}. Max: ${limitValue} ${unit}, Requested: ${requested} ${unit}. Square off the excess manually before rolling over.`
+                                    );
+                                }
+                            }
+                        }
+                    }
+
                     const ltpOld = metricsEngine._ltpMap?.get(token);
                     const closePrice = closeSide === 'SELL'
                         ? (metricsEngine._bidMap?.get(token) || ltpOld)
