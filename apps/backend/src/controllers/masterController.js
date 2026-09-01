@@ -1165,6 +1165,16 @@ const getMasterPosition = async (req, res) => {
       });
     }
 
+    // A hidden master must never be reachable by direct ID either — only
+    // filtering list endpoints would leave this one gap.
+    {
+      const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+      const hiddenMasterIds = await resolveHiddenMasterIds(req);
+      if (hiddenMasterIds && hiddenMasterIds.has(master._id.toString())) {
+        return res.status(404).json({ success: false, message: 'Master not found', data: null });
+      }
+    }
+
     // Calculate position from trades
     const positionData = await Trade.aggregate([
       {

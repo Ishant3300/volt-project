@@ -860,6 +860,15 @@ const getChildMasterPosition = async (req, res) => {
       });
     }
 
+    // A hidden master must never be reachable by direct ID either.
+    {
+      const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+      const hiddenMasterIds = await resolveHiddenMasterIds(req);
+      if (hiddenMasterIds && hiddenMasterIds.has(childMaster._id.toString())) {
+        return res.status(404).json({ success: false, message: 'Child master not found', data: null });
+      }
+    }
+
     // Calculate position from trades
     const positionData = await Trade.aggregate([
       {
