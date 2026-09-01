@@ -691,5 +691,6 @@ module.exports = {
   init,
   publishPriceUpdate,
   shutdown,
+  calculateBrokerage,
   _private: { executeMatchedOrder, positionStateSinceLastFlat, realisedPnlFor, _processJob },
 };

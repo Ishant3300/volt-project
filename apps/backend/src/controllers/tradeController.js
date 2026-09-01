@@ -1826,6 +1826,285 @@ const getInstrumentInfo = async (req, res) => {
     }
 };
 
+/**
+ * POST /trade/rollover
+ * Square off selected open position(s) and immediately reopen the same
+ * qty/direction on the next-expiry contract in the same series — two real
+ * trades (brokerage charged on both), not a free ATP carry-forward like
+ * autoSquareOffExpired. Mirrors placeTrade's own authorization model (a
+ * Master must specify a user_id within their subtree; Admin is unrestricted)
+ * since this reuses the exact same close/open validation a normal trade
+ * would go through.
+ */
+const rolloverPositions = async (req, res) => {
+    let tradeWriteLease = null;
+    try {
+        const callerId = req.user?.id || req.master?.id || req.admin?.id;
+        const isAdminOrMaster = !!(req.admin || req.master);
+        const targetUserId = isAdminOrMaster ? (req.body.user_id || callerId) : callerId;
+        if (!targetUserId) {
+            return res.status(401).json({ success: false, message: 'Unauthorized / User ID missing' });
+        }
+        if (isAdminOrMaster && !req.body.user_id) {
+            return res.status(400).json({ success: false, message: 'Please select a user to roll over a position on their behalf.' });
+        }
+
+        const { instrument_tokens } = req.body;
+        if (!instrument_tokens || !Array.isArray(instrument_tokens) || instrument_tokens.length === 0) {
+            return res.status(400).json({ success: false, message: 'instrument_tokens array required' });
+        }
+
+        const { resolveNextExpiryInstrument } = require('../services/rolloverInstrumentService');
+        const { calculateBrokerage } = require('../services/priceQueueService');
+        const metricsEngine = require('../services/metricsEngine');
+        const livePriceService = require('../services/livePriceService');
+
+        tradeWriteLease = await beginTradeWrite('rollover');
+        const results = [];
+        const errors = [];
+
+        for (const rawToken of instrument_tokens) {
+            const token = rawToken.toString();
+            const session = await mongoose.startSession();
+            let committed = null;
+            try {
+                await session.withTransaction(async () => {
+                    committed = null;
+                    await tradeWriteLease.assertActive({ session });
+
+                    const user = await User.findById(targetUserId).populate('master_id').session(session);
+                    if (!user) throw new Error('User not found');
+
+                    if (req.master) {
+                        const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+                        const allowedMasterIds = await getAllSubMasterIds(req.master.id);
+                        const userMasterId = (user.master_id?._id || user.master_id)?.toString();
+                        if (!userMasterId || !allowedMasterIds.includes(userMasterId)) {
+                            throw new Error('Not authorized to roll over a position for this user');
+                        }
+                    }
+
+                    const oldInstrument = await KiteInstrument.findOne({ instrument_token: token }).session(session).lean();
+                    if (!oldInstrument) throw new Error('Instrument not found');
+
+                    const prevTrades = await Trade.find({
+                        user_id: user._id,
+                        instrument_token: token,
+                        status: 'completed',
+                        deleted_at: null,
+                    }).select('transaction_type executed_quantity executed_price executed_at createdAt')
+                      .sort({ executed_at: 1, createdAt: 1 })
+                      .session(session)
+                      .lean();
+                    const state = computeFlatResetState(prevTrades);
+                    const netQty = state.netQty;
+                    if (netQty === 0) throw new Error(`No open position on ${oldInstrument.tradingsymbol}.`);
+
+                    const newInstrument = await resolveNextExpiryInstrument(oldInstrument, session);
+                    if (!newInstrument) throw new Error(`No further expiry available to roll ${oldInstrument.tradingsymbol} into.`);
+
+                    const absQty = Math.abs(netQty);
+                    const originalSide = netQty > 0 ? 'BUY' : 'SELL'; // direction of the existing position
+                    const closeSide = originalSide === 'BUY' ? 'SELL' : 'BUY';
+                    const openSide = originalSide; // rollover keeps the same direction
+
+                    // ── New-instrument gates — same rules a fresh trade on this instrument
+                    //    would go through, since the reopen leg genuinely IS a fresh trade.
+                    if (newInstrument.deleted_at) {
+                        throw new Error('Admin has deactivated the next-expiry script. Rollover is not allowed.');
+                    }
+                    if (newInstrument.enabled === false) {
+                        throw new Error('The next-expiry script has been disabled by admin. Rollover is not allowed.');
+                    }
+                    if (!req.admin && user.bet === false) {
+                        throw new Error('Trading is currently disabled for your account.');
+                    }
+                    if (!req.admin && user.close_only === true) {
+                        throw new Error('Your account is in close-only mode. You can only close existing positions.');
+                    }
+                    // Naked-option-short rule: the reopen leg is always a FRESH position
+                    // on the new contract (net qty 0 going in), so a SELL open on a CE/PE
+                    // is never allowed here — same rule as placing any other fresh option
+                    // sell. In practice this means only long option positions roll over;
+                    // a short must be squared off and reopened manually.
+                    if (['CE', 'PE'].includes(newInstrument.instrument_type) && openSide === 'SELL') {
+                        throw new Error('Option selling is not allowed. You must own this option before you can sell it — a short option position cannot be rolled over.');
+                    }
+
+                    const ltpOld = metricsEngine._ltpMap?.get(token);
+                    const closePrice = closeSide === 'SELL'
+                        ? (metricsEngine._bidMap?.get(token) || ltpOld)
+                        : (metricsEngine._askMap?.get(token) || ltpOld);
+                    if (!closePrice || closePrice <= 0) throw new Error(`No live price available for ${oldInstrument.tradingsymbol}.`);
+
+                    const newToken = newInstrument.instrument_token;
+                    const ltpNew = metricsEngine._ltpMap?.get(newToken);
+                    const openPrice = openSide === 'BUY'
+                        ? (metricsEngine._askMap?.get(newToken) || ltpNew)
+                        : (metricsEngine._bidMap?.get(newToken) || ltpNew);
+                    if (!openPrice || openPrice <= 0) throw new Error(`No live price available for ${newInstrument.tradingsymbol}.`);
+
+                    const rolloverGroupId = new mongoose.Types.ObjectId();
+                    const closeTime = new Date();
+                    const balanceBefore = user.equity;
+
+                    // ── Close leg — realise P&L, release the full closing notional, charge brokerage.
+                    const avgBuy = state.totalBuyQty > 0 ? state.totalBuyValue / state.totalBuyQty : 0;
+                    const avgSell = state.totalSellQty > 0 ? state.totalSellValue / state.totalSellQty : 0;
+                    const closePnl = Math.round((originalSide === 'BUY'
+                        ? (closePrice - avgBuy) * absQty
+                        : (avgSell - closePrice) * absQty) * 100) / 100;
+
+                    const closeTrade = new Trade({
+                        user_id: user._id,
+                        master_id: user.master_id._id,
+                        admin_id: user.admin_id || null,
+                        instrument_token: token,
+                        tradingsymbol: oldInstrument.tradingsymbol,
+                        exchange: oldInstrument.exchange,
+                        transaction_type: closeSide,
+                        quantity: absQty,
+                        price: closePrice,
+                        order_type: 'MARKET',
+                        placed_by: req.admin ? 'ADMIN' : (req.master ? 'MASTER' : 'USER'),
+                        status: 'completed',
+                        executed_at: closeTime,
+                        executed_price: closePrice,
+                        executed_quantity: absQty,
+                        rollover_group_id: rolloverGroupId,
+                        remarks: `Rollover close — reopening on ${newInstrument.tradingsymbol}`,
+                    });
+                    const closeBrokerage = await calculateBrokerage(closeTrade, session);
+                    closeTrade.pnl = closePnl;
+                    closeTrade.brokerage = closeBrokerage;
+                    closeTrade.net_amount = Math.round((closePnl - closeBrokerage) * 100) / 100;
+                    await closeTrade.save({ session });
+
+                    const closeCategory = categoryForSegment(oldInstrument.segment || oldInstrument.exchange || '');
+                    const closeReleaseBasis = originalSide === 'BUY' ? avgBuy : avgSell;
+                    if (closeReleaseBasis > 0) {
+                        await walletService.release('User', user._id, closeCategory, absQty * closeReleaseBasis, session);
+                    }
+
+                    // ── Reopen leg — brand-new position, block the full opening notional, charge brokerage.
+                    const openTrade = new Trade({
+                        user_id: user._id,
+                        master_id: user.master_id._id,
+                        admin_id: user.admin_id || null,
+                        instrument_token: newToken,
+                        tradingsymbol: newInstrument.tradingsymbol,
+                        exchange: newInstrument.exchange,
+                        transaction_type: openSide,
+                        quantity: absQty,
+                        price: openPrice,
+                        order_type: 'MARKET',
+                        placed_by: req.admin ? 'ADMIN' : (req.master ? 'MASTER' : 'USER'),
+                        status: 'completed',
+                        executed_at: new Date(closeTime.getTime() + 1),
+                        executed_price: openPrice,
+                        executed_quantity: absQty,
+                        rollover_group_id: rolloverGroupId,
+                        remarks: `Rollover reopen — closed out of ${oldInstrument.tradingsymbol}`,
+                    });
+                    const openBrokerage = await calculateBrokerage(openTrade, session);
+                    openTrade.pnl = 0;
+                    openTrade.brokerage = openBrokerage;
+                    openTrade.net_amount = Math.round(-openBrokerage * 100) / 100;
+                    await openTrade.save({ session });
+
+                    const openCategory = categoryForSegment(newInstrument.segment || newInstrument.exchange || '');
+                    // block() throws INSUFFICIENT_WALLET when the pool can't cover it,
+                    // aborting this whole transaction — the close leg above rolls back too,
+                    // so a rollover never leaves the user flat with no reopened position.
+                    await walletService.block('User', user._id, openCategory, absQty * openPrice, session);
+
+                    user.equity = user.equity + (closePnl - closeBrokerage) - openBrokerage;
+                    await user.save({ session });
+
+                    await Transaction.create([{
+                        transactionId: `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 6)}_RC`,
+                        userId: user._id,
+                        userModel: 'User',
+                        type: closeSide,
+                        status: 'SUCCESS',
+                        amount: closePrice * absQty,
+                        referenceId: closeTrade._id,
+                        referenceModel: 'Trade',
+                        balanceBefore,
+                        balanceAfter: balanceBefore + (closePnl - closeBrokerage),
+                        metadata: {
+                            tradingsymbol: oldInstrument.tradingsymbol,
+                            quantity: absQty,
+                            executedPrice: closePrice,
+                            realisedPnl: closePnl,
+                            brokerage: closeBrokerage,
+                            rollover_group_id: rolloverGroupId.toString(),
+                            rollover_leg: 'close',
+                        },
+                    }, {
+                        transactionId: `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 6)}_RO`,
+                        userId: user._id,
+                        userModel: 'User',
+                        type: openSide,
+                        status: 'SUCCESS',
+                        amount: openPrice * absQty,
+                        referenceId: openTrade._id,
+                        referenceModel: 'Trade',
+                        balanceBefore: balanceBefore + (closePnl - closeBrokerage),
+                        balanceAfter: user.equity,
+                        metadata: {
+                            tradingsymbol: newInstrument.tradingsymbol,
+                            quantity: absQty,
+                            executedPrice: openPrice,
+                            realisedPnl: 0,
+                            brokerage: openBrokerage,
+                            rollover_group_id: rolloverGroupId.toString(),
+                            rollover_leg: 'open',
+                        },
+                    }], { session, ordered: true });
+
+                    await tradeWriteLease.assertActive({ session });
+                    committed = {
+                        rollover_group_id: rolloverGroupId.toString(),
+                        old: { token, tradingsymbol: oldInstrument.tradingsymbol, price: closePrice, brokerage: closeBrokerage, pnl: closePnl },
+                        new: { token: newToken, tradingsymbol: newInstrument.tradingsymbol, price: openPrice, brokerage: openBrokerage },
+                        qty: absQty,
+                    };
+                });
+
+                if (committed) {
+                    const metricsEngineNotify = require('../services/metricsEngine');
+                    await metricsEngineNotify.onTradeExecuted(targetUserId);
+                    livePriceService.broadcastToUser(targetUserId.toString(), {
+                        type: 'rollover_executed',
+                        rollover_group_id: committed.rollover_group_id,
+                        old_instrument_token: committed.old.token,
+                        new_instrument_token: committed.new.token,
+                        new_tradingsymbol: committed.new.tradingsymbol,
+                        quantity: committed.qty,
+                    });
+                    results.push(committed);
+                }
+            } catch (error) {
+                if (error.code === 'TRADE_WRITE_LEASE_LOST') throw error;
+                errors.push({ token, message: sanitizeErrorMessage(error) });
+            } finally {
+                await session.endSession();
+            }
+        }
+
+        res.status(200).json({
+            success: true,
+            message: `Rolled over ${results.length} position(s)${errors.length > 0 ? `, ${errors.length} failed` : ''}`,
+            data: { rolled_over: results, errors },
+        });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
+    } finally {
+        await tradeWriteLease?.release();
+    }
+};
+
 module.exports = {
     placeTrade,
     computeWalletSplit,
@@ -1837,4 +2116,5 @@ module.exports = {
     getBrokerageRules,
     autoSquareOffExpired,
     getInstrumentInfo,
+    rolloverPositions,
 };

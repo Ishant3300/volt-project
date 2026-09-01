@@ -22,6 +22,7 @@ router.put('/:tradeId/cancel', rejectIfInvestor, rejectIfAdminWatchOnly, tradeCo
 router.delete('/:tradeId', rejectIfInvestor, rejectIfAdminWatchOnly, requireAdminPermission('TRADE_DELETE'), tradeController.deleteTrade);
 router.post('/metrics', rejectIfInvestor, tradeController.saveClientMetrics);
 router.post('/auto-squareoff-expired', rejectIfInvestor, tradeController.autoSquareOffExpired);
+router.post('/rollover', rejectIfInvestor, rejectIfAdminWatchOnly, tradeController.rolloverPositions);
 
 // Read operations — allowed in investor mode
 router.get('/metrics', tradeController.getAccountMetrics);
