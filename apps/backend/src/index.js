@@ -362,6 +362,10 @@ const startServer = async () => {
 
     await livePriceService._updateKiteSubscription();
     _ts('Kite subscriptions updated');
+
+    const giftNiftyFeedService = require('./services/giftNiftyFeedService');
+    await giftNiftyFeedService.init(livePriceService);
+    _ts('GIFT Nifty NSEIX feed started');
   } else {
     console.log('⏭️  Kite auth & live prices SKIPPED (local dev mode)');
   }
