@@ -656,13 +656,27 @@ const placeTrade = async (req, res) => {
                     // only fill at a genuine breakout (buy) or breakdown (sell)
                     // level, never at an artificially favourable price inside it.
                     try {
-                        const kiteInstHL = await KiteInstrument.findOne({ instrument_token }).select('exchange tradingsymbol').lean();
+                        const kiteInstHL = await KiteInstrument.findOne({ instrument_token }).select('exchange tradingsymbol ohlc_high ohlc_low').lean();
                         if (kiteInstHL) {
                             const quoteKey = `${kiteInstHL.exchange}:${kiteInstHL.tradingsymbol}`;
-                            const ohlcData = await kiteService.getMarketQuotes([quoteKey], 'ohlc');
-                            const quote = ohlcData?.[quoteKey];
-                            const dayHigh = quote?.ohlc?.high;
-                            const dayLow = quote?.ohlc?.low;
+                            let dayHigh, dayLow;
+                            try {
+                                const ohlcData = await kiteService.getMarketQuotes([quoteKey], 'ohlc');
+                                const quote = ohlcData?.[quoteKey];
+                                dayHigh = quote?.ohlc?.high;
+                                dayLow = quote?.ohlc?.low;
+                            } catch (_) {
+                                // Kite has no record of non-Kite instruments (GLOBAL/COMEX,
+                                // fed by massiveFuturesFeedService.js) — falls through below.
+                            }
+                            // Kite quote lookup returns nothing for non-Kite instruments
+                            // (GLOBAL/COMEX Massive-fed contracts) — fall back to the
+                            // instrument's own ohlc_high/ohlc_low, tracked live by
+                            // massiveFuturesFeedService.js's per-tick $max/$min updates.
+                            if (!(dayHigh > 0) || !(dayLow > 0)) {
+                                dayHigh = kiteInstHL.ohlc_high;
+                                dayLow = kiteInstHL.ohlc_low;
+                            }
 
                             // Get offset from FSL limit if available, otherwise 0
                             const FreshStoplossLimitHL = require('../models/FreshStoplossLimit');

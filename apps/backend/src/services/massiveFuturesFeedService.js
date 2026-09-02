@@ -3,7 +3,7 @@
  *
  * Persistent WebSocket to Massive's real-time futures feed (Quotes for
  * bid/ask, Trades for last price), covering the instruments seeded by
- * scripts/seedGlobalFutures.js (segment CME-FUT / COMEX-FUT). Feeds into the
+ * scripts/seedGlobalFutures.js (segment GLOBAL / COMEX-FUT). Feeds into the
  * same shared sinks every other price source uses — livePriceService's
  * latestPrices map, metricsEngine.onTick, and the WS broadcast to clients —
  * so nothing downstream (positions, P&L, order fills, rollover, margin
@@ -30,6 +30,10 @@ class MassiveFuturesFeedService {
     // ticker (Massive's `sym`, e.g. "ESU6") -> instrument_token (ours)
     this.tickerToToken = new Map();
     this._initialized = false;
+    // instrument_token -> epoch ms of the last ohlc_high/ohlc_low DB write —
+    // throttles day-range persistence so a genuinely fast tick stream
+    // doesn't turn into a DB write per tick.
+    this._lastOhlcUpdate = new Map();
   }
 
   async init(livePriceService) {
@@ -141,6 +145,7 @@ class MassiveFuturesFeedService {
     const lastPrice = lastKnown || (Number.isFinite(bidPrice) ? bidPrice : askPrice);
     lps.latestPrices.set(token, lastPrice);
     lps.latestPrices.set(Number(token), lastPrice);
+    this._updateDayRange(token, lastPrice);
 
     const metricsEngine = require('./metricsEngine');
     metricsEngine.onTick(token, lastPrice, bidPrice, askPrice);
@@ -166,6 +171,7 @@ class MassiveFuturesFeedService {
     const lps = this.livePriceService;
     lps.latestPrices.set(token, lastPrice);
     lps.latestPrices.set(Number(token), lastPrice);
+    this._updateDayRange(token, lastPrice);
 
     const metricsEngine = require('./metricsEngine');
     metricsEngine.onTick(token, lastPrice, null, null);
@@ -174,6 +180,28 @@ class MassiveFuturesFeedService {
       type: 'ticks',
       data: [{ instrument_token: token, last_price: lastPrice }],
     });
+  }
+
+  /**
+   * Persist a running day-high/day-low so tradeController.js's High-Low
+   * restriction check has something to read for these instruments — Kite's
+   * own OHLC quote API has no record of non-Kite (GLOBAL/COMEX) instruments
+   * at all, so that check previously silently no-opped for everything this
+   * service feeds. Fire-and-forget, throttled per instrument so a fast tick
+   * stream doesn't become a DB write per tick. ohlc_high/ohlc_low are reset
+   * to a fresh baseline daily by massiveSettlementService.js, which is what
+   * makes $min meaningful — without a real starting value it would stay
+   * stuck at the schema default of 0 forever.
+   */
+  _updateDayRange(token, price) {
+    const now = Date.now();
+    const last = this._lastOhlcUpdate.get(token) || 0;
+    if (now - last < 2000) return;
+    this._lastOhlcUpdate.set(token, now);
+    KiteInstrument.updateOne(
+      { instrument_token: token },
+      { $max: { ohlc_high: price }, $min: { ohlc_low: price } }
+    ).catch(() => {});
   }
 
   stop() {

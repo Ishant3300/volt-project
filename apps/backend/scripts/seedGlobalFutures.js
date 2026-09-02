@@ -40,18 +40,25 @@ const CONTRACTS_PER_PRODUCT = 3; // front month + next 2, enough for rollover's 
 // places, not others." COMEX (GC/SI/HG) stays its own distinct segment —
 // it already has its own dedicated wallet pool, unlike the index futures
 // which share GLOBAL with everything else non-NSE/MCX/COMEX.
+// friendlyName is what gets written to KiteInstrument.name/raw_name — shown
+// to users combined with the expiry date (mobile's userFriendlyName getter),
+// so it needs to read cleanly on its own ("S&P 500 18 September", not
+// "ES 18 September"). Matches the exact naming convention this platform
+// already uses for the old Zerodha global cash indices (Nasdaq 100/S&P 500/
+// Dow Jones 30), for consistency. `code` stays the internal short product
+// code used for Massive's own API calls — unrelated to display.
 const PRODUCTS = [
-  { code: 'ES', name: 'E-mini S&P 500', exchange: 'GLOBAL', segment: 'GLOBAL', tokenIndex: 0 },
-  { code: 'NQ', name: 'E-mini Nasdaq-100', exchange: 'GLOBAL', segment: 'GLOBAL', tokenIndex: 1 },
-  { code: 'YM', name: 'E-mini Dow Jones', exchange: 'GLOBAL', segment: 'GLOBAL', tokenIndex: 2 },
-  { code: 'RTY', name: 'E-mini Russell 2000', exchange: 'GLOBAL', segment: 'GLOBAL', tokenIndex: 3 },
-  { code: 'NKD', name: 'Nikkei 225 (USD)', exchange: 'GLOBAL', segment: 'GLOBAL', tokenIndex: 4 },
+  { code: 'ES', name: 'E-mini S&P 500', friendlyName: 'S&P 500', exchange: 'GLOBAL', segment: 'GLOBAL', tokenIndex: 0 },
+  { code: 'NQ', name: 'E-mini Nasdaq-100', friendlyName: 'Nasdaq 100', exchange: 'GLOBAL', segment: 'GLOBAL', tokenIndex: 1 },
+  { code: 'YM', name: 'E-mini Dow Jones', friendlyName: 'Dow Jones 30', exchange: 'GLOBAL', segment: 'GLOBAL', tokenIndex: 2 },
+  { code: 'RTY', name: 'E-mini Russell 2000', friendlyName: 'Russell 2000', exchange: 'GLOBAL', segment: 'GLOBAL', tokenIndex: 3 },
+  { code: 'NKD', name: 'Nikkei 225 (USD)', friendlyName: 'Nikkei 225', exchange: 'GLOBAL', segment: 'GLOBAL', tokenIndex: 4 },
   // DVE (FTSE Developed Europe) dropped — zero session bars across every
   // listed contract month in Massive's data, confirmed live. No European
   // index in this set for now.
-  { code: 'GC', name: 'Gold', exchange: 'COMEX', segment: 'COMEX-FUT', tokenIndex: 6 },
-  { code: 'SI', name: 'Silver', exchange: 'COMEX', segment: 'COMEX-FUT', tokenIndex: 7 },
-  { code: 'HG', name: 'Copper', exchange: 'COMEX', segment: 'COMEX-FUT', tokenIndex: 8 },
+  { code: 'GC', name: 'Gold', friendlyName: 'Gold', exchange: 'COMEX', segment: 'COMEX-FUT', tokenIndex: 6 },
+  { code: 'SI', name: 'Silver', friendlyName: 'Silver', exchange: 'COMEX', segment: 'COMEX-FUT', tokenIndex: 7 },
+  { code: 'HG', name: 'Copper', friendlyName: 'Copper', exchange: 'COMEX', segment: 'COMEX-FUT', tokenIndex: 8 },
 ];
 
 const TOKEN_BASE = 9_000_000_000_000;
@@ -120,8 +127,8 @@ async function run() {
           $set: {
             exchange_token: token,
             tradingsymbol: contract.ticker,
-            name: product.code,
-            raw_name: product.code,
+            name: product.friendlyName,
+            raw_name: product.friendlyName,
             display_name: `${product.name} ${contract.ticker}`,
             expiry,
             strike: 0,

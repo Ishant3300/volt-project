@@ -79,6 +79,13 @@ async function fetchAndApplyMassiveSettlement(options = {}) {
             settlement_price_date: settlementDate,
             settlement_price_source: source,
             settlement_price_updated_at: new Date(),
+            // Fresh day-range baseline for massiveFuturesFeedService.js's
+            // per-tick $max/$min tracking — without this reset, ohlc_high
+            // would never decrease and ohlc_low would eventually stay
+            // trapped near a stale trough from days ago rather than
+            // reflecting today's actual range.
+            ohlc_high: result.settlementPrice,
+            ohlc_low: result.settlementPrice,
           },
         }
       );

@@ -11,7 +11,7 @@
  * massiveSettlementService.js so the instrument list can't drift between them.
  */
 
-const GLOBAL_INDEX_NAMES = ['ES', 'NQ', 'YM', 'RTY', 'NKD'];
+const GLOBAL_INDEX_NAMES = ['S&P 500', 'Nasdaq 100', 'Dow Jones 30', 'Russell 2000', 'Nikkei 225'];
 const COMEX_METAL_SEGMENT = 'COMEX-FUT';
 
 module.exports = { GLOBAL_INDEX_NAMES, COMEX_METAL_SEGMENT };
