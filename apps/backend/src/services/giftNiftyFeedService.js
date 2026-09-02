@@ -20,7 +20,11 @@ const KiteInstrument = require('../models/KiteInstrument');
 
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 const NSEIX_URL = 'https://www.nseix.com/api/derivatives-watch?inst_type1=IDX&inst_type2=STK&type=live';
-const POLL_INTERVAL_MS = 15_000;
+// Was 15s — average staleness of a periodic poll is ~half the interval, so a
+// 15s poll meant bid/ask could lag NSEIX's own feed by up to 15s and ~7.5s on
+// average, reported as a "3-5s delay" in practice. NSEIX showed no rate
+// limiting at 15 rapid back-to-back requests in testing, so 2s is safe.
+const POLL_INTERVAL_MS = 2_000;
 const STALE_THRESHOLD_MS = 5 * 60 * 1000;
 
 class GiftNiftyFeedService {
