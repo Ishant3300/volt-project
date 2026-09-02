@@ -270,6 +270,7 @@ class MetricsEngine {
       const walletBalances = {
         NSE: Number(wallet?.NSE) || 0,
         MCX: Number(wallet?.MCX) || 0,
+        COMEX: Number(wallet?.COMEX) || 0,
         GLOBAL: Number(wallet?.GLOBAL) || 0,
       };
       const allowedCats = allowedCategories(exchangesAllowed || []);
@@ -507,7 +508,7 @@ class MetricsEngine {
     if (!cache) return null;
 
     const { credit, settledPnl, openPositions, fifoPnl, brokerage, wallet, allowedCategories: allowedCats } = cache;
-    const walletBalances = wallet || { NSE: 0, MCX: 0, GLOBAL: 0 };
+    const walletBalances = wallet || { NSE: 0, MCX: 0, COMEX: 0, GLOBAL: 0 };
     const allowed = allowedCats || [];
 
     let totalFloating = 0;

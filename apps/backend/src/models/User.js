@@ -1,11 +1,13 @@
 const mongoose = require('mongoose');
 
 // Category trade wallet — the available (spendable) balance per category pool
-// (NSE, MCX, GLOBAL). `min: 0` is a schema-level guard; the atomic `$gte` guard
-// in walletService is the real never-negative enforcement (see design §D1).
+// (NSE, MCX, COMEX, GLOBAL). `min: 0` is a schema-level guard; the atomic
+// `$gte` guard in walletService is the real never-negative enforcement (see
+// design §D1).
 const walletSchema = new mongoose.Schema({
   NSE:    { type: Number, default: 0, min: 0 },
   MCX:    { type: Number, default: 0, min: 0 },
+  COMEX:  { type: Number, default: 0, min: 0 },
   GLOBAL: { type: Number, default: 0, min: 0 }
 }, { _id: false });
 
@@ -59,7 +61,7 @@ const userSchema = new mongoose.Schema({
       exchange_name: {
         type: String,
         required: true,
-        enum: ['NSE', 'NFO', 'MCX', 'SGX', 'OTHERS', 'NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'BFO-FUT', 'BFO-OPT', 'INDICES', 'GLOBAL']
+        enum: ['NSE', 'NFO', 'MCX', 'SGX', 'OTHERS', 'NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'BFO-FUT', 'BFO-OPT', 'INDICES', 'GLOBAL', 'CME-FUT', 'COMEX-FUT']
       },
       turnover: {
         type: Boolean,
@@ -83,7 +85,7 @@ const userSchema = new mongoose.Schema({
   trade_limit: {
     type: [String],
     required: true,
-    enum: ['NSE', 'NFO', 'MCX', 'SGX', 'OTHERS', 'NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'BFO-FUT', 'BFO-OPT', 'INDICES', 'GLOBAL'],
+    enum: ['NSE', 'NFO', 'MCX', 'SGX', 'OTHERS', 'NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'BFO-FUT', 'BFO-OPT', 'INDICES', 'GLOBAL', 'CME-FUT', 'COMEX-FUT'],
     default: []
   },
   intraday_squareoff: {
@@ -91,7 +93,7 @@ const userSchema = new mongoose.Schema({
       exchange_name: {
         type: String,
         required: true,
-        enum: ['NSE', 'NFO', 'MCX', 'SGX', 'OTHERS', 'NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'BFO-FUT', 'BFO-OPT', 'INDICES', 'GLOBAL']
+        enum: ['NSE', 'NFO', 'MCX', 'SGX', 'OTHERS', 'NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'BFO-FUT', 'BFO-OPT', 'INDICES', 'GLOBAL', 'CME-FUT', 'COMEX-FUT']
       },
       enabled: {
         type: Boolean,
@@ -115,7 +117,7 @@ const userSchema = new mongoose.Schema({
   // flow; blocked on open / released on close by walletService.
   wallet: {
     type: walletSchema,
-    default: () => ({ NSE: 0, MCX: 0, GLOBAL: 0 })
+    default: () => ({ NSE: 0, MCX: 0, COMEX: 0, GLOBAL: 0 })
   },
   close_only: {
     type: Boolean,
