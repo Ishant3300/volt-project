@@ -366,6 +366,10 @@ const startServer = async () => {
     const giftNiftyFeedService = require('./services/giftNiftyFeedService');
     await giftNiftyFeedService.init(livePriceService);
     _ts('GIFT Nifty NSEIX feed started');
+
+    const massiveFuturesFeedService = require('./services/massiveFuturesFeedService');
+    await massiveFuturesFeedService.init(livePriceService);
+    _ts('CME/COMEX futures feed (Massive) started');
   } else {
     console.log('⏭️  Kite auth & live prices SKIPPED (local dev mode)');
   }
