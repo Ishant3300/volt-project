@@ -1751,7 +1751,7 @@ class _OrdersPageState extends State<OrdersPage> {
           child: Consumer<TradeMetricsProvider>(
             builder: (context, provider, _) {
               // Order NSE, MCX, GLOBAL first; append any other keys after.
-              const order = ['NSE', 'MCX', 'GLOBAL'];
+              const order = ['NSE', 'MCX', 'COMEX', 'GLOBAL'];
               final entries = provider.wallet.entries.toList()
                 ..sort((a, b) {
                   final ia = order.indexOf(a.key);
@@ -1817,7 +1817,7 @@ class _OrdersPageState extends State<OrdersPage> {
         return SafeArea(
           child: Builder(
             builder: (context) {
-              const order = ['NSE', 'MCX', 'GLOBAL'];
+              const order = ['NSE', 'MCX', 'COMEX', 'GLOBAL'];
               final entries = _masterWallet.entries.toList()
                 ..sort((a, b) {
                   final ia = order.indexOf(a.key);
@@ -1884,7 +1884,7 @@ class _OrdersPageState extends State<OrdersPage> {
         return SafeArea(
           child: Builder(
             builder: (context) {
-              const order = ['NSE', 'MCX', 'GLOBAL'];
+              const order = ['NSE', 'MCX', 'COMEX', 'GLOBAL'];
               final entries = wallet.entries.toList()
                 ..sort((a, b) {
                   final ia = order.indexOf(a.key);

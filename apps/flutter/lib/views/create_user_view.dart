@@ -170,7 +170,8 @@ class _CreateUserViewState extends State<CreateUserView> {
           'MCX-FUT',
           'MCX-OPT',
           'SGX',
-          'GLOBAL'
+          'GLOBAL',
+          'COMEX-FUT'
         ];
         masterTradeLimit = [
           'NFO-FUT',
@@ -178,7 +179,8 @@ class _CreateUserViewState extends State<CreateUserView> {
           'MCX-FUT',
           'MCX-OPT',
           'SGX',
-          'GLOBAL'
+          'GLOBAL',
+          'COMEX-FUT'
         ];
       }
     }
@@ -203,7 +205,8 @@ class _CreateUserViewState extends State<CreateUserView> {
         for (var exchange in _allowedExchanges) {
           final isLotSegment = exchange == 'NFO-OPT' ||
               exchange == 'MCX-FUT' ||
-              exchange == 'MCX-OPT';
+              exchange == 'MCX-OPT' ||
+              exchange == 'COMEX-FUT';
           _brokerageSettings[exchange] = {
             'type': isLotSegment ? 'LOT WISE' : 'TURNOVER WISE',
             'value': '',
