@@ -162,12 +162,12 @@ function normalizePriceDates(priceDates, tradingDate) {
   return {
     nse: toIndiaDateOnly(priceDates?.nse || fallback),
     mcx: toIndiaDateOnly(priceDates?.mcx || fallback),
-    // CME/CBOT/COMEX (massiveSettlementService.js) — reuses the same
-    // fallback as nse/mcx. Weekly settlement runs Sunday covering the week
-    // ending Friday, and by then the most recently completed CME/COMEX
-    // session is also Friday's — same calendar date, so no separate
-    // date-resolution scheme is needed here the way bhavcopy's NSE-vs-MCX
-    // calendars require.
+    // GLOBAL index futures (name in GLOBAL_INDEX_NAMES) + COMEX
+    // (massiveSettlementService.js) — reuses the same fallback as nse/mcx.
+    // Weekly settlement runs Sunday covering the week ending Friday, and by
+    // then the most recently completed Massive session is also Friday's —
+    // same calendar date, so no separate date-resolution scheme is needed
+    // here the way bhavcopy's NSE-vs-MCX calendars require.
     global: toIndiaDateOnly(priceDates?.global || fallback),
   };
 }
@@ -1627,8 +1627,10 @@ async function loadCommittedSettlementPrices(runOrId, legacyTradingDate) {
     settlement_price: { $gt: 0 },
     $or: [
       { exchange: 'MCX', settlement_price_date: { $gte: mcxRange.start, $lt: mcxRange.end } },
-      { exchange: { $in: ['CME', 'CBOT', 'COMEX'] }, settlement_price_date: { $gte: globalRange.start, $lt: globalRange.end } },
-      { exchange: { $nin: ['MCX', 'CME', 'CBOT', 'COMEX'] }, settlement_price_date: { $gte: nseRange.start, $lt: nseRange.end } },
+      { exchange: 'COMEX', settlement_price_date: { $gte: globalRange.start, $lt: globalRange.end } },
+      { exchange: 'GLOBAL', name: { $in: GLOBAL_INDEX_NAMES }, settlement_price_date: { $gte: globalRange.start, $lt: globalRange.end } },
+      { exchange: { $nin: ['MCX', 'COMEX', 'GLOBAL'] }, settlement_price_date: { $gte: nseRange.start, $lt: nseRange.end } },
+      { exchange: 'GLOBAL', name: { $nin: GLOBAL_INDEX_NAMES }, settlement_price_date: { $gte: nseRange.start, $lt: nseRange.end } },
     ],
   }).select('instrument_token settlement_price').lean();
 

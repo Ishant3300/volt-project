@@ -1,8 +1,9 @@
 /**
- * Official settlement price for CME/CBOT/COMEX instruments (Massive.com).
+ * Official settlement price for GLOBAL index futures + COMEX instruments
+ * (Massive.com).
  *
  * NSE/BSE/MCX get their official close from a daily bhavcopy file
- * (bhavcopyService.js). Nothing equivalent exists for the CME-FUT/COMEX-FUT
+ * (bhavcopyService.js). Nothing equivalent exists for the GLOBAL/COMEX-FUT
  * instruments added via scripts/seedGlobalFutures.js — without this, weekly
  * settlement's expectedPriceDateForInstrument/hasOfficialSettlementAuthority
  * (settlementService.js) reject every open position on these instruments,
@@ -16,7 +17,7 @@
  * record, plus applying it to the live-price caches so after-hours reads see
  * a fresh number instead of a stale live tick.
  *
- * Scheduling: run daily, safely after the latest CME/COMEX session close
+ * Scheduling: run daily, safely after the latest Massive session close
  * (see cronService.js) — by the time weekly settlement runs (Sunday), the
  * most recently completed session for these instruments is Friday's, the
  * same calendar date NSE/MCX settle on, so this reuses the existing
@@ -79,13 +80,6 @@ async function fetchAndApplyMassiveSettlement(options = {}) {
             settlement_price_date: settlementDate,
             settlement_price_source: source,
             settlement_price_updated_at: new Date(),
-            // Fresh day-range baseline for massiveFuturesFeedService.js's
-            // per-tick $max/$min tracking — without this reset, ohlc_high
-            // would never decrease and ohlc_low would eventually stay
-            // trapped near a stale trough from days ago rather than
-            // reflecting today's actual range.
-            ohlc_high: result.settlementPrice,
-            ohlc_low: result.settlementPrice,
           },
         }
       );

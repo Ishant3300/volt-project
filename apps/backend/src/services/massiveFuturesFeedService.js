@@ -1,5 +1,5 @@
 /**
- * CME/CBOT index futures + COMEX metal futures — live feed (Massive.com).
+ * GLOBAL index futures + COMEX metal futures — live feed (Massive.com).
  *
  * Persistent WebSocket to Massive's real-time futures feed (Quotes for
  * bid/ask, Trades for last price), covering the instruments seeded by
@@ -15,25 +15,25 @@
  */
 
 const WebSocket = require('ws');
+const axios = require('axios');
 const KiteInstrument = require('../models/KiteInstrument');
 const { GLOBAL_INDEX_NAMES, COMEX_METAL_SEGMENT } = require('../constants/massiveInstruments');
 
 const API_KEY = process.env.MASSIVE_API_KEY;
 const WS_URL = 'wss://socket.massive.com/futures';
+const REST_BASE_URL = 'https://api.massive.com';
 const RECONNECT_DELAY_MS = 10_000;
+const OHLC_POLL_INTERVAL_MS = 20_000;
 
 class MassiveFuturesFeedService {
   constructor() {
     this.livePriceService = null;
     this.ws = null;
     this.reconnectTimer = null;
+    this.ohlcPollTimer = null;
     // ticker (Massive's `sym`, e.g. "ESU6") -> instrument_token (ours)
     this.tickerToToken = new Map();
     this._initialized = false;
-    // instrument_token -> epoch ms of the last ohlc_high/ohlc_low DB write —
-    // throttles day-range persistence so a genuinely fast tick stream
-    // doesn't turn into a DB write per tick.
-    this._lastOhlcUpdate = new Map();
   }
 
   async init(livePriceService) {
@@ -53,6 +53,44 @@ class MassiveFuturesFeedService {
     this._initialized = true;
     console.log(`📡 [MassiveFeed] Tracking ${this.tickerToToken.size} contract(s) (GLOBAL index futures + ${COMEX_METAL_SEGMENT})`);
     this._connect();
+
+    this.ohlcPollTimer = setInterval(() => this._pollOhlc(), OHLC_POLL_INTERVAL_MS);
+    this._pollOhlc();
+  }
+
+  /**
+   * Day open/high/low/close for these instruments comes directly from
+   * Massive's own REST aggregates endpoint, not derived from our own tick
+   * stream — the current (possibly still-open) session's bar already has
+   * live-updating open/high/low/close (only settlement_price stays 0 until
+   * the session actually closes), so this is Massive's own authoritative
+   * number, not an approximation built from whatever ticks we happened to
+   * see. Kite's own OHLC quote API has no record of these non-Kite
+   * instruments at all, which is why tradeController.js's High-Low
+   * restriction check previously silently no-opped for everything this
+   * service feeds.
+   */
+  async _pollOhlc() {
+    const entries = [...this.tickerToToken.entries()];
+    await Promise.all(entries.map(async ([ticker, token]) => {
+      try {
+        const { data } = await axios.get(`${REST_BASE_URL}/futures/v1/aggs/${ticker}`, {
+          params: { apiKey: API_KEY, resolution: '1session', limit: 1, sort: 'window_start.desc' },
+          timeout: 8000,
+        });
+        const bar = data.results && data.results[0];
+        if (!bar) return;
+        const update = {};
+        if (Number(bar.open) > 0) update.ohlc_open = Number(bar.open);
+        if (Number(bar.high) > 0) update.ohlc_high = Number(bar.high);
+        if (Number(bar.low) > 0) update.ohlc_low = Number(bar.low);
+        if (Number(bar.close) > 0) update.ohlc_close = Number(bar.close);
+        if (Object.keys(update).length === 0) return;
+        await KiteInstrument.updateOne({ instrument_token: token }, { $set: update });
+      } catch (err) {
+        console.warn(`⚠️  [MassiveFeed] OHLC poll failed for ${ticker}: ${err.message}`);
+      }
+    }));
   }
 
   async _loadTickerMap() {
@@ -145,7 +183,6 @@ class MassiveFuturesFeedService {
     const lastPrice = lastKnown || (Number.isFinite(bidPrice) ? bidPrice : askPrice);
     lps.latestPrices.set(token, lastPrice);
     lps.latestPrices.set(Number(token), lastPrice);
-    this._updateDayRange(token, lastPrice);
 
     const metricsEngine = require('./metricsEngine');
     metricsEngine.onTick(token, lastPrice, bidPrice, askPrice);
@@ -182,32 +219,14 @@ class MassiveFuturesFeedService {
     });
   }
 
-  /**
-   * Persist a running day-high/day-low so tradeController.js's High-Low
-   * restriction check has something to read for these instruments — Kite's
-   * own OHLC quote API has no record of non-Kite (GLOBAL/COMEX) instruments
-   * at all, so that check previously silently no-opped for everything this
-   * service feeds. Fire-and-forget, throttled per instrument so a fast tick
-   * stream doesn't become a DB write per tick. ohlc_high/ohlc_low are reset
-   * to a fresh baseline daily by massiveSettlementService.js, which is what
-   * makes $min meaningful — without a real starting value it would stay
-   * stuck at the schema default of 0 forever.
-   */
-  _updateDayRange(token, price) {
-    const now = Date.now();
-    const last = this._lastOhlcUpdate.get(token) || 0;
-    if (now - last < 2000) return;
-    this._lastOhlcUpdate.set(token, now);
-    KiteInstrument.updateOne(
-      { instrument_token: token },
-      { $max: { ohlc_high: price }, $min: { ohlc_low: price } }
-    ).catch(() => {});
-  }
-
   stop() {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+    if (this.ohlcPollTimer) {
+      clearInterval(this.ohlcPollTimer);
+      this.ohlcPollTimer = null;
     }
     if (this.ws) {
       this.ws.removeAllListeners('close');
