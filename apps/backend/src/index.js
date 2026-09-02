@@ -116,6 +116,7 @@ const messageRoutes = require('./routes/messageRoutes');
 const masterFlowRoutes = require('./routes/masterFlowRoutes');
 const serverRoutes = require('./routes/serverRoutes');
 const tradeRoutes = require('./routes/tradeRoutes');
+const superAdminRoutes = require('./routes/superAdminRoutes');
 
 // Import new models to ensure they're registered
 require('./models/Trade');
@@ -144,6 +145,7 @@ app.use('/api', requirePasswordChanged);
 app.use('/api/auth', authRoutes);
 
 app.use('/api/admin', adminRoutes);
+app.use('/api/super-admin', superAdminRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/kite', kiteRoutes);
 app.use('/api/watchlist', watchlistRoutes);
@@ -360,6 +362,14 @@ const startServer = async () => {
 
     await livePriceService._updateKiteSubscription();
     _ts('Kite subscriptions updated');
+
+    const giftNiftyFeedService = require('./services/giftNiftyFeedService');
+    await giftNiftyFeedService.init(livePriceService);
+    _ts('GIFT Nifty NSEIX feed started');
+
+    const massiveFuturesFeedService = require('./services/massiveFuturesFeedService');
+    await massiveFuturesFeedService.init(livePriceService);
+    _ts('CME/COMEX futures feed (Massive) started');
   } else {
     console.log('⏭️  Kite auth & live prices SKIPPED (local dev mode)');
   }

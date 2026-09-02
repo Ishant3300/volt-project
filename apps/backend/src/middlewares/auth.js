@@ -116,8 +116,20 @@ const authenticateAdmin = async (req, res, next) => {
       });
     }
 
+    if (admin.active_status === false) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not allowed to login',
+        data: null
+      });
+    }
+
     req.user = null;
-    req.admin = decoded;
+    // isSuperAdmin/watchOnly/permissions come from the DB fetch above (not
+    // the JWT payload) so a Super Admin editing an admin's permissions
+    // takes effect on that admin's very next request, not after their
+    // token naturally expires.
+    req.admin = { ...decoded, isSuperAdmin: !!admin.is_super_admin, watchOnly: !!admin.watch_only, permissions: admin.permissions || [], hiddenMasterIds: (admin.hidden_master_ids || []).map((id) => id.toString()) };
     next();
   } catch (error) {
     return res.status(401).json({
@@ -209,8 +221,16 @@ const authenticateAny = async (req, res, next) => {
         });
       }
 
+      if (admin.active_status === false) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not allowed to login',
+          data: null
+        });
+      }
+
       req.user = null;
-      req.admin = decoded;
+      req.admin = { ...decoded, isSuperAdmin: !!admin.is_super_admin, watchOnly: !!admin.watch_only, permissions: admin.permissions || [], hiddenMasterIds: (admin.hidden_master_ids || []).map((id) => id.toString()) };
       req.master = null;
     } else {
       // role === 'master'
@@ -289,9 +309,9 @@ const authenticateOptional = async (req, res, next) => {
     } else if (decoded.role === 'admin') {
       const admin = await Admin.findById(decoded.id);
 
-      if (admin && !admin.deleted_at && admin.active_token === token) {
+      if (admin && !admin.deleted_at && admin.active_token === token && admin.active_status !== false) {
         req.user = null;
-        req.admin = decoded;
+        req.admin = { ...decoded, isSuperAdmin: !!admin.is_super_admin, watchOnly: !!admin.watch_only, permissions: admin.permissions || [], hiddenMasterIds: (admin.hidden_master_ids || []).map((id) => id.toString()) };
       } else {
         req.user = null;
         req.admin = null;
@@ -423,8 +443,16 @@ const authenticateAdminOrMaster = async (req, res, next) => {
         });
       }
 
+      if (admin.active_status === false) {
+        return res.status(403).json({
+          success: false,
+          message: 'You are not allowed to login',
+          data: null
+        });
+      }
+
       req.user = null;
-      req.admin = decoded;
+      req.admin = { ...decoded, isSuperAdmin: !!admin.is_super_admin, watchOnly: !!admin.watch_only, permissions: admin.permissions || [], hiddenMasterIds: (admin.hidden_master_ids || []).map((id) => id.toString()) };
       req.master = null;
     } else {
       // role === 'master'

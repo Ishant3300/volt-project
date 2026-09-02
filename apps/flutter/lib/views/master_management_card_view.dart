@@ -141,7 +141,7 @@ class _MasterManagementCardViewState extends State<MasterManagementCardView> {
         return SafeArea(
           child: Builder(
             builder: (context) {
-              const order = ['NSE', 'MCX', 'GLOBAL'];
+              const order = ['NSE', 'MCX', 'COMEX', 'GLOBAL'];
               final entries = wallet.entries.toList()
                 ..sort((a, b) {
                   final ia = order.indexOf(a.key);

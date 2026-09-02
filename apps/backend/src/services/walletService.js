@@ -39,7 +39,7 @@ const { categoryForSegment } = require('../utils/walletCategory');
 const INSUFFICIENT_WALLET = 'INSUFFICIENT_WALLET';
 
 /** Valid category pools (matches the wallet sub-schema on User/Master). */
-const CATEGORIES = Object.freeze(['NSE', 'MCX', 'GLOBAL']);
+const CATEGORIES = Object.freeze(['NSE', 'MCX', 'COMEX', 'GLOBAL']);
 
 /** Owner/target model discriminators that resolve to a Mongoose model. */
 const OWNER_MODELS = Object.freeze({ User, Master });
@@ -114,7 +114,7 @@ function insufficientWalletError(category, requested) {
 
 /**
  * Read a single owner's raw wallet sub-document (session-aware).
- * @returns {Promise<{NSE:number,MCX:number,GLOBAL:number}>}
+ * @returns {Promise<{NSE:number,MCX:number,COMEX:number,GLOBAL:number}>}
  */
 async function readWallet(Model, ownerId, session = null) {
   let query = Model.findById(ownerId).select('wallet');
@@ -124,6 +124,7 @@ async function readWallet(Model, ownerId, session = null) {
   return {
     NSE: Number(wallet.NSE) || 0,
     MCX: Number(wallet.MCX) || 0,
+    COMEX: Number(wallet.COMEX) || 0,
     GLOBAL: Number(wallet.GLOBAL) || 0,
   };
 }
@@ -457,6 +458,7 @@ async function getAvailable(ownerModel, ownerId, session = null) {
   return {
     NSE: roundMoney(wallet.NSE),
     MCX: roundMoney(wallet.MCX),
+    COMEX: roundMoney(wallet.COMEX),
     GLOBAL: roundMoney(wallet.GLOBAL),
   };
 }
@@ -520,7 +522,8 @@ async function reconcile(ownerModel, ownerId) {
   const segmentByToken = {};
   instruments.forEach((i) => { segmentByToken[i.instrument_token] = i.segment || ''; });
 
-  const blocked = { NSE: 0, MCX: 0, GLOBAL: 0 };
+  const blocked = {};
+  for (const cat of CATEGORIES) blocked[cat] = 0;
   for (const pos of openPositions) {
     const category = categoryForSegment(segmentByToken[pos.token] || '');
     blocked[category] += pos.notional;

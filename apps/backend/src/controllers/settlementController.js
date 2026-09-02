@@ -27,6 +27,11 @@ const getSettlementReport = async (req, res) => {
     }
     const withOpening = with_opening === 'true' || with_opening === '1';
 
+    // Per-admin master-visibility restriction, resolved once and reused
+    // below wherever a target needs checking against it.
+    const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+    const hiddenMasterIds = await resolveHiddenMasterIds(req);
+
     // Resolve + authorize the target. Admin may view anyone (default: the
     // top-level masters list); a master may only view their own account or
     // something in their own full subtree (same getAllSubMasterIds scope
@@ -62,13 +67,19 @@ const getSettlementReport = async (req, res) => {
           return res.status(403).json({ success: false, message: 'Not authorized to view this account', data: null });
         }
       } else {
-        // Admin: any User or Master, no ownership restriction (matches
-        // every other admin-scoped report on this platform).
+        // Admin: any User or Master, except a hidden master (or a hidden
+        // master's user).
         const targetUser = await User.findOne({ _id: target_id, deleted_at: null }).lean();
         if (targetUser) {
+          if (hiddenMasterIds && hiddenMasterIds.has(targetUser.master_id?.toString())) {
+            return res.status(404).json({ success: false, message: 'Account not found', data: null });
+          }
           targetType = 'User';
           targetDoc = targetUser;
         } else {
+          if (hiddenMasterIds && hiddenMasterIds.has(target_id.toString())) {
+            return res.status(404).json({ success: false, message: 'Account not found', data: null });
+          }
           targetType = 'Master';
           targetDoc = await Master.findOne({ _id: target_id, deleted_at: null }).lean();
         }
@@ -79,7 +90,7 @@ const getSettlementReport = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Account not found', data: null });
     }
 
-    const report = await buildSettlementReport(targetType, targetDoc, fromDate, toDate, withOpening);
+    const report = await buildSettlementReport(targetType, targetDoc, fromDate, toDate, withOpening, hiddenMasterIds);
     res.status(200).json({ success: true, message: 'Settlement report', data: report });
   } catch (error) {
     res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });

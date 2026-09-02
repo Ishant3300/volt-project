@@ -3,6 +3,7 @@ const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 const router = express.Router();
 const { authenticateAdminOrMaster } = require('../middlewares/auth');
 const { rejectIfInvestor } = require('../middlewares/rejectIfInvestor');
+const { requireAdminPermission } = require('../middlewares/requireAdminPermission');
 const { escapeRegex } = require('../utils/escapeRegex');
 const User = require('../models/User');
 const Master = require('../models/Master');
@@ -215,10 +216,10 @@ router.get('/positions/live-metrics', getLiveMetrics);
 router.get('/pnl-summary', getPnlSummary);
 
 // Weekly admin report: Master sees per-user, Admin sees per-master
-router.get('/weekly-admin-report', getWeeklyAdminReport);
+router.get('/weekly-admin-report', requireAdminPermission('REPORTS_ACCESS'), getWeeklyAdminReport);
 
 // Settlement report: per-user P&L + brokerage for a given date
-router.get('/settlement-report', getSettlementReport);
+router.get('/settlement-report', requireAdminPermission('REPORTS_ACCESS'), getSettlementReport);
 
 // ============================================
 // Sharing Details Route
@@ -231,6 +232,15 @@ router.get('/sharing-details', async (req, res) => {
 
     // Determine which master's children to fetch
     const targetMasterId = (role === 'admin' && master_id) ? master_id : callerId;
+
+    // A hidden master's sharing config must never be reachable by direct ID.
+    if (role === 'admin' && master_id) {
+      const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+      const hiddenMasterIds = await resolveHiddenMasterIds(req);
+      if (hiddenMasterIds && hiddenMasterIds.has(targetMasterId.toString())) {
+        return res.status(404).json({ success: false, message: 'Master not found', data: null });
+      }
+    }
 
     // Fetch the master itself
     const master = await Master.findOne({ _id: targetMasterId, deleted_at: null })
@@ -283,7 +293,8 @@ router.get('/login-history', async (req, res) => {
     const role = req.admin ? 'admin' : 'master';
     const callerId = req.admin ? req.admin.id : req.master.id;
 
-    // Build filter: admin sees all, master sees own children + self
+    // Build filter: admin sees all except hidden masters' own + their subtree's
+    // history, master sees own children + self
     const filter = {};
     if (role === 'master') {
       // Get child user IDs and child master IDs
@@ -292,6 +303,14 @@ router.get('/login-history', async (req, res) => {
       const mongoose = require('mongoose');
       const selfId = new mongoose.Types.ObjectId(callerId);
       filter.userId = { $in: [selfId, ...childUserIds, ...childMasterIds] };
+    } else {
+      const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+      const hiddenMasterIds = await resolveHiddenMasterIds(req);
+      if (hiddenMasterIds && hiddenMasterIds.size > 0) {
+        const hiddenIdList = [...hiddenMasterIds];
+        const hiddenUserIds = await User.find({ master_id: { $in: hiddenIdList }, deleted_at: null }).distinct('_id');
+        filter.userId = { $nin: [...hiddenIdList, ...hiddenUserIds] };
+      }
     }
 
     if (search) {

@@ -83,8 +83,14 @@ const getWeeklyAdminReport = async (req, res) => {
     let topEntities; // masters to report on (top-level for admin, children for master)
     let callerMaster = null;
 
+    // Per-admin master-visibility restriction — expanded once here (a Set
+    // of every hidden master's full subtree) and reused for both topEntities
+    // and allScopeMasterIds below.
+    const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+    const hiddenMasterIds = await resolveHiddenMasterIds(req);
+
     if (role === 'admin') {
-      topEntities = allMasters.filter(m => !m.master_id);
+      topEntities = allMasters.filter(m => !m.master_id && !(hiddenMasterIds && hiddenMasterIds.has(m._id.toString())));
     } else {
       callerMaster = masterMap[callerId] || null;
       topEntities = masterChildrenMap[callerId] || [];
@@ -93,8 +99,11 @@ const getWeeklyAdminReport = async (req, res) => {
     // 3. Collect ALL master IDs in scope (for all sub-trees we need to report on)
     const allScopeMasterIds = new Set();
     if (role === 'admin') {
-      // Admin sees everything
-      allMasters.forEach(m => allScopeMasterIds.add(m._id.toString()));
+      // Admin sees everything, minus any hidden master's entire subtree.
+      allMasters.forEach(m => {
+        const mid = m._id.toString();
+        if (!hiddenMasterIds || !hiddenMasterIds.has(mid)) allScopeMasterIds.add(mid);
+      });
     } else {
       // Master sees their sub-tree
       const queue = [callerId];

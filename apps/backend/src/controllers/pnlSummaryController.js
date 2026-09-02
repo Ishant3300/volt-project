@@ -28,8 +28,12 @@ const getPnlSummary = async (req, res) => {
     const data = [];
 
     if (role === 'admin') {
-      // Admin: show only top-level masters (master_id = null)
-      const topMasters = await Master.find({ master_id: null, deleted_at: null })
+      // Admin: show only top-level masters (master_id = null), minus any hidden.
+      const topMasterFilter = { master_id: null, deleted_at: null };
+      const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+      const hiddenMasterIds = await resolveHiddenMasterIds(req);
+      if (hiddenMasterIds) topMasterFilter._id = { $nin: [...hiddenMasterIds] };
+      const topMasters = await Master.find(topMasterFilter)
         .select('_id name username').lean();
 
       for (const master of topMasters) {

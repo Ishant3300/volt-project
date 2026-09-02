@@ -43,6 +43,27 @@ class CronService {
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(fetchInstrumentsJob);
 
+        // Official settlement price for CME/CBOT/COMEX instruments (GC/SI/HG,
+        // ES/NQ/YM/RTY/NKD/DVE), daily at 6:00 AM IST. Their session closes
+        // land in the early-morning IST hours (e.g. COMEX ~2:30 AM IST,
+        // CME index futures ~3:30 AM IST) — 6 AM gives comfortable margin
+        // for Massive to have published the completed session's
+        // settlement_price by the time this runs. Without this, weekly
+        // settlement has no official close for these instruments at all and
+        // fails the entire run the moment anyone holds an open position on
+        // one (settlementService.js's hasOfficialSettlementAuthority gate).
+        const massiveSettlementJob = cron.schedule('0 6 * * *', async () => {
+            console.log('📊 [CRON] Fetching CME/CBOT/COMEX official settlement prices (Massive)...');
+            try {
+                const { fetchAndApplyMassiveSettlement } = require('./massiveSettlementService');
+                await fetchAndApplyMassiveSettlement();
+                console.log('✅ [CRON] Massive settlement price fetch completed.');
+            } catch (error) {
+                console.error('❌ [CRON] Error during Massive settlement price fetch:', error);
+            }
+        }, { timezone: 'Asia/Kolkata' });
+        this.jobs.push(massiveSettlementJob);
+
         // Snapshot weekly P&L every Sunday at 23:55 (before midnight balance reset)
         const weeklySummarySnapshot = cron.schedule('55 23 * * 0', async () => {
             console.log('📊 [CRON] Starting Weekly Summary Snapshot...');

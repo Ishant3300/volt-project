@@ -51,6 +51,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     'MCX-OPT': false,
     'SGX': false,
     'GLOBAL': false,
+    'COMEX-FUT': false,
   };
 
   Map<String, bool> _highLowBetweenTradeLimit = {
@@ -60,6 +61,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     'MCX-OPT': false,
     'SGX': false,
     'GLOBAL': false,
+    'COMEX-FUT': false,
   };
 
   // Trade Wallet inputs per allowed category (NSE/MCX/GLOBAL)
@@ -155,7 +157,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     for (var exchange in _exchangeAllow.keys) {
       final isLotSegment = exchange == 'NFO-OPT' ||
           exchange == 'MCX-FUT' ||
-          exchange == 'MCX-OPT';
+          exchange == 'MCX-OPT' ||
+          exchange == 'COMEX-FUT';
       _brokerageSettings[exchange] = {
         'type': isLotSegment ? 'LOT WISE' : 'TURNOVER WISE',
         'value': '',

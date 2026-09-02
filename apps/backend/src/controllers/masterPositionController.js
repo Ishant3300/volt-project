@@ -22,6 +22,13 @@ const getAggregatedPositions = async (req, res) => {
       });
     }
 
+    // Per-admin master-visibility restriction.
+    const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+    const hiddenMasterIds = await resolveHiddenMasterIds(req);
+    if (hiddenMasterIds && hiddenMasterIds.has(masterId.toString())) {
+      return res.status(403).json({ success: false, message: 'Not authorized to view this master\'s positions', data: null });
+    }
+
     // Get all child user IDs for this master (full hierarchy including sub-masters' users)
     const { getAllSubMasterIds } = require('../services/masterHierarchyService');
     const allMasterIds = await getAllSubMasterIds(masterId);
@@ -169,6 +176,13 @@ const getInstrumentUserBreakdown = async (req, res) => {
       });
     }
 
+    // Per-admin master-visibility restriction.
+    const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+    const hiddenMasterIds = await resolveHiddenMasterIds(req);
+    if (hiddenMasterIds && hiddenMasterIds.has(masterId.toString())) {
+      return res.status(403).json({ success: false, message: 'Not authorized to view this master\'s positions', data: null });
+    }
+
     // Get all child user IDs (full hierarchy including sub-masters' users)
     const { getAllSubMasterIds } = require('../services/masterHierarchyService');
     const allMasterIds = await getAllSubMasterIds(masterId);
@@ -310,6 +324,9 @@ const getUserMetrics = async (req, res) => {
     const masterId = req.master?.id ?? req.query.master_id;
     const singleUserId = req.query.user_id;
 
+    const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+    const hiddenMasterIds = await resolveHiddenMasterIds(req);
+
     let childUsers;
     if (singleUserId) {
       const user = await User.findOne({ _id: singleUserId, deleted_at: null })
@@ -324,15 +341,23 @@ const getUserMetrics = async (req, res) => {
           return res.status(403).json({ success: false, message: 'Not authorized to view this user\'s metrics', data: null });
         }
       }
+      // Per-admin master-visibility restriction.
+      if (hiddenMasterIds && user && hiddenMasterIds.has(user.master_id?.toString())) {
+        return res.status(404).json({ success: false, message: 'User not found', data: null });
+      }
       childUsers = user ? [user] : [];
     } else if (masterId) {
+      if (hiddenMasterIds && hiddenMasterIds.has(masterId.toString())) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view this master\'s metrics', data: null });
+      }
       // Get all users under this master AND all sub-masters (full hierarchy)
       const { getAllSubMasterIds } = require('../services/masterHierarchyService');
       const allMasterIds = await getAllSubMasterIds(masterId);
-      childUsers = await User.find({
-        master_id: { $in: allMasterIds },
-        deleted_at: null
-      }).select('_id name username credits balance wallet exchanges_allowed');
+      const userFilter = { master_id: { $in: allMasterIds }, deleted_at: null };
+      if (hiddenMasterIds) {
+        userFilter.master_id.$in = userFilter.master_id.$in.filter((id) => !hiddenMasterIds.has(id.toString()));
+      }
+      childUsers = await User.find(userFilter).select('_id name username credits balance wallet exchanges_allowed');
     } else {
       return res.status(200).json({ success: true, data: [] });
     }
@@ -428,7 +453,13 @@ const getAdminMasterMetrics = async (req, res) => {
 
     const metricsEngine = require('../services/metricsEngine');
     // Only fetch top-level masters (master_id: null) — same hierarchy as user management
-    const masters = await Master.find({ master_id: null, deleted_at: null }).select('_id name username');
+    const masterFilter = { master_id: null, deleted_at: null };
+    const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+    const hiddenMasterIds = await resolveHiddenMasterIds(req);
+    if (hiddenMasterIds) {
+      masterFilter._id = { $nin: [...hiddenMasterIds] };
+    }
+    const masters = await Master.find(masterFilter).select('_id name username');
 
     if (masters.length === 0) {
       return res.status(200).json({ success: true, data: [] });
@@ -549,8 +580,19 @@ const getBulkEquity = async (req, res) => {
 
     let users, childMasters;
     if (isAdmin) {
-      users = await User.find({ deleted_at: null }).select('_id credits');
-      childMasters = await Master.find({ deleted_at: null }).select('_id');
+      // Per-admin master-visibility restriction.
+      const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+      const hiddenMasterIds = await resolveHiddenMasterIds(req);
+      const hiddenFilter = hiddenMasterIds ? { $nin: [...hiddenMasterIds] } : undefined;
+
+      users = await User.find({
+        deleted_at: null,
+        ...(hiddenFilter ? { master_id: hiddenFilter } : {}),
+      }).select('_id credits');
+      childMasters = await Master.find({
+        deleted_at: null,
+        ...(hiddenFilter ? { _id: hiddenFilter } : {}),
+      }).select('_id');
     } else if (masterId) {
       users = await User.find({ master_id: masterId, deleted_at: null }).select('_id credits');
       childMasters = await Master.find({ master_id: masterId, deleted_at: null }).select('_id');
@@ -649,6 +691,22 @@ const getLiveMetrics = async (req, res) => {
 
       if (master_id && !allowedMasterIds.includes(master_id.toString())) {
         return res.status(403).json({ success: false, message: 'Not authorized to view this master\'s metrics', data: null });
+      }
+    }
+
+    // Per-admin master-visibility restriction.
+    const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+    const hiddenMasterIds = await resolveHiddenMasterIds(req);
+    if (hiddenMasterIds) {
+      if (master_id && hiddenMasterIds.has(master_id.toString())) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view this master\'s metrics', data: null });
+      }
+      if (user_id) {
+        const User = require('../models/User');
+        const targetUser = await User.findById(user_id).select('master_id').lean();
+        if (targetUser && hiddenMasterIds.has(targetUser.master_id?.toString())) {
+          return res.status(404).json({ success: false, message: 'User not found', data: null });
+        }
       }
     }
 

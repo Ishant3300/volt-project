@@ -3,36 +3,40 @@
 /**
  * Wallet category helpers.
  *
- * Every user/master trade wallet is split into three category pools: NSE, MCX
- * and GLOBAL. A trade's segment — and an account's allowed exchanges — map into
- * exactly one of these categories via a fixed rule:
+ * Every user/master trade wallet is split into four category pools: NSE, MCX,
+ * COMEX and GLOBAL. A trade's segment — and an account's allowed exchanges —
+ * map into exactly one of these categories via a fixed rule:
  *
  *   NFO-FUT, NFO-OPT  -> NSE
  *   MCX-FUT, MCX-OPT  -> MCX
+ *   COMEX-FUT         -> COMEX  (GC/SI/HG — no COMEX options; kept separate
+ *                                 from GLOBAL by design, not lumped in with
+ *                                 the CME index-futures set below)
  *   everything else   -> GLOBAL   (SGX, INDICES, GLOBAL, BFO-FUT, BFO-OPT,
- *                                  NSE, NFO, OTHERS, ...)
+ *                                  NSE, NFO, CME-FUT, OTHERS, ...)
  *
  * This is the single source of truth for the mapping, mirrored in the Flutter
  * client for display only.
  */
 
-const CATEGORY = Object.freeze({ NSE: 'NSE', MCX: 'MCX', GLOBAL: 'GLOBAL' });
+const CATEGORY = Object.freeze({ NSE: 'NSE', MCX: 'MCX', COMEX: 'COMEX', GLOBAL: 'GLOBAL' });
 
 // Canonical order used when returning a distinct set of categories, so callers
 // (and tests) get a deterministic result regardless of input ordering.
-const CATEGORY_ORDER = Object.freeze([CATEGORY.NSE, CATEGORY.MCX, CATEGORY.GLOBAL]);
+const CATEGORY_ORDER = Object.freeze([CATEGORY.NSE, CATEGORY.MCX, CATEGORY.COMEX, CATEGORY.GLOBAL]);
 
 /**
  * Map a segment / exchange name to its wallet category.
  * Case-insensitive; anything unrecognised falls back to GLOBAL.
  *
- * @param {string} [segment] - e.g. 'NFO-FUT', 'MCX-OPT', 'SGX'
- * @returns {'NSE'|'MCX'|'GLOBAL'}
+ * @param {string} [segment] - e.g. 'NFO-FUT', 'MCX-OPT', 'SGX', 'COMEX-FUT'
+ * @returns {'NSE'|'MCX'|'COMEX'|'GLOBAL'}
  */
 function categoryForSegment(segment = '') {
   const s = String(segment == null ? '' : segment).trim().toUpperCase();
   if (s === 'NFO-FUT' || s === 'NFO-OPT') return CATEGORY.NSE;
   if (s === 'MCX-FUT' || s === 'MCX-OPT') return CATEGORY.MCX;
+  if (s === 'COMEX-FUT') return CATEGORY.COMEX;
   return CATEGORY.GLOBAL;
 }
 

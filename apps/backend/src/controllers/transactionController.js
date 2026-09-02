@@ -39,6 +39,25 @@ const getTransactionHistory = async (req, res) => {
       }
     }
 
+    // Per-admin master-visibility restriction.
+    if (req.admin && target_model !== 'Admin') {
+      const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+      const hiddenMasterIds = await resolveHiddenMasterIds(req);
+      if (hiddenMasterIds) {
+        if (target_model === 'Master') {
+          if (hiddenMasterIds.has(target_id.toString())) {
+            return res.status(404).json({ success: false, message: 'Master not found' });
+          }
+        } else {
+          const User = require('../models/User');
+          const targetUser = await User.findById(target_id).select('master_id').lean();
+          if (targetUser && hiddenMasterIds.has(targetUser.master_id?.toString())) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+          }
+        }
+      }
+    }
+
     const filter = {
       userId: new mongoose.Types.ObjectId(target_id),
       userModel: target_model,

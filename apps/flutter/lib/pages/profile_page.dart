@@ -9,6 +9,7 @@ import '../views/reports_view.dart';
 import '../views/manage_reports_view.dart';
 import '../views/settings_view.dart';
 import '../views/admin_settings_view.dart';
+import '../views/manage_admins_view.dart';
 import '../services/sercure_storage_service.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
@@ -488,6 +489,13 @@ class _ProfilePageState extends State<ProfilePage> {
                       Builder(builder: (context) {
                         return const SizedBox.shrink();
                       }),
+                    if (Provider.of<UserProfileProvider>(context,
+                            listen: false)
+                        .isSuperAdmin) ...[
+                      _buildMenuItem(context, 'Manage Admins',
+                          icon: Icons.admin_panel_settings_outlined),
+                      _buildDivider(),
+                    ],
                     _buildMenuItem(context, 'Account Detail',
                         svgPath: kIconAccountDetails),
                     _buildDivider(),
@@ -574,6 +582,12 @@ class _ProfilePageState extends State<ProfilePage> {
                   context,
                   MaterialPageRoute(
                       builder: (context) => const AdminSettingsView()),
+                );
+              } else if (title == 'Manage Admins') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const ManageAdminsView()),
                 );
               } else if (title == 'Account Detail') {
                 Navigator.push(

@@ -31,6 +31,22 @@ class UserProfileProvider with ChangeNotifier {
   bool get isMaster => _role == 'MASTER';
   bool get isUser => _role == 'USER';
 
+  /// Super Admin is an Admin with one extra capability (manage other
+  /// Admins) — never a separate role string, just this flag on top of
+  /// isAdmin. Populated from GET /api/admin/profile's is_super_admin field.
+  bool get isSuperAdmin => isAdmin && _admin is Map && _admin['is_super_admin'] == true;
+
+  /// A regular (non-super) Admin's granted permission keys — empty for
+  /// Super Admin (never gated by this list) and for every other role.
+  List<String> get adminPermissions {
+    if (!isAdmin || _admin is! Map) return [];
+    final raw = _admin['permissions'];
+    if (raw is! List) return [];
+    return raw.map((e) => e.toString()).toList();
+  }
+
+  bool get isWatchOnlyAdmin => isAdmin && _admin is Map && _admin['watch_only'] == true;
+
   // Check if master can add child masters
   bool get canAddMaster {
     if (_master != null) {

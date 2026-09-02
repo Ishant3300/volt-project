@@ -26,6 +26,10 @@ const getAccountSummary = async (req, res) => {
     const role = req.admin ? 'admin' : req.master ? 'master' : 'user';
     const callerId = req.admin?.id || req.master?.id || req.user?.id;
 
+    // Per-admin master-visibility restriction.
+    const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+    const hiddenMasterIds = await resolveHiddenMasterIds(req);
+
     // Resolve target user(s)
     let targetUserIds = [];
     if (role === 'user') {
@@ -42,6 +46,12 @@ const getAccountSummary = async (req, res) => {
           return res.status(403).json({ success: false, message: 'Not authorized to view this user\'s account summary' });
         }
       }
+      if (role === 'admin' && hiddenMasterIds) {
+        const targetUser = await User.findById(user_id).select('master_id').lean();
+        if (targetUser && hiddenMasterIds.has(targetUser.master_id?.toString())) {
+          return res.status(404).json({ success: false, message: 'User not found' });
+        }
+      }
       targetUserIds = [new mongoose.Types.ObjectId(user_id)];
     } else if (role === 'master') {
       const { getAllSubMasterIds } = require('../services/masterHierarchyService');
@@ -49,8 +59,10 @@ const getAccountSummary = async (req, res) => {
       const users = await User.find({ master_id: { $in: allMasterIds }, deleted_at: null }).select('_id').lean();
       targetUserIds = users.map(u => u._id);
     } else {
-      // Admin, no user selected — get all users
-      const users = await User.find({ deleted_at: null }).select('_id').lean();
+      // Admin, no user selected — get all users, minus any hidden master's.
+      const userFilter = { deleted_at: null };
+      if (hiddenMasterIds) userFilter.master_id = { $nin: [...hiddenMasterIds] };
+      const users = await User.find(userFilter).select('_id').lean();
       targetUserIds = users.map(u => u._id);
     }
 

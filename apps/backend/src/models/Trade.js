@@ -36,7 +36,7 @@ const tradeSchema = new mongoose.Schema({
   exchange: {
     type: String,
     required: true,
-    enum: ['NSE', 'BSE', 'NFO', 'BFO', 'MCX', 'CDS', 'NSEIX', 'GLOBAL', 'SGX', 'NCO', 'BCO', 'BCD']
+    enum: ['NSE', 'BSE', 'NFO', 'BFO', 'MCX', 'CDS', 'NSEIX', 'GLOBAL', 'SGX', 'NCO', 'BCO', 'BCD', 'CME', 'CBOT', 'COMEX']
   },
   transaction_type: {
     type: String,
@@ -111,6 +111,12 @@ const tradeSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  // Links a rollover's close leg and reopen leg together for reporting/audit.
+  // Null for every other trade.
+  rollover_group_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    default: null
+  },
   deleted_at: {
     type: Date,
     default: null
@@ -171,5 +177,8 @@ tradeSchema.index({ status: 1, deleted_at: 1 });
 
 // ─── NEW: Deleted trades listing ───
 tradeSchema.index({ deleted_at: 1, updatedAt: -1 });
+
+// ─── NEW: Rollover close/reopen leg pairing ───
+tradeSchema.index({ rollover_group_id: 1 });
 
 module.exports = mongoose.model('Trade', tradeSchema);
