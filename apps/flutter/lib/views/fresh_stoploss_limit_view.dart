@@ -15,7 +15,7 @@ class FreshStoplossLimitView extends StatefulWidget {
 class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
   String? _selectedExchange;
   final List<String> _exchanges = [
-    'NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'GLOBAL', 'SGX'
+    'NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'COMEX-FUT', 'GLOBAL', 'SGX'
   ];
   List<Map<String, dynamic>> _limits = [];
   bool _isLoading = false;

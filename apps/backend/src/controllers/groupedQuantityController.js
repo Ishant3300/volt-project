@@ -66,7 +66,10 @@ const getUniqueRawNamesBySegment = async (req, res) => {
     } else if (normalizedSegment === 'MCX-OPT') {
       filter.segment = 'MCX-OPT';
     } else if (normalizedSegment === 'INDICES') {
-      filter.segment = 'INDICES';
+      // Massive-fed index futures (S&P 500/Nasdaq 100/Dow Jones 30/Russell
+      // 2000/Nikkei 225) were seeded with segment: 'GLOBAL', not 'INDICES'
+      // (see seedGlobalFutures.js) — match both or they never show up here.
+      filter.segment = { $in: ['INDICES', 'GLOBAL'] };
     } else if (normalizedSegment === 'NSE') {
       filter.exchange = 'NSE';
       filter.instrument_type = 'EQ';
@@ -144,7 +147,7 @@ const bulkCreateGroup = async (req, res) => {
     } else if (normalizedExchange === 'MCX-OPT') {
       filter.segment = 'MCX-OPT';
     } else if (normalizedExchange === 'INDICES') {
-      filter.segment = 'INDICES';
+      filter.segment = { $in: ['INDICES', 'GLOBAL'] };
     } else if (normalizedExchange === 'NSE') {
       filter.exchange = 'NSE';
       filter.instrument_type = 'EQ';
@@ -285,7 +288,12 @@ function buildSegmentFilter(segment) {
   else if (normalized === 'NFO-OPT') filter.segment = 'NFO-OPT';
   else if (normalized === 'MCX-FUT') filter.segment = 'MCX-FUT';
   else if (normalized === 'MCX-OPT') filter.segment = 'MCX-OPT';
-  else if (normalized === 'INDICES') filter.segment = 'INDICES';
+  // GLOBAL tab sends 'INDICES' (legacy naming) — but the Massive-fed index
+  // futures (S&P 500/Nasdaq 100/Dow Jones 30/Russell 2000/Nikkei 225) were
+  // seeded with segment: 'GLOBAL', not 'INDICES' (see seedGlobalFutures.js),
+  // so both must match or those scripts silently never appear in any
+  // bulk-create built from this filter.
+  else if (normalized === 'INDICES') filter.segment = { $in: ['INDICES', 'GLOBAL'] };
   else if (normalized === 'NSE') { filter.exchange = 'NSE'; filter.instrument_type = 'EQ'; }
   else filter.segment = normalized;
   return filter;

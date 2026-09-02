@@ -35,7 +35,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
   final TextEditingController _searchCtrl = TextEditingController();
 
   /// Segments where values are in lots (not raw quantity)
-  static const _lotBasedSegments = {'NFO-OPT', 'MCX-FUT', 'MCX-OPT'};
+  static const _lotBasedSegments = {'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'COMEX-FUT'};
 
   /// Map GLOBAL → INDICES for backend segment matching
   String get _effectiveExchange =>

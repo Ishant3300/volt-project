@@ -27,11 +27,12 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
     'NFO-OPT',
     'MCX-FUT',
     'MCX-OPT',
+    'COMEX-FUT',
     'GLOBAL',
     'SGX'
   ];
   final _types = ['TURNOVER WISE', 'LOT WISE'];
-  static const _lotWiseSegments = {'NFO-OPT', 'MCX-FUT', 'MCX-OPT'};
+  static const _lotWiseSegments = {'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'COMEX-FUT'};
   List<Map<String, dynamic>> _items = [];
   Map<String, bool> _selected = {};
   bool _isLoading = false;

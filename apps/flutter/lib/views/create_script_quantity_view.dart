@@ -27,6 +27,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
     'NFO-OPT',
     'MCX-FUT',
     'MCX-OPT',
+    'COMEX-FUT',
     'GLOBAL',
     'SGX'
   ];

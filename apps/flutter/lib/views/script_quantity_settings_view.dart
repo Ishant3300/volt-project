@@ -26,7 +26,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
   final SecureStorageService _storage = SecureStorageService();
   
   String? _selectedExchange;
-  final _exchanges = ['NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'GLOBAL', 'SGX'];
+  final _exchanges = ['NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'COMEX-FUT', 'GLOBAL', 'SGX'];
   List<ScriptQuantity> _scriptItems = [];
   List<ScriptQuantity> _filteredItems = [];
   Set<String> _selectedIds = {};

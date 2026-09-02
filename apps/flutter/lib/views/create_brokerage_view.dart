@@ -24,6 +24,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
     'NFO-OPT',
     'MCX-FUT',
     'MCX-OPT',
+    'COMEX-FUT',
     'GLOBAL',
     'SGX'
   ];

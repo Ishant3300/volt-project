@@ -22,6 +22,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
     'NFO-OPT',
     'MCX-FUT',
     'MCX-OPT',
+    'COMEX-FUT',
     'GLOBAL',
     'SGX'
   ];

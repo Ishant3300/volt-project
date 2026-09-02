@@ -41,7 +41,10 @@ const bulkCreateFreshStoplossLimits = async (req, res) => {
     // Build filter matching the same logic as getUniqueRawNamesBySegment
     let filter = { is_active: true };
     if (seg === 'INDICES' || seg === 'GLOBAL') {
-      filter.segment = 'INDICES';
+      // Massive-fed index futures (S&P 500/Nasdaq 100/Dow Jones 30/Russell
+      // 2000/Nikkei 225) were seeded with segment: 'GLOBAL', not 'INDICES'
+      // (see seedGlobalFutures.js) — match both or they never show up here.
+      filter.segment = { $in: ['INDICES', 'GLOBAL'] };
     } else if (seg === 'NSE') {
       filter.exchange = 'NSE';
       filter.instrument_type = 'EQ';

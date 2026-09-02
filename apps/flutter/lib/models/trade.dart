@@ -54,10 +54,10 @@ class Trade {
   });
 
   /// True when this trade should be displayed in lots instead of raw quantity.
-  /// Only MCX-FUT, MCX-OPT, NFO-OPT use lots. Everything else (NFO-FUT, GLOBAL, etc.) uses quantity.
+  /// Only MCX-FUT, MCX-OPT, NFO-OPT, COMEX-FUT use lots. Everything else (NFO-FUT, GLOBAL, etc.) uses quantity.
   bool get isLotBased {
     final seg = segment.toUpperCase();
-    return seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-OPT';
+    return seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-OPT' || seg == 'COMEX-FUT';
   }
 
   /// Lot count: quantity ÷ lotSize, rounded. Returns raw quantity if lotSize ≤ 0.
