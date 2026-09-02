@@ -161,6 +161,13 @@ function normalizePriceDates(priceDates, tradingDate) {
   return {
     nse: toIndiaDateOnly(priceDates?.nse || fallback),
     mcx: toIndiaDateOnly(priceDates?.mcx || fallback),
+    // CME/CBOT/COMEX (massiveSettlementService.js) — reuses the same
+    // fallback as nse/mcx. Weekly settlement runs Sunday covering the week
+    // ending Friday, and by then the most recently completed CME/COMEX
+    // session is also Friday's — same calendar date, so no separate
+    // date-resolution scheme is needed here the way bhavcopy's NSE-vs-MCX
+    // calendars require.
+    global: toIndiaDateOnly(priceDates?.global || fallback),
   };
 }
 
@@ -176,6 +183,7 @@ function expectedPriceDateForInstrument(run, instrument) {
   // target date from the same nseDate, not a separate calendar) — reusing
   // price_dates.nse here stays consistent with that, not a mix-up.
   if (['NFO', 'NSE', 'BFO', 'BSE'].includes(instrument?.exchange)) return run.price_dates?.nse;
+  if (['CME', 'CBOT', 'COMEX'].includes(instrument?.exchange)) return run.price_dates?.global;
   return null;
 }
 
@@ -189,6 +197,9 @@ function hasOfficialSettlementAuthority(instrument) {
   if (['BFO', 'BSE'].includes(instrument?.exchange)) return source.startsWith('BSE_OFFICIAL_BHAVCOPY_');
   if (['NFO', 'NSE'].includes(instrument?.exchange)) {
     return source.startsWith('NSE_OFFICIAL_BHAVCOPY_');
+  }
+  if (['CME', 'CBOT', 'COMEX'].includes(instrument?.exchange)) {
+    return source.startsWith('MASSIVE_OFFICIAL_SESSION_');
   }
   return false;
 }
@@ -1596,13 +1607,15 @@ async function loadCommittedSettlementPrices(runOrId, legacyTradingDate) {
   const priceDates = normalizePriceDates(run.price_dates, legacyTradingDate || run.trading_date);
   const nseRange = dateRange(priceDates.nse);
   const mcxRange = dateRange(priceDates.mcx);
+  const globalRange = dateRange(priceDates.global);
   const instruments = await KiteInstrument.find({
     is_active: true,
     deleted_at: null,
     settlement_price: { $gt: 0 },
     $or: [
       { exchange: 'MCX', settlement_price_date: { $gte: mcxRange.start, $lt: mcxRange.end } },
-      { exchange: { $ne: 'MCX' }, settlement_price_date: { $gte: nseRange.start, $lt: nseRange.end } },
+      { exchange: { $in: ['CME', 'CBOT', 'COMEX'] }, settlement_price_date: { $gte: globalRange.start, $lt: globalRange.end } },
+      { exchange: { $nin: ['MCX', 'CME', 'CBOT', 'COMEX'] }, settlement_price_date: { $gte: nseRange.start, $lt: nseRange.end } },
     ],
   }).select('instrument_token settlement_price').lean();
 
