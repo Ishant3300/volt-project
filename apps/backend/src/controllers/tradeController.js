@@ -615,7 +615,12 @@ const placeTrade = async (req, res) => {
                 );
 
                 if (!tradeLimitEnabled) {
-                    // Button OFF: orders must go beyond High/Low
+                    // Button OFF: Buy limit must clear whichever is HIGHER of Day
+                    // High or (CMP + offset); Sell limit must clear whichever is
+                    // LOWER of Day Low or (CMP - offset). A limit order can never
+                    // fill at a price better than today's actual range — it can
+                    // only fill at a genuine breakout (buy) or breakdown (sell)
+                    // level, never at an artificially favourable price inside it.
                     try {
                         const kiteInstHL = await KiteInstrument.findOne({ instrument_token }).select('exchange tradingsymbol').lean();
                         if (kiteInstHL) {
@@ -634,18 +639,27 @@ const placeTrade = async (req, res) => {
                             });
                             const hlOffset = fslLimitHL?.price_offset || 0;
 
-                            console.log(`📊 [HighLow] segment=${tradeLimitSegment}, enabled=${tradeLimitEnabled}, high=${dayHigh}, low=${dayLow}, offset=${hlOffset}, price=${price}, type=${transaction_type}`);
+                            const metricsEngHL = require('../services/metricsEngine');
+                            const livePriceSvcHL = require('../services/livePriceService');
+                            const tokenStrHL = instrument_token.toString();
+                            const tokenIntHL = parseInt(instrument_token);
+                            const cmpHL = metricsEngHL._ltpMap?.get(tokenStrHL)
+                                || livePriceSvcHL.latestPrices?.get(tokenStrHL)
+                                || livePriceSvcHL.latestPrices?.get(tokenIntHL)
+                                || null;
 
-                            if (dayHigh && dayLow && dayHigh > 0 && dayLow > 0) {
+                            console.log(`📊 [HighLow] segment=${tradeLimitSegment}, enabled=${tradeLimitEnabled}, high=${dayHigh}, low=${dayLow}, cmp=${cmpHL}, offset=${hlOffset}, price=${price}, type=${transaction_type}`);
+
+                            if (dayHigh && dayLow && dayHigh > 0 && dayLow > 0 && cmpHL && cmpHL > 0) {
                                 if (transaction_type === 'BUY') {
-                                    const maxBuyPrice = dayLow - hlOffset;
-                                    if (price > maxBuyPrice) {
-                                        throw new Error(`High-Low restriction: Buy limit must be at or below ₹${maxBuyPrice.toFixed(2)} (Day Low ₹${dayLow.toFixed(2)} - offset ₹${hlOffset}). Orders within High-Low range not allowed.`);
+                                    const minBuyPrice = Math.max(dayHigh, cmpHL + hlOffset);
+                                    if (price <= minBuyPrice) {
+                                        throw new Error(`High-Low restriction: Buy limit must be above ₹${minBuyPrice.toFixed(2)} (Day High ₹${dayHigh.toFixed(2)} vs CMP ₹${cmpHL.toFixed(2)} + offset ₹${hlOffset}, whichever is higher).`);
                                     }
                                 } else if (transaction_type === 'SELL') {
-                                    const minSellPrice = dayHigh + hlOffset;
-                                    if (price < minSellPrice) {
-                                        throw new Error(`High-Low restriction: Sell limit must be at or above ₹${minSellPrice.toFixed(2)} (Day High ₹${dayHigh.toFixed(2)} + offset ₹${hlOffset}). Orders within High-Low range not allowed.`);
+                                    const maxSellPrice = Math.min(dayLow, cmpHL - hlOffset);
+                                    if (price >= maxSellPrice) {
+                                        throw new Error(`High-Low restriction: Sell limit must be below ₹${maxSellPrice.toFixed(2)} (Day Low ₹${dayLow.toFixed(2)} vs CMP ₹${cmpHL.toFixed(2)} - offset ₹${hlOffset}, whichever is lower).`);
                                     }
                                 }
                             }
