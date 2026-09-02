@@ -61,7 +61,7 @@ const userSchema = new mongoose.Schema({
       exchange_name: {
         type: String,
         required: true,
-        enum: ['NSE', 'NFO', 'MCX', 'SGX', 'OTHERS', 'NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'BFO-FUT', 'BFO-OPT', 'INDICES', 'GLOBAL', 'CME-FUT', 'COMEX-FUT']
+        enum: ['NSE', 'NFO', 'MCX', 'SGX', 'OTHERS', 'NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'BFO-FUT', 'BFO-OPT', 'INDICES', 'GLOBAL', 'COMEX-FUT']
       },
       turnover: {
         type: Boolean,
@@ -85,7 +85,7 @@ const userSchema = new mongoose.Schema({
   trade_limit: {
     type: [String],
     required: true,
-    enum: ['NSE', 'NFO', 'MCX', 'SGX', 'OTHERS', 'NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'BFO-FUT', 'BFO-OPT', 'INDICES', 'GLOBAL', 'CME-FUT', 'COMEX-FUT'],
+    enum: ['NSE', 'NFO', 'MCX', 'SGX', 'OTHERS', 'NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'BFO-FUT', 'BFO-OPT', 'INDICES', 'GLOBAL', 'COMEX-FUT'],
     default: []
   },
   intraday_squareoff: {
@@ -93,7 +93,7 @@ const userSchema = new mongoose.Schema({
       exchange_name: {
         type: String,
         required: true,
-        enum: ['NSE', 'NFO', 'MCX', 'SGX', 'OTHERS', 'NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'BFO-FUT', 'BFO-OPT', 'INDICES', 'GLOBAL', 'CME-FUT', 'COMEX-FUT']
+        enum: ['NSE', 'NFO', 'MCX', 'SGX', 'OTHERS', 'NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'BFO-FUT', 'BFO-OPT', 'INDICES', 'GLOBAL', 'COMEX-FUT']
       },
       enabled: {
         type: Boolean,

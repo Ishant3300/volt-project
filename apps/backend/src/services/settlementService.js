@@ -12,6 +12,7 @@ const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 const crypto = require('crypto');
 const os = require('os');
+const { GLOBAL_INDEX_NAMES } = require('../constants/massiveInstruments');
 const mongoose = require('mongoose');
 const BrokerageSettings = require('../models/BrokerageSettings');
 const KiteInstrument = require('../models/KiteInstrument');
@@ -183,7 +184,12 @@ function expectedPriceDateForInstrument(run, instrument) {
   // target date from the same nseDate, not a separate calendar) — reusing
   // price_dates.nse here stays consistent with that, not a mix-up.
   if (['NFO', 'NSE', 'BFO', 'BSE'].includes(instrument?.exchange)) return run.price_dates?.nse;
-  if (['CME', 'CBOT', 'COMEX'].includes(instrument?.exchange)) return run.price_dates?.global;
+  if (instrument?.exchange === 'COMEX') return run.price_dates?.global;
+  // GLOBAL is shared with non-Massive instruments (GIFT Nifty, legacy
+  // instruments) — only the specific index-future names Massive feeds get
+  // an official settlement date; everything else on GLOBAL/SGX correctly
+  // stays unsupported (null), same pre-existing behaviour as before.
+  if (instrument?.exchange === 'GLOBAL' && GLOBAL_INDEX_NAMES.includes(instrument?.name)) return run.price_dates?.global;
   return null;
 }
 
@@ -198,7 +204,14 @@ function hasOfficialSettlementAuthority(instrument) {
   if (['NFO', 'NSE'].includes(instrument?.exchange)) {
     return source.startsWith('NSE_OFFICIAL_BHAVCOPY_');
   }
-  if (['CME', 'CBOT', 'COMEX'].includes(instrument?.exchange)) {
+  if (instrument?.exchange === 'COMEX') {
+    return source.startsWith('MASSIVE_OFFICIAL_SESSION_');
+  }
+  // Same GLOBAL-is-shared caveat as expectedPriceDateForInstrument above —
+  // gated to the specific Massive-fed index-future names so a legacy
+  // GLOBAL/SGX instrument (which never gets this source prefix) can't
+  // accidentally pass this check.
+  if (instrument?.exchange === 'GLOBAL' && GLOBAL_INDEX_NAMES.includes(instrument?.name)) {
     return source.startsWith('MASSIVE_OFFICIAL_SESSION_');
   }
   return false;

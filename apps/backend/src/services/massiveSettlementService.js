@@ -27,10 +27,10 @@
 const axios = require('axios');
 const KiteInstrument = require('../models/KiteInstrument');
 const { toIndiaDateOnly } = require('../utils/settlementDates');
+const { GLOBAL_INDEX_NAMES, COMEX_METAL_SEGMENT } = require('../constants/massiveInstruments');
 
 const API_KEY = process.env.MASSIVE_API_KEY;
 const BASE_URL = 'https://api.massive.com';
-const SEGMENTS = ['CME-FUT', 'COMEX-FUT'];
 
 async function fetchLatestSessionSettlement(ticker) {
   // limit=1 would always return TODAY's still-in-progress session, whose
@@ -51,7 +51,10 @@ async function fetchAndApplyMassiveSettlement(options = {}) {
   }
 
   const instruments = await KiteInstrument.find({
-    segment: { $in: SEGMENTS },
+    $or: [
+      { segment: 'GLOBAL', name: { $in: GLOBAL_INDEX_NAMES } },
+      { segment: COMEX_METAL_SEGMENT },
+    ],
     deleted_at: null,
     is_active: true,
   }).select('instrument_token tradingsymbol exchange').lean();

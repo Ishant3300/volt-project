@@ -31,12 +31,21 @@ const CONTRACTS_PER_PRODUCT = 3; // front month + next 2, enough for rollover's 
 // name/exchange/segment are ours to choose (Massive doesn't return a
 // tradable display name for the product); index/name come from Massive's
 // Products response, contract specs from its Contracts response.
+// Index futures (ES/NQ/YM/RTY/NKD) deliberately use the platform's existing
+// 'GLOBAL' segment/exchange — not a new 'CME-FUT' string — so they inherit
+// every piece of GLOBAL-aware code that already exists (instrumentSearchService's
+// search-category bucket, exchanges_allowed, wallet category) with zero
+// further changes needed anywhere else. A brand-new segment string that
+// nothing else recognized was the actual root cause of "shows in some
+// places, not others." COMEX (GC/SI/HG) stays its own distinct segment —
+// it already has its own dedicated wallet pool, unlike the index futures
+// which share GLOBAL with everything else non-NSE/MCX/COMEX.
 const PRODUCTS = [
-  { code: 'ES', name: 'E-mini S&P 500', exchange: 'CME', segment: 'CME-FUT', tokenIndex: 0 },
-  { code: 'NQ', name: 'E-mini Nasdaq-100', exchange: 'CME', segment: 'CME-FUT', tokenIndex: 1 },
-  { code: 'YM', name: 'E-mini Dow Jones', exchange: 'CBOT', segment: 'CME-FUT', tokenIndex: 2 },
-  { code: 'RTY', name: 'E-mini Russell 2000', exchange: 'CME', segment: 'CME-FUT', tokenIndex: 3 },
-  { code: 'NKD', name: 'Nikkei 225 (USD)', exchange: 'CME', segment: 'CME-FUT', tokenIndex: 4 },
+  { code: 'ES', name: 'E-mini S&P 500', exchange: 'GLOBAL', segment: 'GLOBAL', tokenIndex: 0 },
+  { code: 'NQ', name: 'E-mini Nasdaq-100', exchange: 'GLOBAL', segment: 'GLOBAL', tokenIndex: 1 },
+  { code: 'YM', name: 'E-mini Dow Jones', exchange: 'GLOBAL', segment: 'GLOBAL', tokenIndex: 2 },
+  { code: 'RTY', name: 'E-mini Russell 2000', exchange: 'GLOBAL', segment: 'GLOBAL', tokenIndex: 3 },
+  { code: 'NKD', name: 'Nikkei 225 (USD)', exchange: 'GLOBAL', segment: 'GLOBAL', tokenIndex: 4 },
   // DVE (FTSE Developed Europe) dropped — zero session bars across every
   // listed contract month in Massive's data, confirmed live. No European
   // index in this set for now.

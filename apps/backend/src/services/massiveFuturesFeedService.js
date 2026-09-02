@@ -16,11 +16,11 @@
 
 const WebSocket = require('ws');
 const KiteInstrument = require('../models/KiteInstrument');
+const { GLOBAL_INDEX_NAMES, COMEX_METAL_SEGMENT } = require('../constants/massiveInstruments');
 
 const API_KEY = process.env.MASSIVE_API_KEY;
 const WS_URL = 'wss://socket.massive.com/futures';
 const RECONNECT_DELAY_MS = 10_000;
-const SEGMENTS = ['CME-FUT', 'COMEX-FUT'];
 
 class MassiveFuturesFeedService {
   constructor() {
@@ -42,18 +42,25 @@ class MassiveFuturesFeedService {
     await this._loadTickerMap();
 
     if (this.tickerToToken.size === 0) {
-      console.warn('⚠️  [MassiveFeed] No CME-FUT/COMEX-FUT instruments found — run scripts/seedGlobalFutures.js first. Feed disabled.');
+      console.warn('⚠️  [MassiveFeed] No tracked instruments found — run scripts/seedGlobalFutures.js first. Feed disabled.');
       return;
     }
 
     this._initialized = true;
-    console.log(`📡 [MassiveFeed] Tracking ${this.tickerToToken.size} contract(s) across ${SEGMENTS.join(', ')}`);
+    console.log(`📡 [MassiveFeed] Tracking ${this.tickerToToken.size} contract(s) (GLOBAL index futures + ${COMEX_METAL_SEGMENT})`);
     this._connect();
   }
 
   async _loadTickerMap() {
+    // GLOBAL segment is shared with non-Massive instruments (GIFT Nifty,
+    // legacy instruments) — name is the unambiguous key for "which GLOBAL
+    // instruments does Massive actually feed". COMEX-FUT has no such
+    // ambiguity, it's a dedicated segment.
     const instruments = await KiteInstrument.find({
-      segment: { $in: SEGMENTS },
+      $or: [
+        { segment: 'GLOBAL', name: { $in: GLOBAL_INDEX_NAMES } },
+        { segment: COMEX_METAL_SEGMENT },
+      ],
       deleted_at: null,
     }).select('instrument_token tradingsymbol').lean();
 
