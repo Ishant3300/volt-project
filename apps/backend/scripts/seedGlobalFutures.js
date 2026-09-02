@@ -37,7 +37,9 @@ const PRODUCTS = [
   { code: 'YM', name: 'E-mini Dow Jones', exchange: 'CBOT', segment: 'CME-FUT', tokenIndex: 2 },
   { code: 'RTY', name: 'E-mini Russell 2000', exchange: 'CME', segment: 'CME-FUT', tokenIndex: 3 },
   { code: 'NKD', name: 'Nikkei 225 (USD)', exchange: 'CME', segment: 'CME-FUT', tokenIndex: 4 },
-  { code: 'DVE', name: 'FTSE Developed Europe', exchange: 'CME', segment: 'CME-FUT', tokenIndex: 5 },
+  // DVE (FTSE Developed Europe) dropped — zero session bars across every
+  // listed contract month in Massive's data, confirmed live. No European
+  // index in this set for now.
   { code: 'GC', name: 'Gold', exchange: 'COMEX', segment: 'COMEX-FUT', tokenIndex: 6 },
   { code: 'SI', name: 'Silver', exchange: 'COMEX', segment: 'COMEX-FUT', tokenIndex: 7 },
   { code: 'HG', name: 'Copper', exchange: 'COMEX', segment: 'COMEX-FUT', tokenIndex: 8 },
