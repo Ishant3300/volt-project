@@ -291,15 +291,30 @@ const processPendingOrders = async () => {
                         // would otherwise still fill and open a fresh position, bypassing
                         // the admin's intent entirely. Same rejection shape as the
                         // instrument-blocked gate above.
-                        const gateUser = await User.findById(freshTrade.user_id).select('bet close_only').session(session).lean();
+                        const gateUser = await User.findById(freshTrade.user_id).select('bet close_only exchanges_allowed').session(session).lean();
                         const isClosingForCloseOnly = (freshTrade.transaction_type === 'SELL' && prevNetQtyCheck > 0)
                             || (freshTrade.transaction_type === 'BUY' && prevNetQtyCheck < 0);
                         const betBlocked = gateUser?.bet === false;
                         const closeOnlyBlocked = gateUser?.close_only === true && !isClosingForCloseOnly;
-                        if (betBlocked || closeOnlyBlocked) {
+
+                        // Exchange-permission gate — mirrors placeTrade's placement-time
+                        // check and priceQueueService's primary-path fill gate.
+                        const rawSegmentForAllow = (walletInstrument?.segment || freshTrade.exchange || '').toUpperCase();
+                        const allowCandidates = new Set([rawSegmentForAllow]);
+                        if (rawSegmentForAllow === 'GLOBAL') allowCandidates.add('INDICES');
+                        if (rawSegmentForAllow === 'INDICES') allowCandidates.add('GLOBAL');
+                        const exchangeBlocked = !(gateUser?.exchanges_allowed || []).some((ex) => {
+                            const name = (ex.exchange_name || '').toUpperCase();
+                            const normalized = name === 'INDICES' ? 'GLOBAL' : name;
+                            return allowCandidates.has(name) || allowCandidates.has(normalized);
+                        });
+
+                        if (betBlocked || closeOnlyBlocked || exchangeBlocked) {
                             const userGateRejectRemark = betBlocked
                                 ? 'Trading is currently disabled for your account.'
-                                : 'Your account is in close-only mode. You can only close existing positions.';
+                                : closeOnlyBlocked
+                                ? 'Your account is in close-only mode. You can only close existing positions.'
+                                : `Your account is not permitted to trade ${rawSegmentForAllow || 'this instrument'}. Contact your master/admin.`;
                             freshTrade.status = 'rejected';
                             freshTrade.pnl = 0;
                             freshTrade.net_amount = 0;

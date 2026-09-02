@@ -251,6 +251,35 @@ const placeTrade = async (req, res) => {
                 }
             }
 
+            // ── Exchange permission check: the instrument's segment must be in the
+            //    user's exchanges_allowed. Admin placing on behalf of a user bypasses
+            //    this check (unrestricted by design, same as every other account-level
+            //    gate above). Previously exchanges_allowed was read for turnover/lot
+            //    MODE selection and brokerage/group lookups only — nothing anywhere
+            //    actually rejected a trade for a segment the user was never granted,
+            //    so the exchange-permission checkboxes on every create/edit account
+            //    screen had no real effect on what a user could trade.
+            //    GLOBAL/INDICES are treated as the same permission — both are valid
+            //    enum values on exchanges_allowed for historical reasons (older
+            //    records may say INDICES, current UI always writes GLOBAL), and the
+            //    mobile client already normalizes the same way for display.
+            if (!req.admin) {
+                const rawSegmentForAllow = (segment || exchange || '').toUpperCase();
+                const candidates = new Set([rawSegmentForAllow]);
+                if (rawSegmentForAllow === 'GLOBAL') candidates.add('INDICES');
+                if (rawSegmentForAllow === 'INDICES') candidates.add('GLOBAL');
+
+                const hasAccess = (user.exchanges_allowed || []).some((ex) => {
+                    const name = (ex.exchange_name || '').toUpperCase();
+                    const normalized = name === 'INDICES' ? 'GLOBAL' : name;
+                    return candidates.has(name) || candidates.has(normalized);
+                });
+
+                if (!hasAccess) {
+                    throw new Error(`Your account is not permitted to trade ${segment || exchange || 'this instrument'}. Contact your master/admin.`);
+                }
+            }
+
             // 0. Options sell restriction: prevent naked short selling
             // Users can only SELL options they already own (to close a position)
             if (transaction_type === 'SELL') {
@@ -1921,6 +1950,20 @@ const rolloverPositions = async (req, res) => {
                     }
                     if (!req.admin && user.close_only === true) {
                         throw new Error('Your account is in close-only mode. You can only close existing positions.');
+                    }
+                    if (!req.admin) {
+                        const rawSegmentForAllow = (newInstrument.segment || newInstrument.exchange || '').toUpperCase();
+                        const allowCandidates = new Set([rawSegmentForAllow]);
+                        if (rawSegmentForAllow === 'GLOBAL') allowCandidates.add('INDICES');
+                        if (rawSegmentForAllow === 'INDICES') allowCandidates.add('GLOBAL');
+                        const hasAccess = (user.exchanges_allowed || []).some((ex) => {
+                            const name = (ex.exchange_name || '').toUpperCase();
+                            const normalized = name === 'INDICES' ? 'GLOBAL' : name;
+                            return allowCandidates.has(name) || allowCandidates.has(normalized);
+                        });
+                        if (!hasAccess) {
+                            throw new Error(`Your account is not permitted to trade ${rawSegmentForAllow || 'this instrument'}. Contact your master/admin.`);
+                        }
                     }
                     // Naked-option-short rule: the reopen leg is always a FRESH position
                     // on the new contract (net qty 0 going in), so a SELL open on a CE/PE
