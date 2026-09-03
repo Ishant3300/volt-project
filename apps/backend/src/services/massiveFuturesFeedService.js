@@ -38,6 +38,14 @@ class MassiveFuturesFeedService {
     // closePrice — see livePriceService.js's _processKiteTick). Refreshed
     // alongside the OHLC poll since it only actually changes once/day.
     this.tokenToPrevClose = new Map();
+    // instrument_token -> { open, high, low } for today's session, refreshed
+    // alongside the OHLC poll. Real Kite tick packets carry high/low/open in
+    // every single tick (see livePriceService.js's _processKiteTick), which
+    // is the only reason NSE/MCX ever populate those watchlist columns —
+    // Massive's own Quote/Trade WS events carry neither, so without this the
+    // columns stayed blank forever for GLOBAL/COMEX no matter how long a
+    // client watched.
+    this.tokenToOhlc = new Map();
     this._initialized = false;
   }
 
@@ -92,6 +100,11 @@ class MassiveFuturesFeedService {
         if (Number(bar.low) > 0) update.ohlc_low = Number(bar.low);
         if (Number(bar.close) > 0) update.ohlc_close = Number(bar.close);
         if (Object.keys(update).length === 0) return;
+        this.tokenToOhlc.set(token, {
+          open: update.ohlc_open,
+          high: update.ohlc_high,
+          low: update.ohlc_low,
+        });
         await KiteInstrument.updateOne({ instrument_token: token }, { $set: update });
       } catch (err) {
         console.warn(`⚠️  [MassiveFeed] OHLC poll failed for ${ticker}: ${err.message}`);
@@ -139,6 +152,13 @@ class MassiveFuturesFeedService {
       change,
       change_percent: Math.max(-100, Math.min(1000, (change / prevClose) * 100)),
     };
+  }
+
+  /** Today's session open/high/low, refreshed every 20s by _pollOhlc. */
+  _ohlcFields(token) {
+    const ohlc = this.tokenToOhlc.get(token);
+    if (!ohlc) return {};
+    return { open: ohlc.open, high: ohlc.high, low: ohlc.low };
   }
 
   _connect() {
@@ -230,6 +250,7 @@ class MassiveFuturesFeedService {
         bid_price: Number.isFinite(bidPrice) ? bidPrice : undefined,
         ask_price: Number.isFinite(askPrice) ? askPrice : undefined,
         ...this._changeFields(token, lastPrice),
+        ...this._ohlcFields(token),
       }],
     });
   }
@@ -250,7 +271,12 @@ class MassiveFuturesFeedService {
 
     lps._broadcastToClients({
       type: 'ticks',
-      data: [{ instrument_token: token, last_price: lastPrice, ...this._changeFields(token, lastPrice) }],
+      data: [{
+        instrument_token: token,
+        last_price: lastPrice,
+        ...this._changeFields(token, lastPrice),
+        ...this._ohlcFields(token),
+      }],
     });
   }
 
