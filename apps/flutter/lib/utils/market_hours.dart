@@ -4,6 +4,8 @@
 ///   MCX             : 9:01 AM – 11:30 PM
 ///   GIFT NIFTY      : Session 1: 6:30 AM – 3:40 PM
 ///                      Session 2: 4:35 PM – 2:45 AM (next day)
+///   GLOBAL/COMEX    : CME/COMEX Globex — near-24h, closed only for the
+///                      ~1h daily maintenance break (~2:00–3:30 AM IST)
 ///   Others          : 12:00 AM – 2:30 AM  &  7:30 AM – 11:59 PM
 class MarketHours {
   /// Check if market is open for the given exchange + tradingsymbol.
@@ -38,6 +40,12 @@ class MarketHours {
       return mins >= 541 && mins <= 1410;
     }
 
+    if (ex == 'GLOBAL' || ex == 'COMEX') {
+      // Closed only for CME/COMEX Globex's daily maintenance break,
+      // ~2:00 AM (120) – 3:30 AM (210) IST. Open the rest of the day.
+      return mins < 120 || mins >= 210;
+    }
+
     if (ex == 'NSE' || ex == 'NFO' || ex == 'BFO' || ex == 'BSE' || ex.isEmpty) {
       // 9:16 AM (556) – 3:30 PM (930)
       return mins >= 556 && mins <= 930;
@@ -68,6 +76,9 @@ class MarketHours {
     }
     if (ex == 'MCX') {
       return 'MCX hours: 9:01 AM – 11:30 PM';
+    }
+    if (ex == 'GLOBAL' || ex == 'COMEX') {
+      return 'Daily maintenance break: 2:00 AM – 3:30 AM';
     }
     if (ex == 'NSE' || ex == 'NFO' || ex == 'BFO' || ex == 'BSE' || ex.isEmpty) {
       return 'Market hours: 9:16 AM – 3:30 PM';

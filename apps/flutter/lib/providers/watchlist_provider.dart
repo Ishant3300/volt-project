@@ -251,7 +251,12 @@ class WatchlistProvider with ChangeNotifier {
         _items.add(WatchlistItem(
           id: localId,
           instrument: instrument,
-          currentPrice: instrument.lastPrice,
+          // GLOBAL/COMEX (Massive-fed) instruments never get last_price
+          // written to the DB — only ohlc_close, via the periodic OHLC poll
+          // (massiveFuturesFeedService.js) — so falling back to instrument.
+          // lastPrice alone left CMP at 0 until a live tick arrived. Use the
+          // same seedPrice fallback already used for bid/ask below.
+          currentPrice: seedPrice ?? instrument.lastPrice,
           // Seed OHLC from DB so trade card shows correct values before live ticks arrive
           open: instrument.ohlcOpen > 0 ? instrument.ohlcOpen : null,
           high: instrument.ohlcHigh > 0 ? instrument.ohlcHigh : null,
