@@ -96,10 +96,18 @@ async function fetchAndApplyMassiveSettlement(options = {}) {
       const livePriceService = require('./livePriceService');
       const metricsEngine = require('./metricsEngine');
       if (livePriceService && livePriceService._broadcastToClients) {
-        if (!livePriceService._settlementPrices) livePriceService._settlementPrices = new Map();
         const broadcastTicks = [];
         for (const { token, price } of ticks) {
-          livePriceService._settlementPrices.set(token, price);
+          // Deliberately NOT writing to livePriceService._settlementPrices —
+          // that map exists so a client subscribing while NSE/MCX is closed
+          // sees the last official close instead of a stale pre-close tick.
+          // GLOBAL/COMEX (Massive) trade near-continuously; the WS feed's
+          // own latestPrices is refreshed every few seconds whenever the
+          // market is open, so it's always more current than yesterday's
+          // settlement. Populating _settlementPrices here made every fresh
+          // subscribe permanently show yesterday's close (no change field,
+          // stale price) until a live tick happened to arrive and overwrite
+          // it — exactly the "stale then jumps after a minute" symptom.
           livePriceService.latestPrices.set(token, price);
           livePriceService.latestPrices.set(Number(token), price);
           metricsEngine.onTick(token, price, price, price);
