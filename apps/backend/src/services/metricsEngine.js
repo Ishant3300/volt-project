@@ -17,6 +17,7 @@ const SettlementHistory = require('../models/SettlementHistory');
 const SettlementRun = require('../models/SettlementRun');
 const { dateRange, isWeekendInIndia } = require('../utils/settlementDates');
 const { allowedCategories } = require('../utils/walletCategory');
+const { GLOBAL_INDEX_NAMES } = require('../constants/massiveInstruments');
 
 class MetricsEngine {
   constructor() {
@@ -1026,13 +1027,17 @@ class MetricsEngine {
       if (applyPrices) {
         const nseRange = dateRange(run.price_dates?.nse || run.trading_date);
         const mcxRange = dateRange(run.price_dates?.mcx || run.trading_date);
+        const globalRange = dateRange(run.price_dates?.global || run.trading_date);
         const instruments = await KiteInstrument.find({
           is_active: true,
           deleted_at: null,
           settlement_price: { $gt: 0 },
           $or: [
             { exchange: 'MCX', settlement_price_date: { $gte: mcxRange.start, $lt: mcxRange.end } },
-            { exchange: { $ne: 'MCX' }, settlement_price_date: { $gte: nseRange.start, $lt: nseRange.end } },
+            { exchange: 'COMEX', settlement_price_date: { $gte: globalRange.start, $lt: globalRange.end } },
+            { exchange: 'GLOBAL', name: { $in: GLOBAL_INDEX_NAMES }, settlement_price_date: { $gte: globalRange.start, $lt: globalRange.end } },
+            { exchange: { $nin: ['MCX', 'COMEX', 'GLOBAL'] }, settlement_price_date: { $gte: nseRange.start, $lt: nseRange.end } },
+            { exchange: 'GLOBAL', name: { $nin: GLOBAL_INDEX_NAMES }, settlement_price_date: { $gte: nseRange.start, $lt: nseRange.end } },
           ],
         }).select('instrument_token settlement_price').lean();
         for (const instrument of instruments) {
