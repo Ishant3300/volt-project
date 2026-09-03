@@ -208,7 +208,6 @@ class MassiveFuturesFeedService {
     const lps = this.livePriceService;
     lps.latestPrices.set(token, lastPrice);
     lps.latestPrices.set(Number(token), lastPrice);
-    this._updateDayRange(token, lastPrice);
 
     const metricsEngine = require('./metricsEngine');
     metricsEngine.onTick(token, lastPrice, null, null);
