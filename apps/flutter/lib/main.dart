@@ -6,6 +6,7 @@ import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
 import 'package:stocker/providers/investor_mode_provider.dart';
+import 'package:stocker/providers/feature_unlock_provider.dart';
 import 'package:stocker/services/admin_service.dart';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/auth_service.dart';
@@ -120,6 +121,9 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<InvestorModeProvider>(
           create: (_) => InvestorModeProvider(),
+        ),
+        ChangeNotifierProvider<FeatureUnlockProvider>(
+          create: (_) => FeatureUnlockProvider(),
         ),
       ],
       child: MaterialApp(

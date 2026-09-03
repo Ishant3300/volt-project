@@ -2,6 +2,7 @@
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:stocker/providers/investor_mode_provider.dart';
+import 'package:stocker/providers/feature_unlock_provider.dart';
 import 'utils/contants.dart';
 import 'pages/watchlist_page.dart';
 import 'pages/orders_page.dart';
@@ -17,7 +18,7 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   int _selectedIndex = 0;
 
   final List<Widget> _pages = [
@@ -27,7 +28,61 @@ class _MyHomePageState extends State<MyHomePage> {
     const ProfilePage(),
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Re-lock the instant the app leaves the foreground — a backgrounded
+    // app that gets glanced at or reopened by someone else should never
+    // still show the unlocked feature set.
+    if (state == AppLifecycleState.paused) {
+      final unlock = Provider.of<FeatureUnlockProvider>(context, listen: false);
+      unlock.lock();
+      if (_selectedIndex != 0) setState(() => _selectedIndex = 0);
+    }
+  }
+
+  // Hidden unlock gesture: 4 taps on the Watchlist nav icon, each landing
+  // 300-400ms after the previous one, reveals the full app. A tap outside
+  // that window — too fast or too slow — resets the count, so this is a
+  // specific rhythm rather than just "tap 4 times".
+  DateTime? _lastWatchlistTap;
+  int _watchlistTapCount = 0;
+
+  void _registerWatchlistUnlockTap() {
+    final now = DateTime.now();
+    final last = _lastWatchlistTap;
+    _lastWatchlistTap = now;
+
+    if (last == null) {
+      _watchlistTapCount = 1;
+      return;
+    }
+
+    final gap = now.difference(last);
+    final inRhythm = gap >= const Duration(milliseconds: 300) &&
+        gap <= const Duration(milliseconds: 400);
+    _watchlistTapCount = inRhythm ? _watchlistTapCount + 1 : 1;
+
+    if (_watchlistTapCount >= 4) {
+      _watchlistTapCount = 0;
+      _lastWatchlistTap = null;
+      Provider.of<FeatureUnlockProvider>(context, listen: false).unlock();
+    }
+  }
+
   void _onItemTapped(int index) {
+    if (index == 0) _registerWatchlistUnlockTap();
     setState(() {
       _selectedIndex = index;
     });
@@ -79,6 +134,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final isUnlocked = context.watch<FeatureUnlockProvider>().isUnlocked;
+    final effectiveIndex =
+        (!isUnlocked && (_selectedIndex == 1 || _selectedIndex == 2))
+            ? 0
+            : _selectedIndex;
     return Scaffold(
       body: Column(
         children: [
@@ -113,7 +173,7 @@ class _MyHomePageState extends State<MyHomePage> {
               );
             },
           ),
-          Expanded(child: _pages[_selectedIndex]),
+          Expanded(child: _pages[effectiveIndex]),
         ],
       ),
       bottomNavigationBar: Container(
@@ -139,8 +199,8 @@ class _MyHomePageState extends State<MyHomePage> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildNavItem(kIconWatchlist, 'Watchlist', 0),
-                _buildNavItem(kIconOrders, 'Orders', 1),
-                _buildNavItem(kIconHistory, 'History', 2),
+                if (isUnlocked) _buildNavItem(kIconOrders, 'Orders', 1),
+                if (isUnlocked) _buildNavItem(kIconHistory, 'History', 2),
                 _buildNavItem(kIconProfile, 'Profile', 3),
               ],
             ),

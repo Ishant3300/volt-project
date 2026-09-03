@@ -17,6 +17,7 @@ import '../services/multi_account_service.dart';
 import '../providers/user_profile_provider.dart';
 import '../providers/trade_metrics_provider.dart';
 import '../providers/investor_mode_provider.dart';
+import '../providers/feature_unlock_provider.dart';
 import '../widgets/brand_menu_row.dart';
 import '../pages/login_page.dart';
 import '../services/firebase_service.dart';
@@ -479,68 +480,85 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: Column(
-                  children: [
-                    if (_isAdmin) ...[
-                      _buildMenuItem(context, 'Admin Setting',
-                          svgPath: kIconAdminSettings),
-                      _buildDivider(),
-                    ] else
-                      Builder(builder: (context) {
-                        return const SizedBox.shrink();
-                      }),
-                    if (Provider.of<UserProfileProvider>(context,
-                            listen: false)
-                        .isSuperAdmin) ...[
-                      _buildMenuItem(context, 'Manage Admins',
-                          icon: Icons.admin_panel_settings_outlined),
-                      _buildDivider(),
-                    ],
-                    _buildMenuItem(context, 'Account Detail',
-                        svgPath: kIconAccountDetails),
-                    _buildDivider(),
-                    if ((_isAdmin || _isMaster) &&
-                        !Provider.of<InvestorModeProvider>(context,
+                child: Consumer<FeatureUnlockProvider>(
+                  builder: (context, unlock, _) {
+                    if (!unlock.isUnlocked) {
+                      // Locked: only Settings is visible — everything else
+                      // (account management, admin tools, reports, logout,
+                      // even the fact that other accounts exist) stays
+                      // hidden until the tap gesture unlocks the app.
+                      return Column(
+                        children: [
+                          _buildMenuItem(context, 'Settings',
+                              svgPath: kIconSettings),
+                        ],
+                      );
+                    }
+                    return Column(
+                      children: [
+                        if (_isAdmin) ...[
+                          _buildMenuItem(context, 'Admin Setting',
+                              svgPath: kIconAdminSettings),
+                          _buildDivider(),
+                        ] else
+                          Builder(builder: (context) {
+                            return const SizedBox.shrink();
+                          }),
+                        if (Provider.of<UserProfileProvider>(context,
+                                listen: false)
+                            .isSuperAdmin) ...[
+                          _buildMenuItem(context, 'Manage Admins',
+                              icon: Icons.admin_panel_settings_outlined),
+                          _buildDivider(),
+                        ],
+                        _buildMenuItem(context, 'Account Detail',
+                            svgPath: kIconAccountDetails),
+                        _buildDivider(),
+                        if ((_isAdmin || _isMaster) &&
+                            !Provider.of<InvestorModeProvider>(context,
+                                    listen: false)
+                                .isInvestor) ...[
+                          _buildMenuItem(
+                              context, 'Master And User Management',
+                              svgPath: kIconMasterUserMgmt),
+                          _buildDivider(),
+                        ] else
+                          Builder(builder: (context) {
+                            return const SizedBox.shrink();
+                          }),
+                        if (Provider.of<UserProfileProvider>(context,
+                                listen: false)
+                            .hasAnyReportPermission) ...[
+                          _buildMenuItem(context, 'Reports',
+                              svgPath: kIconReports),
+                          _buildDivider(),
+                        ],
+                        if (_isMaster) ...[
+                          _buildMenuItem(context, 'Manage Reports',
+                              icon: Icons.description_outlined),
+                          _buildDivider(),
+                        ],
+                        _buildMenuItem(context, 'Settings',
+                            svgPath: kIconSettings),
+                        _buildDivider(),
+                        _buildMenuItem(context, 'Login History',
+                            svgPath: kIconLoginHistory),
+                        _buildDivider(),
+                        _buildMenuItem(context, 'Switch Account',
+                            icon: Icons.swap_horiz),
+                        _buildDivider(),
+                        if (!Provider.of<InvestorModeProvider>(context,
                                 listen: false)
                             .isInvestor) ...[
-                      _buildMenuItem(context, 'Master And User Management',
-                          svgPath: kIconMasterUserMgmt),
-                      _buildDivider(),
-                    ] else
-                      Builder(builder: (context) {
-                        return const SizedBox.shrink();
-                      }),
-                    if (Provider.of<UserProfileProvider>(context, listen: false)
-                        .hasAnyReportPermission) ...[
-                      _buildMenuItem(context, 'Reports', svgPath: kIconReports),
-                      _buildDivider(),
-                    ],
-                    if (_isMaster) ...[
-                      _buildMenuItem(context, 'Manage Reports',
-                          icon: Icons.description_outlined),
-                      _buildDivider(),
-                    ],
-                    _buildMenuItem(context, 'Settings', svgPath: kIconSettings),
-                    _buildDivider(),
-                    // _buildMenuItem(context, 'Invite Friends',
-                    //     svgPath: kIconInviteFriends),
-                    // _buildDivider(),
-                    _buildMenuItem(context, 'Login History',
-                        svgPath: kIconLoginHistory),
-                    _buildDivider(),
-                    _buildMenuItem(context, 'Switch Account',
-                        icon: Icons.swap_horiz),
-                    _buildDivider(),
-                    if (!Provider.of<InvestorModeProvider>(context,
-                            listen: false)
-                        .isInvestor) ...[
-                      _buildMenuItem(context, 'Delete Account',
-                          svgPath: kIconDeleteAccount, isRed: true),
-                      _buildDivider(),
-                    ],
-                    _buildMenuItem(context, 'Logout',
-                        svgPath: kIconLogout, isRed: true),
-                  ],
+                          _buildMenuItem(context, 'Delete Account',
+                              svgPath: kIconDeleteAccount, isRed: true),
+                          _buildDivider(),
+                        ],
+                        _buildMenuItem(context, 'Logout',
+                            svgPath: kIconLogout, isRed: true),
+                      ],
+                    );
+                  },
                 ),
               ),
 
