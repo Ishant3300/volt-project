@@ -33,6 +33,11 @@ class MassiveFuturesFeedService {
     this.ohlcPollTimer = null;
     // ticker (Massive's `sym`, e.g. "ESU6") -> instrument_token (ours)
     this.tickerToToken = new Map();
+    // instrument_token -> previous session's official settlement price, the
+    // baseline for change/change_percent (same meaning as Kite's tick-packet
+    // closePrice — see livePriceService.js's _processKiteTick). Refreshed
+    // alongside the OHLC poll since it only actually changes once/day.
+    this.tokenToPrevClose = new Map();
     this._initialized = false;
   }
 
@@ -71,6 +76,7 @@ class MassiveFuturesFeedService {
    * service feeds.
    */
   async _pollOhlc() {
+    await this._refreshPrevClose();
     const entries = [...this.tickerToToken.entries()];
     await Promise.all(entries.map(async ([ticker, token]) => {
       try {
@@ -93,6 +99,18 @@ class MassiveFuturesFeedService {
     }));
   }
 
+  async _refreshPrevClose() {
+    const tokens = [...this.tickerToToken.values()];
+    if (tokens.length === 0) return;
+    const instruments = await KiteInstrument.find({ instrument_token: { $in: tokens } })
+      .select('instrument_token settlement_price').lean();
+    for (const inst of instruments) {
+      if (Number(inst.settlement_price) > 0) {
+        this.tokenToPrevClose.set(inst.instrument_token, Number(inst.settlement_price));
+      }
+    }
+  }
+
   async _loadTickerMap() {
     // GLOBAL segment is shared with non-Massive instruments (GIFT Nifty,
     // legacy instruments) — name is the unambiguous key for "which GLOBAL
@@ -110,6 +128,17 @@ class MassiveFuturesFeedService {
     for (const inst of instruments) {
       this.tickerToToken.set(inst.tradingsymbol, inst.instrument_token);
     }
+  }
+
+  /** Same convention as Kite's tick decoder: change = last - prevClose. */
+  _changeFields(token, lastPrice) {
+    const prevClose = this.tokenToPrevClose.get(token);
+    if (!(prevClose > 0)) return {};
+    const change = lastPrice - prevClose;
+    return {
+      change,
+      change_percent: Math.max(-100, Math.min(1000, (change / prevClose) * 100)),
+    };
   }
 
   _connect() {
@@ -178,9 +207,15 @@ class MassiveFuturesFeedService {
     const askPrice = Number(evt.ap);
     if (!Number.isFinite(bidPrice) && !Number.isFinite(askPrice)) return;
 
+    // Mid-price on every quote update — NOT "reuse the previously known
+    // price if we have one", which froze the displayed price at whatever
+    // the first tick happened to be and made Quote events a no-op forever
+    // after. Every bid/ask move is real market movement and should show.
+    const lastPrice = Number.isFinite(bidPrice) && Number.isFinite(askPrice)
+      ? (bidPrice + askPrice) / 2
+      : (Number.isFinite(bidPrice) ? bidPrice : askPrice);
+
     const lps = this.livePriceService;
-    const lastKnown = lps.latestPrices.get(token);
-    const lastPrice = lastKnown || (Number.isFinite(bidPrice) ? bidPrice : askPrice);
     lps.latestPrices.set(token, lastPrice);
     lps.latestPrices.set(Number(token), lastPrice);
 
@@ -194,6 +229,7 @@ class MassiveFuturesFeedService {
         last_price: lastPrice,
         bid_price: Number.isFinite(bidPrice) ? bidPrice : undefined,
         ask_price: Number.isFinite(askPrice) ? askPrice : undefined,
+        ...this._changeFields(token, lastPrice),
       }],
     });
   }
@@ -214,7 +250,7 @@ class MassiveFuturesFeedService {
 
     lps._broadcastToClients({
       type: 'ticks',
-      data: [{ instrument_token: token, last_price: lastPrice }],
+      data: [{ instrument_token: token, last_price: lastPrice, ...this._changeFields(token, lastPrice) }],
     });
   }
 
