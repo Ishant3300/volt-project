@@ -212,9 +212,10 @@ or re-add the placeholder client entry.
 
 ---
 
-## iOS: remaining manual Xcode setup
+## iOS: flavour setup (done)
 
-The xcconfig files are already in place:
+The iOS project is now wired for both flavours — `scripts/flavor.sh <brand> build ipa --release`
+works the same as Android. The xcconfig files:
 
 ```
 ios/Flutter/brand-apex.xcconfig      ios/Flutter/brand-volt.xcconfig
@@ -223,33 +224,37 @@ ios/Flutter/Profile-apex.xcconfig    ios/Flutter/Profile-volt.xcconfig
 ios/Flutter/Release-apex.xcconfig    ios/Flutter/Release-volt.xcconfig
 ```
 
-`ios/Runner/Info.plist` now reads `CFBundleDisplayName`/`CFBundleName` from
-`$(APP_DISPLAY_NAME)`, and `AppIcon-apex` / `AppIcon-volt` asset catalogs are
-generated.
+drive `PRODUCT_BUNDLE_IDENTIFIER`, `APP_DISPLAY_NAME` and
+`ASSETCATALOG_COMPILER_APPICON_NAME` per brand. Each brand also has its own
+`Info.plist` (`ios/Runner/Info.plist` for apex, `ios/Runner/Info-volt.plist` for
+volt); both still read name/id/version from build variables.
 
-What's left lives inside `Runner.xcodeproj/project.pbxproj` and must be done in
-the Xcode GUI — hand-editing that file is how iOS projects get corrupted, and it
-could not be validated here because **Xcode is not installed on this machine**
-(Command Line Tools only, so `xcodebuild` and any iOS build are unavailable).
-Nothing below is destructive; the current `Runner` scheme keeps building as APEX
-until you do it.
+What is set up inside `Runner.xcodeproj`:
 
-1. Open `ios/Runner.xcworkspace`.
-2. Project **Runner** → **Info** → **Configurations**. Duplicate `Debug`,
-   `Release` and `Profile` so you end up with:
-   `Debug-apex`, `Debug-volt`, `Release-apex`, `Release-volt`,
-   `Profile-apex`, `Profile-volt`.
-3. For each new configuration, set the **Runner** target's config file to the
-   matching `ios/Flutter/<Config>-<brand>.xcconfig`.
-4. **Product → Scheme → Manage Schemes**. Create schemes named exactly `apex`
-   and `volt` (Flutter matches `--flavor` to the scheme name), tick **Shared**,
-   and point each scheme's Run/Test/Profile/Analyze/Archive actions at that
-   brand's configurations.
-5. Verify:
-   ```bash
-   scripts/flavor.sh apex run
-   scripts/flavor.sh volt run
-   ```
+- Build configurations `Debug-apex`, `Release-apex`, `Profile-apex`,
+  `Debug-volt`, `Release-volt`, `Profile-volt` on the project, the **Runner**
+  target and the **RunnerTests** target, each pointed at the matching xcconfig.
+- Shared schemes named exactly `apex` and `volt` (Flutter matches `--flavor` to
+  the scheme name); each scheme archives its brand's `Release-<brand>` config.
+
+Resolved values (verified via `xcodebuild -showBuildSettings`):
+
+| | apex | volt |
+|---|---|---|
+| bundle id | `com.apexlive.apex` | `com.voltlive.volt` |
+| display name | APEX | VOLT |
+| app icon | `AppIcon-apex` | `AppIcon-volt` |
+| Info.plist | `Runner/Info.plist` | `Runner/Info-volt.plist` |
+
+> **Heads-up:** because a `volt` scheme now exists, Flutter requires `--flavor`
+> for iOS too — a bare `flutter build ipa` fails with *"You must specify a
+> --flavor"*. Always go through `scripts/flavor.sh` or pass `--flavor`.
+
+Verify:
+```bash
+scripts/flavor.sh apex run
+scripts/flavor.sh volt run
+```
 
 ---
 
