@@ -280,6 +280,23 @@ class CronService {
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(intradaySquareOffMCX);
 
+        // COMEX: 2:00 AM IST — CME/COMEX Globex's daily maintenance break
+        // (see market_hours.dart on the Flutter side, same window). Unlike
+        // GLOBAL's Massive-fed index futures (documented as "24hr, no fixed
+        // close" below), COMEX metals do have this real daily gap, so an
+        // intraday-enabled COMEX position should square off here the same
+        // way NSE/MCX square off at their own close.
+        const intradaySquareOffCOMEX = cron.schedule('0 2 * * 1-5', async () => {
+            console.log('🔄 [CRON] Intraday square-off (COMEX close)...');
+            try {
+                await this.runIntradaySquareOff(['COMEX-FUT']);
+                console.log('✅ [CRON] COMEX intraday square-off completed.');
+            } catch (error) {
+                console.error('❌ [CRON] Error during COMEX intraday square-off:', error);
+            }
+        }, { timezone: 'Asia/Kolkata' });
+        this.jobs.push(intradaySquareOffCOMEX);
+
         // ── Auto-Cancel Pending Orders at Market Close ───────────────────
         // Cancels all unfilled limit/stop orders once the market closes.
         // Runs 1 minute after intraday square-off to avoid clashing.
@@ -306,6 +323,18 @@ class CronService {
             }
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(cancelPendingMCX);
+
+        // COMEX-FUT: 2:02 AM IST
+        const cancelPendingCOMEX = cron.schedule('2 2 * * 1-5', async () => {
+            console.log('🗑️ [CRON] Cancelling pending orders (COMEX close)...');
+            try {
+                const count = await this.cancelPendingOrdersBySegment(['COMEX-FUT']);
+                console.log(`✅ [CRON] Cancelled ${count} pending COMEX order(s).`);
+            } catch (error) {
+                console.error('❌ [CRON] Error cancelling COMEX pending orders:', error);
+            }
+        }, { timezone: 'Asia/Kolkata' });
+        this.jobs.push(cancelPendingCOMEX);
 
         // GLOBAL/INDICES: no fixed close — skip for now (24hr market)
 

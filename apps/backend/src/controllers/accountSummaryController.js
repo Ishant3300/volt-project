@@ -499,45 +499,6 @@ function _fmtDate(d) {
   return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}`;
 }
 
-// ── Brokerage helpers (same as weeklyAdminController) ──
-function _getBrkCategory(exchange, tradingsymbol) {
-  const sym = tradingsymbol.toUpperCase();
-  const isOption = sym.endsWith('CE') || sym.endsWith('PE');
-  if (exchange === 'NFO' && isOption) return 'NFO-OPT';
-  if (exchange === 'BFO' && isOption) return 'NFO-OPT';
-  if (exchange === 'MCX' && isOption) return 'MCX-OPT';
-  if (exchange === 'NSE' || exchange === 'BSE') return 'NSE';
-  if (exchange === 'NFO') return 'NSE';
-  if (exchange === 'MCX') return 'MCX';
-  return 'NSE';
-}
-
-function _buildBrkMap(settings) {
-  const map = {};
-  for (const s of settings) {
-    const cat = s.exchange_name.toUpperCase();
-    if (!map[cat]) map[cat] = {};
-    map[cat][s.script_name.toUpperCase()] = { type: s.type, value: s.brk_value };
-    if (!map[cat]['__DEFAULT__']) map[cat]['__DEFAULT__'] = { type: s.type, value: s.brk_value };
-  }
-  return map;
-}
-
-function _getBrkForTrade(category, tradingsymbol, buyPrice, sellPrice, qty, brkMap) {
-  const catMap = brkMap[category] || {};
-  const sym = tradingsymbol.toUpperCase();
-  let setting = catMap[sym] || catMap['__DEFAULT__'];
-  if (!setting) {
-    if (category === 'NFO-OPT' || category === 'MCX-OPT') {
-      setting = { type: 'LOT WISE', value: 20 };
-    } else {
-      setting = { type: 'TURNOVER WISE', value: 0.0002 };
-    }
-  }
-  if (setting.type === 'LOT WISE') return qty * setting.value;
-  return (buyPrice + sellPrice) * qty * setting.value;
-}
-
 const r2 = (n) => Math.round(n * 100) / 100;
 
 module.exports = { getAccountSummary };

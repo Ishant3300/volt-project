@@ -936,6 +936,22 @@ async function executeOwnedRun(context) {
         applyToLivePrices: applySettlementPrices,
       });
       _settlementState.pricesFetched = Object.keys(fetched.closePriceMap || {}).length;
+
+      // GLOBAL/COMEX's daily cron (massiveSettlementJob, 6 AM IST) runs after
+      // this run's earliest Saturday attempts (as early as 1:30 AM), so
+      // relying on the cron alone means every attempt before 6 AM finds no
+      // settlement_price for these instruments and fails the whole run
+      // (hasOfficialSettlementAuthority gate below) until the 15-min
+      // recovery job eventually retries post-cron. Fetching inline here,
+      // same as bhavcopy above, closes that gap regardless of what time this
+      // run happens to fire. Non-fatal: a transient Massive API failure
+      // shouldn't block NSE/MCX settlement from proceeding.
+      try {
+        const { fetchAndApplyMassiveSettlement } = require('./massiveSettlementService');
+        await fetchAndApplyMassiveSettlement({ applyToLivePrices: applySettlementPrices });
+      } catch (err) {
+        console.error(`[Settlement] Massive settlement price fetch failed: ${err.message}`);
+      }
       broadcastProgress();
     }
 
