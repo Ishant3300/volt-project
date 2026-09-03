@@ -311,6 +311,7 @@ const browseInstruments = async (req, res) => {
       'MCX-FUT': { exchange: 'MCX', instrument_type: 'FUT' },
       'NFO-OPT': { segment: 'NFO-OPT', instrument_type: { $in: ['CE', 'PE'] } },
       'MCX-OPT': { exchange: 'MCX', instrument_type: { $in: ['CE', 'PE'] } },
+      'COMEX-FUT': { segment: 'COMEX-FUT', instrument_type: 'FUT' },
       'GLOBAL': { $or: [{ segment: 'INDICES' }, { exchange: { $in: ['SGX', 'GLOBAL'] } }] },
     };
 
