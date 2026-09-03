@@ -52,31 +52,27 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     }
   }
 
-  // Hidden unlock gesture: 4 taps on the Watchlist nav icon, each landing
-  // 300-400ms after the previous one, reveals the full app. A tap outside
-  // that window — too fast or too slow — resets the count, so this is a
-  // specific rhythm rather than just "tap 4 times".
-  DateTime? _lastWatchlistTap;
+  // Hidden unlock gesture: 4 taps on the Watchlist nav icon within 2s of
+  // the first one reveals the full app. Total-time budget rather than a
+  // strict per-tap rhythm — easy to land by hand while still requiring a
+  // fast, deliberate burst rather than 4 taps spread out over time.
+  DateTime? _firstWatchlistTap;
   int _watchlistTapCount = 0;
 
   void _registerWatchlistUnlockTap() {
     final now = DateTime.now();
-    final last = _lastWatchlistTap;
-    _lastWatchlistTap = now;
+    final first = _firstWatchlistTap;
 
-    if (last == null) {
+    if (first == null || now.difference(first) > const Duration(milliseconds: 2000)) {
+      _firstWatchlistTap = now;
       _watchlistTapCount = 1;
       return;
     }
 
-    final gap = now.difference(last);
-    final inRhythm = gap >= const Duration(milliseconds: 300) &&
-        gap <= const Duration(milliseconds: 400);
-    _watchlistTapCount = inRhythm ? _watchlistTapCount + 1 : 1;
-
+    _watchlistTapCount++;
     if (_watchlistTapCount >= 4) {
       _watchlistTapCount = 0;
-      _lastWatchlistTap = null;
+      _firstWatchlistTap = null;
       Provider.of<FeatureUnlockProvider>(context, listen: false).unlock();
     }
   }
