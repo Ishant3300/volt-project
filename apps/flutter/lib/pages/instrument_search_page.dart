@@ -37,6 +37,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
     {'key': 'NFO-OPT', 'label': 'NFO OPT'},
     {'key': 'MCX-FUT', 'label': 'MCX FUT'},
     {'key': 'MCX-OPT', 'label': 'MCX OPT'},
+    {'key': 'COMEX-FUT', 'label': 'COMEX'},
     {'key': 'GLOBAL', 'label': 'GLOBAL'},
   ];
 
