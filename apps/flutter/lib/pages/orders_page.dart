@@ -46,11 +46,12 @@ String _positionVolumeLabel(String exchange, String tradingsymbol, int quantity,
   final seg = segment.toUpperCase();
   final ex = exchange.toUpperCase();
 
-  // Only MCX-FUT, MCX-OPT, NFO-OPT use lots. Everything else uses quantity.
+  // Only MCX-FUT, MCX-OPT, NFO-OPT, COMEX-FUT use lots. Everything else uses quantity.
   // Fall back to exchange='MCX' if segment is not available from backend.
   final bool isLot = seg == 'MCX-FUT' ||
       seg == 'MCX-OPT' ||
       seg == 'NFO-OPT' ||
+      seg == 'COMEX-FUT' ||
       (seg.isEmpty && ex == 'MCX');
 
   final prefix =

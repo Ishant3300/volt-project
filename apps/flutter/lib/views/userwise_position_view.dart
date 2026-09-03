@@ -109,7 +109,7 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
     final segment = (pos['segment'] as String? ?? '').toUpperCase();
     final exchange = (pos['exchange'] as String? ?? '').toUpperCase();
     final lotSize = (pos['lot_size'] as num?)?.toInt() ?? 1;
-    final bool isLot = segment == 'MCX-FUT' || segment == 'MCX-OPT' || segment == 'NFO-OPT' || (segment.isEmpty && exchange == 'MCX');
+    final bool isLot = segment == 'MCX-FUT' || segment == 'MCX-OPT' || segment == 'NFO-OPT' || segment == 'COMEX-FUT' || (segment.isEmpty && exchange == 'MCX');
     if (isLot && lotSize > 0) return '${(netQty / lotSize).round()}';
     return '$netQty';
   }

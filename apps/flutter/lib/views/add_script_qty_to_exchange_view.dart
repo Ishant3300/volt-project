@@ -32,7 +32,7 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
   String _searchQuery = '';
   final TextEditingController _searchCtrl = TextEditingController();
 
-  static const _lotBasedSegments = {'NFO-OPT', 'MCX-FUT', 'MCX-OPT'};
+  static const _lotBasedSegments = {'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'COMEX-FUT'};
 
   String get _effectiveExchange =>
       widget.exchange.toUpperCase() == 'GLOBAL' ? 'INDICES' : widget.exchange;

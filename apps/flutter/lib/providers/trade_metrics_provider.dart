@@ -35,7 +35,7 @@ class PositionAgg {
 
   bool get isLotBased {
     final seg = segment.toUpperCase();
-    return seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-OPT';
+    return seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-OPT' || seg == 'COMEX-FUT';
   }
 
   int get lots =>

@@ -1600,7 +1600,7 @@ class _UsernameViewState extends State<UsernameView> {
   }
 
   /// Volume label matching orders_page.dart logic:
-  /// Only MCX-FUT, MCX-OPT, NFO-OPT use lots. Everything else uses quantity.
+  /// Only MCX-FUT, MCX-OPT, NFO-OPT, COMEX-FUT use lots. Everything else uses quantity.
   /// Uses _trades list to look up lot_size/segment (same source as Trades tab).
   String _positionVolumeLabel(Map<String, dynamic> pos) {
     final netQty = ((pos['net_qty'] as num?)?.toInt() ?? 0).abs();
@@ -1625,6 +1625,7 @@ class _UsernameViewState extends State<UsernameView> {
     final bool isLot = segment == 'MCX-FUT' ||
         segment == 'MCX-OPT' ||
         segment == 'NFO-OPT' ||
+        segment == 'COMEX-FUT' ||
         (segment.isEmpty && exchange == 'MCX');
 
     if (isLot && lotSize > 0) {

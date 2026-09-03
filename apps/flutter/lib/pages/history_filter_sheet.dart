@@ -38,7 +38,7 @@ class _PortfolioFilterSheetState extends State<PortfolioFilterSheet> {
   final TextEditingController _scriptController = TextEditingController();
 
   static const List<String> _exchanges = [
-    'NSE', 'BSE', 'NFO', 'BFO', 'MCX', 'CDS', 'NSEIX', 'GLOBAL'
+    'NSE', 'BSE', 'NFO', 'BFO', 'MCX', 'CDS', 'NSEIX', 'GLOBAL', 'COMEX'
   ];
 
   @override
