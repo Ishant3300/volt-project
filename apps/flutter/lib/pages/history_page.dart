@@ -1649,7 +1649,7 @@ class _PortfolioPageState extends State<PortfolioPage>
         tickSize: 0.05,
         lotSize: 1,
         instrumentType: '',
-        segment: '',
+        segment: trade.segment,
         exchange: trade.exchange,
         isActive: true,
         updatedAt: DateTime.now(),

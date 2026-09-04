@@ -2076,7 +2076,7 @@ class _OrdersPageState extends State<OrdersPage> {
         tickSize: 0.05,
         lotSize: 1,
         instrumentType: '',
-        segment: '',
+        segment: position.segment,
         exchange: position.exchange,
         isActive: true,
         updatedAt: DateTime.now(),
