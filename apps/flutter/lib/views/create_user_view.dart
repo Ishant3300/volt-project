@@ -1688,22 +1688,26 @@ class _CreateUserViewState extends State<CreateUserView> {
               height: 36,
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
+                color: customized
+                    ? const Color(0xFFEEF1F5)
+                    : const Color(0xFFF8FAFC),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: const Color(0xFFF1F5F9)),
               ),
               child: TextField(
                 controller: controller,
+                enabled: !customized,
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(
-                  color: Colors.black,
+                style: TextStyle(
+                  color: customized ? const Color(0xFF94A3B8) : Colors.black,
                   fontSize: kFontSizeBodySmall,
                   fontFamily: kFontFamily,
                   fontWeight: kFontWeightMedium,
                 ),
                 decoration: const InputDecoration(
                   border: InputBorder.none,
+                  disabledBorder: InputBorder.none,
                   hintText: '0',
                   hintStyle: TextStyle(
                       color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall),
