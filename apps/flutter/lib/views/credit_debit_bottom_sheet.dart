@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../providers/user_profile_provider.dart';
 import '../utils/contants.dart';
+import '../utils/number_to_words.dart';
 
 class CreditDebitBottomSheet extends StatefulWidget {
   final Master? master;
@@ -260,6 +261,7 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
           TextField(
             controller: _amountController,
             keyboardType: TextInputType.numberWithOptions(decimal: true),
+            onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               hintText: 'Enter amount',
               hintStyle: TextStyle(
@@ -283,6 +285,23 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
               ),
             ),
           ),
+          Builder(builder: (_) {
+            final parsed = double.tryParse(_amountController.text.trim());
+            final words = numberToIndianWords(parsed);
+            if (words.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(top: 4, left: 2),
+              child: Text(
+                '₹ $words',
+                style: TextStyle(
+                  color: kBrandPrimary,
+                  fontSize: 11,
+                  fontFamily: kFontFamily,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            );
+          }),
 
           SizedBox(height: 16),
 

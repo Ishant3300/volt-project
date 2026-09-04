@@ -1234,48 +1234,74 @@ class _CreateUserViewState extends State<CreateUserView> {
     bool obscureText = false,
     TextInputType keyboardType = TextInputType.text,
     bool readOnly = false,
+    bool showWordsInIndian = false,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              label,
-              style: const TextStyle(
-                  color: Color(0xFF94A3B8),
-                  fontSize: kFontSizeBodySmall,
-                  fontFamily: kFontFamily,
-                  fontWeight: kFontWeightMedium),
-            ),
-          ),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              obscureText: obscureText,
-              keyboardType: keyboardType,
-              readOnly: readOnly,
-              style: readOnly
-                  ? const TextStyle(color: Colors.grey)
-                  : const TextStyle(
-                      color: Colors.black,
-                      fontSize: kFontSizeBody,
+          Row(
+            children: [
+              SizedBox(
+                width: 100,
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: kFontSizeBodySmall,
                       fontFamily: kFontFamily,
-                      fontWeight: kFontWeightMedium,
-                    ),
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                hintText: label,
-                hintStyle: const TextStyle(
-                    color: Color(0xFFCBD5E1),
-                    fontSize: kFontSizeBody,
-                    fontFamily: kFontFamily),
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
+                      fontWeight: kFontWeightMedium),
+                ),
               ),
-            ),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  obscureText: obscureText,
+                  keyboardType: keyboardType,
+                  readOnly: readOnly,
+                  onChanged:
+                      showWordsInIndian ? (_) => setState(() {}) : null,
+                  style: readOnly
+                      ? const TextStyle(color: Colors.grey)
+                      : const TextStyle(
+                          color: Colors.black,
+                          fontSize: kFontSizeBody,
+                          fontFamily: kFontFamily,
+                          fontWeight: kFontWeightMedium,
+                        ),
+                  decoration: InputDecoration(
+                    border: InputBorder.none,
+                    hintText: label,
+                    hintStyle: const TextStyle(
+                        color: Color(0xFFCBD5E1),
+                        fontSize: kFontSizeBody,
+                        fontFamily: kFontFamily),
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+            ],
           ),
+          if (showWordsInIndian)
+            Builder(builder: (_) {
+              final parsed = double.tryParse(controller.text.trim());
+              final words = numberToIndianWords(parsed);
+              if (words.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(left: 100, top: 2),
+                child: Text(
+                  '₹ $words',
+                  style: const TextStyle(
+                    color: kBrandPrimary,
+                    fontSize: 11,
+                    fontFamily: kFontFamily,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              );
+            }),
         ],
       ),
     );
