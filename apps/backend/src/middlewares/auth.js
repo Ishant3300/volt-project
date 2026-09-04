@@ -97,21 +97,15 @@ const authenticateAdmin = async (req, res, next) => {
       });
     }
 
-    // Verify token matches active session
+    // Admin/Master are allowed to be logged in on multiple devices at once
+    // (per instruction) — unlike User below, we intentionally do NOT check
+    // admin.active_token against this request's token here.
     const admin = await Admin.findById(decoded.id);
 
     if (!admin || admin.deleted_at) {
       return res.status(401).json({
         success: false,
         message: 'Admin not found',
-        data: null
-      });
-    }
-
-    if (admin.active_token !== token) {
-      return res.status(401).json({
-        success: false,
-        message: 'Session expired. Please login again',
         data: null
       });
     }
@@ -203,20 +197,14 @@ const authenticateAny = async (req, res, next) => {
       req.admin = null;
       req.master = null;
     } else if (decoded.role === 'admin') {
+      // Admin/Master allowed on multiple devices at once — no active_token
+      // match check here, unlike the User branch above.
       const admin = await Admin.findById(decoded.id);
 
       if (!admin || admin.deleted_at) {
         return res.status(401).json({
           success: false,
           message: 'Admin not found',
-          data: null
-        });
-      }
-
-      if (admin.active_token !== token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Session expired. Please login again',
           data: null
         });
       }
@@ -233,21 +221,13 @@ const authenticateAny = async (req, res, next) => {
       req.admin = { ...decoded, isSuperAdmin: !!admin.is_super_admin, watchOnly: !!admin.watch_only, permissions: admin.permissions || [], hiddenMasterIds: (admin.hidden_master_ids || []).map((id) => id.toString()) };
       req.master = null;
     } else {
-      // role === 'master'
+      // role === 'master' — same multi-device allowance as admin above.
       const master = await Master.findById(decoded.id);
 
       if (!master || master.deleted_at) {
         return res.status(401).json({
           success: false,
           message: 'Master not found',
-          data: null
-        });
-      }
-
-      if (master.active_token !== token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Session expired. Please login again',
           data: null
         });
       }
@@ -307,9 +287,10 @@ const authenticateOptional = async (req, res, next) => {
         req.admin = null;
       }
     } else if (decoded.role === 'admin') {
+      // Admin allowed on multiple devices — no active_token match check.
       const admin = await Admin.findById(decoded.id);
 
-      if (admin && !admin.deleted_at && admin.active_token === token && admin.active_status !== false) {
+      if (admin && !admin.deleted_at && admin.active_status !== false) {
         req.user = null;
         req.admin = { ...decoded, isSuperAdmin: !!admin.is_super_admin, watchOnly: !!admin.watch_only, permissions: admin.permissions || [], hiddenMasterIds: (admin.hidden_master_ids || []).map((id) => id.toString()) };
       } else {
@@ -352,21 +333,14 @@ const authenticateMaster = async (req, res, next) => {
       });
     }
 
-    // Verify token matches active session
+    // Master allowed on multiple devices at once — no active_token match
+    // check here, unlike User (authenticateUser above).
     const master = await Master.findById(decoded.id);
 
     if (!master || master.deleted_at) {
       return res.status(401).json({
         success: false,
         message: 'Master not found',
-        data: null
-      });
-    }
-
-    if (master.active_token !== token) {
-      return res.status(401).json({
-        success: false,
-        message: 'Session expired. Please login again',
         data: null
       });
     }
@@ -425,20 +399,15 @@ const authenticateAdminOrMaster = async (req, res, next) => {
     }
 
     if (decoded.role === 'admin') {
+      // Admin/Master allowed on multiple devices at once — no active_token
+      // match check for either branch here, unlike User elsewhere in this
+      // file.
       const admin = await Admin.findById(decoded.id);
 
       if (!admin || admin.deleted_at) {
         return res.status(401).json({
           success: false,
           message: 'Admin not found',
-          data: null
-        });
-      }
-
-      if (admin.active_token !== token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Session expired. Please login again',
           data: null
         });
       }
@@ -462,14 +431,6 @@ const authenticateAdminOrMaster = async (req, res, next) => {
         return res.status(401).json({
           success: false,
           message: 'Master not found',
-          data: null
-        });
-      }
-
-      if (master.active_token !== token) {
-        return res.status(401).json({
-          success: false,
-          message: 'Session expired. Please login again',
           data: null
         });
       }
