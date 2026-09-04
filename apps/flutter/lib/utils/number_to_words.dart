@@ -1,5 +1,6 @@
 /// Converts a number to Indian number system words.
-/// e.g. 100000000000 → "1 Kharab" or 1500000 → "15 Lakh"
+/// e.g. 1500000 → "15 Lakh" or 250000000 → "25 Crore" — capped at Crore,
+/// never rolls over into Arab/Kharab regardless of magnitude.
 String numberToIndianWords(double? value) {
   if (value == null || value == 0) return '';
 
@@ -8,11 +9,7 @@ String numberToIndianWords(double? value) {
 
   String result;
 
-  if (num >= 1e11) {
-    result = '${_format(num / 1e11)} Kharab';
-  } else if (num >= 1e9) {
-    result = '${_format(num / 1e9)} Arab';
-  } else if (num >= 1e7) {
+  if (num >= 1e7) {
     result = '${_format(num / 1e7)} Crore';
   } else if (num >= 1e5) {
     result = '${_format(num / 1e5)} Lakh';
