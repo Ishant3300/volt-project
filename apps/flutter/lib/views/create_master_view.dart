@@ -38,6 +38,19 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   bool _addMaster = false;
   bool _changePasswordOnFirstLogin = true;
   bool _isSubmitting = false;
+
+  // Product-specific brokerage: NFO-FUT/NFO-OPT can split Index vs Stock,
+  // MCX-FUT/MCX-OPT can set every script individually — both opt-in via a
+  // "Customize" toggle per exchange row, instead of the one flat value.
+  static const _categorySegments = {'NFO-FUT', 'NFO-OPT'};
+  static const _perScriptSegments = {'MCX-FUT', 'MCX-OPT'};
+  final Map<String, bool> _brokerageCustomized = {};
+  final Map<String, TextEditingController> _indexBrkControllers = {};
+  final Map<String, TextEditingController> _stockBrkControllers = {};
+  final Map<String, List<Map<String, dynamic>>> _segmentScripts = {};
+  final Map<String, Map<String, TextEditingController>> _scriptBrkControllers =
+      {};
+  final Map<String, bool> _loadingScripts = {};
   String? _selectedServerId;
   List<Map<String, dynamic>> _servers = [];
   bool _isLoadingServers = false;
@@ -406,6 +419,45 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     );
   }
 
+  /// Toggle the per-category (NFO) or per-script (MCX) brokerage editor for
+  /// one exchange row, fetching that segment's scripts (with category) the
+  /// first time it's opened.
+  Future<void> _toggleCustomizeBrokerage(String exchange) async {
+    final willOpen = !(_brokerageCustomized[exchange] ?? false);
+    setState(() => _brokerageCustomized[exchange] = willOpen);
+    if (!willOpen || _segmentScripts.containsKey(exchange)) return;
+
+    setState(() => _loadingScripts[exchange] = true);
+    try {
+      final adminService =
+          AdminService(Provider.of<ApiService>(context, listen: false));
+      final res = await adminService.getUniqueRawNamesBySegment(exchange);
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['success'] == true) {
+          final scripts = List<Map<String, dynamic>>.from(body['data'] ?? []);
+          _segmentScripts[exchange] = scripts;
+          if (_perScriptSegments.contains(exchange)) {
+            _scriptBrkControllers[exchange] = {
+              for (final s in scripts)
+                (s['raw_name'] as String): TextEditingController(),
+            };
+          }
+        }
+      }
+    } catch (e) {
+      log('⚠️ Error fetching scripts for $exchange: $e');
+    } finally {
+      if (mounted) setState(() => _loadingScripts[exchange] = false);
+    }
+  }
+
+  TextEditingController _categoryController(String exchange, String category) {
+    final map =
+        category == 'INDEX' ? _indexBrkControllers : _stockBrkControllers;
+    return map.putIfAbsent(exchange, () => TextEditingController());
+  }
+
   /// Apply brokerage settings for enabled exchanges after master creation
   Future<void> _applyBrokerageSettings(String? masterId) async {
     if (masterId == null) return;
@@ -439,26 +491,96 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             },
             token: token);
 
-        // Then bulk-update all existing entries to the new value
+        final customized = _brokerageCustomized[exchange] ?? false;
+        if (!customized) {
+          // Flat path (default, unchanged): collapse every script in this
+          // segment down to the one value the admin typed.
+          final fetchRes = await apiService.get(
+            '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=2000&user_id=$masterId',
+            token: token,
+          );
+          if (fetchRes.statusCode == 200) {
+            final body = jsonDecode(fetchRes.body);
+            if (body['success'] == true) {
+              final items = body['data']['items'] as List? ?? [];
+              if (items.isNotEmpty) {
+                final ids =
+                    items.map<String>((i) => i['id'].toString()).toList();
+                await apiService.put(
+                    '/admin/brokerage-settings/bulk-update',
+                    {
+                      'ids': ids,
+                      'brk_value': value,
+                      'type': type,
+                    },
+                    token: token);
+              }
+            }
+          }
+          continue;
+        }
+
+        // Customized path: fetch the freshly-created rows (now carrying
+        // `category` per item) and split the update by category (NFO) or
+        // by matching script_name to its own per-script controller (MCX)
+        // instead of collapsing everything to one value.
         final fetchRes = await apiService.get(
           '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=2000&user_id=$masterId',
           token: token,
         );
-        if (fetchRes.statusCode == 200) {
-          final body = jsonDecode(fetchRes.body);
-          if (body['success'] == true) {
-            final items = body['data']['items'] as List? ?? [];
-            if (items.isNotEmpty) {
-              final ids = items.map<String>((i) => i['id'].toString()).toList();
-              await apiService.put(
-                  '/admin/brokerage-settings/bulk-update',
-                  {
-                    'ids': ids,
-                    'brk_value': value,
-                    'type': type,
-                  },
-                  token: token);
-            }
+        if (fetchRes.statusCode != 200) continue;
+        final body = jsonDecode(fetchRes.body);
+        if (body['success'] != true) continue;
+        final items = List<Map<String, dynamic>>.from(body['data']['items'] ?? []);
+        if (items.isEmpty) continue;
+
+        if (_categorySegments.contains(exchange)) {
+          for (final category in ['INDEX', 'STOCK']) {
+            final controller = category == 'INDEX'
+                ? _indexBrkControllers[exchange]
+                : _stockBrkControllers[exchange];
+            final catValueStr = controller?.text.trim() ?? '';
+            if (catValueStr.isEmpty) continue;
+            final catValue = double.tryParse(catValueStr);
+            if (catValue == null || catValue <= 0) continue;
+
+            final ids = items
+                .where((i) => i['category'] == category)
+                .map<String>((i) => i['id'].toString())
+                .toList();
+            if (ids.isEmpty) continue;
+            await apiService.put(
+                '/admin/brokerage-settings/bulk-update',
+                {
+                  'ids': ids,
+                  'brk_value': catValue,
+                  'type': type,
+                },
+                token: token);
+          }
+        } else if (_perScriptSegments.contains(exchange)) {
+          final scriptControllers = _scriptBrkControllers[exchange] ?? const {};
+          // Group scripts by their entered value so scripts sharing a
+          // value go in one bulk-update call instead of one call each.
+          final idsByValue = <double, List<String>>{};
+          for (final item in items) {
+            final scriptName = item['script_name'] as String?;
+            final controller = scriptControllers[scriptName];
+            final scriptValueStr = controller?.text.trim() ?? '';
+            if (scriptValueStr.isEmpty) continue;
+            final scriptValue = double.tryParse(scriptValueStr);
+            if (scriptValue == null || scriptValue <= 0) continue;
+            idsByValue.putIfAbsent(scriptValue, () => []).add(item['id'].toString());
+          }
+          for (final entry in idsByValue.entries) {
+            await apiService.put(
+                '/admin/brokerage-settings/bulk-update',
+                {
+                  'ids': entry.value,
+                  'brk_value': entry.key,
+                  'type': type,
+                },
+                token: token);
           }
         }
       }
@@ -1148,10 +1270,30 @@ class _CreateMasterViewState extends State<CreateMasterView> {
 
     final type = settings['type'] as String;
     final controller = settings['controller'] as TextEditingController;
+    final canCustomize = _categorySegments.contains(exchange) ||
+        _perScriptSegments.contains(exchange);
+    final customized = _brokerageCustomized[exchange] ?? false;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildBrokerageFlatRow(exchange, type, controller, canCustomize, customized),
+          if (canCustomize && customized) _buildBrokerageCustomizePanel(exchange),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBrokerageFlatRow(
+    String exchange,
+    String type,
+    TextEditingController controller,
+    bool canCustomize,
+    bool customized,
+  ) {
+    return Row(
         children: [
           Expanded(
             flex: 3,
@@ -1170,7 +1312,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             child: GestureDetector(
               onTap: () {
                 setState(() {
-                  settings['type'] =
+                  _brokerageSettings[exchange]!['type'] =
                       type == 'LOT WISE' ? 'TURNOVER WISE' : 'LOT WISE';
                 });
               },
@@ -1229,7 +1371,145 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               ),
             ),
           ),
+          if (canCustomize) ...[
+            const SizedBox(width: 6),
+            GestureDetector(
+              onTap: () => _toggleCustomizeBrokerage(exchange),
+              child: Icon(
+                customized ? Icons.expand_less : Icons.tune,
+                size: 18,
+                color: customized ? kBrandPrimary : const Color(0xFF94A3B8),
+              ),
+            ),
+          ],
         ],
+    );
+  }
+
+  Widget _buildBrokerageCustomizePanel(String exchange) {
+    if (_loadingScripts[exchange] == true) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 8, left: 4),
+        child: SizedBox(
+          height: 16,
+          width: 16,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    final scripts = _segmentScripts[exchange] ?? const [];
+
+    if (_categorySegments.contains(exchange)) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8, left: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildCategoryValueRow(exchange, 'INDEX', 'Index'),
+            const SizedBox(height: 6),
+            _buildCategoryValueRow(exchange, 'STOCK', 'Stock'),
+          ],
+        ),
+      );
+    }
+
+    if (_perScriptSegments.contains(exchange)) {
+      final controllers = _scriptBrkControllers[exchange] ?? const {};
+      return Padding(
+        padding: const EdgeInsets.only(top: 8, left: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (final script in scripts)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: _buildScriptValueRow(
+                  script['raw_name'] as String,
+                  controllers[script['raw_name']],
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildCategoryValueRow(String exchange, String category, String label) {
+    final controller = _categoryController(exchange, category);
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: kFontSizeCaption,
+              fontFamily: kFontFamily,
+              fontWeight: kFontWeightMedium,
+            ),
+          ),
+        ),
+        Expanded(
+          flex: 3,
+          child: _brokerageValueField(controller),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildScriptValueRow(String rawName, TextEditingController? controller) {
+    if (controller == null) return const SizedBox.shrink();
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: Text(
+            rawName,
+            style: const TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: kFontSizeCaption,
+              fontFamily: kFontFamily,
+              fontWeight: kFontWeightMedium,
+            ),
+          ),
+        ),
+        Expanded(
+          flex: 3,
+          child: _brokerageValueField(controller),
+        ),
+      ],
+    );
+  }
+
+  Widget _brokerageValueField(TextEditingController controller) {
+    return Container(
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        style: const TextStyle(
+          color: Colors.black,
+          fontSize: kFontSizeCaption,
+          fontFamily: kFontFamily,
+          fontWeight: kFontWeightMedium,
+        ),
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          hintText: '0',
+          hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeCaption),
+          isDense: true,
+          contentPadding: EdgeInsets.symmetric(vertical: 6),
+        ),
       ),
     );
   }
