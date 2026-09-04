@@ -154,10 +154,11 @@ const updateAdminStatus = async (req, res) => {
     }
 
     admin.active_status = !!active_status;
-    // Disabling immediately invalidates the current session too — active_status
-    // alone would still let an already-issued token pass every check EXCEPT the
-    // one in middlewares/auth.js, but clearing active_token here means even a
-    // request mid-flight the moment this saves gets rejected on its very next call.
+    // Disabling invalidates every active session immediately — enforced via
+    // active_status in middlewares/auth.js's authenticateAdmin (Admin/Master
+    // are intentionally allowed multiple concurrent devices/tokens, so
+    // active_token itself is no longer what's checked there). Still cleared
+    // here for hygiene, not because it gates anything on its own now.
     if (admin.active_status === false) {
       admin.active_token = null;
     }
