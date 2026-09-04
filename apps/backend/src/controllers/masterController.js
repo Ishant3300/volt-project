@@ -124,9 +124,9 @@ const createMaster = async (req, res) => {
 
       // Save this master's own per-segment base rates, if the creation form
       // submitted any (see MasterBaseRate model — display/autofill only,
-      // no effect on real brokerage calculation). A top-level master has no
-      // parent master to autofill from, so this is whatever was manually
-      // entered.
+      // no effect on real brokerage calculation, kept for UI prefill). A
+      // top-level master has no parent master to autofill from, so this is
+      // whatever was manually entered.
       if (Array.isArray(req.body.base_rates) && req.body.base_rates.length > 0) {
         const MasterBaseRate = require('../models/MasterBaseRate');
         const baseRateDocs = req.body.base_rates
@@ -141,6 +141,13 @@ const createMaster = async (req, res) => {
         if (baseRateDocs.length > 0) {
           await MasterBaseRate.insertMany(baseRateDocs, { session });
         }
+
+        // Also apply as real BrokerageSettings rows (segment-flat, category,
+        // or single-script — see applyBrokerageOverrides) — this is what
+        // actually affects trade-time deduction; the MasterBaseRate write
+        // above is display-only.
+        const { applyBrokerageOverrides } = require('../services/brokerageCopyService');
+        await applyBrokerageOverrides(master._id.toString(), req.body.base_rates, session);
       }
 
       // Create transaction record for initial credits

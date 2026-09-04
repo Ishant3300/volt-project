@@ -12,6 +12,8 @@
 const BrokerageSettings = require('../models/BrokerageSettings');
 const User = require('../models/User');
 const Master = require('../models/Master');
+const KiteInstrument = require('../models/KiteInstrument');
+const { categoryForNfoScript } = require('../constants/nfoIndexUnderlyings');
 
 /**
  * Copy brokerage settings from a parent (Master) to a newly created child (Master or User).
@@ -202,9 +204,82 @@ async function validateBrokerageFloor(targetId, targetType, exchangeName, script
   return null;
 }
 
+/**
+ * Apply creation-form brokerage overrides for a newly created account —
+ * real `BrokerageSettings` rows, not the display-only `MasterBaseRate`
+ * table. Call this AFTER copyBrokerageFromParent/copyBrokerageFromGlobal
+ * so overrides land on top of the copied baseline.
+ *
+ * Each entry in `overrides` is one of:
+ *   - `{ exchange_name, type, brk_value, script_name }` — one specific script.
+ *   - `{ exchange_name, type, brk_value, category: 'INDEX'|'STOCK' }` — every
+ *     NFO-FUT/NFO-OPT script in that category (resolved against
+ *     `constants/nfoIndexUnderlyings.js`, the same classification the
+ *     brokerage-settings screens use).
+ *   - `{ exchange_name, type, brk_value }` (neither) — every script in the
+ *     segment, i.e. today's existing flat-per-segment behavior.
+ *
+ * @param {string} childId - the new Master/User's _id
+ * @param {Array} overrides
+ * @param {object} [session]
+ */
+async function applyBrokerageOverrides(childId, overrides, session) {
+  if (!Array.isArray(overrides) || overrides.length === 0) return;
+
+  const now = new Date();
+  const ops = [];
+
+  for (const entry of overrides) {
+    if (!entry?.exchange_name || !entry?.type || entry?.brk_value === undefined || entry?.brk_value === null) continue;
+    const exchangeName = String(entry.exchange_name).toUpperCase();
+    const type = String(entry.type).toUpperCase();
+    const brkValue = Number(entry.brk_value);
+
+    let scriptNames;
+    if (entry.script_name) {
+      scriptNames = [entry.script_name];
+    } else if (entry.category) {
+      const category = String(entry.category).toUpperCase();
+      const instrumentsQuery = KiteInstrument.find({ segment: exchangeName, is_active: true }).select('raw_name');
+      if (session) instrumentsQuery.session(session);
+      const instruments = await instrumentsQuery.lean();
+      scriptNames = [...new Set(
+        instruments
+          .filter(i => categoryForNfoScript(exchangeName, i.raw_name) === category)
+          .map(i => i.raw_name)
+      )];
+    } else {
+      const instrumentsQuery = KiteInstrument.find({ segment: exchangeName, is_active: true }).select('raw_name');
+      if (session) instrumentsQuery.session(session);
+      const instruments = await instrumentsQuery.lean();
+      scriptNames = [...new Set(instruments.map(i => i.raw_name))];
+    }
+
+    for (const scriptName of scriptNames) {
+      ops.push({
+        updateOne: {
+          filter: { user_id: childId, exchange_name: exchangeName, script_name: scriptName, type, deleted_at: null },
+          update: {
+            $set: { brk_value: brkValue, updated_at: now, deleted_at: null },
+            $setOnInsert: { user_id: childId, exchange_name: exchangeName, script_name: scriptName, type, effective_from: now, created_at: now },
+          },
+          upsert: true,
+        },
+      });
+    }
+  }
+
+  if (ops.length > 0) {
+    if (session) await BrokerageSettings.bulkWrite(ops, { session });
+    else await BrokerageSettings.bulkWrite(ops);
+    console.log(`📋 [BrokerageCopy] Applied ${ops.length} brokerage override(s) for ${childId}`);
+  }
+}
+
 module.exports = {
   copyBrokerageFromParent,
   copyBrokerageFromGlobal,
   getParentBrokerageRate,
   validateBrokerageFloor,
+  applyBrokerageOverrides,
 };

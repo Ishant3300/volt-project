@@ -17,6 +17,7 @@ const { computeWalletSplit, computeFlatResetState } = require('../utils/walletSp
 const firebaseService = require('../services/firebaseService');
 const { beginTradeWrite, withTradeWriteLease } = require('../services/tradeWriteFenceService');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
+const { calculateBrokerage } = require('../services/brokerageService');
 
 const _getLivePricesFromKite = async (instrumentTokens) => {
     if (!instrumentTokens || instrumentTokens.length === 0) return new Map();
@@ -980,33 +981,15 @@ const placeTrade = async (req, res) => {
                 //     }
                 // }
 
-                // #5 FIX: Calculate brokerage using BrokerageSettings
-                let brokerage = 0;
-                try {
-                    const rawName = instrumentRawName || tradingsymbol.replace(/[0-9]+[A-Z]+$/, '').trim();
-                    let seg = segment || kiteInst?.segment || exchange || '';
-                    
-                    // Try user-specific rules first, then global (user_id: null)
-                    const userRules = await BrokerageSettings.find({ user_id: user._id, deleted_at: null }).lean();
-                    const globalRules = userRules.length === 0 ? await BrokerageSettings.find({ user_id: null, deleted_at: null }).lean() : [];
-                    const rules = userRules.length > 0 ? userRules : globalRules;
-                    let brokerageRule = null;
-                    if (rawName && seg) brokerageRule = rules.find(r => r.script_name?.toUpperCase() === rawName.toUpperCase() && r.exchange_name === seg.toUpperCase());
-                    if (!brokerageRule && rawName) brokerageRule = rules.find(r => r.script_name?.toUpperCase() === rawName.toUpperCase());
-                    if (!brokerageRule && seg) brokerageRule = rules.find(r => r.exchange_name === seg.toUpperCase() && (!r.script_name || r.script_name.trim() === ''));
-                    if (!brokerageRule) brokerageRule = rules.find(r => r.exchange_name === (seg.split('-')[0] || '').toUpperCase() && (!r.script_name || r.script_name.trim() === ''));
-
-                    if (brokerageRule) {
-                        if (brokerageRule.type === 'TURNOVER WISE') {
-                            brokerage = (executedPrice * quantity) * (brokerageRule.brk_value / 10000);
-                        } else if (brokerageRule.type === 'LOT WISE') {
-                            const lots = lotSize > 1 ? quantity / lotSize : quantity;
-                            brokerage = lots * brokerageRule.brk_value;
-                        }
-                    }
-                } catch (brErr) {
-                    console.warn('[Brokerage] Could not calculate brokerage:', brErr.message);
-                }
+                // Brokerage: delegate to the shared calculateBrokerage (brokerageService.js) —
+                // previously an inline copy of the same 4-level rule-matching logic duplicated
+                // across this file, priceQueueService.js, and orderExecutionService.js, which is
+                // exactly the kind of place a fix lands in one copy and not the others (already
+                // happened once — see brokerageService.js's own header comment). newTrade is
+                // already saved with instrument_token/tradingsymbol/exchange/price/quantity/user_id,
+                // which is everything calculateBrokerage needs; it re-resolves segment/lot_size
+                // itself from a fresh KiteInstrument lookup rather than trusting caller-local state.
+                const brokerage = await calculateBrokerage(newTrade, session);
 
                 const balanceBefore = user.equity;
                 const balanceChange = tradeRealisedPnl - brokerage;
@@ -1912,7 +1895,6 @@ const rolloverPositions = async (req, res) => {
         }
 
         const { resolveNextExpiryInstrument } = require('../services/rolloverInstrumentService');
-        const { calculateBrokerage } = require('../services/priceQueueService');
         const metricsEngine = require('../services/metricsEngine');
         const livePriceService = require('../services/livePriceService');
 
