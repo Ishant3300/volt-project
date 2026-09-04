@@ -208,11 +208,21 @@ const createChildMaster = async (req, res) => {
       }
 
       // Copy parent's brokerage rates to the new child master
-      const { copyBrokerageFromParent, copyBrokerageFromGlobal } = require('../services/brokerageCopyService');
+      const { copyBrokerageFromParent, copyBrokerageFromGlobal, applyBrokerageOverrides } = require('../services/brokerageCopyService');
       if (parentMaster) {
         await copyBrokerageFromParent(parentMaster._id.toString(), childMaster._id.toString(), session);
       } else {
         await copyBrokerageFromGlobal(childMaster._id.toString(), session);
+      }
+
+      // Creation-form overrides (segment-flat, category, or single-script —
+      // see applyBrokerageOverrides) land on top of the copied baseline as
+      // real BrokerageSettings rows. base_rates used to ONLY write to the
+      // display-only MasterBaseRate table below (no effect on what a trade
+      // actually got billed) — this is what makes the sub-master creation
+      // form's brokerage input real.
+      if (Array.isArray(req.body.base_rates) && req.body.base_rates.length > 0) {
+        await applyBrokerageOverrides(childMaster._id.toString(), req.body.base_rates, session);
       }
 
       // This new master's own per-segment base rates (see MasterBaseRate

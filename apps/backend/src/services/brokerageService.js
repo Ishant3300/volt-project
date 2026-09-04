@@ -54,7 +54,7 @@ async function calculateBrokerage(trade, session) {
         script_name: trade.tradingsymbol,
         deleted_at: null,
       }).session(session).lean();
-      lotSize = lot?.quantity || 1;
+      lotSize = lot?.lot_size || 1;
     }
 
     const lots = lotSize > 0 ? trade.quantity / lotSize : trade.quantity;

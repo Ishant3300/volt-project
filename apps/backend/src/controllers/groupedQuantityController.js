@@ -2,6 +2,7 @@ const User = require('../models/User');
 const GroupedQuantity = require('../models/GroupedQuantity');
 const KiteInstrument = require('../models/KiteInstrument');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
+const { categoryForNfoScript } = require('../constants/nfoIndexUnderlyings');
 
 // Get lot names by exchange
 const getLotNamesByExchange = async (req, res) => {
@@ -98,7 +99,8 @@ const getUniqueRawNamesBySegment = async (req, res) => {
       lot_size: r.lot_size || 1,
       instrument_type: r.instrument_type,
       segment: r.segment,
-      exchange: r.exchange
+      exchange: r.exchange,
+      category: categoryForNfoScript(r.segment, r._id)
     }));
 
     res.status(200).json({
@@ -403,8 +405,12 @@ const getBrokerageByExchange = async (req, res) => {
     const items = await BrokerageSettings.find(filter)
       .limit(parseInt(limit)).skip((parseInt(page) - 1) * parseInt(limit)).sort({ script_name: 1 });
     const count = await BrokerageSettings.countDocuments(filter);
+    const itemsWithCategory = items.map(i => ({
+      ...i.toJSON(),
+      category: categoryForNfoScript(i.exchange_name, i.script_name),
+    }));
     res.status(200).json({
-      success: true, data: { items: items.map(i => i.toJSON()), total: count, page: parseInt(page), pages: Math.ceil(count / parseInt(limit)) }
+      success: true, data: { items: itemsWithCategory, total: count, page: parseInt(page), pages: Math.ceil(count / parseInt(limit)) }
     });
   } catch (error) {
     res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });

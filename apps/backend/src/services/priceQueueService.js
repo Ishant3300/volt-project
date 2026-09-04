@@ -5,15 +5,14 @@
  */
 const mongoose = require('mongoose');
 const { Queue, Worker } = require('bullmq');
-const BrokerageSettings = require('../models/BrokerageSettings');
 const KiteInstrument = require('../models/KiteInstrument');
-const ScriptQuantity = require('../models/ScriptQuantity');
 const Trade = require('../models/Trade');
 const Transaction = require('../models/Transaction');
 const User = require('../models/User');
 const { LOG_PRICE_QUEUE, LOG_REDIS_ORDERS } = require('../config/logFlags');
 const { beginTradeWrite } = require('./tradeWriteFenceService');
 const { calculateMargin } = require('./marginService');
+const { calculateBrokerage } = require('./brokerageService');
 const walletService = require('./walletService');
 const { categoryForSegment } = require('../utils/walletCategory');
 const { computeWalletSplit } = require('../utils/walletSplit');
@@ -158,58 +157,6 @@ function realisedPnlFor(trade, state) {
     return (avgSell - trade.price) * Math.min(trade.quantity, Math.abs(netQty));
   }
   return 0;
-}
-
-/**
- * Rule matching previously diverged from every other brokerage-calc path in
- * this codebase (tradeController.js's immediate-fill path, metricsEngine.js,
- * settlementService.js): it matched on `trade.exchange` (the coarse
- * exchange, e.g. "NFO") instead of the instrument's real segment (e.g.
- * "NFO-FUT"), and required an exact non-empty script_name match with NO
- * fallback to a segment/exchange-wide wildcard rule (script_name empty).
- * Since this is the PRIMARY live fill path for every LIMIT/SL/SL-M order,
- * any admin who configured a segment-level default rule instead of one rule
- * per individual script got ₹0 brokerage silently charged on every such
- * fill — while the identical instrument filled as a MARKET order (via
- * tradeController.js) correctly picked up that same rule. Now uses the same
- * 4-level fallback (script+segment, script-only, segment+wildcard,
- * bare-exchange+wildcard) as the already-correct paths.
- */
-async function calculateBrokerage(trade, session) {
-  const instrument = await KiteInstrument.findOne({ instrument_token: trade.instrument_token }).session(session).lean();
-  const rawName = instrument?.raw_name || instrument?.name
-    || trade.tradingsymbol.replace(/[0-9]+[A-Z]+$/, '').trim();
-  const seg = instrument?.segment || trade.exchange || '';
-  const userId = trade.user_id || null;
-
-  const userRules = userId
-    ? await BrokerageSettings.find({ user_id: userId, deleted_at: null }).session(session).lean()
-    : [];
-  const globalRules = userRules.length === 0
-    ? await BrokerageSettings.find({ user_id: null, deleted_at: null }).session(session).lean()
-    : [];
-  const rules = userRules.length > 0 ? userRules : globalRules;
-
-  let rule = null;
-  if (rawName && seg) rule = rules.find(r => r.script_name?.toUpperCase() === rawName.toUpperCase() && r.exchange_name === seg.toUpperCase());
-  if (!rule && rawName) rule = rules.find(r => r.script_name?.toUpperCase() === rawName.toUpperCase());
-  if (!rule && seg) rule = rules.find(r => r.exchange_name === seg.toUpperCase() && (!r.script_name || r.script_name.trim() === ''));
-  if (!rule) rule = rules.find(r => r.exchange_name === (seg.split('-')[0] || '').toUpperCase() && (!r.script_name || r.script_name.trim() === ''));
-
-  if (!rule) return 0;
-  if (rule.type === 'TURNOVER WISE') return (trade.price * trade.quantity) * (rule.brk_value / 10000);
-  if (rule.type !== 'LOT WISE') return 0;
-
-  let lotSize = Number(instrument?.lot_size || 0);
-  if (lotSize <= 0) {
-    const lot = await ScriptQuantity.findOne({
-      exchange_name: trade.exchange,
-      script_name: trade.tradingsymbol,
-      deleted_at: null,
-    }).session(session).lean();
-    lotSize = Number(lot?.lot_size || 1);
-  }
-  return (trade.quantity / lotSize) * rule.brk_value;
 }
 
 async function executeMatchedOrder(match, livePrice, options = {}) {
