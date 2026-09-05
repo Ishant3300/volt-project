@@ -15,7 +15,7 @@ const BrokerageSettings = require('../models/BrokerageSettings');
 const KiteInstrument = require('../models/KiteInstrument');
 const SettlementHistory = require('../models/SettlementHistory');
 const SettlementRun = require('../models/SettlementRun');
-const { dateRange, isWeekendInIndia } = require('../utils/settlementDates');
+const { dateRange, isWeekendInIndia, getLatestDueSettlementFriday } = require('../utils/settlementDates');
 const { allowedCategories } = require('../utils/walletCategory');
 const { GLOBAL_INDEX_NAMES } = require('../constants/massiveInstruments');
 
@@ -1028,6 +1028,25 @@ class MetricsEngine {
         const nseRange = dateRange(run.price_dates?.nse || run.trading_date);
         const mcxRange = dateRange(run.price_dates?.mcx || run.trading_date);
         const globalRange = dateRange(run.price_dates?.global || run.trading_date);
+
+        // The picked SettlementRun record is a WEEKLY settlement-cycle log — it
+        // can legitimately lag behind the actual latest trading day by up to a
+        // few days (e.g. the current Friday's weekly run hasn't been created
+        // yet even though Friday's bhavcopy-sourced settlement_price on each
+        // instrument was already refreshed same-day). Scoping this query to
+        // ONLY the run's own (possibly stale) date window meant any instrument
+        // whose settlement_price_date was already fresher than that window got
+        // silently dropped from setSettledTokens' lock below — unlocking it on
+        // a weekend/closed market and leaving it exposed to a stray/leftover
+        // tick overwriting its correct settlement price with a wrong one
+        // (confirmed real: MARUTI26SEPFUT showed CMP 13498 instead of its
+        // correct, freshly-updated settlement price of 12722, because the
+        // picked run's trading_date was over a week old). Union in the actual
+        // latest-due settlement Friday's own date range so a fresher
+        // settlement_price is never excluded just because the run bookkeeping
+        // hasn't caught up.
+        const latestFriday = getLatestDueSettlementFriday(options.now || new Date());
+        const latestRange = dateRange(latestFriday);
         const instruments = await KiteInstrument.find({
           is_active: true,
           deleted_at: null,
@@ -1038,6 +1057,7 @@ class MetricsEngine {
             { exchange: 'GLOBAL', name: { $in: GLOBAL_INDEX_NAMES }, settlement_price_date: { $gte: globalRange.start, $lt: globalRange.end } },
             { exchange: { $nin: ['MCX', 'COMEX', 'GLOBAL'] }, settlement_price_date: { $gte: nseRange.start, $lt: nseRange.end } },
             { exchange: 'GLOBAL', name: { $nin: GLOBAL_INDEX_NAMES }, settlement_price_date: { $gte: nseRange.start, $lt: nseRange.end } },
+            { settlement_price_date: { $gte: latestRange.start, $lt: latestRange.end } },
           ],
         }).select('instrument_token settlement_price').lean();
         for (const instrument of instruments) {
