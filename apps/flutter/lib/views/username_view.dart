@@ -1021,6 +1021,19 @@ class _UsernameViewState extends State<UsernameView> {
         }
 
         // Track net position locally for openedAt timestamp (duration display)
+        // ONLY — never mark isClosing from this local reconstruction, matching
+        // this function's own doc comment ("trust the backend pnl directly...
+        // falls back to local FIFO pairing only for openedAt duration display").
+        // A local net-qty flip is NOT reliable evidence of a real close: pulling
+        // a real account's trades confirmed the backend correctly returns pnl=0
+        // for trades that are genuinely opening/adding to a position (verified
+        // against user90's GLENMARK/PAYTM trades, where three separate pnl=0
+        // SELLs were each increasing an already-open short, not closing one) —
+        // this local heuristic was mislabeling exactly those rows "Closed Xhr
+        // ago" purely from its own (less complete) reconstruction disagreeing
+        // with the backend's real position state, which already accounts for
+        // hidden carry-forward legs, settlements, and multi-day history this
+        // widget doesn't have loaded.
         if (netQty == 0) {
           openedAt = t.createdAt;
           netQty = isBuy ? t.quantity : -t.quantity;
@@ -1028,9 +1041,9 @@ class _UsernameViewState extends State<UsernameView> {
           // Adding to position
           netQty += isBuy ? t.quantity : -t.quantity;
         } else {
-          // Closing trade detected by local FIFO (pnl was 0 but it's still closing)
-          result[t.id] =
-              _PerTradePnl(pnl: t.pnl, isClosing: true, openedAt: openedAt);
+          // Local reconstruction disagrees with netQty sign (a real close, or
+          // just this widget's incomplete view of the position) — track qty
+          // for later openedAt purposes but leave isClosing to the backend.
           netQty += isBuy ? t.quantity : -t.quantity;
           if (netQty == 0) openedAt = null;
         }
