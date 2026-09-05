@@ -15,7 +15,7 @@ const BrokerageSettings = require('../models/BrokerageSettings');
 const KiteInstrument = require('../models/KiteInstrument');
 const SettlementHistory = require('../models/SettlementHistory');
 const SettlementRun = require('../models/SettlementRun');
-const { dateRange, isWeekendInIndia, getLatestDueSettlementFriday } = require('../utils/settlementDates');
+const { dateRange, isWeekendInIndia, getLatestDueSettlementFriday, toIndiaDateOnly } = require('../utils/settlementDates');
 const { allowedCategories } = require('../utils/walletCategory');
 const { GLOBAL_INDEX_NAMES } = require('../constants/massiveInstruments');
 
@@ -1033,20 +1033,31 @@ class MetricsEngine {
         // can legitimately lag behind the actual latest trading day by up to a
         // few days (e.g. the current Friday's weekly run hasn't been created
         // yet even though Friday's bhavcopy-sourced settlement_price on each
-        // instrument was already refreshed same-day). Scoping this query to
-        // ONLY the run's own (possibly stale) date window meant any instrument
-        // whose settlement_price_date was already fresher than that window got
-        // silently dropped from setSettledTokens' lock below — unlocking it on
-        // a weekend/closed market and leaving it exposed to a stray/leftover
-        // tick overwriting its correct settlement price with a wrong one
-        // (confirmed real: MARUTI26SEPFUT showed CMP 13498 instead of its
-        // correct, freshly-updated settlement price of 12722, because the
-        // picked run's trading_date was over a week old). Union in the actual
-        // latest-due settlement Friday's own date range so a fresher
-        // settlement_price is never excluded just because the run bookkeeping
-        // hasn't caught up.
+        // instrument was already refreshed same-day). Union in the actual
+        // latest-due settlement Friday's own date range so an instrument this
+        // fresh is never excluded just because the run bookkeeping hasn't
+        // caught up.
         const latestFriday = getLatestDueSettlementFriday(options.now || new Date());
         const latestRange = dateRange(latestFriday);
+
+        // A run's own trading_date is the reference point priceMap's
+        // SettlementHistory snapshots represent — a carry-forward reopen
+        // price frozen at THAT settlement, e.g. "this user's position was
+        // reopened at 13498 back on 2026-08-28". That's correct as a
+        // historical fact, but priceMap.set(token, ...) makes it win via
+        // `if (!allPriceMap.has(token))` below FOREVER after, even once a
+        // newer Friday's official settlement_price (12722, refreshed
+        // same-day from bhavcopy) is clearly the more current, authoritative
+        // number — confirmed real: MARUTI26SEPFUT kept showing CMP 13498
+        // (an Aug-28 carry-forward reopen price, not a bug value) instead of
+        // its correct, much more recent settlement price, purely because the
+        // picked run was still Aug-28 (no newer run exists yet) and its own
+        // stale snapshot price kept winning over the instrument's own fresher
+        // data. Instruments whose settlement_price_date is strictly newer
+        // than this run's own reference date represent objectively more
+        // current pricing than anything priceMap could know about — those
+        // must override, not just fill gaps.
+        const runReferenceDate = toIndiaDateOnly(run.trading_date);
         const instruments = await KiteInstrument.find({
           is_active: true,
           deleted_at: null,
@@ -1059,10 +1070,13 @@ class MetricsEngine {
             { exchange: 'GLOBAL', name: { $nin: GLOBAL_INDEX_NAMES }, settlement_price_date: { $gte: nseRange.start, $lt: nseRange.end } },
             { settlement_price_date: { $gte: latestRange.start, $lt: latestRange.end } },
           ],
-        }).select('instrument_token settlement_price').lean();
+        }).select('instrument_token settlement_price settlement_price_date').lean();
         for (const instrument of instruments) {
           const token = instrument.instrument_token.toString();
-          if (!allPriceMap.has(token)) allPriceMap.set(token, Number(instrument.settlement_price));
+          const isNewerThanRun = instrument.settlement_price_date && new Date(instrument.settlement_price_date) > runReferenceDate;
+          if (isNewerThanRun || !allPriceMap.has(token)) {
+            allPriceMap.set(token, Number(instrument.settlement_price));
+          }
         }
 
         for (const [token, price] of allPriceMap) {
