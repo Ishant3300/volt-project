@@ -161,6 +161,20 @@ class CronService {
             } catch (error) {
                 console.error(`❌ [CRON] Bhavcopy NSE error: ${error.message}`);
             }
+            try {
+                // NSEIX publishes GIFT NIFTY's own official Daily Settlement
+                // Price file mid-afternoon (confirmed real: ~16:16 IST) — well
+                // before this 17:30 slot, and it runs on NSE's own trading
+                // calendar day. Without this, every open GIFT NIFTY position
+                // fails weekly settlement's hasOfficialSettlementAuthority
+                // gate (confirmed real: a SettlementRun stuck `blocked` with
+                // error "official settlement source unsupported for NSEIX").
+                const { fetchAndApplyGiftNiftySettlement } = require('./giftNiftySettlementService');
+                await fetchAndApplyGiftNiftySettlement();
+                console.log('✅ [CRON] GIFT NIFTY settlement price fetch completed.');
+            } catch (error) {
+                console.error(`❌ [CRON] GIFT NIFTY settlement error: ${error.message}`);
+            }
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(nseBhavcopyJob);
 

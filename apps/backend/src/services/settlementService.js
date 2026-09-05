@@ -190,6 +190,10 @@ function expectedPriceDateForInstrument(run, instrument) {
   // an official settlement date; everything else on GLOBAL/SGX correctly
   // stays unsupported (null), same pre-existing behaviour as before.
   if (instrument?.exchange === 'GLOBAL' && GLOBAL_INDEX_NAMES.includes(instrument?.name)) return run.price_dates?.global;
+  // GIFT NIFTY (giftNiftySettlementService.js) — NSEIX runs on the same India
+  // trading-calendar day as NSE (confirmed against a real downloaded file),
+  // so no dedicated price_dates field is needed.
+  if (instrument?.exchange === 'NSEIX') return run.price_dates?.nse;
   return null;
 }
 
@@ -213,6 +217,9 @@ function hasOfficialSettlementAuthority(instrument) {
   // accidentally pass this check.
   if (instrument?.exchange === 'GLOBAL' && GLOBAL_INDEX_NAMES.includes(instrument?.name)) {
     return source.startsWith('MASSIVE_OFFICIAL_SESSION_');
+  }
+  if (instrument?.exchange === 'NSEIX') {
+    return source.startsWith('NSEIX_OFFICIAL_');
   }
   return false;
 }
@@ -951,6 +958,17 @@ async function executeOwnedRun(context) {
         await fetchAndApplyMassiveSettlement({ applyToLivePrices: applySettlementPrices });
       } catch (err) {
         console.error(`[Settlement] Massive settlement price fetch failed: ${err.message}`);
+      }
+
+      // GIFT NIFTY (NSEIX) — same rationale as the Massive fetch above: fetch
+      // inline so a run doesn't depend on the daily cron having already fired
+      // first. Non-fatal: a transient NSEIX fetch failure shouldn't block the
+      // rest of settlement.
+      try {
+        const { fetchAndApplyGiftNiftySettlement } = require('./giftNiftySettlementService');
+        await fetchAndApplyGiftNiftySettlement(run.price_dates.nse, { applyToLivePrices: applySettlementPrices });
+      } catch (err) {
+        console.error(`[Settlement] GIFT NIFTY settlement price fetch failed: ${err.message}`);
       }
       broadcastProgress();
     }
