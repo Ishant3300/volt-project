@@ -24,6 +24,20 @@ const WS_URL = 'wss://socket.massive.com/futures';
 const REST_BASE_URL = 'https://api.massive.com';
 const RECONNECT_DELAY_MS = 10_000;
 const OHLC_POLL_INTERVAL_MS = 20_000;
+// _pollOhlc fires REST calls to Massive's aggs endpoint, entirely separate
+// from the persistent WS connection that streams live ticks (_handleQuote/
+// _handleTrade below) — this batching only paces those REST calls and has
+// no bearing on live-feed latency. Firing all ~24 tracked contracts at once
+// every cycle was a thundering-herd burst against Massive's API, causing
+// widespread 8s timeouts (confirmed in production logs: "OHLC poll failed
+// for <ticker>: timeout of 8000ms exceeded", rotating across different
+// tickers each cycle — not the same ones failing every time, consistent
+// with a capacity/rate-limit issue under a 24-way burst, not a per-ticker
+// data gap). Small batches with a short gap between them stay well inside
+// the 20s poll interval in the normal case while no longer saturating
+// Massive's API in one instant.
+const OHLC_POLL_BATCH_SIZE = 6;
+const OHLC_POLL_BATCH_GAP_MS = 400;
 
 class MassiveFuturesFeedService {
   constructor() {
@@ -47,6 +61,7 @@ class MassiveFuturesFeedService {
     // client watched.
     this.tokenToOhlc = new Map();
     this._initialized = false;
+    this._ohlcPollInFlight = false;
   }
 
   async init(livePriceService) {
@@ -84,32 +99,49 @@ class MassiveFuturesFeedService {
    * service feeds.
    */
   async _pollOhlc() {
-    await this._refreshPrevClose();
-    const entries = [...this.tickerToToken.entries()];
-    await Promise.all(entries.map(async ([ticker, token]) => {
-      try {
-        const { data } = await axios.get(`${REST_BASE_URL}/futures/v1/aggs/${ticker}`, {
-          params: { apiKey: API_KEY, resolution: '1session', limit: 1, sort: 'window_start.desc' },
-          timeout: 8000,
-        });
-        const bar = data.results && data.results[0];
-        if (!bar) return;
-        const update = {};
-        if (Number(bar.open) > 0) update.ohlc_open = Number(bar.open);
-        if (Number(bar.high) > 0) update.ohlc_high = Number(bar.high);
-        if (Number(bar.low) > 0) update.ohlc_low = Number(bar.low);
-        if (Number(bar.close) > 0) update.ohlc_close = Number(bar.close);
-        if (Object.keys(update).length === 0) return;
-        this.tokenToOhlc.set(token, {
-          open: update.ohlc_open,
-          high: update.ohlc_high,
-          low: update.ohlc_low,
-        });
-        await KiteInstrument.updateOne({ instrument_token: token }, { $set: update });
-      } catch (err) {
-        console.warn(`⚠️  [MassiveFeed] OHLC poll failed for ${ticker}: ${err.message}`);
+    // Guard against overlap: if a previous poll is still running (e.g. it's
+    // eating multiple timeouts) when the next 20s interval fires, skip this
+    // round rather than stacking another full pass on top of it.
+    if (this._ohlcPollInFlight) return;
+    this._ohlcPollInFlight = true;
+    try {
+      await this._refreshPrevClose();
+      const entries = [...this.tickerToToken.entries()];
+      for (let i = 0; i < entries.length; i += OHLC_POLL_BATCH_SIZE) {
+        const batch = entries.slice(i, i + OHLC_POLL_BATCH_SIZE);
+        await Promise.all(batch.map(([ticker, token]) => this._pollOneTicker(ticker, token)));
+        if (i + OHLC_POLL_BATCH_SIZE < entries.length) {
+          await new Promise((resolve) => setTimeout(resolve, OHLC_POLL_BATCH_GAP_MS));
+        }
       }
-    }));
+    } finally {
+      this._ohlcPollInFlight = false;
+    }
+  }
+
+  async _pollOneTicker(ticker, token) {
+    try {
+      const { data } = await axios.get(`${REST_BASE_URL}/futures/v1/aggs/${ticker}`, {
+        params: { apiKey: API_KEY, resolution: '1session', limit: 1, sort: 'window_start.desc' },
+        timeout: 8000,
+      });
+      const bar = data.results && data.results[0];
+      if (!bar) return;
+      const update = {};
+      if (Number(bar.open) > 0) update.ohlc_open = Number(bar.open);
+      if (Number(bar.high) > 0) update.ohlc_high = Number(bar.high);
+      if (Number(bar.low) > 0) update.ohlc_low = Number(bar.low);
+      if (Number(bar.close) > 0) update.ohlc_close = Number(bar.close);
+      if (Object.keys(update).length === 0) return;
+      this.tokenToOhlc.set(token, {
+        open: update.ohlc_open,
+        high: update.ohlc_high,
+        low: update.ohlc_low,
+      });
+      await KiteInstrument.updateOne({ instrument_token: token }, { $set: update });
+    } catch (err) {
+      console.warn(`⚠️  [MassiveFeed] OHLC poll failed for ${ticker}: ${err.message}`);
+    }
   }
 
   async _refreshPrevClose() {
