@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'dart:developer';
 import '../utils/number_to_words.dart';
@@ -621,6 +622,31 @@ class _CreateUserViewState extends State<CreateUserView> {
       return;
     }
 
+    // Own-balance guard: a master can't hand out more credit/wallet than
+    // they themselves currently have — same checks the backend itself
+    // enforces (parentMaster.equity < credits / walletService.block), just
+    // surfaced here before the request instead of after a rejection.
+    final ownMaster = profileProvider.master;
+    if (ownMaster != null) {
+      if (credit > ownMaster.equity) {
+        _showSnack(
+            'Opening credit exceeds your own available balance (${ownMaster.equity.toStringAsFixed(2)}).',
+            isError: true);
+        return;
+      }
+      for (final category in allowedCategories(_selectedExchangeNames)) {
+        final entered =
+            double.tryParse(_walletControllerFor(category).text.trim()) ?? 0;
+        final available = ownMaster.wallet[category] ?? 0;
+        if (entered > available) {
+          _showSnack(
+              '$category wallet amount exceeds your own available balance (${available.toStringAsFixed(2)}).',
+              isError: true);
+          return;
+        }
+      }
+    }
+
     List<Map<String, dynamic>> exchangesAllowed = [];
     _exchangeSettings.forEach((exchange, settings) {
       if (settings['enabled'] == true) {
@@ -832,7 +858,12 @@ class _CreateUserViewState extends State<CreateUserView> {
                           _buildTextField(
                               label: 'Credit',
                               controller: _creditController,
-                              keyboardType: TextInputType.number),
+                              keyboardType: TextInputType.number,
+                              remainingAvailable: Provider.of<
+                                          UserProfileProvider>(context,
+                                      listen: false)
+                                  .master
+                                  ?.equity),
                           _divider(),
                           _buildTextField(
                               label: 'Note', controller: _noteController),
@@ -1235,7 +1266,9 @@ class _CreateUserViewState extends State<CreateUserView> {
     TextInputType keyboardType = TextInputType.text,
     bool readOnly = false,
     bool showWordsInIndian = false,
+    double? remainingAvailable,
   }) {
+    final showRemainingHint = remainingAvailable != null;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Column(
@@ -1260,8 +1293,9 @@ class _CreateUserViewState extends State<CreateUserView> {
                   obscureText: obscureText,
                   keyboardType: keyboardType,
                   readOnly: readOnly,
-                  onChanged:
-                      showWordsInIndian ? (_) => setState(() {}) : null,
+                  onChanged: (showWordsInIndian || showRemainingHint)
+                      ? (_) => setState(() {})
+                      : null,
                   style: readOnly
                       ? const TextStyle(color: Colors.grey)
                       : const TextStyle(
@@ -1302,7 +1336,36 @@ class _CreateUserViewState extends State<CreateUserView> {
                 ),
               );
             }),
+          if (showRemainingHint)
+            _remainingBalanceHint(remainingAvailable, controller.text),
         ],
+      ),
+    );
+  }
+
+  /// "Available X → Remaining Y" (or an explicit shortfall) shown under a
+  /// credit/wallet input as the master types — computed against THIS
+  /// master's own current balance so they can see what this allocation will
+  /// leave before submitting, instead of finding out only from a rejected
+  /// request. Mirrors the same hint added to the web portal's create-account
+  /// forms.
+  Widget _remainingBalanceHint(double available, String enteredText) {
+    final entered = double.tryParse(enteredText.trim()) ?? 0;
+    final remaining = available - entered;
+    final negative = remaining < 0;
+    final fmt = NumberFormat('#,##0.00');
+    return Padding(
+      padding: const EdgeInsets.only(left: 100, top: 2),
+      child: Text(
+        negative
+            ? 'Exceeds available balance by ${fmt.format(remaining.abs())}'
+            : 'Available ${fmt.format(available)} → Remaining ${fmt.format(remaining)}',
+        style: TextStyle(
+          color: negative ? const Color(0xFFEF4444) : kBrandPrimary,
+          fontSize: 11,
+          fontFamily: kFontFamily,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }
@@ -1623,6 +1686,14 @@ class _CreateUserViewState extends State<CreateUserView> {
                 ),
               ),
             );
+          }),
+          Builder(builder: (_) {
+            final master = Provider.of<UserProfileProvider>(context,
+                    listen: false)
+                .master;
+            final available = master?.wallet[category];
+            if (available == null) return const SizedBox.shrink();
+            return _remainingBalanceHint(available, controller.text);
           }),
         ],
       ),
