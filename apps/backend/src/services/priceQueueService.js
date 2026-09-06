@@ -239,11 +239,26 @@ async function executeMatchedOrder(match, livePrice, options = {}) {
       // would otherwise still fill and open a fresh position, bypassing the
       // admin's intent entirely — same shape as the instrument-blocked gate
       // above. Same rejection shape.
-      const gateUser = await User.findById(trade.user_id).select('bet close_only exchanges_allowed').session(session).lean();
+      const gateUser = await User.findById(trade.user_id).select('bet close_only exchanges_allowed margin_call_blocked margin_square_off margin_square_off_percentage credits').session(session).lean();
       const isClosingForCloseOnly = (trade.transaction_type === 'SELL' && previousNetQty > 0)
         || (trade.transaction_type === 'BUY' && previousNetQty < 0);
       const betBlocked = gateUser?.bet === false;
       const closeOnlyBlocked = gateUser?.close_only === true && !isClosingForCloseOnly;
+
+      // Margin-call gate at FILL time — mirrors placeTrade's placement-time
+      // checks (tradeController.js). See margin_call_blocked's own comment
+      // (models/User.js) and the toggle-OFF live check in tradeController.js
+      // for why these are separate from bet/close_only above.
+      const marginCallFullyBlocked = gateUser?.margin_call_blocked === true;
+      let marginCallLiveBlocked = false;
+      if (!marginCallFullyBlocked && !gateUser?.margin_square_off && !(gateUser?.margin_square_off_percentage > 0)) {
+        const metricsEngineForMarginCall = require('./metricsEngine');
+        const liveMetricsForMarginCall = metricsEngineForMarginCall.getCachedMetrics(trade.user_id.toString());
+        const creditForMarginCall = Number(gateUser?.credits || 0);
+        marginCallLiveBlocked = !!liveMetricsForMarginCall
+          && Number(liveMetricsForMarginCall.m2m_pnl || 0) <= -creditForMarginCall
+          && !isClosingForCloseOnly;
+      }
 
       // Exchange-permission gate — mirrors placeTrade's placement-time check.
       // Admin can revoke a segment from exchanges_allowed after a LIMIT/SL/SL-M
@@ -258,11 +273,15 @@ async function executeMatchedOrder(match, livePrice, options = {}) {
         return allowCandidates.has(name) || allowCandidates.has(normalized);
       });
 
-      if (betBlocked || closeOnlyBlocked || exchangeBlocked) {
+      if (betBlocked || closeOnlyBlocked || marginCallFullyBlocked || marginCallLiveBlocked || exchangeBlocked) {
         const userGateRejectRemark = betBlocked
           ? 'Trading is currently disabled for your account.'
           : closeOnlyBlocked
           ? 'Your account is in close-only mode. You can only close existing positions.'
+          : marginCallFullyBlocked
+          ? 'Trading is blocked: a margin square-off already closed all your positions. Contact your master/admin to add credit and resume.'
+          : marginCallLiveBlocked
+          ? 'Trading is blocked: your live M2M loss has reached your full credit. You can only close existing positions until your master/admin adds credit.'
           : `Your account is not permitted to trade ${rawSegmentForAllow || 'this instrument'}. Contact your master/admin.`;
         trade.status = 'rejected';
         trade.pnl = 0;

@@ -189,6 +189,47 @@ const placeTrade = async (req, res) => {
                 throw new Error('Trading is currently disabled for your account.');
             }
 
+            // ── Margin-call block (system-driven, separate from admin's manual
+            //    bet/close_only toggles above) ──
+            // Admin placing on behalf of user bypasses this check, same as every
+            // other account-level gate here.
+            if (!req.admin) {
+                if (user.margin_call_blocked === true) {
+                    throw new Error('Trading is blocked: a margin square-off already closed all your positions. Contact your master/admin to add credit and resume.');
+                }
+
+                // Toggle-OFF path: margin_square_off never auto-closes positions for
+                // this account, so once live M2M loss reaches the full credit, block
+                // any INCREASING trade (new or adding to a position) while still
+                // allowing the user to close/reduce what they already have. This is
+                // deliberately live/non-sticky (re-evaluated on every order) — unlike
+                // margin_call_blocked above, nothing was force-closed here, so the
+                // block should lift on its own the moment the market recovers.
+                if (!user.margin_square_off && !(user.margin_square_off_percentage > 0)) {
+                    const metricsEngForMarginCall = require('../services/metricsEngine');
+                    const liveMetricsForMarginCall = metricsEngForMarginCall.getCachedMetrics(user._id.toString());
+                    const creditForMarginCall = Number(user.credits || 0);
+                    if (liveMetricsForMarginCall && Number(liveMetricsForMarginCall.m2m_pnl || 0) <= -creditForMarginCall) {
+                        const posAggForMarginCall = await Trade.aggregate([
+                            { $match: { user_id: user._id, instrument_token, status: 'completed', deleted_at: null } },
+                            { $group: {
+                                _id: null,
+                                total_buy_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'BUY'] }, '$executed_quantity', 0] } },
+                                total_sell_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'SELL'] }, '$executed_quantity', 0] } }
+                            }}
+                        ]).session(session);
+                        const currentNetQtyForMarginCall = posAggForMarginCall.length > 0
+                            ? posAggForMarginCall[0].total_buy_qty - posAggForMarginCall[0].total_sell_qty
+                            : 0;
+                        const isClosingForMarginCall = (transaction_type === 'SELL' && currentNetQtyForMarginCall > 0)
+                            || (transaction_type === 'BUY' && currentNetQtyForMarginCall < 0);
+                        if (!isClosingForMarginCall) {
+                            throw new Error(`Trading is blocked: your live M2M loss (₹${Math.abs(liveMetricsForMarginCall.m2m_pnl).toFixed(2)}) has reached your full credit (₹${creditForMarginCall.toFixed(2)}). You can only close existing positions until your master/admin adds credit.`);
+                        }
+                    }
+                }
+            }
+
             // ── Instrument enabled check: if instrument is disabled, only closing trades allowed ──
             // ── Instrument deleted check: if instrument is deleted, block ALL trades ──
             if (!req.admin) {
@@ -1960,6 +2001,20 @@ const rolloverPositions = async (req, res) => {
                     }
                     if (!req.admin && user.close_only === true) {
                         throw new Error('Your account is in close-only mode. You can only close existing positions.');
+                    }
+                    // Rollover's reopen leg is always fresh exposure on the new
+                    // contract (never a close), so both margin-call gates block it
+                    // unconditionally — same reasoning as close_only just above.
+                    if (!req.admin && user.margin_call_blocked === true) {
+                        throw new Error('Trading is blocked: a margin square-off already closed all your positions. Contact your master/admin to add credit and resume.');
+                    }
+                    if (!req.admin && !user.margin_square_off && !(user.margin_square_off_percentage > 0)) {
+                        const metricsEngForRolloverMarginCall = require('../services/metricsEngine');
+                        const liveMetricsForRolloverMarginCall = metricsEngForRolloverMarginCall.getCachedMetrics(user._id.toString());
+                        const creditForRolloverMarginCall = Number(user.credits || 0);
+                        if (liveMetricsForRolloverMarginCall && Number(liveMetricsForRolloverMarginCall.m2m_pnl || 0) <= -creditForRolloverMarginCall) {
+                            throw new Error(`Trading is blocked: your live M2M loss (₹${Math.abs(liveMetricsForRolloverMarginCall.m2m_pnl).toFixed(2)}) has reached your full credit (₹${creditForRolloverMarginCall.toFixed(2)}). You can only close existing positions until your master/admin adds credit.`);
+                        }
                     }
                     if (!req.admin) {
                         const rawSegmentForAllow = (newInstrument.segment || newInstrument.exchange || '').toUpperCase();
