@@ -10,6 +10,7 @@ import '../services/master_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../providers/user_profile_provider.dart';
 import '../utils/contants.dart';
+import '../utils/number_to_words.dart';
 
 class TransactionPage extends StatefulWidget {
   final Master? master;
@@ -481,6 +482,7 @@ class _TransactionPageState extends State<TransactionPage> {
           TextField(
             controller: _amountController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onChanged: (_) => setState(() {}),
             style: const TextStyle(fontSize: kFontSizeSectionHeader, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
             decoration: InputDecoration(
               hintText: 'Enter amount',
@@ -493,6 +495,23 @@ class _TransactionPageState extends State<TransactionPage> {
               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: kBrandPrimary, width: 1.5)),
             ),
           ),
+          Builder(builder: (_) {
+            final parsed = double.tryParse(_amountController.text.trim());
+            final words = numberToIndianWords(parsed);
+            if (words.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(left: 4, top: 6),
+              child: Text(
+                '₹ $words',
+                style: const TextStyle(
+                  color: kBrandPrimary,
+                  fontSize: 11,
+                  fontFamily: kFontFamily,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            );
+          }),
           const SizedBox(height: 16),
 
           // Comment field

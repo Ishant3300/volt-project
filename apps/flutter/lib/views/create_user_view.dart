@@ -859,6 +859,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                               label: 'Credit',
                               controller: _creditController,
                               keyboardType: TextInputType.number,
+                              showWordsInIndian: true,
                               remainingAvailable: Provider.of<
                                           UserProfileProvider>(context,
                                       listen: false)
