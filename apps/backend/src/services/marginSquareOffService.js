@@ -332,6 +332,13 @@ async function _squareOffAllPositions(triggerUser, options = {}) {
         console.log(`🛡️  [MarginSquareOff] Squared off ${position.tradingsymbol}: ${closeType} ${closeQty} @ ₹${closePrice.toFixed(2)}, P&L: ₹${pnl.toFixed(2)}`);
       }
 
+      // Every position is now closed — block further trading until the
+      // master/admin explicitly credits this account again (creditUser /
+      // creditUserByAdmin clear this). Set inside the same transaction as
+      // the closes so a crash between them can't leave positions closed but
+      // trading still open.
+      freshUser.margin_call_blocked = true;
+
       await lease.assertActive({ session });
       await freshUser.save({ session });
     });

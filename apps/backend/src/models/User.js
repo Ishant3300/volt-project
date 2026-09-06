@@ -113,6 +113,20 @@ const userSchema = new mongoose.Schema({
     min: 0,
     max: 100
   },
+  // Set true the moment marginSquareOffService force-closes every position
+  // (margin_square_off toggle path only — never set for the live, non-sticky
+  // toggle-OFF M2M check in tradeController.js, which recomputes fresh on
+  // every order instead). Deliberately a separate field from `bet`/
+  // `close_only` (admin's own manual trading-restriction toggles) so this
+  // system-driven block can't be silently lifted by an unrelated admin
+  // action on those fields, and vice versa. Cleared only by an explicit
+  // credits top-up (creditUser / creditUserByAdmin) — never auto-clears on
+  // its own even if the market recovers, since the underlying positions are
+  // already gone.
+  margin_call_blocked: {
+    type: Boolean,
+    default: false
+  },
   // Per-category trade wallet (available balances). Funded via the assignment
   // flow; blocked on open / released on close by walletService.
   wallet: {

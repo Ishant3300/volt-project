@@ -291,11 +291,24 @@ const processPendingOrders = async () => {
                         // would otherwise still fill and open a fresh position, bypassing
                         // the admin's intent entirely. Same rejection shape as the
                         // instrument-blocked gate above.
-                        const gateUser = await User.findById(freshTrade.user_id).select('bet close_only exchanges_allowed').session(session).lean();
+                        const gateUser = await User.findById(freshTrade.user_id).select('bet close_only exchanges_allowed margin_call_blocked margin_square_off margin_square_off_percentage credits').session(session).lean();
                         const isClosingForCloseOnly = (freshTrade.transaction_type === 'SELL' && prevNetQtyCheck > 0)
                             || (freshTrade.transaction_type === 'BUY' && prevNetQtyCheck < 0);
                         const betBlocked = gateUser?.bet === false;
                         const closeOnlyBlocked = gateUser?.close_only === true && !isClosingForCloseOnly;
+
+                        // Margin-call gate at FILL time — mirrors placeTrade's
+                        // placement-time checks and priceQueueService's fill gate.
+                        const marginCallFullyBlocked = gateUser?.margin_call_blocked === true;
+                        let marginCallLiveBlocked = false;
+                        if (!marginCallFullyBlocked && !gateUser?.margin_square_off && !(gateUser?.margin_square_off_percentage > 0)) {
+                            const metricsEngineForMarginCall = require('./metricsEngine');
+                            const liveMetricsForMarginCall = metricsEngineForMarginCall.getCachedMetrics(freshTrade.user_id.toString());
+                            const creditForMarginCall = Number(gateUser?.credits || 0);
+                            marginCallLiveBlocked = !!liveMetricsForMarginCall
+                                && Number(liveMetricsForMarginCall.m2m_pnl || 0) <= -creditForMarginCall
+                                && !isClosingForCloseOnly;
+                        }
 
                         // Exchange-permission gate — mirrors placeTrade's placement-time
                         // check and priceQueueService's primary-path fill gate.
@@ -309,11 +322,15 @@ const processPendingOrders = async () => {
                             return allowCandidates.has(name) || allowCandidates.has(normalized);
                         });
 
-                        if (betBlocked || closeOnlyBlocked || exchangeBlocked) {
+                        if (betBlocked || closeOnlyBlocked || marginCallFullyBlocked || marginCallLiveBlocked || exchangeBlocked) {
                             const userGateRejectRemark = betBlocked
                                 ? 'Trading is currently disabled for your account.'
                                 : closeOnlyBlocked
                                 ? 'Your account is in close-only mode. You can only close existing positions.'
+                                : marginCallFullyBlocked
+                                ? 'Trading is blocked: a margin square-off already closed all your positions. Contact your master/admin to add credit and resume.'
+                                : marginCallLiveBlocked
+                                ? 'Trading is blocked: your live M2M loss has reached your full credit. You can only close existing positions until your master/admin adds credit.'
                                 : `Your account is not permitted to trade ${rawSegmentForAllow || 'this instrument'}. Contact your master/admin.`;
                             freshTrade.status = 'rejected';
                             freshTrade.pnl = 0;

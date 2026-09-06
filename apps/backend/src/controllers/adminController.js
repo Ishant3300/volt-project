@@ -557,6 +557,9 @@ const creditUserByAdmin = async (req, res) => {
 
       const creditsBefore = user.credits;
       user.credits += amount;
+      // A prior margin square-off blocked further trading (marginSquareOffService.js)
+      // specifically "until credit has been given" — this is that credit.
+      user.margin_call_blocked = false;
       await user.save({ session });
 
       const tx = new Transaction({

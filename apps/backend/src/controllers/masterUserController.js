@@ -807,6 +807,10 @@ const creditUser = async (req, res) => {
       // field actually mutated, not equity (which never changes here).
       user.credits += amount;
 
+      // A prior margin square-off blocked further trading (marginSquareOffService.js)
+      // specifically "until credit has been given" — this is that credit.
+      user.margin_call_blocked = false;
+
       await master.save({ session });
       await user.save({ session });
 
