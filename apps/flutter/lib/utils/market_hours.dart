@@ -87,7 +87,14 @@ class MarketHours {
   }
 
   static bool _isGiftNifty(String exchange, String symbol) {
-    // GIFT NIFTY typically trades on NSE with a specific symbol
-    return symbol.contains('GIFTNIFTY') || symbol.contains('GIFT_NIFTY');
+    // Real KiteInstrument tradingsymbol is literally "GIFT NIFTY" (with a
+    // space) — confirmed against a real document. Neither of the two
+    // no-space variants below ever actually matched it, silently falling
+    // this instrument through to the generic two-session fallback hours
+    // below instead of its own real near-24h schedule. Strip
+    // whitespace/underscores before comparing so any of these spellings
+    // match.
+    final normalized = symbol.replaceAll(RegExp(r'[\s_]'), '');
+    return normalized.contains('GIFTNIFTY');
   }
 }
