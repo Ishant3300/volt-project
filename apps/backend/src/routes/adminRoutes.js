@@ -352,10 +352,14 @@ router.get('/instruments/expiries', authenticateAdmin, async (req, res) => {
     if (!segment) {
       return res.status(400).json({ success: false, message: 'segment is required', data: null });
     }
+    // Only current/future expiries — matches the default (no ?expiry=) filter
+    // on GET /admin/instruments, which already hides expired contracts.
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const expiries = await KiteInstrument.distinct('expiry', {
       segment,
       deleted_at: null,
-      expiry: { $ne: null },
+      expiry: { $gte: today },
     });
     expiries.sort((a, b) => new Date(a) - new Date(b));
     res.json({ success: true, data: expiries });
