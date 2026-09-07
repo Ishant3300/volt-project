@@ -253,6 +253,13 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
     final totalPnl = _d(row['total_pnl']);
     final adminProfit = _d(row['caller_profit'] ?? row['admin_profit']);
     final totalAdmin = _d(row['total_caller'] ?? row['total_admin']);
+    // What THIS row's own account owes UP to its own parent — the mirror
+    // image of adminBrk/adminProfit/totalAdmin above (what it keeps for
+    // itself). Independent of who's viewing: for a sub-master row this is
+    // what that sub-master owes their own parent, not what reaches admin.
+    final owedUpwardPnl = _d(row['owed_upward_pnl']);
+    final owedUpwardBrk = _d(row['owed_upward_brk']);
+    final totalOwedUpward = _d(row['total_owed_upward']);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -319,6 +326,16 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
           _summaryBox('ADMIN PROFIT', adminProfit),
           const SizedBox(width: 8),
           _summaryBox('TOTAL ADMIN', totalAdmin),
+        ]),
+        const SizedBox(height: 8),
+
+        // What this account owes UP to its own parent (not what it keeps).
+        Row(children: [
+          _summaryBox('OWED P&L', owedUpwardPnl),
+          const SizedBox(width: 8),
+          _summaryBox('OWED BRK', owedUpwardBrk),
+          const SizedBox(width: 8),
+          _summaryBox('OWED TOTAL', totalOwedUpward),
         ]),
       ]),
     );
