@@ -270,7 +270,9 @@ class CronService {
 
         // ── Intraday Square-Off at Market Close ──────────────────────────
         // Squares off positions for users who have intraday_squareoff enabled for the segment.
-        // NSE/NFO: 3:30 PM IST
+        // NSE/NFO: 3:41 PM IST — one minute after this platform's own 3:40 PM
+        // close (see market_hours.dart), not the commonly-known 3:30 PM
+        // cash-market close this comment previously (wrongly) said.
         const intradaySquareOffNSE = cron.schedule('41 15 * * 1-5', async () => {
             console.log('🔄 [CRON] Intraday square-off (NSE/NFO close)...');
             try {

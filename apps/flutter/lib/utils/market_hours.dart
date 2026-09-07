@@ -1,6 +1,6 @@
 /// Utility class to check if market is open for trading.
 /// Exchange-specific hours (all times IST):
-///   NSE/NFO/BFO/BSE : 9:16 AM – 3:30 PM
+///   NSE/NFO/BFO/BSE : 9:16 AM – 3:40 PM
 ///   MCX             : 9:01 AM – 11:30 PM
 ///   GIFT NIFTY      : Session 1: 6:30 AM – 3:40 PM
 ///                      Session 2: 4:35 PM – 2:45 AM (next day)
@@ -47,8 +47,10 @@ class MarketHours {
     }
 
     if (ex == 'NSE' || ex == 'NFO' || ex == 'BFO' || ex == 'BSE' || ex.isEmpty) {
-      // 9:16 AM (556) – 3:30 PM (930)
-      return mins >= 556 && mins <= 930;
+      // 9:16 AM (556) – 3:40 PM (940). Close is 3:40 PM, not the commonly-known
+      // 3:30 PM cash-market close — confirmed against this platform's own
+      // intraday square-off cron (cronService.js: NSE/NFO fires at 3:41 PM).
+      return mins >= 556 && mins <= 940;
     }
 
     // Others: two sessions
@@ -81,7 +83,7 @@ class MarketHours {
       return 'Daily maintenance break: 2:00 AM – 3:30 AM';
     }
     if (ex == 'NSE' || ex == 'NFO' || ex == 'BFO' || ex == 'BSE' || ex.isEmpty) {
-      return 'Market hours: 9:16 AM – 3:30 PM';
+      return 'Market hours: 9:16 AM – 3:40 PM';
     }
     return 'Trading hours: 12–2:30 AM & 7:30 AM–11:59 PM';
   }
