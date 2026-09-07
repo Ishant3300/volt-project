@@ -252,6 +252,24 @@ const getWeeklyAdminReport = async (req, res) => {
       if (callerRules.length === 0) callerRules = globalBrkRules;
     }
 
+    // 8. Load ALL MasterBaseRate rows for every master in scope — each
+    // master's own "what my parent charges me" rate, needed for the new
+    // owed_upward_brk cascade below. MasterBaseRate.js's own doc comment
+    // says this collection "has no effect on any brokerage calculation" —
+    // that was true before this report; this is its first real consumer.
+    const MasterBaseRate = require('../models/MasterBaseRate');
+    const allMasterBaseRates = await MasterBaseRate.find({
+      master_id: { $in: [...allScopeMasterIds] },
+      deleted_at: null,
+    }).lean();
+    const masterBaseRatesByMaster = {};
+    for (const r of allMasterBaseRates) {
+      const mid = r.master_id.toString();
+      if (!masterBaseRatesByMaster[mid]) masterBaseRatesByMaster[mid] = [];
+      masterBaseRatesByMaster[mid].push(r);
+    }
+    _mark('7_masterBaseRates');
+
     // ═══════════════════════════════════════════════════════════════════════
     // PHASE 2: Compute report using in-memory data (zero DB queries)
     // ═══════════════════════════════════════════════════════════════════════
@@ -275,7 +293,8 @@ const getWeeklyAdminReport = async (req, res) => {
         const masterOwnRules = brkRulesByUser[master._id.toString()] || globalBrkRules;
         const entry = _getAggregatedEntryBatched(
           master._id.toString(), master, metricsEngine, callerId, 'admin',
-          masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, masterOwnRules
+          masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, masterOwnRules,
+          masterBaseRatesByMaster
         );
         entry.parent_username = 'ADMIN';
         entry.type = 'master';
@@ -286,7 +305,8 @@ const getWeeklyAdminReport = async (req, res) => {
       for (const cm of topEntities) {
         const entry = _getAggregatedEntryBatched(
           cm._id.toString(), cm, metricsEngine, callerId, 'master',
-          masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, callerRules
+          masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, callerRules,
+          masterBaseRatesByMaster
         );
         entry.parent_username = callerMaster?.username || '';
         entry.type = 'master';
@@ -298,7 +318,8 @@ const getWeeklyAdminReport = async (req, res) => {
       for (const u of directUsers) {
         const entry = _getUserEntryBatched(
           u, metricsEngine, callerMaster, callerId, 'master',
-          masterMap, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, callerRules
+          masterMap, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, callerRules,
+          masterBaseRatesByMaster
         );
         data.push(entry);
       }
@@ -346,7 +367,7 @@ function _getAllSubMasterIdsBatched(masterId, masterChildrenMap) {
  * Report entry for a single user. (No DB queries)
  */
 function _getUserEntryBatched(userDoc, metricsEngine, callerMaster, callerId, callerRole,
-  masterMap, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, callerRules) {
+  masterMap, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, callerRules, masterBaseRatesByMaster) {
 
   const userId = userDoc._id.toString();
   const metrics = metricsEngine.getCachedMetrics(userId);
@@ -365,6 +386,17 @@ function _getUserEntryBatched(userDoc, metricsEngine, callerMaster, callerId, ca
   // P&L sharing: caller's share = product of unpassed fractions from user up to caller
   const pnlMultiplier = _getPnlUnpassedMultiplierForUserBatched(userId, callerId, userDoc, masterMap);
   const callerProfit = _r2((-grossPnl) * pnlMultiplier);
+
+  // What the caller (whoever is viewing this report — a sub-master included)
+  // must pass UP to their OWN parent, as opposed to caller_profit/caller_brk
+  // above (what the caller keeps for themselves). See _incomingPoolPnlMultiplierBatched
+  // and _cascadeBrokerageOwedUpwardBatched for the full cascade.
+  const incomingPoolMultiplier = _incomingPoolPnlMultiplierBatched(userId, callerId, userDoc, masterMap);
+  const callerOwnPnlShare = masterMap[callerId]?.pnl_sharing || 0;
+  const owedUpwardPnl = _r2(((-grossPnl) * incomingPoolMultiplier) * (100 - callerOwnPnlShare) / 100);
+  const owedUpwardBrk = _r2(_cascadeBrokerageOwedUpwardBatched(
+    userId, callerId, tradesByUser, brkRulesByUser, globalBrkRules, kiteMap, userDoc, masterMap, masterBaseRatesByMaster
+  ));
 
   return {
     id: userId,
@@ -387,6 +419,9 @@ function _getUserEntryBatched(userDoc, metricsEngine, callerMaster, callerId, ca
     total_pnl: _r2(-(grossPnl + floatingPnl)),
     caller_profit: callerProfit,
     total_caller: _r2(callerProfit + callerBrk),
+    owed_upward_pnl: owedUpwardPnl,
+    owed_upward_brk: owedUpwardBrk,
+    total_owed_upward: _r2(owedUpwardPnl + owedUpwardBrk),
   };
 }
 
@@ -394,7 +429,8 @@ function _getUserEntryBatched(userDoc, metricsEngine, callerMaster, callerId, ca
  * Aggregated report entry for a master and their entire sub-hierarchy. (No DB queries)
  */
 function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId, callerRole,
-  masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, callerRules) {
+  masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, callerRules,
+  masterBaseRatesByMaster) {
 
   const allMasterIds = _getAllSubMasterIdsBatched(masterId, masterChildrenMap);
 
@@ -425,6 +461,8 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
   let totalFloatingPnl = 0;
   let callerProfit = 0;
   let totalBrokerage = 0, totalTurnover = 0, callerBrk = 0;
+  let sumIncomingPoolPnl = 0;
+  let owedUpwardBrk = 0;
   for (const u of users) {
     const uid = u._id.toString();
 
@@ -434,6 +472,14 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
     const userGrossPnl = _getGrossPnlBatched(uid, tradesByUser);
     totalGrossPnl += userGrossPnl;
     callerProfit += (-userGrossPnl) * _getPnlUnpassedMultiplierForUserBatched(uid, callerId, u, masterMap);
+    // Unlike caller_profit above (which depends on the VIEWER's position —
+    // "how much of this reaches the person asking"), owed-upward is a
+    // property of THIS ROW's own master (masterId) alone — what masterId
+    // itself owes to ITS OWN direct parent, independent of who's viewing.
+    // Aggregated rows here are only ever built for a DIRECT child of the
+    // caller, so masterId's own parent == callerId, but the cascade must
+    // stop AT masterId (this row's own master), not at callerId.
+    sumIncomingPoolPnl += (-userGrossPnl) * _incomingPoolPnlMultiplierBatched(uid, masterId, u, masterMap);
 
     const { brokerage, turnover } = _getUserBrokerageAndTurnoverBatched(
       uid, tradesByUser, brkRulesByUser, globalBrkRules, kiteMap
@@ -444,8 +490,18 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
       uid, callerId, callerRole, tradesByUser, callerRules, kiteMap,
       masterMap, brkRulesByUser, globalBrkRules, u, brokerage
     );
+    owedUpwardBrk += _cascadeBrokerageOwedUpwardBatched(
+      uid, masterId, tradesByUser, brkRulesByUser, globalBrkRules, kiteMap, u, masterMap, masterBaseRatesByMaster
+    );
   }
   callerProfit = _r2(callerProfit);
+
+  // What THIS row's own master (masterId) owes UP to ITS OWN direct parent —
+  // a property of masterId's own sub-tree and own share %, independent of
+  // who's viewing the report. Mirrors _getUserEntryBatched's same fields.
+  const ownPnlShare = masterDoc.pnl_sharing || 0;
+  const owedUpwardPnl = _r2(sumIncomingPoolPnl * (100 - ownPnlShare) / 100);
+  owedUpwardBrk = _r2(owedUpwardBrk);
 
   return {
     id: masterId,
@@ -462,6 +518,9 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
     total_pnl: _r2(-(totalGrossPnl + totalFloatingPnl)),
     caller_profit: callerProfit,
     total_caller: _r2(callerProfit + callerBrk),
+    owed_upward_pnl: owedUpwardPnl,
+    owed_upward_brk: owedUpwardBrk,
+    total_owed_upward: _r2(owedUpwardPnl + owedUpwardBrk),
   };
 }
 
@@ -568,6 +627,46 @@ function _getPnlUnpassedMultiplierForUserBatched(userId, callerId, userDoc, mast
 }
 
 /**
+ * The P&L pool ARRIVING at the caller for this user, before the caller's own
+ * pnl_sharing% is taken out — i.e. every intermediate master strictly
+ * BETWEEN the user and the caller absorbs their own share and passes the
+ * remainder up, but the caller's own absorption is deliberately excluded
+ * here (the caller applies their own rate to this result separately, to get
+ * "owed upward" = what's left after that). Returns 1 for a direct client of
+ * the caller (nothing has been absorbed by anyone yet).
+ *
+ * Structural sibling of _getPnlUnpassedMultiplierForUserBatched, which
+ * answers a different question ("how much reaches the caller as THEIR OWN
+ * take") — that function's stopping boundary works backwards for this one's
+ * purpose: for a direct client (userMasterId === callerId), that walk
+ * absorbs the caller's own share (and, since a master's own parent is never
+ * itself, incorrectly keeps climbing past the caller into their ancestors
+ * too) — fine for its own purpose, wrong for "pool before caller's
+ * absorption." This function stops the instant callerId is reached, before
+ * ever processing it.
+ */
+function _incomingPoolPnlMultiplierBatched(userId, callerId, userDoc, masterMap) {
+  const userMasterId = userDoc?.master_id?.toString();
+  if (!userMasterId) return 0;
+  if (userMasterId === callerId) return 1;
+
+  let multiplier = 1;
+  let currentMasterId = userMasterId;
+  const visited = new Set();
+
+  while (currentMasterId && currentMasterId !== callerId && !visited.has(currentMasterId)) {
+    visited.add(currentMasterId);
+    const master = masterMap[currentMasterId];
+    if (!master) break;
+
+    multiplier *= (100 - (master.pnl_sharing || 0)) / 100;
+    currentMasterId = master.master_id ? master.master_id.toString() : null;
+  }
+
+  return multiplier;
+}
+
+/**
  * For a direct user: compute what fraction of their brokerage spread flows
  * up to the caller. (No DB queries)
  *
@@ -600,6 +699,98 @@ function _getBrkUnpassedMultiplierForUserBatched(userId, callerId, userDoc, mast
   }
 
   return multiplier;
+}
+
+/**
+ * What the caller must pass UP to their own parent for this one user's
+ * brokerage — a different question from _computeCallerBrkForUserBatched
+ * (what the caller keeps). Per the confirmed business rule:
+ *
+ *   base_cost_owed = volume × (this level's own MasterBaseRate — the rate
+ *                    THEIR parent set for them, i.e. what they're
+ *                    themselves charged, not what they charge below)
+ *   spread_margin  = amount arriving at this level − base_cost_owed
+ *   passed_up      = base_cost_owed + spread_margin × (1 − brokerage_sharing% / 100)
+ *
+ * Applied once per level, walking from the user's direct master UP TO AND
+ * INCLUDING the caller (unlike _incomingPoolPnlMultiplierBatched, which
+ * stops BEFORE the caller — brokerage's base-cost step is coupled to each
+ * level's own rate, so the caller's own step has to run here, not be
+ * applied separately afterward). The starting amount is the client's own
+ * actual billed brokerage — same per-instrument turnover/lots grouping as
+ * _computeCallerBrkForUserBatched, computed independently here since that
+ * function only returns a total, not a per-instrument breakdown to feed
+ * this cascade.
+ *
+ * A level with no MasterBaseRate configured for a given instrument treats
+ * base_cost_owed as 0 for that instrument (same fail-open convention
+ * _computeCallerBrkForUserBatched uses via _findRule — no rate on file
+ * means nothing is treated as "their own floor cost").
+ */
+function _cascadeBrokerageOwedUpwardBatched(
+  userId, callerId, tradesByUser, brkRulesByUser, globalBrkRules, kiteMap, userDoc, masterMap, masterBaseRatesByMaster
+) {
+  const trades = tradesByUser[userId] || [];
+  if (trades.length === 0) return 0;
+
+  let brkRules = brkRulesByUser[userId] || [];
+  if (brkRules.length === 0) brkRules = globalBrkRules;
+
+  // Per instrument: the client's own actual billed brokerage + volume.
+  const byInstrument = {};
+  for (const t of trades) {
+    const token = t.instrument_token;
+    const ki = kiteMap[token];
+    const seg = ki?.segment || '';
+    const rawName = ki?.raw_name || '';
+    const lotSize = ki?.lot_size || 1;
+    if (!byInstrument[token]) byInstrument[token] = { turnover: 0, lots: 0, billed: 0, seg, rawName };
+    const entry = byInstrument[token];
+    const tradeTurnover = t.executed_price * t.executed_quantity;
+    const tradeLots = lotSize > 1 ? t.executed_quantity / lotSize : t.executed_quantity;
+    entry.turnover += tradeTurnover;
+    entry.lots += tradeLots;
+
+    const rule = _findRule(brkRules, rawName, seg);
+    if (rule) {
+      if (rule.type === 'TURNOVER WISE') entry.billed += tradeTurnover * (rule.brk_value / 10000);
+      else if (rule.type === 'LOT WISE') entry.billed += tradeLots * rule.brk_value;
+    }
+  }
+
+  const userMasterId = userDoc?.master_id?.toString();
+  if (!userMasterId) return 0;
+
+  const currentAmount = {};
+  for (const [token, d] of Object.entries(byInstrument)) currentAmount[token] = d.billed;
+
+  let currentMasterId = userMasterId;
+  const visited = new Set();
+
+  while (currentMasterId && !visited.has(currentMasterId)) {
+    visited.add(currentMasterId);
+    const master = masterMap[currentMasterId];
+    if (!master) break;
+
+    const baseRates = masterBaseRatesByMaster[currentMasterId] || [];
+    const sharePct = master.brokerage_sharing || 0;
+
+    for (const [token, d] of Object.entries(byInstrument)) {
+      const baseRule = _findRule(baseRates, d.rawName, d.seg);
+      let baseCostOwed = 0;
+      if (baseRule) {
+        if (baseRule.type === 'TURNOVER WISE') baseCostOwed = d.turnover * (baseRule.brk_value / 10000);
+        else if (baseRule.type === 'LOT WISE') baseCostOwed = d.lots * baseRule.brk_value;
+      }
+      const spreadMargin = currentAmount[token] - baseCostOwed;
+      currentAmount[token] = baseCostOwed + spreadMargin * (100 - sharePct) / 100;
+    }
+
+    if (currentMasterId === callerId) break; // just processed the caller's own level
+    currentMasterId = master.master_id ? master.master_id.toString() : null;
+  }
+
+  return Object.values(currentAmount).reduce((sum, v) => sum + v, 0);
 }
 
 /**
@@ -673,6 +864,9 @@ function _sumTotals(data) {
     total_pnl: _r2(data.reduce((s, d) => s + d.total_pnl, 0)),
     caller_profit: _r2(data.reduce((s, d) => s + (d.caller_profit || 0), 0)),
     total_caller: _r2(data.reduce((s, d) => s + (d.total_caller || 0), 0)),
+    owed_upward_pnl: _r2(data.reduce((s, d) => s + (d.owed_upward_pnl || 0), 0)),
+    owed_upward_brk: _r2(data.reduce((s, d) => s + (d.owed_upward_brk || 0), 0)),
+    total_owed_upward: _r2(data.reduce((s, d) => s + (d.total_owed_upward || 0), 0)),
   };
 }
 
@@ -684,5 +878,7 @@ module.exports = {
     _computeCallerBrkForUserBatched,
     _getPnlUnpassedMultiplierForUserBatched,
     _getBrkUnpassedMultiplierForUserBatched,
+    _incomingPoolPnlMultiplierBatched,
+    _cascadeBrokerageOwedUpwardBatched,
   },
 };
