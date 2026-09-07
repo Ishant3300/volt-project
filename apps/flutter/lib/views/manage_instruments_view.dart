@@ -19,8 +19,12 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
   List<dynamic> _instruments = [];
   List<String> _segments = [];
   String? _selectedSegment;
+  List<String> _expiries = [];
+  String? _selectedExpiry;
   bool _isLoading = false;
   bool _isLoadingMore = false;
+  bool _isLoadingExpiries = false;
+  bool _isBulkActing = false;
   int _page = 1;
   int _totalPages = 1;
   int _total = 0;
@@ -63,6 +67,28 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
     }
   }
 
+  Future<void> _loadExpiries(String? segment) async {
+    if (segment == null) {
+      setState(() { _expiries = []; _selectedExpiry = null; });
+      return;
+    }
+    setState(() { _isLoadingExpiries = true; _expiries = []; _selectedExpiry = null; });
+    try {
+      final token = await SecureStorageService().getToken();
+      final api = ApiService(backendUrl);
+      final res = await api.get('/admin/instruments/expiries?segment=${Uri.encodeComponent(segment)}', token: token);
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['success'] == true) {
+          setState(() => _expiries = List<String>.from(body['data']));
+        }
+      }
+    } catch (e) {
+      log('Error loading expiries: $e');
+    }
+    if (mounted) setState(() => _isLoadingExpiries = false);
+  }
+
   Future<void> _loadInstruments({bool reset = true}) async {
     if (reset) {
       setState(() { _isLoading = true; _page = 1; _instruments = []; });
@@ -73,6 +99,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
       final params = <String>['page=$_page', 'limit=50'];
       if (_searchController.text.isNotEmpty) params.add('search=${Uri.encodeComponent(_searchController.text)}');
       if (_selectedSegment != null) params.add('segment=$_selectedSegment');
+      if (_selectedExpiry != null) params.add('expiry=${Uri.encodeComponent(_selectedExpiry!)}');
       final res = await api.get('/admin/instruments?${params.join('&')}', token: token);
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
@@ -205,6 +232,92 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
     }
   }
 
+  Future<void> _bulkDisableExpiry() async {
+    if (_selectedSegment == null || _selectedExpiry == null) return;
+    final expiryLabel = _formatExpiry(_selectedExpiry);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Disable All?', style: TextStyle(fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
+              const SizedBox(height: 12),
+              Text('Disable every $_selectedSegment instrument expiring $expiryLabel?\nExisting positions can still be closed.',
+                  style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBody, fontFamily: kFontFamily), textAlign: TextAlign.center),
+              const SizedBox(height: 24),
+              Row(children: [
+                Expanded(child: GestureDetector(
+                  onTap: () => Navigator.pop(ctx, false),
+                  child: Container(padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
+                    child: const Center(child: Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)))),
+                )),
+                const SizedBox(width: 12),
+                Expanded(child: GestureDetector(
+                  onTap: () => Navigator.pop(ctx, true),
+                  child: Container(padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(12)),
+                    child: const Center(child: Text('Disable All', style: TextStyle(color: Colors.white, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)))),
+                )),
+              ]),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() => _isBulkActing = true);
+    try {
+      final token = await SecureStorageService().getToken();
+      final api = ApiService(backendUrl);
+
+      // Collect every matching instrument id across all pages (not just the
+      // currently-loaded page) so "disable all" really means all.
+      final ids = <String>[];
+      var page = 1;
+      var pages = 1;
+      do {
+        final params = [
+          'page=$page',
+          'limit=200',
+          'segment=${Uri.encodeComponent(_selectedSegment!)}',
+          'expiry=${Uri.encodeComponent(_selectedExpiry!)}',
+        ];
+        final res = await api.get('/admin/instruments?${params.join('&')}', token: token);
+        if (res.statusCode != 200) break;
+        final body = jsonDecode(res.body);
+        if (body['success'] != true) break;
+        for (final inst in body['data']) {
+          final id = inst['_id'] ?? inst['id'];
+          if (id != null) ids.add(id.toString());
+        }
+        pages = body['pagination']['pages'] ?? 1;
+        page++;
+      } while (page <= pages);
+
+      if (ids.isEmpty) {
+        if (mounted) setState(() => _isBulkActing = false);
+        return;
+      }
+
+      final res = await api.put('/admin/instruments/bulk-toggle', {'ids': ids, 'enabled': false}, token: token);
+      if (res.statusCode == 200 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${ids.length} instrument(s) disabled'), backgroundColor: const Color(0xFFEF4444), duration: const Duration(seconds: 2)),
+        );
+        await _loadInstruments();
+      }
+    } catch (e) {
+      log('Error bulk-disabling instruments: $e');
+    }
+    if (mounted) setState(() => _isBulkActing = false);
+  }
+
   String _formatExpiry(dynamic expiry) {
     if (expiry == null) return '';
     try {
@@ -273,11 +386,61 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   children: [
-                    _filterChip('ALL', _selectedSegment == null, () { setState(() => _selectedSegment = null); _loadInstruments(); }),
-                    ..._segments.map((s) => _filterChip(s, _selectedSegment == s, () { setState(() => _selectedSegment = s); _loadInstruments(); })),
+                    _filterChip('ALL', _selectedSegment == null, () {
+                      setState(() => _selectedSegment = null);
+                      _loadExpiries(null);
+                      _loadInstruments();
+                    }),
+                    ..._segments.map((s) => _filterChip(s, _selectedSegment == s, () {
+                      setState(() => _selectedSegment = s);
+                      _loadExpiries(s);
+                      _loadInstruments();
+                    })),
                   ],
                 ),
               ),
+            // Expiry filter chips — scoped to the selected segment, since each
+            // segment has its own independent expiry calendar (NFO's dates are
+            // unrelated to MCX's or GIFT NIFTY's).
+            if (_selectedSegment != null && (_expiries.isNotEmpty || _isLoadingExpiries)) ...[
+              const SizedBox(height: 6),
+              SizedBox(height: 36,
+                child: _isLoadingExpiries
+                    ? const Padding(padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2)))
+                    : ListView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        children: [
+                          _filterChip('ALL EXPIRY', _selectedExpiry == null, () { setState(() => _selectedExpiry = null); _loadInstruments(); }),
+                          ..._expiries.map((e) => _filterChip(_formatExpiry(e), _selectedExpiry == e, () { setState(() => _selectedExpiry = e); _loadInstruments(); })),
+                        ],
+                      ),
+              ),
+            ],
+            if (_selectedSegment != null && _selectedExpiry != null) ...[
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: GestureDetector(
+                  onTap: _isBulkActing ? null : _bulkDisableExpiry,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444).withValues(alpha: _isBulkActing ? 0.5 : 1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: _isBulkActing
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : Text('Disable all $_selectedSegment · ${_formatExpiry(_selectedExpiry)}',
+                              style: const TextStyle(color: Colors.white, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                    ),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             // List
             Expanded(
