@@ -244,7 +244,13 @@ class CronService {
         this.jobs.push(settlementGenerationSyncJob);
 
         // ── Expiry Auto Square-Off ───────────────────────────────────────
-        // 3:35 PM IST (after NSE close) + 11:32 PM IST (after MCX close at 11:30 PM)
+        // 3:46 PM IST (after NSE's real 3:40 PM close + intraday square-off
+        // at 3:41 + pending-order cancel at 3:42) + 11:33 PM IST (after MCX's
+        // 11:30 PM close, same staggered pattern). Comment previously said
+        // 3:35 PM / 11:32 PM — neither matched the actual cron schedule below.
+        // autoSquareOffExpiredPositions() itself isn't exchange-scoped (it
+        // sweeps every instrument expiring today regardless of exchange), so
+        // these two triggers also catch any GLOBAL/COMEX expiry same-day.
         // Checks for instruments that expired today and auto-squares-off open positions
         const expirySquareOffNSE = cron.schedule('46 15 * * 1-5', async () => {
             console.log('📊 [CRON] Expiry auto square-off check (NSE close)...');
