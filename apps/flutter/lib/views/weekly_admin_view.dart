@@ -313,29 +313,30 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
             Container(height: 1, color: const Color(0xFFF1F5F9)),
             Row(children: [
               _statCell('BROKERAGE', brokerage, showRight: true),
-              _statCell('ADMIN BRK', adminBrk, showRight: false),
+              _statCell('MY BRK', adminBrk, showRight: false),
             ]),
           ]),
         ),
         const SizedBox(height: 8),
 
-        // Summary row (values already inverted on server side)
+        // Summary row — what THIS account keeps for itself (values already
+        // inverted on server side).
         Row(children: [
           _summaryBox('TOTAL P&L', totalPnl),
           const SizedBox(width: 8),
-          _summaryBox('ADMIN PROFIT', adminProfit),
+          _summaryBox('MY PROFIT', adminProfit),
           const SizedBox(width: 8),
-          _summaryBox('TOTAL ADMIN', totalAdmin),
+          _summaryBox('MY TOTAL', totalAdmin),
         ]),
         const SizedBox(height: 8),
 
         // What this account owes UP to its own parent (not what it keeps).
         Row(children: [
-          _summaryBox('OWED P&L', owedUpwardPnl),
+          _summaryBox('ADMIN P&L', owedUpwardPnl),
           const SizedBox(width: 8),
-          _summaryBox('OWED BRK', owedUpwardBrk),
+          _summaryBox('ADMIN BRK', owedUpwardBrk),
           const SizedBox(width: 8),
-          _summaryBox('OWED TOTAL', totalOwedUpward),
+          _summaryBox('ADMIN TOTAL', totalOwedUpward),
         ]),
       ]),
     );
