@@ -343,6 +343,27 @@ router.get('/instruments/segments', authenticateAdmin, async (req, res) => {
   }
 });
 
+// GET /admin/instruments/expiries?segment=NFO — distinct expiry dates for one segment
+// (each segment has its own independent expiry calendar — NFO's dates are unrelated
+// to MCX's or GIFT NIFTY's — so this always requires a segment, never returns a global list)
+router.get('/instruments/expiries', authenticateAdmin, async (req, res) => {
+  try {
+    const { segment } = req.query;
+    if (!segment) {
+      return res.status(400).json({ success: false, message: 'segment is required', data: null });
+    }
+    const expiries = await KiteInstrument.distinct('expiry', {
+      segment,
+      deleted_at: null,
+      expiry: { $ne: null },
+    });
+    expiries.sort((a, b) => new Date(a) - new Date(b));
+    res.json({ success: true, data: expiries });
+  } catch (e) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
+  }
+});
+
 // PUT /admin/instruments/bulk-toggle — enable/disable multiple instruments
 router.put('/instruments/bulk-toggle', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('INSTRUMENT_MANAGE'), async (req, res) => {
   try {
