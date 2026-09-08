@@ -70,7 +70,8 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
   @override
   Widget build(BuildContext context) {
     final profile = Provider.of<UserProfileProvider>(context, listen: false);
-    final label = profile.isAdmin ? 'Masters' : 'Children';
+    final isAdmin = profile.isAdmin;
+    final label = isAdmin ? 'Masters' : 'Children';
     final filtered = _filtered;
 
     return Scaffold(
@@ -205,7 +206,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
                         child: ListView.builder(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           itemCount: filtered.length,
-                          itemBuilder: (_, i) => _buildCard(filtered[i]),
+                          itemBuilder: (_, i) => _buildCard(filtered[i], isAdmin),
                         ),
                       ),
           ),
@@ -243,7 +244,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
     );
   }
 
-  Widget _buildCard(Map<String, dynamic> row) {
+  Widget _buildCard(Map<String, dynamic> row, bool isAdmin) {
     final username = row['username'] ?? '';
     final parentUsername = row['parent_username'] ?? '';
     final realised = _d(row['realised_pnl']);
@@ -257,9 +258,15 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
     // image of adminBrk/adminProfit/totalAdmin above (what it keeps for
     // itself). Independent of who's viewing: for a sub-master row this is
     // what that sub-master owes their own parent, not what reaches admin.
+    // Admin sits at the top of the tree with no parent of its own, so this
+    // second row would just repeat the first (caller_brk/caller_profit
+    // already ARE what reaches admin) — shown only for a master's own view.
     final owedUpwardPnl = _d(row['owed_upward_pnl']);
     final owedUpwardBrk = _d(row['owed_upward_brk']);
     final totalOwedUpward = _d(row['total_owed_upward']);
+    final brkLabel = isAdmin ? 'ADMIN BRK' : 'MY BRK';
+    final profitLabel = isAdmin ? 'ADMIN PROFIT' : 'MY PROFIT';
+    final totalLabel = isAdmin ? 'ADMIN TOTAL' : 'MY TOTAL';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -313,7 +320,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
             Container(height: 1, color: const Color(0xFFF1F5F9)),
             Row(children: [
               _statCell('BROKERAGE', brokerage, showRight: true),
-              _statCell('MY BRK', adminBrk, showRight: false),
+              _statCell(brkLabel, adminBrk, showRight: false),
             ]),
           ]),
         ),
@@ -324,20 +331,24 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
         Row(children: [
           _summaryBox('TOTAL P&L', totalPnl),
           const SizedBox(width: 8),
-          _summaryBox('MY PROFIT', adminProfit),
+          _summaryBox(profitLabel, adminProfit),
           const SizedBox(width: 8),
-          _summaryBox('MY TOTAL', totalAdmin),
+          _summaryBox(totalLabel, totalAdmin),
         ]),
-        const SizedBox(height: 8),
 
-        // What this account owes UP to its own parent (not what it keeps).
-        Row(children: [
-          _summaryBox('ADMIN P&L', owedUpwardPnl),
-          const SizedBox(width: 8),
-          _summaryBox('ADMIN BRK', owedUpwardBrk),
-          const SizedBox(width: 8),
-          _summaryBox('ADMIN TOTAL', totalOwedUpward),
-        ]),
+        // What this account owes UP to its own parent (not what it keeps) —
+        // only meaningful for a master's own view; admin has no parent above
+        // them, so this would just repeat the row above.
+        if (!isAdmin) ...[
+          const SizedBox(height: 8),
+          Row(children: [
+            _summaryBox('ADMIN P&L', owedUpwardPnl),
+            const SizedBox(width: 8),
+            _summaryBox('ADMIN BRK', owedUpwardBrk),
+            const SizedBox(width: 8),
+            _summaryBox('ADMIN TOTAL', totalOwedUpward),
+          ]),
+        ],
       ]),
     );
   }

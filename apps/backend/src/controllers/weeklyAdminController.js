@@ -519,11 +519,20 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
     const uid = u._id.toString();
 
     const metrics = metricsEngine.getCachedMetrics(uid);
-    totalFloatingPnl += metrics?.position_pnl || 0;
+    const userFloatingPnl = metrics?.position_pnl || 0;
+    totalFloatingPnl += userFloatingPnl;
 
     const userGrossPnl = _getGrossPnlBatched(uid, tradesByUser);
     totalGrossPnl += userGrossPnl;
-    callerProfit += (-userGrossPnl) * _getPnlUnpassedMultiplierForUserBatched(uid, callerId, u, masterMap);
+    // Admin sits at the top of the tree with no parent of their own — their
+    // profit share is priced off the account's real total exposure (realised
+    // + still-open m2m), not realised alone. A master's own view keeps the
+    // realised-only basis unchanged: that caution (not paying commission on
+    // floating P&L that could still reverse) exists because a sub-master
+    // still has to settle upward with THEIR OWN parent later; admin has
+    // nothing further upstream that basis is protecting against.
+    const callerProfitBasis = callerRole === 'admin' ? (userGrossPnl + userFloatingPnl) : userGrossPnl;
+    callerProfit += (-callerProfitBasis) * _getPnlUnpassedMultiplierForUserBatched(uid, callerId, u, masterMap);
     // Unlike caller_profit above (which depends on the VIEWER's position —
     // "how much of this reaches the person asking"), owed-upward is a
     // property of THIS ROW's own master (masterId) alone — what masterId
@@ -564,9 +573,9 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
     brokerage: _r2(totalBrokerage),
     turnover: _r2(totalTurnover),
     caller_brk: _r2(callerBrk),
-    // Net of BOTH realised and floating — see _getUserEntryBatched's
-    // comment on the same fix. caller_profit stays realised-only
-    // (unchanged), same reasoning.
+    // Net of BOTH realised and floating. caller_profit's own basis differs
+    // by caller role — see the callerProfitBasis comment in the loop above:
+    // realised-only for a master's own view, realised+m2m for admin's.
     total_pnl: _r2(-(totalGrossPnl + totalFloatingPnl)),
     caller_profit: callerProfit,
     total_caller: _r2(callerProfit + callerBrk),
