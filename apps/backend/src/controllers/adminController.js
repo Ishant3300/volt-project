@@ -944,7 +944,7 @@ const createScriptQuantity = async (req, res) => {
 // Get All Script Quantities
 const getAllScriptQuantities = async (req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 20, owner_id } = req.query;
 
     const filter = { deleted_at: null };
 
@@ -956,13 +956,29 @@ const getAllScriptQuantities = async (req, res) => {
     if (req.master) {
       const { getAllSubMasterIds } = require('../services/masterHierarchyService');
       const subtreeMasterIds = await getAllSubMasterIds(req.master.id);
-      const subtreeUserIds = (await User.find({ master_id: { $in: subtreeMasterIds } }).select('_id').lean())
-        .map(u => u._id.toString());
-      filter.$or = [
-        { owner_type: 'Admin' },
-        { owner_type: 'Master', owner_id: { $in: subtreeMasterIds } },
-        { owner_type: 'User', owner_id: { $in: subtreeUserIds } },
-      ];
+
+      if (owner_id) {
+        // Caller wants one specific owner's rows (e.g. a settings screen
+        // opened from that account's own detail page) — validate it's in
+        // the caller's subtree rather than trusting the query param.
+        const ownerMasterId = subtreeMasterIds.includes(owner_id)
+          ? owner_id
+          : (await User.findById(owner_id).select('master_id').lean())?.master_id?.toString();
+        if (!ownerMasterId || !subtreeMasterIds.includes(ownerMasterId)) {
+          return res.status(403).json({ success: false, message: 'Not authorized to view script quantities for this account', data: null });
+        }
+        filter.owner_id = owner_id;
+      } else {
+        const subtreeUserIds = (await User.find({ master_id: { $in: subtreeMasterIds } }).select('_id').lean())
+          .map(u => u._id.toString());
+        filter.$or = [
+          { owner_type: 'Admin' },
+          { owner_type: 'Master', owner_id: { $in: subtreeMasterIds } },
+          { owner_type: 'User', owner_id: { $in: subtreeUserIds } },
+        ];
+      }
+    } else if (owner_id) {
+      filter.owner_id = owner_id;
     }
 
     const scriptQuantities = await ScriptQuantity.find(filter)
