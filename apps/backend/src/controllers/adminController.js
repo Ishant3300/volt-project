@@ -948,6 +948,23 @@ const getAllScriptQuantities = async (req, res) => {
 
     const filter = { deleted_at: null };
 
+    // Previously unrestricted for ANY authenticated caller including a
+    // master — a master could read every other tenant's script-quantity
+    // limits platform-wide. Admin keeps the unrestricted view; a master
+    // sees only Admin-owned global rows plus their own full subtree
+    // (themself, every descendant master, and every descendant user).
+    if (req.master) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const subtreeMasterIds = await getAllSubMasterIds(req.master.id);
+      const subtreeUserIds = (await User.find({ master_id: { $in: subtreeMasterIds } }).select('_id').lean())
+        .map(u => u._id.toString());
+      filter.$or = [
+        { owner_type: 'Admin' },
+        { owner_type: 'Master', owner_id: { $in: subtreeMasterIds } },
+        { owner_type: 'User', owner_id: { $in: subtreeUserIds } },
+      ];
+    }
+
     const scriptQuantities = await ScriptQuantity.find(filter)
       .limit(limit * 1)
       .skip((page - 1) * limit)
@@ -987,6 +1004,24 @@ const getScriptQuantityById = async (req, res) => {
         message: 'Script quantity not found',
         data: null
       });
+    }
+
+    // Previously any authenticated master could fetch any ScriptQuantity
+    // record by id regardless of owner — same class of gap as
+    // getAllScriptQuantities above.
+    if (req.master && scriptQty.owner_type !== 'Admin') {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const subtreeMasterIds = await getAllSubMasterIds(req.master.id);
+      let authorized;
+      if (scriptQty.owner_type === 'Master') {
+        authorized = subtreeMasterIds.includes(scriptQty.owner_id.toString());
+      } else {
+        const owner = await User.findById(scriptQty.owner_id).select('master_id').lean();
+        authorized = !!owner && subtreeMasterIds.includes(owner.master_id?.toString());
+      }
+      if (!authorized) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view this script quantity', data: null });
+      }
     }
 
     res.status(200).json({
