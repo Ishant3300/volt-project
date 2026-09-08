@@ -195,8 +195,8 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildNavItem(kIconWatchlist, 'Watchlist', 0),
-                if (isUnlocked) _buildNavItem(kIconOrders, 'Orders', 1),
-                if (isUnlocked) _buildNavItem(kIconHistory, 'History', 2),
+                if (isUnlocked) _buildNavItem(kIconOrders, 'Portfolio', 1),
+                if (isUnlocked) _buildNavItem(kIconHistory, 'Orders', 2),
                 _buildNavItem(kIconProfile, 'Profile', 3),
               ],
             ),
