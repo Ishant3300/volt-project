@@ -255,6 +255,11 @@ userSchema.set('toJSON', {
     delete ret.__v;
     delete ret.password;
     delete ret.investor_password;
+    // The live session JWT — never belongs in a serialized response. Admin/
+    // master list endpoints that return User docs (e.g. GET /admin/users)
+    // would otherwise hand out a working bearer token for every listed
+    // client, sufficient for full account impersonation via authenticateAny.
+    delete ret.active_token;
     ret.created_at = ret.createdAt;
     ret.updated_at = ret.updatedAt;
     ret.credit = ret.credits; // Aliasing for older API endpoints expecting credit

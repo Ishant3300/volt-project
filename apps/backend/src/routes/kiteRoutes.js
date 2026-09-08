@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authenticateAny } = require('../middlewares/auth');
+const { authenticateAny, authenticateAdmin } = require('../middlewares/auth');
 const {
   // Authentication
   initiateLogin,
@@ -42,27 +42,41 @@ router.get('/login', initiateLogin);
 // Handle callback from Kite
 router.get('/callback', handleCallback);
 
+// AccessToken represents the single shared platform-wide Zerodha broker
+// connection (KiteConfig.js's AccessToken.deleteMany({}) + create is a
+// singleton pattern, not per-user) — status/auto-login/logout/instrument-sync
+// are all broker-administration actions, not something any logged-in user
+// or master has a legitimate reason to call. Previously these five sat
+// behind `authenticateAny` (auth-status/auth/status/auto-login were fully
+// PUBLIC, no auth at all) — any authenticated user could trigger a forced
+// re-login or wipe the platform's live broker session with `DELETE
+// /logout`, and an unauthenticated client could hit the status/auto-login
+// endpoints directly. Confirmed unused by both frontends (grep found no
+// caller in apex-web-portal or the Flutter app), so restricting to admin
+// is a safe, no-op change for every current UI.
+
 // Check auth status (simple)
-router.get('/auth-status', checkAuthStatus);
+router.get('/auth-status', authenticateAdmin, checkAuthStatus);
 
 // Get detailed auth status
-router.get('/auth/status', getDetailedAuthStatus);
+router.get('/auth/status', authenticateAdmin, getDetailedAuthStatus);
 
 // Trigger automated login
-router.post('/auth/auto-login', triggerAutoLogin);
+router.post('/auth/auto-login', authenticateAdmin, triggerAutoLogin);
 
 // ==================== PROTECTED ROUTES (REQUIRE AUTHENTICATION) ====================
 
 // Apply authentication middleware to all routes below
 router.use(authenticateAny);
 
-// Logout
-router.delete('/logout', logout);
+// Logout — broker-administration action, admin only (see note above).
+router.delete('/logout', authenticateAdmin, logout);
 
 // ==================== INSTRUMENT ROUTES ====================
 
-// Fetch and store instruments
-router.post('/instruments/fetch', fetchInstruments);
+// Fetch and store instruments — bulk broker-API-hitting, DB-rewriting
+// maintenance operation; admin only (see note above).
+router.post('/instruments/fetch', authenticateAdmin, fetchInstruments);
 
 // Get instruments info
 router.get('/instruments/info', getInstrumentsInfo);

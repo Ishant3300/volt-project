@@ -104,10 +104,26 @@ const getUserTrades = async (req, res) => {
             });
         }
 
-        const filter = { user_id: id };
-        if (status) filter.status = status;
-        if (exchange) filter.exchange = exchange;
-        if (tradingsymbol) filter.tradingsymbol = { $regex: escapeRegex(tradingsymbol), $options: 'i' };
+        // Express's query parser turns `?status[$ne]=x` into an object
+        // ({ $ne: 'x' }), which would otherwise land directly in a Mongo
+        // filter value position as an operator. Both fields must be plain
+        // strings before they're trusted.
+        // deleted_at: null — an admin-soft-deleted trade (deleteTrade also
+        // reverses its wallet impact) must not still show as a live
+        // completed trade to the client it belonged to. trade_type exclusion
+        // matches Trade.js's own documented convention: carry_forward
+        // (settlement rollover markers) and margin_square_off (system-forced
+        // closes) rows are "hidden from orders/history page" everywhere else
+        // this Trade collection is queried for a history view — this
+        // endpoint was the one place that convention wasn't applied.
+        const filter = {
+            user_id: id,
+            deleted_at: null,
+            trade_type: { $nin: ['carry_forward', 'margin_square_off'] },
+        };
+        if (status && typeof status === 'string') filter.status = status;
+        if (exchange && typeof exchange === 'string') filter.exchange = exchange;
+        if (tradingsymbol && typeof tradingsymbol === 'string') filter.tradingsymbol = { $regex: escapeRegex(tradingsymbol), $options: 'i' };
 
         if (date_from || date_to) {
             filter.createdAt = {};

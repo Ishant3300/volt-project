@@ -17,7 +17,7 @@ router.use(authenticateAny);
 
 // Write operations — blocked in investor mode (and, for an admin caller,
 // watch-only mode)
-router.post('/', rejectIfInvestor, rejectIfAdminWatchOnly, tradeController.placeTrade);
+router.post('/', rejectIfInvestor, rejectIfAdminWatchOnly, validateTrade, tradeController.placeTrade);
 router.put('/:tradeId/cancel', rejectIfInvestor, rejectIfAdminWatchOnly, tradeController.cancelTrade);
 router.put('/:tradeId/modify', rejectIfInvestor, rejectIfAdminWatchOnly, tradeController.modifyTrade);
 router.delete('/:tradeId', rejectIfInvestor, rejectIfAdminWatchOnly, requireAdminPermission('TRADE_DELETE'), tradeController.deleteTrade);

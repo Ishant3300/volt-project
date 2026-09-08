@@ -235,6 +235,9 @@ masterSchema.set('toJSON', {
     delete ret.__v;
     delete ret.password;
     delete ret.investor_password;
+    // The live session JWT — never belongs in a serialized response (see
+    // the identical fix on User.js's toJSON for the full reasoning).
+    delete ret.active_token;
     ret.created_at = ret.createdAt;
     ret.updated_at = ret.updatedAt;
     delete ret.createdAt;
