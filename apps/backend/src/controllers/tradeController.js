@@ -96,6 +96,374 @@ const _computeUserFloatingPnl = async (userId, session) => {
  */
 
 /**
+ * Circuit-limit check for a LIMIT order's price. Shared between placeTrade
+ * (a fresh order) and modifyTrade (a changed price on a pending order) — a
+ * modified price is a new price the caller is choosing right now, so it
+ * must pass the exact same check a fresh placement at that price would.
+ */
+async function _validateCircuitLimit(instrument_token, price, order_type) {
+    if (order_type === 'LIMIT' && price) {
+        const kiteInst = await KiteInstrument.findOne({ instrument_token });
+        if (kiteInst) {
+            const upper = kiteInst.upper_circuit_limit;
+            const lower = kiteInst.lower_circuit_limit;
+            if (upper && upper > 0 && price > upper) {
+                throw new Error(`Limit price ₹${price} exceeds upper circuit limit ₹${upper}`);
+            }
+            if (lower && lower > 0 && price < lower) {
+                throw new Error(`Limit price ₹${price} is below lower circuit limit ₹${lower}`);
+            }
+        }
+    }
+}
+
+/**
+ * Script-quantity break_qty/max_qty limit check (turnover-mode in raw
+ * quantity, lot-mode in lots). Shared between placeTrade and modifyTrade —
+ * a modified quantity must clear the same per-order and position-size caps
+ * a fresh order at that quantity would. Returns instrumentRawName since
+ * callers need it for the FSL/High-Low checks that follow.
+ */
+async function _validateScriptQuantityLimit(user, instrument_token, transaction_type, quantity, segment, exchange, tradingsymbol, session) {
+    // Use segment if provided (e.g. NFO-FUT) — more specific than exchange (NFO).
+    // This is critical: exchanges_allowed stores NFO-FUT not NFO.
+    const rawSegment = (segment || exchange || '').toUpperCase();
+    const normalizedExchange = rawSegment === 'GLOBAL' ? 'INDICES' : rawSegment;
+    const userExchange = user.exchanges_allowed?.find(ex => ex.exchange_name.toUpperCase() === normalizedExchange);
+
+    // Determine mode from user's exchange config
+    const isTurnover = userExchange?.turnover === true;
+    const isLotMode  = userExchange?.lot === true;
+
+    let limitValue = null; // max_qty from DB (qty or lots depending on mode)
+    let breakValue = 0;   // break_qty from DB (qty or lots depending on mode)
+    let lotSize = 1;
+
+    const kiteInst = await KiteInstrument.findOne({ instrument_token });
+    if (kiteInst?.lot_size) lotSize = kiteInst.lot_size;
+    const instrumentRawName = kiteInst?.raw_name || kiteInst?.name || null;
+
+    // Lookup from ScriptQuantity with user's owner_id (always exists — created with user)
+    {
+        let scriptQty = null;
+        if (instrumentRawName) {
+            scriptQty = await ScriptQuantity.findOne({
+                owner_id: user._id,
+                exchange_name: normalizedExchange,
+                script_name: instrumentRawName,
+                deleted_at: null
+            }).session(session);
+        }
+        if (!scriptQty) {
+            scriptQty = await ScriptQuantity.findOne({
+                owner_id: user._id,
+                exchange_name: normalizedExchange,
+                script_name: tradingsymbol,
+                deleted_at: null
+            }).session(session);
+        }
+        if (scriptQty) {
+            limitValue = scriptQty.max_qty;
+            breakValue = scriptQty.brk_qty || 0;
+            if (scriptQty.lot_size) {
+                lotSize = scriptQty.lot_size;
+            }
+        }
+    }
+
+    if (isTurnover) {
+        // ── TURNOVER MODE: all limits are in raw quantity ──────────────────
+
+        // Determine if this is a closing trade (square-off) — closing trades bypass breakup limit
+        let isClosingForBreakup = false;
+        {
+            const posAggBrk = await Trade.aggregate([
+                { $match: { user_id: user._id, instrument_token, status: 'completed', deleted_at: null } },
+                { $group: { _id: null,
+                    total_buy_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'BUY'] }, '$executed_quantity', 0] } },
+                    total_sell_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'SELL'] }, '$executed_quantity', 0] } }
+                }}
+            ]).session(session);
+            const netQtyBrk = posAggBrk.length > 0 ? posAggBrk[0].total_buy_qty - posAggBrk[0].total_sell_qty : 0;
+            isClosingForBreakup = (transaction_type === 'SELL' && netQtyBrk > 0) || (transaction_type === 'BUY' && netQtyBrk < 0);
+        }
+
+        // VALIDATION 1: break_qty per single order (skip for closing/square-off trades)
+        if (!isClosingForBreakup && breakValue > 0 && quantity > breakValue) {
+            throw new Error(
+                `Order size exceeds breakup limit. Max qty per order: ${breakValue}, Requested: ${quantity}. Please split your order.`
+            );
+        }
+
+        if (limitValue !== null && limitValue > 0) {
+            const posAgg = await Trade.aggregate([
+                { $match: { user_id: user._id, instrument_token, status: 'completed', deleted_at: null } },
+                { $group: {
+                    _id: null,
+                    total_buy_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'BUY'] }, '$executed_quantity', 0] } },
+                    total_sell_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'SELL'] }, '$executed_quantity', 0] } }
+                }}
+            ]).session(session);
+
+            const currentNetQty = posAgg.length > 0 ? posAgg[0].total_buy_qty - posAgg[0].total_sell_qty : 0;
+            // Calculate what net position would be after this trade
+            const afterNetQty = transaction_type === 'BUY' ? currentNetQty + quantity : currentNetQty - quantity;
+            const absAfter = Math.abs(afterNetQty);
+            const absCurrent = Math.abs(currentNetQty);
+
+            // Only block if the trade is INCREASING the position size beyond the limit
+            // Closing/reducing trades are always allowed
+            if (absAfter > absCurrent && absAfter > limitValue) {
+                const remainingQty = Math.max(0, limitValue - absCurrent);
+                throw new Error(
+                    `Order exceeds maximum position limit. Max: ${limitValue} qty, Current: ${absCurrent} qty, Remaining: ${remainingQty} qty, Requested: ${quantity} qty.`
+                );
+            }
+        }
+
+    } else if (isLotMode) {
+        // ── LOT MODE: all limits are in lots ──────────────────────────────
+        const requestedLots = Math.ceil(quantity / lotSize);
+
+        // Determine if this is a closing trade (square-off) — closing trades bypass breakup limit
+        let isClosingForBreakupLot = false;
+        {
+            const posAggBrkLot = await Trade.aggregate([
+                { $match: { user_id: user._id, instrument_token, status: 'completed', deleted_at: null } },
+                { $group: { _id: null,
+                    total_buy_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'BUY'] }, '$executed_quantity', 0] } },
+                    total_sell_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'SELL'] }, '$executed_quantity', 0] } }
+                }}
+            ]).session(session);
+            const netQtyBrkLot = posAggBrkLot.length > 0 ? posAggBrkLot[0].total_buy_qty - posAggBrkLot[0].total_sell_qty : 0;
+            isClosingForBreakupLot = (transaction_type === 'SELL' && netQtyBrkLot > 0) || (transaction_type === 'BUY' && netQtyBrkLot < 0);
+        }
+
+        // VALIDATION 1: break_qty per single order in lots (skip for closing/square-off trades)
+        if (!isClosingForBreakupLot && breakValue > 0 && requestedLots > breakValue) {
+            throw new Error(
+                `Order size exceeds breakup limit. Max lots per order: ${breakValue}, Requested: ${requestedLots} lot(s). Please split your order.`
+            );
+        }
+
+        if (limitValue !== null && limitValue > 0) {
+            const posAgg = await Trade.aggregate([
+                { $match: { user_id: user._id, instrument_token, status: 'completed', deleted_at: null } },
+                { $group: {
+                    _id: null,
+                    total_buy_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'BUY'] }, '$executed_quantity', 0] } },
+                    total_sell_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'SELL'] }, '$executed_quantity', 0] } }
+                }}
+            ]).session(session);
+
+            const currentNetQty = posAgg.length > 0 ? posAgg[0].total_buy_qty - posAgg[0].total_sell_qty : 0;
+            const currentLots = Math.floor(Math.abs(currentNetQty) / lotSize);
+            // Calculate what net position would be after this trade
+            const afterNetQty = transaction_type === 'BUY' ? currentNetQty + quantity : currentNetQty - quantity;
+            const afterLots = Math.ceil(Math.abs(afterNetQty) / lotSize);
+
+            // Only block if the trade is INCREASING the position size beyond the limit
+            // Closing/reducing trades are always allowed
+            if (afterLots > currentLots && afterLots > limitValue) {
+                const remainingLots = Math.max(0, limitValue - currentLots);
+                throw new Error(
+                    `Order exceeds maximum position limit. Max: ${limitValue} lot(s), Current: ${currentLots} lot(s), Remaining: ${remainingLots} lot(s), Requested: ${requestedLots} lot(s).`
+                );
+            }
+        }
+    }
+
+    return { instrumentRawName };
+}
+
+/**
+ * Fresh Stop-Loss price-offset restriction — applies to LIMIT and SL/SL-M
+ * alike, gated behind a configured FreshStoplossLimit row AND the user's
+ * fresh_stoploss toggle. Shared between placeTrade and modifyTrade (the
+ * MARKET-only time restriction is NOT included here — modify never applies
+ * to MARKET orders, so it stays inline in placeTrade only).
+ */
+async function _validateFreshStoplossPriceOffset(isAdmin, user, instrument_token, order_type, transaction_type, price, segment, exchange, instrumentRawName) {
+    if (isAdmin || !instrumentRawName) return;
+
+    const FreshStoplossLimit = require('../models/FreshStoplossLimit');
+    // Resolve segment: use provided segment, or look up from KiteInstrument
+    let fslSegment = (segment || '').toUpperCase();
+    if (!fslSegment || fslSegment === exchange?.toUpperCase()) {
+        const kiteInstFSL = await KiteInstrument.findOne({ instrument_token }).select('segment').lean();
+        if (kiteInstFSL?.segment) fslSegment = kiteInstFSL.segment.toUpperCase();
+    }
+    const normalizedSeg = fslSegment === 'GLOBAL' ? 'INDICES' : (fslSegment || exchange || '').toUpperCase();
+
+    const fslLimit = await FreshStoplossLimit.findOne({
+        exchange_name: normalizedSeg,
+        raw_name: instrumentRawName,
+        deleted_at: null
+    });
+
+    if (!(fslLimit && user.fresh_stoploss === true)) return;
+    if (!((order_type === 'LIMIT' || order_type === 'SL' || order_type === 'SL-M') && fslLimit.price_offset > 0 && price > 0)) return;
+
+    // Get live CMP from metricsEngine — use LTP (same basis as placement)
+    const metricsEngFSL = require('../services/metricsEngine');
+    const livePriceSvc = require('../services/livePriceService');
+    const tokenStr = instrument_token.toString();
+    const tokenInt = parseInt(instrument_token);
+    const cmpFSL = metricsEngFSL._ltpMap?.get(tokenStr)
+        || livePriceSvc.latestPrices?.get(tokenStr)
+        || livePriceSvc.latestPrices?.get(tokenInt)
+        || null;
+
+    if (!(cmpFSL && cmpFSL > 0)) return;
+
+    if (order_type === 'LIMIT') {
+        // Standard offset check (applies regardless of High-Low setting)
+        // LIMIT: BUY below CMP, SELL above CMP
+        if (transaction_type === 'BUY') {
+            const maxBuyPrice = cmpFSL - fslLimit.price_offset;
+            if (price > maxBuyPrice) {
+                throw new Error(`Price restriction: Buy limit must be at or below ₹${maxBuyPrice.toFixed(2)} (CMP ₹${cmpFSL.toFixed(2)} - ₹${fslLimit.price_offset}).`);
+            }
+        } else if (transaction_type === 'SELL') {
+            const minSellPrice = cmpFSL + fslLimit.price_offset;
+            if (price < minSellPrice) {
+                throw new Error(`Price restriction: Sell limit must be at or above ₹${minSellPrice.toFixed(2)} (CMP ₹${cmpFSL.toFixed(2)} + ₹${fslLimit.price_offset}).`);
+            }
+        }
+    } else {
+        // SL/SL-M: BUY above CMP, SELL below CMP (opposite of LIMIT)
+        if (transaction_type === 'BUY') {
+            const minBuyPrice = cmpFSL + fslLimit.price_offset;
+            if (price < minBuyPrice) {
+                throw new Error(`Price restriction: Buy stoploss must be at or above ₹${minBuyPrice.toFixed(2)} (CMP ₹${cmpFSL.toFixed(2)} + ₹${fslLimit.price_offset}).`);
+            }
+        } else if (transaction_type === 'SELL') {
+            const maxSellPrice = cmpFSL - fslLimit.price_offset;
+            if (price > maxSellPrice) {
+                throw new Error(`Price restriction: Sell stoploss must be at or below ₹${maxSellPrice.toFixed(2)} (CMP ₹${cmpFSL.toFixed(2)} - ₹${fslLimit.price_offset}).`);
+            }
+        }
+    }
+}
+
+/**
+ * Fresh Stop-Loss: gate whether an SL/SL-M order may OPEN a fresh position.
+ * Shared between placeTrade and modifyTrade — see the inline comment this
+ * replaced for the full fresh_stoploss=true/false rule.
+ */
+async function _validateFreshStoplossOpenPosition(isAdmin, user, instrument_token, order_type, transaction_type, session) {
+    if (!isAdmin && (order_type === 'SL' || order_type === 'SL-M') && user.fresh_stoploss !== true) {
+        const prevTradesFreshSL = await Trade.find({
+            user_id: user._id, instrument_token, status: 'completed', deleted_at: null
+        })
+            .select('transaction_type executed_quantity executed_price executed_at createdAt')
+            .sort({ executed_at: 1, createdAt: 1 })
+            .session(session)
+            .lean();
+        const stateFreshSL = computeFlatResetState(prevTradesFreshSL);
+        const hasProtectiveLong = transaction_type === 'SELL' && stateFreshSL.netQty > 0;
+        const hasProtectiveShort = transaction_type === 'BUY' && stateFreshSL.netQty < 0;
+        if (!hasProtectiveLong && !hasProtectiveShort) {
+            throw new Error('Fresh Stop-Loss is off for this account: a stoploss order can only be placed to protect an existing position, not to open a new one.');
+        }
+    }
+}
+
+/**
+ * High-Low Trade Limit check — independent of the FSL limit above. Runs for
+ * ALL LIMIT orders from non-admin users. Shared between placeTrade and
+ * modifyTrade.
+ */
+async function _validateHighLowLimit(canCustomPrice, user, instrument_token, order_type, transaction_type, price, segment, exchange, instrumentRawName) {
+    if (canCustomPrice || order_type !== 'LIMIT' || !(price > 0)) return;
+
+    // Resolve segment independently
+    let hlSegment = (segment || '').toUpperCase();
+    if (!hlSegment || hlSegment === exchange?.toUpperCase()) {
+        const kiteInstHL = await KiteInstrument.findOne({ instrument_token }).select('segment').lean();
+        if (kiteInstHL?.segment) hlSegment = kiteInstHL.segment.toUpperCase();
+    }
+    const hlNormalizedSeg = hlSegment === 'GLOBAL' ? 'INDICES' : (hlSegment || exchange || '').toUpperCase();
+
+    const tradeLimitSegment = (hlSegment || hlNormalizedSeg || '').toUpperCase();
+    const tradeLimitEnabled = user.trade_limit && user.trade_limit.some(
+        tl => tl.toUpperCase() === tradeLimitSegment ||
+              tl.toUpperCase() === (tradeLimitSegment === 'INDICES' ? 'GLOBAL' : tradeLimitSegment) ||
+              (tradeLimitSegment === 'GLOBAL' && tl.toUpperCase() === 'INDICES')
+    );
+
+    if (tradeLimitEnabled) return;
+
+    // Button OFF: Buy limit must clear whichever is HIGHER of Day
+    // High or (CMP + offset); Sell limit must clear whichever is
+    // LOWER of Day Low or (CMP - offset). A limit order can never
+    // fill at a price better than today's actual range — it can
+    // only fill at a genuine breakout (buy) or breakdown (sell)
+    // level, never at an artificially favourable price inside it.
+    try {
+        const kiteInstHL = await KiteInstrument.findOne({ instrument_token }).select('exchange tradingsymbol ohlc_high ohlc_low').lean();
+        if (kiteInstHL) {
+            const quoteKey = `${kiteInstHL.exchange}:${kiteInstHL.tradingsymbol}`;
+            let dayHigh, dayLow;
+            try {
+                const ohlcData = await kiteService.getMarketQuotes([quoteKey], 'ohlc');
+                const quote = ohlcData?.[quoteKey];
+                dayHigh = quote?.ohlc?.high;
+                dayLow = quote?.ohlc?.low;
+            } catch (_) {
+                // Kite has no record of non-Kite instruments (GLOBAL/COMEX,
+                // fed by massiveFuturesFeedService.js) — falls through below.
+            }
+            // Kite quote lookup returns nothing for non-Kite instruments
+            // (GLOBAL/COMEX Massive-fed contracts) — fall back to the
+            // instrument's own ohlc_high/ohlc_low, tracked live by
+            // massiveFuturesFeedService.js's per-tick $max/$min updates.
+            if (!(dayHigh > 0) || !(dayLow > 0)) {
+                dayHigh = kiteInstHL.ohlc_high;
+                dayLow = kiteInstHL.ohlc_low;
+            }
+
+            // Get offset from FSL limit if available, otherwise 0
+            const FreshStoplossLimitHL = require('../models/FreshStoplossLimit');
+            const fslLimitHL = await FreshStoplossLimitHL.findOne({
+                exchange_name: hlNormalizedSeg,
+                raw_name: instrumentRawName,
+                deleted_at: null
+            });
+            const hlOffset = fslLimitHL?.price_offset || 0;
+
+            const metricsEngHL = require('../services/metricsEngine');
+            const livePriceSvcHL = require('../services/livePriceService');
+            const tokenStrHL = instrument_token.toString();
+            const tokenIntHL = parseInt(instrument_token);
+            const cmpHL = metricsEngHL._ltpMap?.get(tokenStrHL)
+                || livePriceSvcHL.latestPrices?.get(tokenStrHL)
+                || livePriceSvcHL.latestPrices?.get(tokenIntHL)
+                || null;
+
+            console.log(`📊 [HighLow] segment=${tradeLimitSegment}, enabled=${tradeLimitEnabled}, high=${dayHigh}, low=${dayLow}, cmp=${cmpHL}, offset=${hlOffset}, price=${price}, type=${transaction_type}`);
+
+            if (dayHigh && dayLow && dayHigh > 0 && dayLow > 0 && cmpHL && cmpHL > 0) {
+                if (transaction_type === 'BUY') {
+                    const minBuyPrice = Math.max(dayHigh, cmpHL + hlOffset);
+                    if (price <= minBuyPrice) {
+                        throw new Error(`High-Low restriction: Buy limit must be above ₹${minBuyPrice.toFixed(2)} (Day High ₹${dayHigh.toFixed(2)} vs CMP ₹${cmpHL.toFixed(2)} + offset ₹${hlOffset}, whichever is higher).`);
+                    }
+                } else if (transaction_type === 'SELL') {
+                    const maxSellPrice = Math.min(dayLow, cmpHL - hlOffset);
+                    if (price >= maxSellPrice) {
+                        throw new Error(`High-Low restriction: Sell limit must be below ₹${maxSellPrice.toFixed(2)} (Day Low ₹${dayLow.toFixed(2)} vs CMP ₹${cmpHL.toFixed(2)} - offset ₹${hlOffset}, whichever is lower).`);
+                    }
+                }
+            }
+        }
+    } catch (hlErr) {
+        if (hlErr.message.includes('High-Low restriction')) throw hlErr;
+        console.warn(`⚠️ [HighLow] Could not fetch OHLC for trade limit check: ${hlErr.message}`);
+    }
+}
+
+/**
  * Place a new trade order
  */
 const placeTrade = async (req, res) => {
@@ -140,18 +508,10 @@ const placeTrade = async (req, res) => {
         }
 
         // #1 FIX: Circuit limit check for LIMIT orders (before DB transaction to fail fast)
-        if (order_type === 'LIMIT' && price) {
-            const kiteInst = await KiteInstrument.findOne({ instrument_token });
-            if (kiteInst) {
-                const upper = kiteInst.upper_circuit_limit;
-                const lower = kiteInst.lower_circuit_limit;
-                if (upper && upper > 0 && price > upper) {
-                    return res.status(400).json({ success: false, message: `Limit price ₹${price} exceeds upper circuit limit ₹${upper}` });
-                }
-                if (lower && lower > 0 && price < lower) {
-                    return res.status(400).json({ success: false, message: `Limit price ₹${price} is below lower circuit limit ₹${lower}` });
-                }
-            }
+        try {
+            await _validateCircuitLimit(instrument_token, price, order_type);
+        } catch (circuitErr) {
+            return res.status(400).json({ success: false, message: circuitErr.message });
         }
 
         let resultTrade;
@@ -372,173 +732,17 @@ const placeTrade = async (req, res) => {
             // 1.5 Limit validation — break_qty applies to BUY & SELL; max_qty + balance only for BUY
             // turnover:true  → max_qty/break_qty are in raw QUANTITY, compare directly
             // lot:true       → max_qty/break_qty are in LOTS, convert quantity→lots first
-            let instrumentRawName = null; // resolved inside block, used later for margin calc
-            {
-                // Use segment if provided (e.g. NFO-FUT) — more specific than exchange (NFO).
-                // This is critical: exchanges_allowed stores NFO-FUT not NFO.
-                const rawSegment = (segment || exchange || '').toUpperCase();
-                const normalizedExchange = rawSegment === 'GLOBAL' ? 'INDICES' : rawSegment;
-                const userExchange = user.exchanges_allowed?.find(ex => ex.exchange_name.toUpperCase() === normalizedExchange);
+            const { instrumentRawName } = await _validateScriptQuantityLimit(
+                user, instrument_token, transaction_type, quantity, segment, exchange, tradingsymbol, session
+            );
 
-                // Determine mode from user's exchange config
-                const isTurnover = userExchange?.turnover === true;
-                const isLotMode  = userExchange?.lot === true;
-
-                let limitValue = null; // max_qty from DB (qty or lots depending on mode)
-                let breakValue = 0;   // break_qty from DB (qty or lots depending on mode)
-                let lotSize = 1;
-
-                const kiteInst = await KiteInstrument.findOne({ instrument_token });
-                if (kiteInst?.lot_size) lotSize = kiteInst.lot_size;
-                instrumentRawName = kiteInst?.raw_name || kiteInst?.name || null;
-
-                // Lookup from ScriptQuantity with user's owner_id (always exists — created with user)
-                {
-                    let scriptQty = null;
-                    if (instrumentRawName) {
-                        scriptQty = await ScriptQuantity.findOne({
-                            owner_id: user._id,
-                            exchange_name: normalizedExchange,
-                            script_name: instrumentRawName,
-                            deleted_at: null
-                        }).session(session);
-                    }
-                    if (!scriptQty) {
-                        scriptQty = await ScriptQuantity.findOne({
-                            owner_id: user._id,
-                            exchange_name: normalizedExchange,
-                            script_name: tradingsymbol,
-                            deleted_at: null
-                        }).session(session);
-                    }
-                    if (scriptQty) {
-                        limitValue = scriptQty.max_qty;
-                        breakValue = scriptQty.brk_qty || 0;
-                        if (scriptQty.lot_size) {
-                            lotSize = scriptQty.lot_size;
-                        }
-                    }
-                }
-
-                if (isTurnover) {
-                    // ── TURNOVER MODE: all limits are in raw quantity ──────────────────
-
-                    // Determine if this is a closing trade (square-off) — closing trades bypass breakup limit
-                    let isClosingForBreakup = false;
-                    {
-                        const posAggBrk = await Trade.aggregate([
-                            { $match: { user_id: user._id, instrument_token, status: 'completed', deleted_at: null } },
-                            { $group: { _id: null,
-                                total_buy_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'BUY'] }, '$executed_quantity', 0] } },
-                                total_sell_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'SELL'] }, '$executed_quantity', 0] } }
-                            }}
-                        ]).session(session);
-                        const netQtyBrk = posAggBrk.length > 0 ? posAggBrk[0].total_buy_qty - posAggBrk[0].total_sell_qty : 0;
-                        isClosingForBreakup = (transaction_type === 'SELL' && netQtyBrk > 0) || (transaction_type === 'BUY' && netQtyBrk < 0);
-                    }
-
-                    // VALIDATION 1: break_qty per single order (skip for closing/square-off trades)
-                    if (!isClosingForBreakup && breakValue > 0 && quantity > breakValue) {
-                        throw new Error(
-                            `Order size exceeds breakup limit. Max qty per order: ${breakValue}, Requested: ${quantity}. Please split your order.`
-                        );
-                    }
-
-                    if (limitValue !== null && limitValue > 0) {
-                        const posAgg = await Trade.aggregate([
-                            { $match: { user_id: user._id, instrument_token, status: 'completed', deleted_at: null } },
-                            { $group: {
-                                _id: null,
-                                total_buy_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'BUY'] }, '$executed_quantity', 0] } },
-                                total_sell_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'SELL'] }, '$executed_quantity', 0] } }
-                            }}
-                        ]).session(session);
-
-                        const currentNetQty = posAgg.length > 0 ? posAgg[0].total_buy_qty - posAgg[0].total_sell_qty : 0;
-                        // Calculate what net position would be after this trade
-                        const afterNetQty = transaction_type === 'BUY' ? currentNetQty + quantity : currentNetQty - quantity;
-                        const absAfter = Math.abs(afterNetQty);
-                        const absCurrent = Math.abs(currentNetQty);
-
-                        // Only block if the trade is INCREASING the position size beyond the limit
-                        // Closing/reducing trades are always allowed
-                        if (absAfter > absCurrent && absAfter > limitValue) {
-                            const remainingQty = Math.max(0, limitValue - absCurrent);
-                            throw new Error(
-                                `Order exceeds maximum position limit. Max: ${limitValue} qty, Current: ${absCurrent} qty, Remaining: ${remainingQty} qty, Requested: ${quantity} qty.`
-                            );
-                        }
-
-                        // VALIDATION 3 (old free-margin affordability check) removed for
-                        // Task 5 — the category-wallet gate (walletService.block at execution)
-                        // now enforces affordability per Requirement 4. Script-quantity limits
-                        // (VALIDATION 1/2 above) still apply.
-                    }
-
-                } else if (isLotMode) {
-                    // ── LOT MODE: all limits are in lots ──────────────────────────────
-                    const requestedLots = Math.ceil(quantity / lotSize);
-
-                    // Determine if this is a closing trade (square-off) — closing trades bypass breakup limit
-                    let isClosingForBreakupLot = false;
-                    {
-                        const posAggBrkLot = await Trade.aggregate([
-                            { $match: { user_id: user._id, instrument_token, status: 'completed', deleted_at: null } },
-                            { $group: { _id: null,
-                                total_buy_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'BUY'] }, '$executed_quantity', 0] } },
-                                total_sell_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'SELL'] }, '$executed_quantity', 0] } }
-                            }}
-                        ]).session(session);
-                        const netQtyBrkLot = posAggBrkLot.length > 0 ? posAggBrkLot[0].total_buy_qty - posAggBrkLot[0].total_sell_qty : 0;
-                        isClosingForBreakupLot = (transaction_type === 'SELL' && netQtyBrkLot > 0) || (transaction_type === 'BUY' && netQtyBrkLot < 0);
-                    }
-
-                    // VALIDATION 1: break_qty per single order in lots (skip for closing/square-off trades)
-                    if (!isClosingForBreakupLot && breakValue > 0 && requestedLots > breakValue) {
-                        throw new Error(
-                            `Order size exceeds breakup limit. Max lots per order: ${breakValue}, Requested: ${requestedLots} lot(s). Please split your order.`
-                        );
-                    }
-
-                    if (limitValue !== null && limitValue > 0) {
-                        const posAgg = await Trade.aggregate([
-                            { $match: { user_id: user._id, instrument_token, status: 'completed', deleted_at: null } },
-                            { $group: {
-                                _id: null,
-                                total_buy_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'BUY'] }, '$executed_quantity', 0] } },
-                                total_sell_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'SELL'] }, '$executed_quantity', 0] } }
-                            }}
-                        ]).session(session);
-
-                        const currentNetQty = posAgg.length > 0 ? posAgg[0].total_buy_qty - posAgg[0].total_sell_qty : 0;
-                        const currentLots = Math.floor(Math.abs(currentNetQty) / lotSize);
-                        // Calculate what net position would be after this trade
-                        const afterNetQty = transaction_type === 'BUY' ? currentNetQty + quantity : currentNetQty - quantity;
-                        const afterLots = Math.ceil(Math.abs(afterNetQty) / lotSize);
-
-                        // Only block if the trade is INCREASING the position size beyond the limit
-                        // Closing/reducing trades are always allowed
-                        if (afterLots > currentLots && afterLots > limitValue) {
-                            const remainingLots = Math.max(0, limitValue - currentLots);
-                            throw new Error(
-                                `Order exceeds maximum position limit. Max: ${limitValue} lot(s), Current: ${currentLots} lot(s), Remaining: ${remainingLots} lot(s), Requested: ${requestedLots} lot(s).`
-                            );
-                        }
-
-                        // VALIDATION 3 (old free-margin affordability check) removed for
-                        // Task 5 — the category-wallet gate (walletService.block at execution)
-                        // now enforces affordability per Requirement 4. Script-quantity limits
-                        // (VALIDATION 1/2 above) still apply.
-                    }
-                }
-            }
-
-            // ── Fresh Stop-Loss & Limit Price Restrictions ─────────────────
-            // Price offset restrictions apply to ALL LIMIT/SL orders (independent of fresh_stoploss toggle).
-            // Fresh stoploss toggle controls whether user can place closing orders on open positions.
-            if (!req.admin && instrumentRawName) {
+            // ── Fresh Stop-Loss: MARKET-order time restriction ──────────────
+            // Stays inline (not extracted) — modify never applies to MARKET
+            // orders, so this half has no shared caller. The price-offset
+            // half (LIMIT/SL/SL-M) is extracted below into
+            // _validateFreshStoplossPriceOffset, shared with modifyTrade.
+            if (!req.admin && instrumentRawName && order_type === 'MARKET') {
                 const FreshStoplossLimit = require('../models/FreshStoplossLimit');
-                // Resolve segment: use provided segment, or look up from KiteInstrument
                 let fslSegment = (segment || '').toUpperCase();
                 if (!fslSegment || fslSegment === exchange?.toUpperCase()) {
                     const kiteInstFSL = await KiteInstrument.findOne({ instrument_token }).select('segment').lean();
@@ -552,9 +756,8 @@ const placeTrade = async (req, res) => {
                     deleted_at: null
                 });
 
-                if (fslLimit && user.fresh_stoploss === true) {
-                    // Get live CMP from metricsEngine — use bid/ask (same as orders page P&L)
-                    // BUY position exits at bid, SELL position exits at ask
+                // Only restrict closing if the position is in PROFIT. Loss positions can close anytime.
+                if (fslLimit && user.fresh_stoploss === true && fslLimit.time_minutes > 0) {
                     const metricsEngFSL = require('../services/metricsEngine');
                     const livePriceSvc = require('../services/livePriceService');
                     const tokenStr = instrument_token.toString();
@@ -565,231 +768,72 @@ const placeTrade = async (req, res) => {
                         || null;
                     const bidFSL = metricsEngFSL._bidMap?.get(tokenStr) || ltpFSL;
                     const askFSL = metricsEngFSL._askMap?.get(tokenStr) || ltpFSL;
-                    // cmpFSL for price offset checks (uses LTP)
-                    const cmpFSL = ltpFSL;
 
-                    // ── 1. MARKET orders: time restriction (always applies when FSL limit has time_minutes) ──
-                    // Only restrict closing if the position is in PROFIT. Loss positions can close anytime.
-                    if (order_type === 'MARKET') {
-                        console.log(`🔒 [FSL] Checking time restriction: instrument=${instrumentRawName}, segment=${normalizedSeg}, time_minutes=${fslLimit.time_minutes}, cmp=${cmpFSL}`);
-                        if (fslLimit.time_minutes > 0) {
-                            // Flat-reset average (computeFlatResetState) instead of a plain
-                            // unbounded aggregate — this decides whether a real order gets
-                            // BLOCKED or ALLOWED, so a stale average from an earlier, already-
-                            // closed round trip this week could wrongly gate a live order, not
-                            // just show a wrong number after the fact.
-                            const prevTradesFSL = await Trade.find({ user_id: user._id, instrument_token, status: 'completed', deleted_at: null })
-                                .select('transaction_type executed_quantity executed_price executed_at createdAt')
-                                .sort({ executed_at: 1, createdAt: 1 })
-                                .session(session)
-                                .lean();
-                            const stateFSL = computeFlatResetState(prevTradesFSL);
+                    console.log(`🔒 [FSL] Checking time restriction: instrument=${instrumentRawName}, segment=${normalizedSeg}, time_minutes=${fslLimit.time_minutes}, cmp=${ltpFSL}`);
+                    // Flat-reset average (computeFlatResetState) instead of a plain
+                    // unbounded aggregate — this decides whether a real order gets
+                    // BLOCKED or ALLOWED, so a stale average from an earlier, already-
+                    // closed round trip this week could wrongly gate a live order, not
+                    // just show a wrong number after the fact.
+                    const prevTradesFSL = await Trade.find({ user_id: user._id, instrument_token, status: 'completed', deleted_at: null })
+                        .select('transaction_type executed_quantity executed_price executed_at createdAt')
+                        .sort({ executed_at: 1, createdAt: 1 })
+                        .session(session)
+                        .lean();
+                    const stateFSL = computeFlatResetState(prevTradesFSL);
 
-                            const currentNetQty = stateFSL.netQty;
-                            const isClosing = (transaction_type === 'SELL' && currentNetQty > 0) ||
-                                              (transaction_type === 'BUY' && currentNetQty < 0);
+                    const currentNetQty = stateFSL.netQty;
+                    const isClosing = (transaction_type === 'SELL' && currentNetQty > 0) ||
+                                      (transaction_type === 'BUY' && currentNetQty < 0);
 
-                            if (isClosing) {
-                                // Check if position is in profit using bid/ask (same as orders page)
-                                // BUY position: profit if bid > avg buy (exit = sell at bid)
-                                // SELL position: profit if ask < avg sell (exit = buy at ask)
-                                let positionInProfit = false;
-                                const avgBuyFSL = stateFSL.totalBuyQty > 0 ? stateFSL.totalBuyValue / stateFSL.totalBuyQty : 0;
-                                const avgSellFSL = stateFSL.totalSellQty > 0 ? stateFSL.totalSellValue / stateFSL.totalSellQty : 0;
-                                if (currentNetQty > 0 && bidFSL && bidFSL > 0) {
-                                    // Long position: profit if bid > avg buy
-                                    positionInProfit = bidFSL > avgBuyFSL;
-                                } else if (currentNetQty < 0 && askFSL && askFSL > 0) {
-                                    // Short position: profit if ask < avg sell
-                                    positionInProfit = askFSL < avgSellFSL;
-                                }
+                    if (isClosing) {
+                        // Check if position is in profit using bid/ask (same as orders page)
+                        // BUY position: profit if bid > avg buy (exit = sell at bid)
+                        // SELL position: profit if ask < avg sell (exit = buy at ask)
+                        let positionInProfit = false;
+                        const avgBuyFSL = stateFSL.totalBuyQty > 0 ? stateFSL.totalBuyValue / stateFSL.totalBuyQty : 0;
+                        const avgSellFSL = stateFSL.totalSellQty > 0 ? stateFSL.totalSellValue / stateFSL.totalSellQty : 0;
+                        if (currentNetQty > 0 && bidFSL && bidFSL > 0) {
+                            positionInProfit = bidFSL > avgBuyFSL;
+                        } else if (currentNetQty < 0 && askFSL && askFSL > 0) {
+                            positionInProfit = askFSL < avgSellFSL;
+                        }
 
-                                // Only apply time restriction if position is in profit
-                                console.log(`🔒 [FSL] netQty=${currentNetQty}, isClosing=${isClosing}, positionInProfit=${positionInProfit}, bid=${bidFSL}, ask=${askFSL}, ltp=${ltpFSL}, avgBuy=${avgBuyFSL}, avgSell=${avgSellFSL}`);
-                                if (positionInProfit) {
-                                    const oppositeType = transaction_type === 'SELL' ? 'BUY' : 'SELL';
-                                    const lastOpeningTrade = await Trade.findOne({
-                                        user_id: user._id, instrument_token,
-                                        transaction_type: oppositeType, order_type: 'MARKET',
-                                        status: 'completed', deleted_at: null
-                                    }).sort({ executed_at: -1 }).session(session);
+                        console.log(`🔒 [FSL] netQty=${currentNetQty}, isClosing=${isClosing}, positionInProfit=${positionInProfit}, bid=${bidFSL}, ask=${askFSL}, ltp=${ltpFSL}, avgBuy=${avgBuyFSL}, avgSell=${avgSellFSL}`);
+                        if (positionInProfit) {
+                            const oppositeType = transaction_type === 'SELL' ? 'BUY' : 'SELL';
+                            const lastOpeningTrade = await Trade.findOne({
+                                user_id: user._id, instrument_token,
+                                transaction_type: oppositeType, order_type: 'MARKET',
+                                status: 'completed', deleted_at: null
+                            }).sort({ executed_at: -1 }).session(session);
 
-                                    if (lastOpeningTrade && lastOpeningTrade.executed_at) {
-                                        const elapsedMs = Date.now() - lastOpeningTrade.executed_at.getTime();
-                                        const requiredMs = fslLimit.time_minutes * 60 * 1000;
-                                        if (elapsedMs < requiredMs) {
-                                            const remainingMins = Math.ceil((requiredMs - elapsedMs) / 60000);
-                                            throw new Error(`Fresh Stop-Loss: Cannot close this position for ${remainingMins} more minute(s). Time restriction: ${fslLimit.time_minutes} minutes.`);
-                                        }
-                                    }
+                            if (lastOpeningTrade && lastOpeningTrade.executed_at) {
+                                const elapsedMs = Date.now() - lastOpeningTrade.executed_at.getTime();
+                                const requiredMs = fslLimit.time_minutes * 60 * 1000;
+                                if (elapsedMs < requiredMs) {
+                                    const remainingMins = Math.ceil((requiredMs - elapsedMs) / 60000);
+                                    throw new Error(`Fresh Stop-Loss: Cannot close this position for ${remainingMins} more minute(s). Time restriction: ${fslLimit.time_minutes} minutes.`);
                                 }
                             }
                         }
                     }
-
-                    // ── 2. LIMIT/SL orders: price offset restriction (always applies) ──
-                    if ((order_type === 'LIMIT' || order_type === 'SL' || order_type === 'SL-M') && fslLimit.price_offset > 0 && price > 0 && cmpFSL && cmpFSL > 0) {
-                        if (order_type === 'LIMIT') {
-                            // Standard offset check (applies regardless of High-Low setting)
-                            // LIMIT: BUY below CMP, SELL above CMP
-                            if (transaction_type === 'BUY') {
-                                const maxBuyPrice = cmpFSL - fslLimit.price_offset;
-                                if (price > maxBuyPrice) {
-                                    throw new Error(`Price restriction: Buy limit must be at or below ₹${maxBuyPrice.toFixed(2)} (CMP ₹${cmpFSL.toFixed(2)} - ₹${fslLimit.price_offset}).`);
-                                }
-                            } else if (transaction_type === 'SELL') {
-                                const minSellPrice = cmpFSL + fslLimit.price_offset;
-                                if (price < minSellPrice) {
-                                    throw new Error(`Price restriction: Sell limit must be at or above ₹${minSellPrice.toFixed(2)} (CMP ₹${cmpFSL.toFixed(2)} + ₹${fslLimit.price_offset}).`);
-                                }
-                            }
-                        } else {
-                            // SL/SL-M: BUY above CMP, SELL below CMP (opposite of LIMIT)
-                            if (transaction_type === 'BUY') {
-                                const minBuyPrice = cmpFSL + fslLimit.price_offset;
-                                if (price < minBuyPrice) {
-                                    throw new Error(`Price restriction: Buy stoploss must be at or above ₹${minBuyPrice.toFixed(2)} (CMP ₹${cmpFSL.toFixed(2)} + ₹${fslLimit.price_offset}).`);
-                                }
-                            } else if (transaction_type === 'SELL') {
-                                const maxSellPrice = cmpFSL - fslLimit.price_offset;
-                                if (price > maxSellPrice) {
-                                    throw new Error(`Price restriction: Sell stoploss must be at or below ₹${maxSellPrice.toFixed(2)} (CMP ₹${cmpFSL.toFixed(2)} - ₹${fslLimit.price_offset}).`);
-                                }
-                            }
-                        }
-                    }
-
-                    // Note: Time restriction only applies to MARKET closing orders (section 1 above).
-                    // SL/LIMIT closing orders are always allowed — user should be able to
-                    // place a stoploss to protect their position at any time.
                 }
             }
 
-            // ── Fresh Stop-Loss: gate whether an SL/SL-M order may OPEN a fresh
-            // position, independent of the price_offset/time_minutes restriction
-            // above — that one is a separate condition applying to LIMIT and
-            // SL/SL-M alike, gated behind a configured FreshStoplossLimit row.
-            // This check is GLOBAL (no FreshStoplossLimit row required) and only
-            // ever gates SL/SL-M, never LIMIT or MARKET:
-            //
-            //   fresh_stoploss = true  -> SL/SL-M may open a fresh position (no
-            //                             existing position required).
-            //   fresh_stoploss = false -> SL/SL-M is protective-only: a SELL
-            //                             stop requires an existing LONG
-            //                             (netQty > 0), a BUY stop requires an
-            //                             existing SHORT (netQty < 0). Any
-            //                             other case is rejected outright.
-            if (!req.admin && (order_type === 'SL' || order_type === 'SL-M') && user.fresh_stoploss !== true) {
-                const prevTradesFreshSL = await Trade.find({
-                    user_id: user._id, instrument_token, status: 'completed', deleted_at: null
-                })
-                    .select('transaction_type executed_quantity executed_price executed_at createdAt')
-                    .sort({ executed_at: 1, createdAt: 1 })
-                    .session(session)
-                    .lean();
-                const stateFreshSL = computeFlatResetState(prevTradesFreshSL);
-                const hasProtectiveLong = transaction_type === 'SELL' && stateFreshSL.netQty > 0;
-                const hasProtectiveShort = transaction_type === 'BUY' && stateFreshSL.netQty < 0;
-                if (!hasProtectiveLong && !hasProtectiveShort) {
-                    throw new Error('Fresh Stop-Loss is off for this account: a stoploss order can only be placed to protect an existing position, not to open a new one.');
-                }
-            }
+            // ── Fresh Stop-Loss: price-offset restriction (LIMIT/SL/SL-M) ──
+            await _validateFreshStoplossPriceOffset(!!req.admin, user, instrument_token, order_type, transaction_type, price, segment, exchange, instrumentRawName);
+
+            // ── Fresh Stop-Loss: gate whether an SL/SL-M order may OPEN a fresh position ──
+            await _validateFreshStoplossOpenPosition(!!req.admin, user, instrument_token, order_type, transaction_type, session);
 
             // ── High-Low Trade Limit check (INDEPENDENT of FSL limit) ──────
-            // Runs for ALL LIMIT orders from non-admin users, regardless of whether an FSL limit exists.
-            // If the user's trade_limit does NOT include this segment (button OFF),
-            // Buy Limit must be below Day Low - offset, Sell Limit must be above Day High + offset.
             // The admin bypass here IS "custom-price order placement" from the
             // permissions plan — gated behind TRADE_CUSTOM for a regular Admin;
             // Super Admin and Master/User callers are unaffected (Master/User
             // never had req.admin set, so they always hit this check regardless).
             const adminCanCustomPrice = !!req.admin && (req.admin.isSuperAdmin || (req.admin.permissions || []).includes('TRADE_CUSTOM'));
-            if (!adminCanCustomPrice && order_type === 'LIMIT' && price > 0) {
-                // Resolve segment independently
-                let hlSegment = (segment || '').toUpperCase();
-                if (!hlSegment || hlSegment === exchange?.toUpperCase()) {
-                    const kiteInstHL = await KiteInstrument.findOne({ instrument_token }).select('segment').lean();
-                    if (kiteInstHL?.segment) hlSegment = kiteInstHL.segment.toUpperCase();
-                }
-                const hlNormalizedSeg = hlSegment === 'GLOBAL' ? 'INDICES' : (hlSegment || exchange || '').toUpperCase();
-
-                const tradeLimitSegment = (hlSegment || hlNormalizedSeg || '').toUpperCase();
-                const tradeLimitEnabled = user.trade_limit && user.trade_limit.some(
-                    tl => tl.toUpperCase() === tradeLimitSegment || 
-                          tl.toUpperCase() === (tradeLimitSegment === 'INDICES' ? 'GLOBAL' : tradeLimitSegment) ||
-                          (tradeLimitSegment === 'GLOBAL' && tl.toUpperCase() === 'INDICES')
-                );
-
-                if (!tradeLimitEnabled) {
-                    // Button OFF: Buy limit must clear whichever is HIGHER of Day
-                    // High or (CMP + offset); Sell limit must clear whichever is
-                    // LOWER of Day Low or (CMP - offset). A limit order can never
-                    // fill at a price better than today's actual range — it can
-                    // only fill at a genuine breakout (buy) or breakdown (sell)
-                    // level, never at an artificially favourable price inside it.
-                    try {
-                        const kiteInstHL = await KiteInstrument.findOne({ instrument_token }).select('exchange tradingsymbol ohlc_high ohlc_low').lean();
-                        if (kiteInstHL) {
-                            const quoteKey = `${kiteInstHL.exchange}:${kiteInstHL.tradingsymbol}`;
-                            let dayHigh, dayLow;
-                            try {
-                                const ohlcData = await kiteService.getMarketQuotes([quoteKey], 'ohlc');
-                                const quote = ohlcData?.[quoteKey];
-                                dayHigh = quote?.ohlc?.high;
-                                dayLow = quote?.ohlc?.low;
-                            } catch (_) {
-                                // Kite has no record of non-Kite instruments (GLOBAL/COMEX,
-                                // fed by massiveFuturesFeedService.js) — falls through below.
-                            }
-                            // Kite quote lookup returns nothing for non-Kite instruments
-                            // (GLOBAL/COMEX Massive-fed contracts) — fall back to the
-                            // instrument's own ohlc_high/ohlc_low, tracked live by
-                            // massiveFuturesFeedService.js's per-tick $max/$min updates.
-                            if (!(dayHigh > 0) || !(dayLow > 0)) {
-                                dayHigh = kiteInstHL.ohlc_high;
-                                dayLow = kiteInstHL.ohlc_low;
-                            }
-
-                            // Get offset from FSL limit if available, otherwise 0
-                            const FreshStoplossLimitHL = require('../models/FreshStoplossLimit');
-                            const fslLimitHL = await FreshStoplossLimitHL.findOne({
-                                exchange_name: hlNormalizedSeg,
-                                raw_name: instrumentRawName,
-                                deleted_at: null
-                            });
-                            const hlOffset = fslLimitHL?.price_offset || 0;
-
-                            const metricsEngHL = require('../services/metricsEngine');
-                            const livePriceSvcHL = require('../services/livePriceService');
-                            const tokenStrHL = instrument_token.toString();
-                            const tokenIntHL = parseInt(instrument_token);
-                            const cmpHL = metricsEngHL._ltpMap?.get(tokenStrHL)
-                                || livePriceSvcHL.latestPrices?.get(tokenStrHL)
-                                || livePriceSvcHL.latestPrices?.get(tokenIntHL)
-                                || null;
-
-                            console.log(`📊 [HighLow] segment=${tradeLimitSegment}, enabled=${tradeLimitEnabled}, high=${dayHigh}, low=${dayLow}, cmp=${cmpHL}, offset=${hlOffset}, price=${price}, type=${transaction_type}`);
-
-                            if (dayHigh && dayLow && dayHigh > 0 && dayLow > 0 && cmpHL && cmpHL > 0) {
-                                if (transaction_type === 'BUY') {
-                                    const minBuyPrice = Math.max(dayHigh, cmpHL + hlOffset);
-                                    if (price <= minBuyPrice) {
-                                        throw new Error(`High-Low restriction: Buy limit must be above ₹${minBuyPrice.toFixed(2)} (Day High ₹${dayHigh.toFixed(2)} vs CMP ₹${cmpHL.toFixed(2)} + offset ₹${hlOffset}, whichever is higher).`);
-                                    }
-                                } else if (transaction_type === 'SELL') {
-                                    const maxSellPrice = Math.min(dayLow, cmpHL - hlOffset);
-                                    if (price >= maxSellPrice) {
-                                        throw new Error(`High-Low restriction: Sell limit must be below ₹${maxSellPrice.toFixed(2)} (Day Low ₹${dayLow.toFixed(2)} vs CMP ₹${cmpHL.toFixed(2)} - offset ₹${hlOffset}, whichever is lower).`);
-                                    }
-                                }
-                            }
-                        }
-                    } catch (hlErr) {
-                        if (hlErr.message.includes('High-Low restriction')) throw hlErr;
-                        console.warn(`⚠️ [HighLow] Could not fetch OHLC for trade limit check: ${hlErr.message}`);
-                    }
-                }
-            }
+            await _validateHighLowLimit(adminCanCustomPrice, user, instrument_token, order_type, transaction_type, price, segment, exchange, instrumentRawName);
 
             // 1. Determine execution price
             let executedPrice = price;
@@ -1587,6 +1631,148 @@ const cancelTrade = async (req, res) => {
 };
 
 /**
+ * Modify a still-pending LIMIT or SL/SL-M order's price and/or quantity.
+ * Same ownership rules as cancelTrade. Re-runs the same price/quantity-
+ * specific validators a fresh placement at the new values would (circuit
+ * limit, script-quantity limit, Fresh Stop-Loss price-offset, High-Low
+ * limit, and — for SL/SL-M — the fresh_stoploss open-position gate), but
+ * does NOT re-check account-level gates (bet/close_only/margin_call_blocked/
+ * instrument enabled) since those are already re-verified at fill time
+ * regardless of whether this order was just modified.
+ *
+ * True in-place update: same Trade _id, only price/quantity (and, for
+ * SL/SL-M, trigger_direction) change — not a cancel-and-replace.
+ */
+const modifyTrade = async (req, res) => {
+    try {
+        const { tradeId } = req.params;
+        const { price: newPriceRaw, quantity: newQuantityRaw } = req.body;
+
+        if (!req.user && !req.master && !req.admin) {
+            return res.status(401).json({ success: false, message: 'Unauthorized' });
+        }
+
+        if (newPriceRaw === undefined && newQuantityRaw === undefined) {
+            return res.status(400).json({ success: false, message: 'Provide a new price and/or quantity to modify.' });
+        }
+
+        const trade = await Trade.findOne({ _id: tradeId, deleted_at: null });
+        if (!trade) {
+            return res.status(404).json({ success: false, message: 'Trade not found' });
+        }
+
+        // Ownership check — identical to cancelTrade's (see its own comment
+        // for the full reasoning: a trade's user_id is always the CLIENT,
+        // never the caller, when placed by a master/admin on their behalf).
+        if (req.user) {
+            if (trade.user_id.toString() !== req.user.id) {
+                return res.status(403).json({ success: false, message: 'Not authorized to modify this trade' });
+            }
+        } else if (req.master && !req.admin) {
+            const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+            const allowedMasterIds = await getAllSubMasterIds(req.master.id);
+            if (!trade.master_id || !allowedMasterIds.includes(trade.master_id.toString())) {
+                return res.status(403).json({ success: false, message: 'Not authorized to modify this trade' });
+            }
+        }
+
+        if (trade.status !== 'pending') {
+            return res.status(400).json({ success: false, message: `Cannot modify trade with status: ${trade.status}` });
+        }
+        if (trade.order_type === 'MARKET') {
+            return res.status(400).json({ success: false, message: 'MARKET orders execute immediately and cannot be modified.' });
+        }
+
+        const newPrice = newPriceRaw !== undefined ? Number(newPriceRaw) : trade.price;
+        const newQuantity = newQuantityRaw !== undefined ? Number(newQuantityRaw) : trade.quantity;
+        if (!Number.isFinite(newPrice) || newPrice <= 0) {
+            return res.status(400).json({ success: false, message: 'Invalid price' });
+        }
+        if (!Number.isFinite(newQuantity) || newQuantity <= 0) {
+            return res.status(400).json({ success: false, message: 'Invalid quantity' });
+        }
+
+        const user = await User.findById(trade.user_id);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+        const isAdmin = !!req.admin;
+
+        // Re-run the same price/quantity-specific checks a fresh placement
+        // at these new values would — see this function's own doc comment
+        // for why account-level gates are deliberately NOT repeated here.
+        try {
+            await _validateCircuitLimit(trade.instrument_token, newPrice, trade.order_type);
+            const { instrumentRawName } = await _validateScriptQuantityLimit(
+                user, trade.instrument_token, trade.transaction_type, newQuantity, trade.segment, trade.exchange, trade.tradingsymbol, null
+            );
+            await _validateFreshStoplossPriceOffset(isAdmin, user, trade.instrument_token, trade.order_type, trade.transaction_type, newPrice, trade.segment, trade.exchange, instrumentRawName);
+            await _validateFreshStoplossOpenPosition(isAdmin, user, trade.instrument_token, trade.order_type, trade.transaction_type, null);
+            const adminCanCustomPrice = isAdmin && (req.admin.isSuperAdmin || (req.admin.permissions || []).includes('TRADE_CUSTOM'));
+            await _validateHighLowLimit(adminCanCustomPrice, user, trade.instrument_token, trade.order_type, trade.transaction_type, newPrice, trade.segment, trade.exchange, instrumentRawName);
+        } catch (validationErr) {
+            return res.status(400).json({ success: false, message: validationErr.message });
+        }
+
+        // For SL/SL-M, the trigger direction must be recomputed fresh — a
+        // new price at a new moment can have a different correct direction
+        // than the order's original one (see tradeController.js's placeTrade
+        // for the identical rule this mirrors).
+        let newTriggerDirection = trade.trigger_direction;
+        if (trade.order_type === 'SL' || trade.order_type === 'SL-M') {
+            const metricsEngForModify = require('../services/metricsEngine');
+            const livePriceSvcForModify = require('../services/livePriceService');
+            const tokenStr = trade.instrument_token.toString();
+            const tokenInt = parseInt(trade.instrument_token);
+            const livePriceForModify = metricsEngForModify._ltpMap?.get(tokenStr)
+                || livePriceSvcForModify.latestPrices?.get(tokenStr)
+                || livePriceSvcForModify.latestPrices?.get(tokenInt)
+                || null;
+            if (livePriceForModify != null && newPrice > livePriceForModify) newTriggerDirection = 'RISE';
+            else if (livePriceForModify != null && newPrice < livePriceForModify) newTriggerDirection = 'FALL';
+            else newTriggerDirection = trade.transaction_type === 'BUY' ? 'RISE' : 'FALL';
+        }
+
+        // Remove the OLD order-book entry (old price/direction) before
+        // updating the Trade document, so a tick arriving mid-update can
+        // never match against stale data under either key.
+        await orderBookService.removeOrder(
+            trade._id.toString(),
+            trade.instrument_token,
+            trade.transaction_type,
+            trade.order_type,
+            trade.trigger_direction
+        );
+
+        trade.price = newPrice;
+        trade.quantity = newQuantity;
+        trade.trigger_direction = newTriggerDirection;
+        await withTradeWriteLease('modify_order', () => trade.save());
+
+        await orderBookService.addOrder(
+            trade._id.toString(),
+            trade.instrument_token,
+            trade.price,
+            trade.transaction_type,
+            trade.order_type,
+            trade.trigger_direction
+        );
+
+        res.status(200).json({
+            success: true,
+            message: 'Order modified successfully',
+            data: trade
+        });
+    } catch (error) {
+        res.status(error.status || 500).json({
+            success: false,
+            message: sanitizeErrorMessage(error),
+            data: null
+        });
+    }
+};
+
+/**
  * Soft-delete a trade (admin/master only)
  * Sends admin_order_deletion notification to the trade owner.
  */
@@ -2321,6 +2507,7 @@ module.exports = {
     placeTrade,
     computeWalletSplit,
     cancelTrade,
+    modifyTrade,
     deleteTrade,
     getAccountMetrics,
     saveClientMetrics,
