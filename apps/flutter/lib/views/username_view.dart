@@ -767,6 +767,13 @@ class _UsernameViewState extends State<UsernameView> {
                 if (_currentMaster != null)
                   _settingRow(
                       Icons.admin_panel_settings_outlined, 'Account Limit',
+                      isLast: !Provider.of<UserProfileProvider>(context,
+                              listen: false)
+                          .isAdmin),
+                if (_currentMaster != null &&
+                    Provider.of<UserProfileProvider>(context, listen: false)
+                        .isAdmin)
+                  _settingRow(Icons.delete_outline, 'Delete Master',
                       isLast: true),
               ],
             ),
@@ -2125,6 +2132,53 @@ class _UsernameViewState extends State<UsernameView> {
       case 'Account Limit':
         if (_currentMaster != null) _showAccountLimitSheet();
         break;
+      case 'Delete Master':
+        if (_currentMaster != null) _confirmDeleteMaster();
+        break;
+    }
+  }
+
+  // AdminService.deleteMaster (DELETE /masters/:id) existed with zero call
+  // sites anywhere in the app — no "Delete Master" action existed despite
+  // the backend endpoint working. Soft-delete, cascades to every
+  // descendant master/user (masterController.js's deleteMaster).
+  Future<void> _confirmDeleteMaster() async {
+    final master = _currentMaster!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Master'),
+        content: Text(
+            'Soft-delete ${master.name} (${master.username})? This also deletes every sub-broker and client underneath them. This cannot be undone from this screen.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete',
+                  style: TextStyle(color: Color(0xFFEF4444)))),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      final res = await AdminService(apiService).deleteMaster(master.id);
+      if (!mounted) return;
+      final body = jsonDecode(res.body);
+      if (res.statusCode == 200 && body['success'] == true) {
+        Navigator.pop(context, true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(body['message'] ?? 'Delete failed')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     }
   }
 

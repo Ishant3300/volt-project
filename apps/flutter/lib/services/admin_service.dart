@@ -277,61 +277,6 @@ class AdminService {
   }
 
   // ============================================
-  // Trade Management
-  // ============================================
-
-  /// Get all trades
-  Future<http.Response> getAllTrades({
-    String? masterId,
-    String? userId,
-    int page = 1,
-    int limit = 50,
-    String? dateFrom,
-    String? dateTo,
-    String? status,
-    String? exchange,
-    String? tradingsymbol,
-  }) async {
-    final queryParams = <String>[];
-    queryParams.add('page=$page');
-    queryParams.add('limit=$limit');
-    if (masterId != null) queryParams.add('master_id=$masterId');
-    if (userId != null) queryParams.add('user_id=$userId');
-    if (dateFrom != null) queryParams.add('date_from=$dateFrom');
-    if (dateTo != null) queryParams.add('date_to=$dateTo');
-    if (status != null) queryParams.add('status=$status');
-    if (exchange != null) queryParams.add('exchange=$exchange');
-    if (tradingsymbol != null)
-      queryParams.add('tradingsymbol=${Uri.encodeComponent(tradingsymbol)}');
-
-    final queryString =
-        queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';
-    final token = await _storage.getToken();
-    return await _apiService.get('/masters/trades/all$queryString',
-        token: token);
-  }
-
-  // ============================================
-  // Messaging
-  // ============================================
-
-  /// Send message to master
-  Future<http.Response> sendMessageToMaster({
-    required String masterId,
-    String? subject,
-    required String message,
-  }) async {
-    final token = await _storage.getToken();
-    return await _apiService.post(
-        '/masters/$masterId/messages',
-        {
-          if (subject != null) 'subject': subject,
-          'message': message,
-        },
-        token: token);
-  }
-
-  // ============================================
   // User Management (if admin manages users directly)
   // ============================================
 

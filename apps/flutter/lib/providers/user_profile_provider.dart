@@ -61,18 +61,29 @@ class UserProfileProvider with ChangeNotifier {
   /// User gets the report_permissions from their parent Master (returned by the API).
   Map<String, bool> get reportPermissions {
     if (isAdmin) {
+      // Previously hardcoded true for ANY Admin regardless of their actual
+      // granted permissions — a regular Admin a Super Admin restricted
+      // (via ManageAdminDetailView/SuperAdminService, unchecked here) still
+      // saw every report menu item on mobile. Admin's report gating is
+      // coarse — a single REPORTS_ACCESS key, not Master's per-report
+      // booleans (Master.permissions.weekly_admin etc.) — so this can only
+      // be all-true or all-false, matching what the backend actually
+      // enforces (weeklyAdminController.js's REPORTS_ACCESS check). Super
+      // Admin bypasses every permission check unconditionally, same as
+      // every other admin-permission gate in this app.
+      final hasReportsAccess = isSuperAdmin || adminPermissions.contains('REPORTS_ACCESS');
       return {
-        'account_summary': true,
-        'pnl_summary': true,
-        'client_summary': true,
-        'settlement_report': true,
-        'generate_pdf': true,
-        'weekly_admin': true,
-        'intraday_history': true,
-        'userwise_open_position': true,
-        'script_quantity': true,
-        'deleted_trade': true,
-        'trade_account': true,
+        'account_summary': hasReportsAccess,
+        'pnl_summary': hasReportsAccess,
+        'client_summary': hasReportsAccess,
+        'settlement_report': hasReportsAccess,
+        'generate_pdf': hasReportsAccess,
+        'weekly_admin': hasReportsAccess,
+        'intraday_history': hasReportsAccess,
+        'userwise_open_position': hasReportsAccess,
+        'script_quantity': hasReportsAccess,
+        'deleted_trade': hasReportsAccess,
+        'trade_account': hasReportsAccess,
       };
     }
     if (isMaster && _master?.permissions != null) {
