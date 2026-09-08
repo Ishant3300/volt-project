@@ -277,9 +277,15 @@ const createUser = async (req, res) => {
         throw new Error(`Insufficient balance. Available: ${parentMaster.equity}, Required: ${credits}`);
       }
 
-      // Check if username already exists
+      // Check if username already exists — checked against BOTH collections,
+      // since uniqueness is only enforced per-collection by the schema's own
+      // index (see adminController.js's createUser for the same fix).
       const existingUser = await User.findOne({ username }).session(session);
       if (existingUser) {
+        throw new Error('Username already exists');
+      }
+      const existingMaster = await Master.findOne({ username }).session(session);
+      if (existingMaster) {
         throw new Error('Username already exists');
       }
 
@@ -533,10 +539,12 @@ const updateUserDetails = async (req, res) => {
       });
     }
 
-    // Check if username is being changed and if it already exists
+    // Check if username is being changed and if it already exists — checked
+    // against BOTH collections, same reasoning as the create paths.
     if (username && username !== user.username) {
       const existingUser = await User.findOne({ username });
-      if (existingUser) {
+      const existingMaster = existingUser ? null : await Master.findOne({ username });
+      if (existingUser || existingMaster) {
         return res.status(400).json({
           success: false,
           message: 'Username already exists',
