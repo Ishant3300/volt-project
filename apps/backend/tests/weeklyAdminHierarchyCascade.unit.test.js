@@ -16,6 +16,8 @@ const {
   _computeCallerBrkForUserBatched,
   _getPnlUnpassedMultiplierForUserBatched,
   _getBrkUnpassedMultiplierForUserBatched,
+  _getUserBrokerageAndTurnoverBatched,
+  _findRule,
 } = require('../src/controllers/weeklyAdminController')._private;
 
 const masterMap = {
@@ -55,6 +57,60 @@ describe('_getBrkUnpassedMultiplierForUserBatched — per-tier brokerage_sharing
     // Same masterMap has brokerage_sharing === pnl_sharing at every tier in this
     // fixture, so both cascades must produce an identical multiplier.
     expect(brkMult).toBeCloseTo(pnlMult, 10);
+  });
+});
+
+describe('caller is a nested sub-master (not top-level) viewing their OWN direct client', () => {
+  // Every test above passes callerId='ADMIN', a sentinel that never appears
+  // as a key in masterMap — so the old buggy stopping condition (checking
+  // the just-processed master's PARENT against callerId) never had a chance
+  // to fire for a direct client, since a direct client's walk starts AT
+  // callerId itself, whose "parent" is never itself. That's exactly how
+  // this bug shipped unnoticed: it only manifests when the CALLER (viewer)
+  // is themselves a nested master with a real ancestor above them in
+  // masterMap, viewing one of their OWN direct clients.
+  test('direct client of newfixsub (who has 157459 above them): stops after ONE hop, not two', () => {
+    const mult = _getPnlUnpassedMultiplierForUserBatched('u2', 'newfixsub', user2.doc, masterMap);
+    // Correct: only newfixsub's own 80% hop applies, since u2 is newfixsub's
+    // own direct client — (100-80)/100 = 0.20.
+    expect(mult).toBeCloseTo(0.20, 10);
+    // Old bug: kept climbing past newfixsub into 157459 too —
+    // (100-80)/100 * (100-90)/100 = 0.02 — 10x too small.
+    expect(mult).not.toBeCloseTo(0.02, 10);
+  });
+
+  test('same fix applies to the brokerage-sharing mirror', () => {
+    const mult = _getBrkUnpassedMultiplierForUserBatched('u2', 'newfixsub', user2.doc, masterMap);
+    expect(mult).toBeCloseTo(0.20, 10);
+    expect(mult).not.toBeCloseTo(0.02, 10);
+  });
+
+  test('caller_brk for that same direct client no longer absorbs the ancestor\'s share too', () => {
+    const trades = tradesFor(user2.lots, user2.rate);
+    const callerBrk = _computeCallerBrkForUserBatched(
+      'u2', 'newfixsub', 'master', { u2: trades }, callerRules, kiteMap,
+      masterMap, {}, [], user2.doc, user2.totalBrk,
+    );
+    // callerBaseClearance = 16*200 = 3200; spread = 6400-3200 = 3200;
+    // correct unpassed = 3200 * 0.20 = 640; total = 3840.00
+    expect(callerBrk).toBeCloseTo(3840.00, 2);
+    // Old bug: unpassed = 3200 * 0.02 = 64; total = 3264.00 (same wrong
+    // number the ADMIN-viewer test above expects for a DIFFERENT caller —
+    // proof the old code couldn't tell the two callers apart for this user).
+    expect(callerBrk).not.toBeCloseTo(3264.00, 2);
+  });
+
+  test('a grandchild-relative-to-caller row is unaffected (already worked before the fix)', () => {
+    // u1's own direct master is newfix_subsubs, a CHILD of the caller
+    // (newfixsub) rather than the caller itself — this is the call pattern
+    // _getAggregatedEntryBatched actually uses for an aggregate sub-broker
+    // row's own clients, which is why the earlier hand-verified DEMO1
+    // example (also a grandchild-relative-to-caller case) never surfaced
+    // this bug even though it exercises the same function. Both
+    // intermediate hops correctly apply here (newfix_subsubs's own 70% AND
+    // newfixsub's own 80%, stopping there since newfixsub is the caller).
+    const mult = _getPnlUnpassedMultiplierForUserBatched('u1', 'newfixsub', user1.doc, masterMap);
+    expect(mult).toBeCloseTo(0.30 * 0.20, 10);
   });
 });
 
@@ -159,5 +215,50 @@ describe('_computeCallerBrkForUserBatched — admin\'s brokerage share for each 
     // callerBaseClearance = 18*200 = 3600; spread = 14400-3600 = 10800;
     // unpassed = 10800 * 0.10 = 1080; total = 4680.00
     expect(callerBrk).toBeCloseTo(4680.00, 2);
+  });
+});
+
+describe('_getUserBrokerageAndTurnoverBatched — per-instrument brokerage-rule fallback', () => {
+  const kiteMap2 = {
+    NSE_TOK: { lot_size: 1, segment: 'NSE', raw_name: 'RELIANCE' },
+    MCX_TOK: { lot_size: 100, segment: 'MCX-FUT', raw_name: 'CRUDEOIL' },
+  };
+  const globalRules = [{ script_name: '', exchange_name: 'MCX-FUT', type: 'LOT WISE', brk_value: 20 }];
+
+  test('a client with a matching own rule on ONE instrument still gets the global rule on another', () => {
+    // Client only has a custom NSE rule — no rule at all for MCX. Old code:
+    // ownRules.length > 0 so the global list was never even consulted,
+    // silently billing 0 on the MCX trade despite real turnover.
+    const ownRules = [{ script_name: 'RELIANCE', exchange_name: 'NSE', type: 'TURNOVER WISE', brk_value: 5 }];
+    const trades = {
+      u: [
+        { instrument_token: 'NSE_TOK', executed_price: 1000, executed_quantity: 10 },
+        { instrument_token: 'MCX_TOK', executed_price: 6000, executed_quantity: 200 },
+      ],
+    };
+    const result = _getUserBrokerageAndTurnoverBatched('u', trades, { u: ownRules }, globalRules, kiteMap2);
+    // NSE: 10000 turnover * 5/10000 = 5; MCX: 2 lots * 20 = 40; total = 45
+    expect(result.brokerage).toBeCloseTo(45, 2);
+    expect(result.brokerage).not.toBeCloseTo(5, 2); // old bug: MCX leg silently billed 0
+  });
+
+  test('a client with zero custom rules still falls back to global (unaffected by the fix)', () => {
+    const trades = { u: [{ instrument_token: 'MCX_TOK', executed_price: 6000, executed_quantity: 200 }] };
+    const result = _getUserBrokerageAndTurnoverBatched('u', trades, {}, globalRules, kiteMap2);
+    expect(result.brokerage).toBeCloseTo(40, 2);
+  });
+});
+
+describe('_findRule — blank-exchange fallback must not match an unrecognized instrument', () => {
+  test('an instrument missing from kiteMap (seg="") does not match a rule with a blank exchange_name', () => {
+    const rules = [{ script_name: '', exchange_name: '', type: 'LOT WISE', brk_value: 999 }];
+    // Old bug: (''.split('-')[0] || '').toUpperCase() === '' matched this
+    // rule for ANY instrument the report couldn't identify.
+    expect(_findRule(rules, '', '')).toBeNull();
+  });
+
+  test('a real instrument with a real blank-script rule for its own exchange still matches', () => {
+    const rules = [{ script_name: '', exchange_name: 'MCX', type: 'LOT WISE', brk_value: 20 }];
+    expect(_findRule(rules, 'CRUDEOIL', 'MCX-FUT')).toEqual(rules[0]);
   });
 });

@@ -618,8 +618,15 @@ function _getPnlUnpassedMultiplierForUserBatched(userId, callerId, userDoc, mast
 
     multiplier *= (100 - (master.pnl_sharing || 0)) / 100;
 
-    // If this master's parent is the caller (or null for admin), stop
-    if (!master.master_id || master.master_id.toString() === callerId) break;
+    // Stop the INSTANT we've just applied the caller's own hop — for a
+    // direct client (userMasterId === callerId), that's this very first
+    // iteration. The old check below tested this master's PARENT against
+    // callerId instead of the master itself, so a direct client's row kept
+    // climbing past the caller into every ancestor above them, multiplying
+    // in shares that don't belong to this calculation at all (confirmed
+    // bug — collapses to near-zero whenever an ancestor has a high share).
+    if (currentMasterId === callerId) break;
+    if (!master.master_id) break;
     currentMasterId = master.master_id.toString();
   }
 
@@ -693,8 +700,10 @@ function _getBrkUnpassedMultiplierForUserBatched(userId, callerId, userDoc, mast
 
     multiplier *= (100 - (master.brokerage_sharing || 0)) / 100;
 
-    // If this master's parent is the caller (or null for admin), stop
-    if (!master.master_id || master.master_id.toString() === callerId) break;
+    // Same fix as _getPnlUnpassedMultiplierForUserBatched — stop right
+    // after applying the caller's own hop, not their parent's.
+    if (currentMasterId === callerId) break;
+    if (!master.master_id) break;
     currentMasterId = master.master_id.toString();
   }
 
@@ -733,8 +742,7 @@ function _cascadeBrokerageOwedUpwardBatched(
   const trades = tradesByUser[userId] || [];
   if (trades.length === 0) return 0;
 
-  let brkRules = brkRulesByUser[userId] || [];
-  if (brkRules.length === 0) brkRules = globalBrkRules;
+  const ownRules = brkRulesByUser[userId] || [];
 
   // Per instrument: the client's own actual billed brokerage + volume.
   const byInstrument = {};
@@ -751,7 +759,10 @@ function _cascadeBrokerageOwedUpwardBatched(
     entry.turnover += tradeTurnover;
     entry.lots += tradeLots;
 
-    const rule = _findRule(brkRules, rawName, seg);
+    // Same per-instrument fallback fix as _getUserBrokerageAndTurnoverBatched
+    // — this must reflect the client's ACTUAL billed brokerage, which has to
+    // agree with that function's own total for the same trades.
+    const rule = _findRule(ownRules, rawName, seg) || _findRule(globalBrkRules, rawName, seg);
     if (rule) {
       if (rule.type === 'TURNOVER WISE') entry.billed += tradeTurnover * (rule.brk_value / 10000);
       else if (rule.type === 'LOT WISE') entry.billed += tradeLots * rule.brk_value;
@@ -813,9 +824,7 @@ function _getUserBrokerageAndTurnoverBatched(userId, tradesByUser, brkRulesByUse
   const trades = tradesByUser[userId] || [];
   if (trades.length === 0) return { brokerage: 0, turnover: 0, lots: 0 };
 
-  // User-specific rules, fallback to global
-  let brkRules = brkRulesByUser[userId] || [];
-  if (brkRules.length === 0) brkRules = globalBrkRules;
+  const ownRules = brkRulesByUser[userId] || [];
 
   let totalBrk = 0, totalTurnover = 0, totalLots = 0;
   for (const t of trades) {
@@ -829,7 +838,14 @@ function _getUserBrokerageAndTurnoverBatched(userId, tradesByUser, brkRulesByUse
     totalTurnover += tradeTurnover;
     totalLots += tradeLots;
 
-    const brkRule = _findRule(brkRules, rawName, seg);
+    // Try the client's own custom rules first, then fall back to the global
+    // rule set PER INSTRUMENT — not just when the client has zero custom
+    // rules at all. A client with SOME custom rules (e.g. an NSE-only
+    // override) but none matching THIS instrument (e.g. an MCX trade)
+    // previously fell through silently: real turnover, zero brokerage, no
+    // error, because the old code only consulted the global list when the
+    // client's own rule array was completely empty.
+    const brkRule = _findRule(ownRules, rawName, seg) || _findRule(globalBrkRules, rawName, seg);
     if (brkRule) {
       if (brkRule.type === 'TURNOVER WISE') {
         totalBrk += tradeTurnover * (brkRule.brk_value / 10000);
@@ -850,7 +866,12 @@ function _findRule(rules, rawName, seg) {
   if (rawName && seg) rule = rules.find(r => r.script_name?.toUpperCase() === rawName.toUpperCase() && r.exchange_name === seg.toUpperCase());
   if (!rule && rawName) rule = rules.find(r => r.script_name?.toUpperCase() === rawName.toUpperCase());
   if (!rule && seg) rule = rules.find(r => r.exchange_name === seg.toUpperCase() && (!r.script_name || r.script_name.trim() === ''));
-  if (!rule) rule = rules.find(r => r.exchange_name === (seg.split('-')[0] || '').toUpperCase() && (!r.script_name || r.script_name.trim() === ''));
+  // Guarded by `seg` here too — an instrument missing from kiteMap (token
+  // not found) passes seg='', and `''.split('-')[0] || ''` still evaluates
+  // to '', so this used to match any rule with a blank exchange_name for
+  // ANY unrecognized instrument, applying an unrelated rate. No seg means
+  // no rule, not a guess.
+  if (!rule && seg) rule = rules.find(r => r.exchange_name === (seg.split('-')[0] || '').toUpperCase() && (!r.script_name || r.script_name.trim() === ''));
   return rule;
 }
 
@@ -880,5 +901,7 @@ module.exports = {
     _getBrkUnpassedMultiplierForUserBatched,
     _incomingPoolPnlMultiplierBatched,
     _cascadeBrokerageOwedUpwardBatched,
+    _getUserBrokerageAndTurnoverBatched,
+    _findRule,
   },
 };
