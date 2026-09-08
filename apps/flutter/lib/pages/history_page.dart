@@ -1406,6 +1406,29 @@ class _PortfolioPageState extends State<PortfolioPage>
                           if (_isAdmin && isPending) const SizedBox(width: 8),
                           if (isPending)
                             GestureDetector(
+                              onTap: () => _modifyOrder(trade),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color:
+                                      const Color(0xFF3B82F6).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Text(
+                                  'Modify',
+                                  style: TextStyle(
+                                    color: Color(0xFF3B82F6),
+                                    fontSize: kFontSizeSubtitle,
+                                    fontFamily: kFontFamily,
+                                    fontWeight: kFontWeightSemiBold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (isPending) const SizedBox(width: 8),
+                          if (isPending)
+                            GestureDetector(
                               onTap: () => _cancelOrder(trade),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
@@ -1853,6 +1876,157 @@ class _PortfolioPageState extends State<PortfolioPage>
         }
       } else {
         throw Exception('Server error: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    }
+  }
+
+  /// Change a still-pending LIMIT/SL order's price and/or quantity in
+  /// place — PUT /trade/:tradeId/modify (same trade id, not a
+  /// cancel-and-replace). Mirrors _cancelOrder's structure exactly.
+  Future<void> _modifyOrder(Trade trade) async {
+    final investorMode =
+        Provider.of<InvestorModeProvider>(context, listen: false);
+    if (investorMode.isInvestor) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Order modification is not available in investor mode'),
+            backgroundColor: Color(0xFF64748B)),
+      );
+      return;
+    }
+
+    final metricsProvider =
+        Provider.of<TradeMetricsProvider>(context, listen: false);
+    final priceController =
+        TextEditingController(text: trade.price.toStringAsFixed(2));
+    final qtyController =
+        TextEditingController(text: trade.quantity.toString());
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Modify ${trade.tradingSymbol}',
+          style: const TextStyle(
+            fontFamily: kFontFamily,
+            fontWeight: kFontWeightSemiBold,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: priceController,
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: trade.orderType == 'SL' || trade.orderType == 'SL-M'
+                    ? 'Trigger price'
+                    : 'Price',
+                labelStyle: const TextStyle(fontFamily: kFontFamily),
+              ),
+              style: const TextStyle(fontFamily: kFontFamily),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: qtyController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Quantity',
+                labelStyle: TextStyle(fontFamily: kFontFamily),
+              ),
+              style: const TextStyle(fontFamily: kFontFamily),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(
+                color: Color(0xFF94A3B8),
+                fontFamily: kFontFamily,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Modify',
+              style: TextStyle(
+                color: Color(0xFF3B82F6),
+                fontFamily: kFontFamily,
+                fontWeight: kFontWeightSemiBold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final newPrice = double.tryParse(priceController.text);
+    final newQty = int.tryParse(qtyController.text);
+    if (newPrice == null || newPrice <= 0 || newQty == null || newQty <= 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Enter a valid price and quantity'),
+            backgroundColor: Color(0xFFEF4444),
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      final storage = SecureStorageService();
+      final token = await storage.getToken();
+
+      if (token == null) {
+        throw Exception('Not authenticated');
+      }
+
+      final apiService = ApiService(backendUrl);
+      final response = await apiService.put(
+        '/trade/${trade.id}/modify',
+        {'price': newPrice, 'quantity': newQty},
+        token: token,
+      );
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        if (body['success'] == true) {
+          await metricsProvider.fetchBaseData();
+          await Provider.of<UserProfileProvider>(context, listen: false)
+              .refreshProfile();
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Order modified: ${trade.tradingSymbol}'),
+                backgroundColor: const Color(0xFF10B981),
+              ),
+            );
+          }
+        } else {
+          throw Exception(body['message'] ?? 'Failed to modify order');
+        }
+      } else {
+        final body = jsonDecode(response.body);
+        throw Exception(body['message'] ?? 'Server error: ${response.statusCode}');
       }
     } catch (e) {
       if (mounted) {
