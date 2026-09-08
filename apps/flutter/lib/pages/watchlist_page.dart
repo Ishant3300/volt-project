@@ -455,12 +455,19 @@ class _WatchlistPageState extends State<WatchlistPage> {
 
               final rawAsk = item.askPrice;
               final rawBid = item.bidPrice;
-              final effectiveAsk = (rawAsk != null && rawAsk > 0.1)
-                  ? rawAsk
-                  : (ltp > 0 ? ltp + spread : null);
-              final effectiveBid = (rawBid != null && rawBid > 0.1)
-                  ? rawBid
-                  : (ltp > 0 ? ltp - spread : null);
+              // A missing/zero raw bid or ask falls back to a fabricated
+              // ltp ± spread guess so the row isn't blank — but that guess
+              // must never look identical to a real quote, or the user has
+              // no way to tell a genuine market depth price from a filler.
+              final askIsSynthetic = !(rawAsk != null && rawAsk > 0.1);
+              final bidIsSynthetic = !(rawBid != null && rawBid > 0.1);
+              final effectiveAsk = askIsSynthetic
+                  ? (ltp > 0 ? ltp + spread : null)
+                  : rawAsk;
+              final effectiveBid = bidIsSynthetic
+                  ? (ltp > 0 ? ltp - spread : null)
+                  : rawBid;
+              const syntheticColor = Color(0xFF94A3B8);
 
               // Determine tick color: blue if price went up, red if down,
               // neutral if unchanged OR no previous tick to compare against
@@ -500,7 +507,11 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                     fontFamily: kFontFamily,
                                     fontSize: kFontSizePriceMain,
                                     fontWeight: kFontWeightSemiBold,
-                                    color: bidColor,
+                                    fontStyle: bidIsSynthetic
+                                        ? FontStyle.italic
+                                        : FontStyle.normal,
+                                    color:
+                                        bidIsSynthetic ? syntheticColor : bidColor,
                                   ),
                                 )
                               : Text(
@@ -529,7 +540,11 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                     fontFamily: kFontFamily,
                                     fontSize: kFontSizePriceMain,
                                     fontWeight: kFontWeightSemiBold,
-                                    color: askColor,
+                                    fontStyle: askIsSynthetic
+                                        ? FontStyle.italic
+                                        : FontStyle.normal,
+                                    color:
+                                        askIsSynthetic ? syntheticColor : askColor,
                                   ),
                                 )
                               : Text(
