@@ -104,9 +104,12 @@ class _PortfolioPageState extends State<PortfolioPage>
 
       final queryParams = <String>['limit=50', 'page=$page'];
       if (_activeFilters != null) {
-        _activeFilters!
-            .toQueryParams()
-            .forEach((k, v) => queryParams.add('$k=$v'));
+        // tradingsymbol is free-typed user input (see history_filter_sheet.dart)
+        // — unencoded, a script name containing '&' or '=' would silently
+        // inject extra query params or truncate the filter value instead of
+        // just failing to match.
+        _activeFilters!.toQueryParams().forEach((k, v) => queryParams
+            .add('${Uri.encodeQueryComponent(k)}=${Uri.encodeQueryComponent(v)}'));
       }
 
       // Both admin and master use /master/trades — backend handles both roles
@@ -161,9 +164,8 @@ class _PortfolioPageState extends State<PortfolioPage>
 
       final apiService = ApiService(backendUrl);
       final queryParams = <String>['limit=200', 'page=1'];
-      _activeFilters!
-          .toQueryParams()
-          .forEach((k, v) => queryParams.add('$k=$v'));
+      _activeFilters!.toQueryParams().forEach((k, v) => queryParams
+          .add('${Uri.encodeQueryComponent(k)}=${Uri.encodeQueryComponent(v)}'));
 
       final res = await apiService.get(
         '/users/$userId/trades?${queryParams.join('&')}',
