@@ -23,6 +23,7 @@ import 'script_quantity_detail_view.dart';
 import 'deleted_trade_view.dart';
 import 'rejection_log_history_view.dart';
 import 'settlement_report_view.dart';
+import 'client_pnl_summary_view.dart';
 
 class ReportsView extends StatelessWidget {
   const ReportsView({super.key});
@@ -227,13 +228,9 @@ class ReportsView extends StatelessWidget {
                 builder: (context) => const RejectionLogHistoryView()),
           );
         } else if (title == 'Client Summary') {
-          // report_permissions.client_summary exists on the schema (and can
-          // be toggled on for a Master/User via Manage Reports) but no
-          // backend endpoint or screen for it has ever been built — this
-          // was previously a silent no-op tap. Surface that honestly rather
-          // than pretending a report exists.
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Client Summary report is not available yet')),
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ClientPnlSummaryView()),
           );
         }
       },
