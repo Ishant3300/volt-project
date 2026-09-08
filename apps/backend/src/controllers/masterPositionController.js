@@ -594,8 +594,20 @@ const getBulkEquity = async (req, res) => {
         ...(hiddenFilter ? { _id: hiddenFilter } : {}),
       }).select('_id');
     } else if (masterId) {
-      users = await User.find({ master_id: masterId, deleted_at: null }).select('_id credits');
-      childMasters = await Master.find({ master_id: masterId, deleted_at: null }).select('_id');
+      // Previously direct-children-only, unlike the admin branch above
+      // (which spans every master/user it can see, flat, each showing only
+      // its own direct book — rollup is left to the caller). That meant a
+      // top-level master's grandchild sub-masters' equity, and every user
+      // under them, never appeared in this response at all. Now spans the
+      // caller's full recursive subtree instead, matching the admin
+      // branch's contract exactly — no new aggregation semantics needed.
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const subtreeMasterIds = await getAllSubMasterIds(masterId);
+      users = await User.find({ master_id: { $in: subtreeMasterIds }, deleted_at: null }).select('_id credits');
+      childMasters = await Master.find({
+        _id: { $in: subtreeMasterIds, $ne: masterId },
+        deleted_at: null,
+      }).select('_id');
     } else {
       return res.status(200).json({ success: true, data: { users: {}, masters: {} } });
     }
