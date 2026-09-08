@@ -46,7 +46,7 @@ const runAudit = async (options = {}) => {
       status: 'pending',
       order_type: { $in: ['LIMIT', 'SL', 'SL-M'] },
       deleted_at: null,
-    }).select('_id instrument_token transaction_type order_type price tradingsymbol createdAt').lean();
+    }).select('_id instrument_token transaction_type order_type price tradingsymbol trigger_direction createdAt').lean();
 
     if (pendingTrades.length === 0) {
       if (LOG_REDIS_ORDERS && !silent) {
@@ -64,7 +64,8 @@ const runAudit = async (options = {}) => {
         trade._id.toString(),
         trade.instrument_token,
         trade.transaction_type,
-        trade.order_type
+        trade.order_type,
+        trade.trigger_direction
       );
 
       if (!result.exists) {
@@ -75,6 +76,7 @@ const runAudit = async (options = {}) => {
           side: trade.transaction_type,
           orderType: trade.order_type,
           price: trade.price,
+          direction: trade.trigger_direction,
           createdAt: trade.createdAt,
           reason: result.reason || 'not_in_redis',
         });
@@ -105,7 +107,8 @@ const runAudit = async (options = {}) => {
             orphan.instrumentToken,
             orphan.price,
             orphan.side,
-            orphan.orderType
+            orphan.orderType,
+            orphan.direction
           );
           if (success) {
             livePriceService.addPendingToken(orphan.instrumentToken);

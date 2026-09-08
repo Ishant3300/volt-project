@@ -445,7 +445,7 @@ class CronService {
             status: 'pending',
             instrument_token: { $in: tokens },
             deleted_at: null,
-        }).select('_id instrument_token transaction_type order_type').lean();
+        }).select('_id instrument_token transaction_type order_type trigger_direction').lean();
 
         if (pendingOrders.length === 0) return 0;
 
@@ -463,7 +463,8 @@ class CronService {
                         order._id.toString(),
                         order.instrument_token.toString(),
                         order.transaction_type,
-                        order.order_type
+                        order.order_type,
+                        order.trigger_direction
                     );
                 } catch (_) {}
             }

@@ -480,10 +480,15 @@ async function executeMatchedOrder(match, livePrice, options = {}) {
   }
 }
 
-function addCleanupId(match, limitBuys, limitSells, stopBuys, stopSells) {
+function addCleanupId(match, limitBuys, limitSells, stopRise, stopFall) {
   const isStop = match.orderType === 'SL' || match.orderType === 'SL-M';
-  if (match.side === 'BUY') (isStop ? stopBuys : limitBuys).push(match.id);
-  else (isStop ? stopSells : limitSells).push(match.id);
+  if (isStop) {
+    (match.direction === 'FALL' ? stopFall : stopRise).push(match.id);
+  } else if (match.side === 'BUY') {
+    limitBuys.push(match.id);
+  } else {
+    limitSells.push(match.id);
+  }
 }
 
 async function notifyOutcome(outcome, livePrice) {
@@ -539,52 +544,55 @@ const _processJob = async job => {
 
   if (LOG_PRICE_QUEUE) console.log(`🔄 [PriceQueue] Processing price update: Token ${instrument_token} @ ${live_price}`);
 
-  const [matchingBuys, matchingSells, matchingStopBuys, matchingStopSells] = await Promise.all([
+  const [matchingBuys, matchingSells, matchingStopRise, matchingStopFall] = await Promise.all([
     orderBookService.getMatchingBuyOrders(instrument_token, live_price),
     orderBookService.getMatchingSellOrders(instrument_token, live_price),
-    orderBookService.getMatchingStopBuyOrders(instrument_token, live_price),
-    orderBookService.getMatchingStopSellOrders(instrument_token, live_price),
+    orderBookService.getMatchingStopRiseOrders(instrument_token, live_price),
+    orderBookService.getMatchingStopFallOrders(instrument_token, live_price),
   ]);
 
   // Log near-misses: check if there are ANY orders for this token that didn't match
   // This helps trace "price crossed but order didn't fire" issues
   if (LOG_REDIS_ORDERS && matchingBuys.length === 0 && matchingSells.length === 0 &&
-      matchingStopBuys.length === 0 && matchingStopSells.length === 0) {
+      matchingStopRise.length === 0 && matchingStopFall.length === 0) {
     // Check if there are any orders at all for this instrument in the book
-    const [buyCount, sellCount, stopBuyCount, stopSellCount] = await Promise.all([
+    const [buyCount, sellCount, stopRiseCount, stopFallCount] = await Promise.all([
       orderBookService.getOrderCount(instrument_token, 'BUY', 'LIMIT'),
       orderBookService.getOrderCount(instrument_token, 'SELL', 'LIMIT'),
-      orderBookService.getOrderCount(instrument_token, 'BUY', 'SL'),
-      orderBookService.getOrderCount(instrument_token, 'SELL', 'SL'),
+      orderBookService.getOrderCount(instrument_token, null, 'SL', 'RISE'),
+      orderBookService.getOrderCount(instrument_token, null, 'SL', 'FALL'),
     ]);
-    const totalPending = buyCount + sellCount + stopBuyCount + stopSellCount;
+    const totalPending = buyCount + sellCount + stopRiseCount + stopFallCount;
     if (totalPending > 0) {
       // There ARE pending orders for this token but none matched — log near-miss
-      console.log(`🔸 [PriceQueue] [${_ts()}] NEAR-MISS | token=${instrument_token} livePrice=${live_price} | pendingOrders: limitBuy=${buyCount} limitSell=${sellCount} stopBuy=${stopBuyCount} stopSell=${stopSellCount} | tickAge=${now - (tickTimestamp || now)}ms`);
+      console.log(`🔸 [PriceQueue] [${_ts()}] NEAR-MISS | token=${instrument_token} livePrice=${live_price} | pendingOrders: limitBuy=${buyCount} limitSell=${sellCount} stopRise=${stopRiseCount} stopFall=${stopFallCount} | tickAge=${now - (tickTimestamp || now)}ms`);
     }
   }
   // orderType is tagged per match so cleanup below removes each executed
-  // order from the RIGHT Redis set — LIMIT and stop orders live in separate
-  // key pairs (see orderBookService.js) since they trigger on opposite
-  // price directions.
+  // order from the RIGHT Redis set — LIMIT (side-keyed) and stop
+  // (direction-keyed) orders live in separate key pairs (see
+  // orderBookService.js) since they trigger on opposite price directions.
+  // Stop matches carry `direction`, not `side` — direction is what
+  // determined which Redis set matched them, side is unknown until
+  // executeMatchedOrder loads the real Trade document from Mongo.
   const matches = [
     ...matchingBuys.map(id => ({ id, side: 'BUY', orderType: 'LIMIT' })),
     ...matchingSells.map(id => ({ id, side: 'SELL', orderType: 'LIMIT' })),
-    ...matchingStopBuys.map(id => ({ id, side: 'BUY', orderType: 'SL' })),
-    ...matchingStopSells.map(id => ({ id, side: 'SELL', orderType: 'SL' })),
+    ...matchingStopRise.map(id => ({ id, orderType: 'SL', direction: 'RISE' })),
+    ...matchingStopFall.map(id => ({ id, orderType: 'SL', direction: 'FALL' })),
   ];
   if (matches.length === 0) return;
 
-  console.log(`⚡ [PriceQueue] [${_ts()}] Token ${instrument_token} @ ${live_price} → ${matches.length} order(s) to execute | limitBuy=${matchingBuys.length} limitSell=${matchingSells.length} stopBuy=${matchingStopBuys.length} stopSell=${matchingStopSells.length}`);
+  console.log(`⚡ [PriceQueue] [${_ts()}] Token ${instrument_token} @ ${live_price} → ${matches.length} order(s) to execute | limitBuy=${matchingBuys.length} limitSell=${matchingSells.length} stopRise=${matchingStopRise.length} stopFall=${matchingStopFall.length}`);
   if (LOG_REDIS_ORDERS) {
     for (const match of matches) {
-      console.log(`   ↳ [PriceQueue] executing tradeId=${match.id} ${match.orderType} ${match.side} | livePrice=${live_price}`);
+      console.log(`   ↳ [PriceQueue] executing tradeId=${match.id} ${match.orderType} ${match.side || match.direction} | livePrice=${live_price}`);
     }
   }
   const executedBuys = [];
   const executedSells = [];
-  const executedStopBuys = [];
-  const executedStopSells = [];
+  const executedStopRise = [];
+  const executedStopFall = [];
   let failedCount = 0;
   for (const match of matches) {
     // Each match gets its own try/catch that does NOT re-throw. Previously
@@ -604,7 +612,7 @@ const _processJob = async job => {
     try {
       const outcome = await executeMatchedOrder(match, live_price);
       if (['unchanged', 'cancelled', 'rejected', 'completed'].includes(outcome.kind)) {
-        addCleanupId(match, executedBuys, executedSells, executedStopBuys, executedStopSells);
+        addCleanupId(match, executedBuys, executedSells, executedStopRise, executedStopFall);
       }
       if (LOG_REDIS_ORDERS && outcome.kind === 'unchanged') {
         console.log(`   ↳ [PriceQueue] [${_ts()}] tradeId=${match.id} outcome=unchanged (already not pending or deleted)`);
@@ -613,7 +621,7 @@ const _processJob = async job => {
     } catch (error) {
       failedCount++;
       if (error.code !== 'SETTLEMENT_IN_PROGRESS') {
-        console.error(`❌ [PriceQueue] [${_ts()}] Execution error for trade ${match.id} (${match.orderType} ${match.side}): ${error.message}`);
+        console.error(`❌ [PriceQueue] [${_ts()}] Execution error for trade ${match.id} (${match.orderType} ${match.side || match.direction}): ${error.message}`);
       } else if (LOG_REDIS_ORDERS) {
         console.log(`⏸️  [PriceQueue] [${_ts()}] tradeId=${match.id} skipped — settlement in progress`);
       }
@@ -625,8 +633,8 @@ const _processJob = async job => {
 
   if (executedBuys.length > 0) await orderBookService.removeMany(instrument_token, 'BUY', executedBuys, 'LIMIT');
   if (executedSells.length > 0) await orderBookService.removeMany(instrument_token, 'SELL', executedSells, 'LIMIT');
-  if (executedStopBuys.length > 0) await orderBookService.removeMany(instrument_token, 'BUY', executedStopBuys, 'SL');
-  if (executedStopSells.length > 0) await orderBookService.removeMany(instrument_token, 'SELL', executedStopSells, 'SL');
+  if (executedStopRise.length > 0) await orderBookService.removeMany(instrument_token, null, executedStopRise, 'SL', 'RISE');
+  if (executedStopFall.length > 0) await orderBookService.removeMany(instrument_token, null, executedStopFall, 'SL', 'FALL');
 };
 
 const init = () => {

@@ -297,7 +297,7 @@ async function cancelPendingOrdersForInstrument(instrumentToken, { blockAll = fa
     status: 'pending',
     instrument_token: instrumentToken,
     deleted_at: null,
-  }).select('_id user_id instrument_token transaction_type quantity order_type').lean();
+  }).select('_id user_id instrument_token transaction_type quantity order_type trigger_direction').lean();
   if (pendingOrders.length === 0) return 0;
 
   let toCancel = pendingOrders;
@@ -327,7 +327,7 @@ async function cancelPendingOrdersForInstrument(instrumentToken, { blockAll = fa
   );
   for (const order of toCancel) {
     try {
-      await orderBookService.removeOrder(order._id.toString(), order.instrument_token.toString(), order.transaction_type, order.order_type);
+      await orderBookService.removeOrder(order._id.toString(), order.instrument_token.toString(), order.transaction_type, order.order_type, order.trigger_direction);
     } catch (_) { /* best-effort — DB status is authoritative */ }
   }
   return toCancel.length;
