@@ -799,7 +799,10 @@ class _PortfolioPageState extends State<PortfolioPage>
       return base;
     }
 
-    // Fallback: parse raw tradingsymbol into friendly format
+    // Fallback: prefer the backend-resolved friendly name (e.g. GLOBAL/COMEX
+    // futures like "Dow Jones 30" for tradingsymbol "YMU6") before parsing
+    // the raw tradingsymbol, which only handles NSE/MCX-style symbols.
+    if (trade.rawName.isNotEmpty) return trade.rawName.toUpperCase();
     return _friendlySymbolName(trade.tradingSymbol);
   }
 
