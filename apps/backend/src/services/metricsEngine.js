@@ -548,6 +548,7 @@ class MetricsEngine {
         instrument_token: pos.token,
         exchange: pos.exchange,
         tradingsymbol: pos.tradingsymbol,
+        raw_name: pos.rawName || '',
         net_qty: pos.netQty,
         avg_buy_price: Math.round(pos.avgBuy * 100) / 100,
         avg_sell_price: Math.round(pos.avgSell * 100) / 100,

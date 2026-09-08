@@ -149,6 +149,7 @@ class TradeMetricsProvider with ChangeNotifier {
               exchange: p['exchange'] ?? '',
               tradingsymbol: p['tradingsymbol'] ?? '',
             );
+            agg.rawName = p['raw_name']?.toString() ?? '';
             agg.netQty = (p['net_qty'] as num?)?.toInt() ?? 0;
             agg.avgBuyPrice = (p['avg_buy_price'] as num?)?.toDouble() ?? 0;
             agg.avgSellPrice = (p['avg_sell_price'] as num?)?.toDouble() ?? 0;

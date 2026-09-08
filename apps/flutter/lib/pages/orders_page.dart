@@ -1655,7 +1655,9 @@ class _OrdersPageState extends State<OrdersPage> {
                                     watchlist.getByToken(pos.instrumentToken);
                                 final displayName =
                                     wItem?.instrument.userFriendlyName ??
-                                        pos.tradingsymbol;
+                                        (pos.rawName.isNotEmpty
+                                            ? pos.rawName
+                                            : pos.tradingsymbol);
                                 final ltp = pos.ltp;
                                 final fallbackSpread = ltp * 0.0005;
                                 final cmp = pos.cmp > 0

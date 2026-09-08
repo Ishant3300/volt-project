@@ -10,17 +10,18 @@ const enrichTradesWithLotSize = async (trades) => {
     const uniqueTokens = [...new Set(trades.map(t => t.instrument_token))];
     const instruments = await KiteInstrument.find(
         { instrument_token: { $in: uniqueTokens } },
-        'instrument_token lot_size segment'
+        'instrument_token lot_size segment raw_name name'
     );
     const lotSizeMap = {};
     instruments.forEach(inst => {
-        lotSizeMap[inst.instrument_token] = { lot_size: inst.lot_size || 1, segment: inst.segment || '' };
+        lotSizeMap[inst.instrument_token] = { lot_size: inst.lot_size || 1, segment: inst.segment || '', raw_name: inst.raw_name || inst.name || '' };
     });
     return trades.map(t => {
         const plain = t.toJSON ? t.toJSON() : { ...t };
-        const info = lotSizeMap[t.instrument_token] || { lot_size: 1, segment: '' };
+        const info = lotSizeMap[t.instrument_token] || { lot_size: 1, segment: '', raw_name: '' };
         plain.lot_size = info.lot_size || 1;
         if (!plain.segment) plain.segment = info.segment;
+        plain.raw_name = info.raw_name;
         return plain;
     });
 };
