@@ -56,6 +56,22 @@ const tradeSchema = new mongoose.Schema({
     required: true,
     enum: ['MARKET', 'LIMIT', 'SL', 'SL-M']
   },
+  // For SL/SL-M only: which way the live price must move to fire this
+  // order, decided ONCE at placement by comparing the trigger price to the
+  // live price at that moment (trigger above live -> 'RISE', trigger below
+  // live -> 'FALL') — independent of transaction_type. Replaces the old
+  // hardcoded "SL BUY always fires on rise, SL SELL always fires on fall"
+  // rule, which instant-fired any order whose trigger happened to already
+  // be on the "wrong" side of the live price at placement. null for
+  // MARKET/LIMIT, and for any SL/SL-M trade placed before this field
+  // existed — orderBookService.js falls back to the old transaction_type
+  // mapping whenever this is null, so pre-existing pending orders keep
+  // matching exactly as they did before.
+  trigger_direction: {
+    type: String,
+    enum: ['RISE', 'FALL', null],
+    default: null
+  },
   placed_by: {
     type: String,
     enum: ['USER', 'ADMIN', 'MASTER', 'SYSTEM'],

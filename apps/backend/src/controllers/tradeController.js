@@ -665,6 +665,36 @@ const placeTrade = async (req, res) => {
                 }
             }
 
+            // ── Fresh Stop-Loss: gate whether an SL/SL-M order may OPEN a fresh
+            // position, independent of the price_offset/time_minutes restriction
+            // above — that one is a separate condition applying to LIMIT and
+            // SL/SL-M alike, gated behind a configured FreshStoplossLimit row.
+            // This check is GLOBAL (no FreshStoplossLimit row required) and only
+            // ever gates SL/SL-M, never LIMIT or MARKET:
+            //
+            //   fresh_stoploss = true  -> SL/SL-M may open a fresh position (no
+            //                             existing position required).
+            //   fresh_stoploss = false -> SL/SL-M is protective-only: a SELL
+            //                             stop requires an existing LONG
+            //                             (netQty > 0), a BUY stop requires an
+            //                             existing SHORT (netQty < 0). Any
+            //                             other case is rejected outright.
+            if (!req.admin && (order_type === 'SL' || order_type === 'SL-M') && user.fresh_stoploss !== true) {
+                const prevTradesFreshSL = await Trade.find({
+                    user_id: user._id, instrument_token, status: 'completed', deleted_at: null
+                })
+                    .select('transaction_type executed_quantity executed_price executed_at createdAt')
+                    .sort({ executed_at: 1, createdAt: 1 })
+                    .session(session)
+                    .lean();
+                const stateFreshSL = computeFlatResetState(prevTradesFreshSL);
+                const hasProtectiveLong = transaction_type === 'SELL' && stateFreshSL.netQty > 0;
+                const hasProtectiveShort = transaction_type === 'BUY' && stateFreshSL.netQty < 0;
+                if (!hasProtectiveLong && !hasProtectiveShort) {
+                    throw new Error('Fresh Stop-Loss is off for this account: a stoploss order can only be placed to protect an existing position, not to open a new one.');
+                }
+            }
+
             // ── High-Low Trade Limit check (INDEPENDENT of FSL limit) ──────
             // Runs for ALL LIMIT orders from non-admin users, regardless of whether an FSL limit exists.
             // If the user's trade_limit does NOT include this segment (button OFF),
@@ -859,6 +889,25 @@ const placeTrade = async (req, res) => {
                 } // end else (non-admin MARKET order)
             }
 
+            // For SL/SL-M only: decide the trigger direction ONCE here, from
+            // where the trigger sits relative to the live price at this exact
+            // moment — NOT from transaction_type. A SELL stop placed ABOVE the
+            // live price (e.g. a fresh breakout-short entry) must fire on a
+            // RISE to that level, not a FALL — the old hardcoded "SL SELL
+            // always fires on fall" rule treated that as already-true and
+            // instant-filled it. By construction this makes shouldExecuteNow
+            // below false at placement in every normal case (the direction
+            // chosen always points away from the current price); it only
+            // resolves true on the exact-equal edge case, or later via
+            // orderBookService's live-tick matching once price genuinely
+            // reaches the trigger.
+            let triggerDirection = null;
+            if (order_type === 'SL' || order_type === 'SL-M') {
+                if (livePrice != null && executedPrice > livePrice) triggerDirection = 'RISE';
+                else if (livePrice != null && executedPrice < livePrice) triggerDirection = 'FALL';
+                else triggerDirection = transaction_type === 'BUY' ? 'RISE' : 'FALL';
+            }
+
             // 2. For LIMIT/SL orders, check if the condition is already met
             let shouldExecuteNow = false;
             if (order_type === 'MARKET') {
@@ -870,12 +919,9 @@ const placeTrade = async (req, res) => {
                     shouldExecuteNow = true;
                 }
             } else if ((order_type === 'SL' || order_type === 'SL-M') && livePrice) {
-                // Stop-Loss: triggers when price moves AGAINST the position
-                // SL BUY triggers when price >= trigger price (short covering)
-                // SL SELL triggers when price <= trigger price (long stop-loss)
-                if (transaction_type === 'BUY' && livePrice >= executedPrice) {
+                if (triggerDirection === 'RISE' && livePrice >= executedPrice) {
                     shouldExecuteNow = true;
-                } else if (transaction_type === 'SELL' && livePrice <= executedPrice) {
+                } else if (triggerDirection === 'FALL' && livePrice <= executedPrice) {
                     shouldExecuteNow = true;
                 }
             }
@@ -937,6 +983,7 @@ const placeTrade = async (req, res) => {
                 quantity,
                 price: executedPrice,
                 order_type,
+                trigger_direction: triggerDirection,
                 placed_by: req.admin ? 'ADMIN' : (req.master ? 'MASTER' : 'USER'),
                 status: tradeStatus,
                 executed_at: shouldExecuteNow ? new Date() : null,
@@ -1114,7 +1161,8 @@ const placeTrade = async (req, res) => {
                         resultTrade.instrument_token,
                         resultTrade.price,
                         resultTrade.transaction_type,
-                        resultTrade.order_type
+                        resultTrade.order_type,
+                        resultTrade.trigger_direction
                     );
                 } catch (redisError) {
                     console.error(`⚠️ [OrderBook] Pending order ${resultTrade._id} will be repaired from MongoDB: ${redisError.message}`);
@@ -1520,7 +1568,8 @@ const cancelTrade = async (req, res) => {
             trade._id.toString(),
             trade.instrument_token,
             trade.transaction_type,
-            trade.order_type
+            trade.order_type,
+            trade.trigger_direction
         );
 
         res.status(200).json({
@@ -1632,7 +1681,8 @@ const deleteTrade = async (req, res) => {
                     trade._id.toString(),
                     trade.instrument_token,
                     trade.transaction_type,
-                    trade.order_type
+                    trade.order_type,
+                    trade.trigger_direction
                 );
             } catch (_) { }
         }
