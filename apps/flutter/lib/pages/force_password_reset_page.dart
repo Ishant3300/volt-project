@@ -7,6 +7,7 @@ import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
+import 'package:stocker/providers/investor_mode_provider.dart';
 import 'package:stocker/services/firebase_service.dart';
 import '../home_page.dart';
 import '../utils/contants.dart';
@@ -121,6 +122,15 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
 
   Future<void> _loadAppData() async {
     try {
+      // The backend only ever requires a forced password change for
+      // non-investor logins (see authController.js's requiresPasswordChange:
+      // `!isInvestorLogin && ...`), so this path is unreachable for a real
+      // investor session. Set it explicitly rather than leaving whatever
+      // stale value secure storage carried over from a previous account on
+      // this device.
+      await Provider.of<InvestorModeProvider>(context, listen: false)
+          .setInvestor(false);
+
       final profileProvider =
           Provider.of<UserProfileProvider>(context, listen: false);
       await profileProvider.fetchProfile();

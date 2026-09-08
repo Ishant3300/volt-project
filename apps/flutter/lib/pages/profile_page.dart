@@ -112,6 +112,13 @@ class _ProfilePageState extends State<ProfilePage> {
           Provider.of<TradeMetricsProvider>(context, listen: false);
       metricsProvider.clear();
 
+      // Clear investor-mode flag — otherwise it persists in storage and
+      // leaks into whichever account logs in next on this device, until
+      // that account's own login response happens to set it explicitly.
+      final investorModeProvider =
+          Provider.of<InvestorModeProvider>(context, listen: false);
+      await investorModeProvider.clear();
+
       if (!mounted) return;
 
       // Navigate to login page
@@ -258,6 +265,8 @@ class _ProfilePageState extends State<ProfilePage> {
             Provider.of<UserProfileProvider>(context, listen: false);
         profileProvider.clearProfile();
         Provider.of<TradeMetricsProvider>(context, listen: false).clear();
+        await Provider.of<InvestorModeProvider>(context, listen: false)
+            .clear();
 
         final activeKey = await _multiAccount.getActiveKey();
         if (activeKey != null) {
