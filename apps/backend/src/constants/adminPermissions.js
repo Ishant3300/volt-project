@@ -17,6 +17,7 @@ const ADMIN_PERMISSION_KEYS = Object.freeze([
   'FRESH_STOPLOSS_MANAGE', // Fresh-stoploss-limit CRUD
   'REPORTS_ACCESS', // Report generation/access endpoints
   'MASTER_EDIT_ANY', // Write access to any master's profile/limits/permissions (reads stay open to every admin)
+  'QUANTITY_MANAGE', // Grouped-quantity and script-quantity CRUD (adminController/groupedQuantityController)
 ]);
 
 module.exports = { ADMIN_PERMISSION_KEYS };

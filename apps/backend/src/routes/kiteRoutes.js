@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateAny, authenticateAdmin } = require('../middlewares/auth');
+const { requireAdminPermission } = require('../middlewares/requireAdminPermission');
 const {
   // Authentication
   initiateLogin,
@@ -55,14 +56,22 @@ router.get('/callback', handleCallback);
 // caller in apex-web-portal or the Flutter app), so restricting to admin
 // is a safe, no-op change for every current UI.
 
+// admin-only above was previously ungated by any permission key — any
+// regular Admin (not just ones granted broker-management authority) could
+// wipe or force-relogin the platform's single shared broker session, or
+// bulk-rewrite the instrument master. INSTRUMENT_MANAGE is the closest
+// existing key (fetchInstruments IS instrument management; the
+// auth-status/auto-login/logout ones control the session that pipeline
+// depends on) — reused rather than inventing a new key for this pass.
+
 // Check auth status (simple)
-router.get('/auth-status', authenticateAdmin, checkAuthStatus);
+router.get('/auth-status', authenticateAdmin, requireAdminPermission('INSTRUMENT_MANAGE'), checkAuthStatus);
 
 // Get detailed auth status
-router.get('/auth/status', authenticateAdmin, getDetailedAuthStatus);
+router.get('/auth/status', authenticateAdmin, requireAdminPermission('INSTRUMENT_MANAGE'), getDetailedAuthStatus);
 
 // Trigger automated login
-router.post('/auth/auto-login', authenticateAdmin, triggerAutoLogin);
+router.post('/auth/auto-login', authenticateAdmin, requireAdminPermission('INSTRUMENT_MANAGE'), triggerAutoLogin);
 
 // ==================== PROTECTED ROUTES (REQUIRE AUTHENTICATION) ====================
 
@@ -70,13 +79,13 @@ router.post('/auth/auto-login', authenticateAdmin, triggerAutoLogin);
 router.use(authenticateAny);
 
 // Logout — broker-administration action, admin only (see note above).
-router.delete('/logout', authenticateAdmin, logout);
+router.delete('/logout', authenticateAdmin, requireAdminPermission('INSTRUMENT_MANAGE'), logout);
 
 // ==================== INSTRUMENT ROUTES ====================
 
 // Fetch and store instruments — bulk broker-API-hitting, DB-rewriting
 // maintenance operation; admin only (see note above).
-router.post('/instruments/fetch', authenticateAdmin, fetchInstruments);
+router.post('/instruments/fetch', authenticateAdmin, requireAdminPermission('INSTRUMENT_MANAGE'), fetchInstruments);
 
 // Get instruments info
 router.get('/instruments/info', getInstrumentsInfo);

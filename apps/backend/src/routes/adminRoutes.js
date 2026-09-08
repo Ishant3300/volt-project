@@ -52,8 +52,12 @@ router.get('/users', authenticateAdminOrMaster, getAllUsers);
 router.get('/users/:id', authenticateAdminOrMaster, getUserById);
 router.put('/users/:id', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, updateUser);
 router.delete('/users/:id', authenticateMaster, rejectIfInvestor, deleteUser);
-router.post('/users/:id/credit', authenticateAdmin, rejectIfAdminWatchOnly, creditUserByAdmin);
-router.post('/users/:id/debit', authenticateAdmin, rejectIfAdminWatchOnly, debitUserByAdmin);
+// Money-moving, previously ungated — WALLET_MANAGE already gates the
+// semantically identical /admin/wallet/assign|withdraw below, but these two
+// (direct `credits` ledger, not the category wallet) had no permission key
+// at all, letting any regular Admin move money regardless of granted keys.
+router.post('/users/:id/credit', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('WALLET_MANAGE'), creditUserByAdmin);
+router.post('/users/:id/debit', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('WALLET_MANAGE'), debitUserByAdmin);
 
 // ==================== WALLET FUNDING ROUTES (admin grant/remove) ====================
 // Admin is the root of funds: assign is a grant (credit only, no debit source),
@@ -66,24 +70,30 @@ router.get('/wallet', authenticateAdmin, walletGet);
 router.get('/wallet/reconcile', authenticateAdmin, walletReconcile);
 
 // Grouped Quantity CRUD operations
-router.post('/grouped-quantities', authenticateAdmin, rejectIfAdminWatchOnly, createGroupedQuantity);
-router.post('/grouped-quantities/bulk-create', authenticateAdmin, rejectIfAdminWatchOnly, bulkCreateGroup);
+// QUANTITY_MANAGE previously didn't exist — these writes (and Script
+// Quantity's below) had no permission key at all, unlike every sibling
+// CRUD surface (Brokerage/Instrument/FreshStoploss), letting any regular
+// Admin mutate platform-wide quantity limits regardless of granted keys.
+// requireAdminPermission is a no-op for a Master caller (see its own doc
+// comment), so this doesn't affect the Master-shared script-quantity routes.
+router.post('/grouped-quantities', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('QUANTITY_MANAGE'), createGroupedQuantity);
+router.post('/grouped-quantities/bulk-create', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('QUANTITY_MANAGE'), bulkCreateGroup);
 router.get('/grouped-quantities/unique-raw-names/:segment', authenticateAdminOrMaster, getUniqueRawNamesBySegment);
 router.get('/grouped-quantities/group/:exchange_name/:lot_name', authenticateAdminOrMaster, getGroupInstruments);
 router.get('/grouped-quantities/exchange/:exchange_name/lot-names', authenticateAdminOrMaster, getLotNamesByExchange);
 router.get('/grouped-quantities', authenticateAdminOrMaster, getAllGroupedQuantities);
 router.get('/grouped-quantities/:id', authenticateAdminOrMaster, getGroupedQuantityById);
-router.put('/grouped-quantities/:id', authenticateAdmin, rejectIfAdminWatchOnly, updateGroupedQuantity);
-router.delete('/grouped-quantities/:id', authenticateAdmin, rejectIfAdminWatchOnly, deleteGroupedQuantity);
+router.put('/grouped-quantities/:id', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('QUANTITY_MANAGE'), updateGroupedQuantity);
+router.delete('/grouped-quantities/:id', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('QUANTITY_MANAGE'), deleteGroupedQuantity);
 
 // Script Quantity CRUD operations
-router.post('/script-quantities/bulk-create', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, bulkCreateScriptQuantity);
+router.post('/script-quantities/bulk-create', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, requireAdminPermission('QUANTITY_MANAGE'), bulkCreateScriptQuantity);
 router.get('/script-quantities/exchange/:exchange_name', authenticateAdminOrMaster, getScriptQuantityByExchange);
-router.post('/script-quantities', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, createScriptQuantity);
+router.post('/script-quantities', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, requireAdminPermission('QUANTITY_MANAGE'), createScriptQuantity);
 router.get('/script-quantities', authenticateAdminOrMaster, getAllScriptQuantities);
 router.get('/script-quantities/:id', authenticateAdminOrMaster, getScriptQuantityById);
-router.put('/script-quantities/:id', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, updateScriptQuantity);
-router.delete('/script-quantities/:id', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, deleteScriptQuantity);
+router.put('/script-quantities/:id', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, requireAdminPermission('QUANTITY_MANAGE'), updateScriptQuantity);
+router.delete('/script-quantities/:id', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, requireAdminPermission('QUANTITY_MANAGE'), deleteScriptQuantity);
 
 // Brokerage Settings CRUD operations
 router.post('/brokerage-settings/bulk-create', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, requireAdminPermission('BROKERAGE_MANAGE'), bulkCreateBrokerage);
@@ -180,8 +190,10 @@ router.put('/brokerage-settings/bulk-update', authenticateAdminOrMaster, rejectI
 router.put('/brokerage-settings/:id', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, requireAdminPermission('BROKERAGE_MANAGE'), updateBrokerageSettings);
 router.delete('/brokerage-settings/:id', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, requireAdminPermission('BROKERAGE_MANAGE'), deleteBrokerageSettings);
 
-// Refresh close prices (admin-only, for testing / manual trigger)
-router.post('/refresh-close-prices', authenticateAdmin, async (req, res) => {
+// Refresh close prices (admin-only, for testing / manual trigger) — feeds
+// the same settlement price pipeline as /admin/settlement/start, but had
+// no permission key at all, unlike that SETTLEMENT_TRIGGER-gated sibling.
+router.post('/refresh-close-prices', authenticateAdmin, requireAdminPermission('SETTLEMENT_TRIGGER'), async (req, res) => {
   try {
     const livePriceService = require('../services/livePriceService');
     const result = await livePriceService.refreshClosePrices();
@@ -192,7 +204,7 @@ router.post('/refresh-close-prices', authenticateAdmin, async (req, res) => {
 });
 
 // Refresh settlement prices via OHLC API (admin-only, for testing / manual trigger)
-router.post('/refresh-settlement-prices', authenticateAdmin, async (req, res) => {
+router.post('/refresh-settlement-prices', authenticateAdmin, requireAdminPermission('SETTLEMENT_TRIGGER'), async (req, res) => {
   try {
     const livePriceService = require('../services/livePriceService');
     const result = await livePriceService.refreshSettlementPrices();
@@ -526,7 +538,7 @@ router.put('/instruments/:id/restore', authenticateAdmin, rejectIfAdminWatchOnly
 });
 
 // Trigger bhavcopy settlement price fetch (admin-only)
-router.post('/bhavcopy/fetch', authenticateAdmin, async (req, res) => {
+router.post('/bhavcopy/fetch', authenticateAdmin, requireAdminPermission('SETTLEMENT_TRIGGER'), async (req, res) => {
   try {
     const { date } = req.body; // optional: YYYY-MM-DD string
     const { fetchAndApplyBhavcopy } = require('../services/bhavcopyService');
