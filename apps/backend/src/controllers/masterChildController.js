@@ -92,6 +92,14 @@ const createChildMaster = async (req, res) => {
 
       const existingMaster = await Master.findOne({ username }).session(session);
       if (existingMaster) throw new Error('Username already exists');
+      // Uniqueness is only enforced per-collection by the schema's own
+      // index — a User and a Master could otherwise share a username. The
+      // weekly commission report and every ledger page key report rows by
+      // username, so a collision would silently misattribute one account's
+      // real commission figures to the other.
+      const User = require('../models/User');
+      const existingUser = await User.findOne({ username }).session(session);
+      if (existingUser) throw new Error('Username already exists');
 
       const server = await Server.findById(server_id).session(session);
       if (!server) throw new Error('Server not found');
@@ -384,9 +392,20 @@ const getChildMasterById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Admin can view any master; master can only view their own children
+    // Admin can view any master; master can view any master in their WHOLE
+    // subtree, not just a direct child — the web portal's own sub-broker
+    // page links recursively into grandchild+ sub-brokers (drilling into a
+    // sub-broker's own sub-brokers), so restricting this to `master_id:
+    // req.master.id` 404'd every grandchild-or-deeper lookup even though
+    // the caller genuinely owns that master further down their tree.
+    if (req.master) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const subtreeIds = await getAllSubMasterIds(req.master.id);
+      if (!subtreeIds.includes(id)) {
+        return res.status(404).json({ success: false, message: 'Child master not found', data: null });
+      }
+    }
     const query = { _id: id, deleted_at: null };
-    if (req.master) query.master_id = req.master.id;
 
     const master = await Master.findOne(query)
       .populate('server_id', 'name')
@@ -548,10 +567,13 @@ const updateChildMasterDetails = async (req, res) => {
       });
     }
 
-    // Check if username is being changed and if it already exists
+    // Check if username is being changed and if it already exists — checked
+    // against BOTH collections, same reasoning as the create paths above.
     if (username && username !== childMaster.username) {
       const existingMaster = await Master.findOne({ username });
-      if (existingMaster) {
+      const User = require('../models/User');
+      const existingUserForUsername = existingMaster ? null : await User.findOne({ username });
+      if (existingMaster || existingUserForUsername) {
         return res.status(400).json({
           success: false,
           message: 'Username already exists',
@@ -856,9 +878,16 @@ const getChildMasterPosition = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Admin can view any master's position; master can only view their children
+    // Admin can view any master's position; master can view any master in
+    // their whole subtree — same fix and same reasoning as getChildMasterById.
+    if (req.master) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const subtreeIds = await getAllSubMasterIds(req.master.id);
+      if (!subtreeIds.includes(id)) {
+        return res.status(404).json({ success: false, message: 'Child master not found', data: null });
+      }
+    }
     const posQuery = { _id: id, deleted_at: null };
-    if (req.master) posQuery.master_id = req.master.id;
 
     const childMaster = await Master.findOne(posQuery);
 
