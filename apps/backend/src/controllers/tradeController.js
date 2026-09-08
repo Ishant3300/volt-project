@@ -1724,10 +1724,19 @@ const modifyTrade = async (req, res) => {
             const livePriceSvcForModify = require('../services/livePriceService');
             const tokenStr = trade.instrument_token.toString();
             const tokenInt = parseInt(trade.instrument_token);
-            const livePriceForModify = metricsEngForModify._ltpMap?.get(tokenStr)
+            let livePriceForModify = metricsEngForModify._ltpMap?.get(tokenStr)
                 || livePriceSvcForModify.latestPrices?.get(tokenStr)
                 || livePriceSvcForModify.latestPrices?.get(tokenInt)
                 || null;
+            // Same Kite API backstop placeTrade uses when both in-memory tick
+            // caches are cold (process just restarted, pre-market, or a
+            // Massive-fed GLOBAL/COMEX contract) — without this, modify
+            // silently fell back to the old hardcoded BUY=rise/SELL=fall
+            // rule this feature exists to eliminate.
+            if (livePriceForModify == null) {
+                const ltpMapForModify = await _getLivePricesFromKite([tokenInt]);
+                livePriceForModify = ltpMapForModify.get(tokenInt) || ltpMapForModify.get(tokenStr) || null;
+            }
             if (livePriceForModify != null && newPrice > livePriceForModify) newTriggerDirection = 'RISE';
             else if (livePriceForModify != null && newPrice < livePriceForModify) newTriggerDirection = 'FALL';
             else newTriggerDirection = trade.transaction_type === 'BUY' ? 'RISE' : 'FALL';
@@ -1735,19 +1744,40 @@ const modifyTrade = async (req, res) => {
 
         // Remove the OLD order-book entry (old price/direction) before
         // updating the Trade document, so a tick arriving mid-update can
-        // never match against stale data under either key.
+        // never match against stale data under either key. If the save
+        // below throws, re-add the order under its ORIGINAL values before
+        // re-throwing — otherwise a failed save would leave the order
+        // completely de-registered from Redis while still 'pending' in
+        // Mongo, silently un-triggerable until the next consistency-audit
+        // sweep or server restart.
+        const oldPrice = trade.price;
+        const oldTransactionType = trade.transaction_type;
+        const oldOrderType = trade.order_type;
+        const oldTriggerDirection = trade.trigger_direction;
         await orderBookService.removeOrder(
             trade._id.toString(),
             trade.instrument_token,
-            trade.transaction_type,
-            trade.order_type,
-            trade.trigger_direction
+            oldTransactionType,
+            oldOrderType,
+            oldTriggerDirection
         );
 
-        trade.price = newPrice;
-        trade.quantity = newQuantity;
-        trade.trigger_direction = newTriggerDirection;
-        await withTradeWriteLease('modify_order', () => trade.save());
+        try {
+            trade.price = newPrice;
+            trade.quantity = newQuantity;
+            trade.trigger_direction = newTriggerDirection;
+            await withTradeWriteLease('modify_order', () => trade.save());
+        } catch (saveErr) {
+            await orderBookService.addOrder(
+                trade._id.toString(),
+                trade.instrument_token,
+                oldPrice,
+                oldTransactionType,
+                oldOrderType,
+                oldTriggerDirection
+            );
+            throw saveErr;
+        }
 
         await orderBookService.addOrder(
             trade._id.toString(),

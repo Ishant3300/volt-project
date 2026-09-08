@@ -105,6 +105,13 @@ adminSchema.set('toJSON', {
     delete ret._id;
     delete ret.__v;
     delete ret.totp_secret;
+    // Both were being serialized in every Admin response — User.js and
+    // Master.js already strip their equivalent password/active_token
+    // fields; Admin.js never did. `password` here is a bcrypt hash (still
+    // never belongs in a response), `active_token` is the live session JWT
+    // (sufficient for full impersonation via authenticateAdmin).
+    delete ret.password;
+    delete ret.active_token;
     ret.created_at = ret.createdAt;
     ret.updated_at = ret.updatedAt;
     delete ret.createdAt;
