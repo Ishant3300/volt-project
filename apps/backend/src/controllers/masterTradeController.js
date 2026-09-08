@@ -57,34 +57,33 @@ const getAllTrades = async (req, res) => {
         });
       }
 
-      // If specific master_id provided, verify it's a child
-      if (master_id) {
-        const childMaster = await Master.findOne({
-          _id: master_id,
-          master_id: req.master.id,
-          deleted_at: null
-        });
+      // Previously direct-children-only on both branches below, unlike the
+      // sibling endpoint GET /api/masters/trades/all (masterController.js's
+      // getAllTrades, same name, different file) which already used the
+      // full recursive subtree — despite the web frontend's own api.ts
+      // comment claiming these two were "the same handler." A master's
+      // fraud-detection scanner and other "all my downstream trades" views
+      // (which call this endpoint, not the /masters/trades/all one) never
+      // saw trades placed under a grandchild+ sub-broker. Reads elsewhere
+      // in this codebase (e.g. getChildMasterById) already use the full
+      // subtree, so this brings the two into line rather than inventing a
+      // new scoping rule.
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const subtreeMasterIds = await getAllSubMasterIds(req.master.id);
 
-        if (!childMaster) {
+      // If specific master_id provided, verify it's in the subtree
+      if (master_id) {
+        if (!subtreeMasterIds.includes(master_id)) {
           return res.status(403).json({
             success: false,
-            message: 'You can only view trades from your child masters',
+            message: 'You can only view trades from masters in your own hierarchy',
             data: null
           });
         }
 
         filter.master_id = master_id;
       } else {
-        // Get all child masters
-        const childMasters = await Master.find({
-          master_id: req.master.id,
-          deleted_at: null
-        }).select('_id');
-
-        const childMasterIds = childMasters.map(m => m._id);
-        childMasterIds.push(currentMaster._id); // Include current master's trades
-
-        filter.master_id = { $in: childMasterIds };
+        filter.master_id = { $in: subtreeMasterIds };
       }
     }
 
