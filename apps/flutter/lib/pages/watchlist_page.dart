@@ -319,12 +319,18 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                     child: const Icon(Icons.delete,
                                         color: Colors.white),
                                   ),
-                                  onDismissed: (direction) {
-                                    watchlistProvider.removeInstrument(item.id);
+                                  onDismissed: (direction) async {
+                                    final removed = await watchlistProvider
+                                        .removeInstrument(item.id);
+                                    if (!context.mounted) return;
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text(
-                                            '${instrument.tradingsymbol} removed from watchlist'),
+                                        content: Text(removed
+                                            ? '${instrument.tradingsymbol} removed from watchlist'
+                                            : 'Could not remove ${instrument.tradingsymbol} — try again'),
+                                        backgroundColor: removed
+                                            ? null
+                                            : const Color(0xFFEF4444),
                                       ),
                                     );
                                   },
