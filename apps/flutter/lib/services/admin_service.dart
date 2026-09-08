@@ -679,10 +679,12 @@ class AdminService {
   Future<http.Response> getAllScriptQuantities({
     int page = 1,
     int limit = 20,
+    String? ownerId,
   }) async {
     final queryParams = <String>[];
     queryParams.add('page=$page');
     queryParams.add('limit=$limit');
+    if (ownerId != null) queryParams.add('owner_id=$ownerId');
 
     final queryString =
         queryParams.isNotEmpty ? '?${queryParams.join('&')}' : '';

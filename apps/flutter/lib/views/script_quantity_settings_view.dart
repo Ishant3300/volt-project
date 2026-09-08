@@ -65,7 +65,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
       final effectiveExchange = _selectedExchange == 'GLOBAL' ? 'INDICES' : _selectedExchange!;
       final response = _selectedExchange != null
           ? await adminService.getScriptQuantityByExchange(exchangeName: effectiveExchange, limit: 500, ownerId: widget.ownerId)
-          : await adminService.getAllScriptQuantities(limit: 100);
+          : await adminService.getAllScriptQuantities(limit: 100, ownerId: widget.ownerId);
       
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
