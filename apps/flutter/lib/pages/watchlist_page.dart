@@ -428,19 +428,24 @@ class _WatchlistPageState extends State<WatchlistPage> {
                   ? rawBid
                   : (ltp > 0 ? ltp - spread : null);
 
-              // Determine tick color: blue if price went up, red if down
+              // Determine tick color: blue if price went up, red if down,
+              // neutral if unchanged OR no previous tick to compare against
+              // yet. This used to fall to red for BOTH of those cases too —
+              // every instrument showed red on first load (before any
+              // second tick arrived) and stayed red forever if the price
+              // never actually moved, reading as a market-wide sell-off.
+              const neutralTickColor = Color(0xFF0F172A);
+              Color tickColor(double? prev, double? current) {
+                if (prev == null || current == null || current == prev) {
+                  return neutralTickColor;
+                }
+                return current > prev ? kBrandPrimary : const Color(0xFFEF4444);
+              }
+
               final prevBid = item.previousBidPrice;
               final prevAsk = item.previousAskPrice;
-              final Color bidColor = (prevBid != null &&
-                      effectiveBid != null &&
-                      effectiveBid > prevBid)
-                  ? kBrandPrimary
-                  : const Color(0xFFEF4444);
-              final Color askColor = (prevAsk != null &&
-                      effectiveAsk != null &&
-                      effectiveAsk > prevAsk)
-                  ? kBrandPrimary
-                  : const Color(0xFFEF4444);
+              final Color bidColor = tickColor(prevBid, effectiveBid);
+              final Color askColor = tickColor(prevAsk, effectiveAsk);
 
               final double? high = item.high;
               final double? low = item.low;

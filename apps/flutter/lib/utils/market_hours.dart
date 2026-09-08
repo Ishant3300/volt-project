@@ -8,11 +8,25 @@
 ///                      ~1h daily maintenance break (~2:00–3:30 AM IST)
 ///   Others          : 12:00 AM – 2:30 AM  &  7:30 AM – 11:59 PM
 class MarketHours {
+  /// Converts the device's current instant to IST wall-clock time via UTC,
+  /// rather than trusting `DateTime.now()` to already BE IST. The device's
+  /// local timezone previously went unconverted — a user travelling in
+  /// Dubai (IST−1:30) at 3:00 PM local (4:30 PM IST) would see the market
+  /// as still open past its real 3:40 PM IST close, and honest overseas
+  /// users got wrong open/closed results in both directions. This does NOT
+  /// protect against a tampered system clock (the backend's own market-
+  /// hours enforcement is the real gate for that) — it only fixes
+  /// legitimate users in a different timezone from IST getting the wrong
+  /// answer.
+  static DateTime _nowInIst() {
+    final utc = DateTime.now().toUtc();
+    return utc.add(const Duration(hours: 5, minutes: 30));
+  }
+
   /// Check if market is open for the given exchange + tradingsymbol.
   /// Falls back to NSE hours when no exchange is provided.
   static bool isMarketOpen({String? exchange, String? tradingsymbol}) {
-    
-    final now = DateTime.now();
+    final now = _nowInIst();
 
     // Weekends are off for all exchanges
     if (now.weekday == DateTime.saturday || now.weekday == DateTime.sunday) {
@@ -64,7 +78,7 @@ class MarketHours {
 
   /// User-friendly message about market status for the given exchange.
   static String getMarketStatusMessage({String? exchange, String? tradingsymbol}) {
-    final now = DateTime.now();
+    final now = _nowInIst();
 
     if (now.weekday == DateTime.saturday || now.weekday == DateTime.sunday) {
       return 'Market closed on weekends';

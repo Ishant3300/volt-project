@@ -2441,8 +2441,22 @@ class _OrdersPageState extends State<OrdersPage> {
             token: token,
           );
 
+          // A 200/201 status alone doesn't mean the trade actually went
+          // through — every other call site in this codebase (history_page.
+          // dart, trade_service.dart) also checks body['success']. Without
+          // this, a 200 response carrying {success:false, message:
+          // "Insufficient margin"} counted as a success here, the position
+          // stayed open, and the user saw "Successfully squared off" in
+          // green while still holding the position.
           if (response.statusCode == 200 || response.statusCode == 201) {
-            successCount++;
+            final body = jsonDecode(response.body);
+            if (body['success'] == true) {
+              successCount++;
+            } else {
+              failCount++;
+              errors.add(
+                  '${position.tradingsymbol}: ${body['message'] ?? 'Failed'}');
+            }
           } else {
             failCount++;
             final body = jsonDecode(response.body);

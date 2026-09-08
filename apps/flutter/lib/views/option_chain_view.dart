@@ -118,6 +118,13 @@ class _OptionChainViewState extends State<OptionChainView> {
   }
 
   void _openTradeCard(OptionData option) {
+    // Segment was previously hardcoded to 'NFO-OPT' regardless of the
+    // option's real exchange — the option chain also supports MCX options
+    // (instrument_search_page.dart groups by 'MCX-OPT'), so opening one of
+    // those sent the trade card off to fetch lot limits/margin under the
+    // wrong GroupedQuantity bucket entirely. Derive segment from the
+    // option's own exchange instead.
+    final resolvedExchange = option.exchange.isNotEmpty ? option.exchange : 'NFO';
     final inst = KiteInstrument(
       id: '',
       instrumentToken: option.instrumentToken,
@@ -132,8 +139,8 @@ class _OptionChainViewState extends State<OptionChainView> {
       tickSize: 0.05,
       lotSize: option.lotSize,
       instrumentType: option.instrumentType,
-      segment: 'NFO-OPT',
-      exchange: option.exchange.isNotEmpty ? option.exchange : 'NFO',
+      segment: '$resolvedExchange-OPT',
+      exchange: resolvedExchange,
       isActive: true,
       updatedAt: DateTime.now(),
     );

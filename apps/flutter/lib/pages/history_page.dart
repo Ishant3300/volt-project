@@ -1860,8 +1860,11 @@ class _PortfolioPageState extends State<PortfolioPage>
         final body = jsonDecode(response.body);
         if (body['success'] == true) {
           await metricsProvider.fetchBaseData();
+          if (!mounted) return;
           await Provider.of<UserProfileProvider>(context, listen: false)
               .refreshProfile();
+          if (!mounted) return;
+          _fetchMasterTrades();
 
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -1906,90 +1909,114 @@ class _PortfolioPageState extends State<PortfolioPage>
 
     final metricsProvider =
         Provider.of<TradeMetricsProvider>(context, listen: false);
+    // Every other screen displays this trade's size via trade.displayVolume
+    // (lots for MCX-FUT/MCX-OPT/NFO-OPT/COMEX-FUT, raw quantity otherwise —
+    // see Trade.isLotBased). Pre-filling the raw quantity here instead was a
+    // real bug: a user seeing "2 LOT" on the card, then "200" in this
+    // dialog, could easily misjudge a resize by exactly the lot size.
+    final usesLots = trade.isLotBased;
     final priceController =
         TextEditingController(text: trade.price.toStringAsFixed(2));
     final qtyController =
-        TextEditingController(text: trade.quantity.toString());
+        TextEditingController(text: trade.displayVolume.toString());
+    String? dialogError;
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          'Modify ${trade.tradingSymbol}',
-          style: const TextStyle(
-            fontFamily: kFontFamily,
-            fontWeight: kFontWeightSemiBold,
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: priceController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                labelText: trade.orderType == 'SL' || trade.orderType == 'SL-M'
-                    ? 'Trigger price'
-                    : 'Price',
-                labelStyle: const TextStyle(fontFamily: kFontFamily),
-              ),
-              style: const TextStyle(fontFamily: kFontFamily),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            'Modify ${trade.tradingSymbol}',
+            style: const TextStyle(
+              fontFamily: kFontFamily,
+              fontWeight: kFontWeightSemiBold,
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: qtyController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Quantity',
-                labelStyle: TextStyle(fontFamily: kFontFamily),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: priceController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: trade.orderType == 'SL' || trade.orderType == 'SL-M'
+                      ? 'Trigger price'
+                      : 'Price',
+                  labelStyle: const TextStyle(fontFamily: kFontFamily),
+                ),
+                style: const TextStyle(fontFamily: kFontFamily),
               ),
-              style: const TextStyle(fontFamily: kFontFamily),
+              const SizedBox(height: 12),
+              TextField(
+                controller: qtyController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: usesLots ? 'Quantity (lots)' : 'Quantity',
+                  labelStyle: const TextStyle(fontFamily: kFontFamily),
+                ),
+                style: const TextStyle(fontFamily: kFontFamily),
+              ),
+              if (dialogError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  dialogError!,
+                  style: const TextStyle(
+                    color: Color(0xFFEF4444),
+                    fontFamily: kFontFamily,
+                    fontSize: kFontSizeCaption,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontFamily: kFontFamily,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                final price = double.tryParse(priceController.text);
+                final qty = int.tryParse(qtyController.text);
+                if (price == null || price <= 0 || qty == null || qty <= 0) {
+                  setDialogState(() => dialogError = 'Enter a valid price and quantity');
+                  return;
+                }
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text(
+                'Modify',
+                style: TextStyle(
+                  color: Color(0xFF3B82F6),
+                  fontFamily: kFontFamily,
+                  fontWeight: kFontWeightSemiBold,
+                ),
+              ),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(
-                color: Color(0xFF94A3B8),
-                fontFamily: kFontFamily,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'Modify',
-              style: TextStyle(
-                color: Color(0xFF3B82F6),
-                fontFamily: kFontFamily,
-                fontWeight: kFontWeightSemiBold,
-              ),
-            ),
-          ),
-        ],
       ),
     );
+    // Read both values BEFORE disposing either controller — .text throws
+    // once a TextEditingController is disposed.
+    final newPrice = confirmed == true ? double.tryParse(priceController.text) : null;
+    final enteredQty = confirmed == true ? int.tryParse(qtyController.text) : null;
+    priceController.dispose();
+    qtyController.dispose();
 
-    if (confirmed != true) return;
+    if (confirmed != true || newPrice == null || enteredQty == null) return;
 
-    final newPrice = double.tryParse(priceController.text);
-    final newQty = int.tryParse(qtyController.text);
-    if (newPrice == null || newPrice <= 0 || newQty == null || newQty <= 0) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Enter a valid price and quantity'),
-            backgroundColor: Color(0xFFEF4444),
-          ),
-        );
-      }
-      return;
-    }
+    // Convert lots back to raw quantity — the API always deals in raw
+    // quantity, same as the original placement.
+    final newQty = usesLots ? enteredQty * trade.lotSize : enteredQty;
 
     try {
       final storage = SecureStorageService();
@@ -2010,8 +2037,11 @@ class _PortfolioPageState extends State<PortfolioPage>
         final body = jsonDecode(response.body);
         if (body['success'] == true) {
           await metricsProvider.fetchBaseData();
+          if (!mounted) return;
           await Provider.of<UserProfileProvider>(context, listen: false)
               .refreshProfile();
+          if (!mounted) return;
+          _fetchMasterTrades();
 
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
