@@ -213,13 +213,35 @@ const getWeeklyAdminReport = async (req, res) => {
     const allTokens = [...new Set(allTrades.map(t => t.instrument_token))];
     const kiteInstruments = await KiteInstrument.find(
       { instrument_token: { $in: allTokens } },
-      'instrument_token lot_size segment raw_name'
+      'instrument_token lot_size segment raw_name exchange'
     ).lean();
     const kiteMap = {};
     for (const ki of kiteInstruments) {
       kiteMap[ki.instrument_token] = ki;
     }
     _mark('5_instruments');
+
+    // Optional exchange/script narrowing for the Client P&L Summary screen —
+    // filters which trades feed every downstream P&L/brokerage calculation
+    // below, rather than filtering the already-computed report rows (a
+    // per-row total is a sum across trades, so it can only be scoped to a
+    // subset of trades before that sum happens, not after). Trade documents
+    // don't carry exchange/raw_name directly on the ones loaded here (only
+    // instrument_token, price, qty, pnl were selected above and in the
+    // Redis cache) — resolved via kiteMap instead, built from the full
+    // unfiltered trade set immediately above so every token is covered.
+    const { exchange: exchangeFilter, script: scriptFilter } = req.query;
+    if (exchangeFilter || scriptFilter) {
+      for (const uid of Object.keys(tradesByUser)) {
+        tradesByUser[uid] = tradesByUser[uid].filter((t) => {
+          const inst = kiteMap[t.instrument_token];
+          if (!inst) return false;
+          if (exchangeFilter && inst.exchange !== exchangeFilter) return false;
+          if (scriptFilter && inst.raw_name !== scriptFilter) return false;
+          return true;
+        });
+      }
+    }
 
     // 7. Load ALL BrokerageSettings (user-specific + caller's own + global)
     //
@@ -347,7 +369,21 @@ const getWeeklyAdminReport = async (req, res) => {
     _timings.userCount = allUsers.length;
     console.log(`[WeeklyAdminReport] ${_timings.totalMs}ms —`, JSON.stringify(_timings));
 
-    res.json({ success: true, data, totals: _sumTotals(data) });
+    // Distinct exchange/script values actually present in-period across the
+    // caller's scope, for the Client P&L Summary screen's two filter
+    // dropdowns — from kiteMap (built above from the FULL unfiltered trade
+    // set, before the exchange/script narrowing above was applied), so
+    // these lists don't shrink to just the currently-selected filter.
+    const availableExchanges = [...new Set(kiteInstruments.map((k) => k.exchange).filter(Boolean))].sort();
+    const availableScripts = [...new Set(kiteInstruments.map((k) => k.raw_name).filter(Boolean))].sort();
+
+    res.json({
+      success: true,
+      data,
+      totals: _sumTotals(data),
+      available_exchanges: availableExchanges,
+      available_scripts: availableScripts,
+    });
   } catch (error) {
     console.error('[WeeklyAdminReport] Error:', error.message);
     res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
