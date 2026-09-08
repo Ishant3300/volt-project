@@ -41,6 +41,22 @@ const getWeeklyAdminReport = async (req, res) => {
     const callerId = req.admin?.id || req.master?.id;
     const metricsEngine = require('../services/metricsEngine');
 
+    // requireAdminPermission('REPORTS_ACCESS') on this route is a no-op for
+    // a master caller by design (see requireAdminPermission.js) — Master
+    // authorization is meant to be enforced inline per-endpoint instead.
+    // This one was never actually checking it: an admin can toggle a
+    // specific master's own Master.permissions.weekly_admin off (only an
+    // admin can — masterController.js's updateMasterPermissions blocks a
+    // master from changing this on their children), and the web/mobile UI
+    // hides the menu item accordingly, but nothing stopped that master from
+    // calling this endpoint directly regardless.
+    if (req.master) {
+      const caller = await Master.findById(req.master.id).select('permissions').lean();
+      if (caller?.permissions?.weekly_admin === false) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view the weekly admin report', data: null });
+      }
+    }
+
     // Was previously unbounded (every completed trade ever, for every user
     // in scope) despite this being a "weekly" report — the actual cause of
     // this endpoint timing out as trade history grew. Defaults to the
