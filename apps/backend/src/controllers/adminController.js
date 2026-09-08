@@ -40,9 +40,15 @@ const createUser = async (req, res) => {
     let resultData;
 
     await session.withTransaction(async () => {
-      // Check if username already exists
+      // Check if username already exists — checked against BOTH collections,
+      // since uniqueness is only enforced per-collection by the schema's own
+      // index. A User and Master sharing a username would let the weekly
+      // commission report (keyed by username) silently misattribute one
+      // account's real figures to the other.
       const existingUser = await User.findOne({ username }).session(session);
       if (existingUser) throw new Error('Username already exists');
+      const existingMaster = await Master.findOne({ username }).session(session);
+      if (existingMaster) throw new Error('Username already exists');
 
       // Verify server exists
       const server = await Server.findById(server_id).session(session);
@@ -352,10 +358,12 @@ const updateUser = async (req, res) => {
       });
     }
 
-    // Check if username is being changed and if it already exists
+    // Check if username is being changed and if it already exists — checked
+    // against BOTH collections, same reasoning as createUser.
     if (username && username !== user.username) {
       const existingUser = await User.findOne({ username });
-      if (existingUser) {
+      const existingMaster = existingUser ? null : await Master.findOne({ username });
+      if (existingUser || existingMaster) {
         return res.status(400).json({
           success: false,
           message: 'Username already exists',

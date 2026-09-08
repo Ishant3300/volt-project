@@ -74,9 +74,15 @@ const createMaster = async (req, res) => {
     let resultData;
 
     await session.withTransaction(async () => {
-      // Check if username already exists
+      // Check if username already exists — checked against BOTH collections,
+      // since uniqueness is only enforced per-collection by the schema's own
+      // index (see adminController.js's createUser for the same fix).
       const existingMaster = await Master.findOne({ username }).session(session);
       if (existingMaster) {
+        throw new Error('Username already exists');
+      }
+      const existingUserForUsername = await User.findOne({ username }).session(session);
+      if (existingUserForUsername) {
         throw new Error('Username already exists');
       }
 
@@ -407,10 +413,12 @@ const updateMaster = async (req, res) => {
       });
     }
 
-    // Check if username is being changed and if it already exists
+    // Check if username is being changed and if it already exists — checked
+    // against BOTH collections, same reasoning as createUser.
     if (username && username !== master.username) {
       const existingMaster = await Master.findOne({ username });
-      if (existingMaster) {
+      const existingUserForUsername = existingMaster ? null : await User.findOne({ username });
+      if (existingMaster || existingUserForUsername) {
         return res.status(400).json({
           success: false,
           message: 'Username already exists',
@@ -1256,10 +1264,12 @@ const updateMasterDetails = async (req, res) => {
       });
     }
 
-    // Check if username is being changed and if it already exists
+    // Check if username is being changed and if it already exists — checked
+    // against BOTH collections, same reasoning as createUser.
     if (username && username !== master.username) {
       const existingMaster = await Master.findOne({ username });
-      if (existingMaster) {
+      const existingUserForUsername = existingMaster ? null : await User.findOne({ username });
+      if (existingMaster || existingUserForUsername) {
         return res.status(400).json({
           success: false,
           message: 'Username already exists',
