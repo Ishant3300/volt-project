@@ -1818,14 +1818,15 @@ async function finalizeCommittedRun({ run, lockOwner, applySettlementPrices = is
         status: 'cancelled',
         settlement_run_id: run._id,
         settlement_period_key: periodKey,
-      }).select('_id instrument_token transaction_type order_type').lean();
+      }).select('_id instrument_token transaction_type order_type trigger_direction').lean();
       for (const trade of cancelled) {
         try {
           await orderBookService.removeOrder(
             trade._id.toString(),
             trade.instrument_token.toString(),
             trade.transaction_type,
-            trade.order_type
+            trade.order_type,
+            trade.trigger_direction
           );
         } catch (_) {}
       }

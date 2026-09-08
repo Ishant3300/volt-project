@@ -106,10 +106,16 @@ const processPendingOrders = async () => {
             let shouldExecute = false;
 
             if (trade.order_type === 'SL' || trade.order_type === 'SL-M') {
-                // Stop-Loss: BUY triggers when price >= trigger, SELL triggers when price <= trigger
-                if (trade.transaction_type === 'BUY' && livePrice >= trade.price) {
+                // Direction-based, matching orderBookService.js/tradeController.js —
+                // NOT hardcoded by transaction_type. trigger_direction is decided
+                // once at placement (trigger vs live price at that moment); a
+                // legacy trade placed before that field existed (null) falls
+                // back to the old BUY=rise/SELL=fall mapping so it keeps
+                // matching exactly as it always did.
+                const direction = trade.trigger_direction || (trade.transaction_type === 'BUY' ? 'RISE' : 'FALL');
+                if (direction === 'RISE' && livePrice >= trade.price) {
                     shouldExecute = true;
-                } else if (trade.transaction_type === 'SELL' && livePrice <= trade.price) {
+                } else if (direction === 'FALL' && livePrice <= trade.price) {
                     shouldExecute = true;
                 }
             } else {

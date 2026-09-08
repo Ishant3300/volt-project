@@ -7,17 +7,34 @@
  * ----------
  *   ob:{instrument_token}:buy       – LIMIT buys,  score = limitPrice
  *   ob:{instrument_token}:sell      – LIMIT sells, score = limitPrice
- *   ob:{instrument_token}:stopbuy   – SL/SL-M buys,  score = triggerPrice
- *   ob:{instrument_token}:stopsell  – SL/SL-M sells, score = triggerPrice
+ *   ob:{instrument_token}:stoprise  – SL/SL-M orders that fire when price RISES to/through the trigger, score = triggerPrice
+ *   ob:{instrument_token}:stopfall  – SL/SL-M orders that fire when price FALLS to/through the trigger, score = triggerPrice
  *
  * Each member is the trade's MongoDB _id (string).
  *
+ * Why direction (RISE/FALL), not side (BUY/SELL), for stop orders?
+ *   The old schema keyed stop orders by transaction_type — SL BUY always
+ *   fired on a rise, SL SELL always fired on a fall, regardless of where
+ *   the trigger actually sat relative to the live price at placement. A
+ *   SELL stop placed ABOVE the live price (e.g. a fresh breakout-short
+ *   entry) got treated as "already true" and instant-filled, because
+ *   "price <= trigger" is trivially satisfied the moment the trigger is
+ *   above where price already is. The real, universal rule for a stop
+ *   order is direction-agnostic to BUY/SELL: it fires once price reaches
+ *   the trigger from whichever side it started on. `Trade.trigger_direction`
+ *   is decided ONCE at placement (tradeController.js) by comparing the
+ *   trigger to the live price at that exact moment, then stored — this
+ *   service just keys off that stored decision at match time. Legacy trades
+ *   placed before this field existed have `trigger_direction: null`; every
+ *   function below falls back to the OLD transaction_type mapping in that
+ *   case (`_legacyDirection`), so a pending order from before this change
+ *   keeps matching exactly as it always did.
+ *
  * Why two separate pairs of sets for LIMIT vs stop orders, not one?
- *   A LIMIT BUY and a stop (SL/SL-M) BUY trigger on OPPOSITE price movement:
+ *   A LIMIT BUY and a stop RISE order trigger on OPPOSITE price movement:
  *   a LIMIT buyer wants to buy once the price falls to/below their price
- *   (an entry), while a stop buyer wants to buy once the price rises
- *   to/above their trigger (typically closing out a short before the loss
- *   grows). Storing both in the same sorted set and querying with the same
+ *   (an entry), while a stop-rise order fires once price rises to/above its
+ *   trigger. Storing both in the same sorted set and querying with the same
  *   ZRANGEBYSCORE direction would fire stop orders at the wrong time (e.g.
  *   immediately, or never) — this was a real bug: SL/SL-M orders were
  *   simply never registered anywhere at all (only LIMIT was), so they sat
@@ -40,15 +57,19 @@ const _ts = () => new Date().toISOString();
 
 const _buyKey = (token) => `ob:${token}:buy`;
 const _sellKey = (token) => `ob:${token}:sell`;
-const _stopBuyKey = (token) => `ob:${token}:stopbuy`;
-const _stopSellKey = (token) => `ob:${token}:stopsell`;
+const _stopRiseKey = (token) => `ob:${token}:stoprise`;
+const _stopFallKey = (token) => `ob:${token}:stopfall`;
 
 const _isStop = (orderType) => orderType === 'SL' || orderType === 'SL-M';
 
-const _key = (instrumentToken, side, orderType) => {
+/** Pre-trigger_direction fallback: SL BUY => RISE, SL SELL => FALL (the old hardcoded rule). */
+const _legacyDirection = (side) => (side === 'BUY' ? 'RISE' : 'FALL');
+
+const _key = (instrumentToken, side, orderType, direction) => {
   const stop = _isStop(orderType);
-  if (side === 'BUY') return stop ? _stopBuyKey(instrumentToken) : _buyKey(instrumentToken);
-  return stop ? _stopSellKey(instrumentToken) : _sellKey(instrumentToken);
+  if (!stop) return side === 'BUY' ? _buyKey(instrumentToken) : _sellKey(instrumentToken);
+  const dir = direction || _legacyDirection(side);
+  return dir === 'FALL' ? _stopFallKey(instrumentToken) : _stopRiseKey(instrumentToken);
 };
 
 // ─── Public API ─────────────────────────────────────────────────────────────
@@ -61,15 +82,16 @@ const _key = (instrumentToken, side, orderType) => {
  * @param {number} limitPrice     – limit price for LIMIT, trigger price for SL/SL-M
  * @param {'BUY'|'SELL'} side
  * @param {'LIMIT'|'SL'|'SL-M'} [orderType='LIMIT']
+ * @param {'RISE'|'FALL'|null} [direction=null] – SL/SL-M only; ignored for LIMIT
  */
-const addOrder = async (tradeId, instrumentToken, limitPrice, side, orderType = 'LIMIT') => {
+const addOrder = async (tradeId, instrumentToken, limitPrice, side, orderType = 'LIMIT', direction = null) => {
   if (!redisService.isAvailable()) {
     console.log(`🔴 [OrderBook] [${_ts()}] addOrder FAILED — Redis unavailable | tradeId=${tradeId} token=${instrumentToken} ${orderType} ${side} @ ${limitPrice} | diagnostics=${JSON.stringify(redisService.getDiagnostics())}`);
     return false;
   }
 
   try {
-    const key = _key(instrumentToken, side, orderType);
+    const key = _key(instrumentToken, side, orderType, direction);
     // Score = limitPrice/triggerPrice so we can range-query efficiently
     await redisService.getClient().zadd(key, limitPrice, tradeId);
     if (LOG_REDIS_ORDERS) {
@@ -155,63 +177,58 @@ const getMatchingSellOrders = async (instrumentToken, livePrice) => {
 };
 
 /**
- * Find all stop (SL/SL-M) BUY orders whose triggerPrice <= livePrice —
- * INVERTED from a LIMIT buy. A stop BUY (typically covering a short before
- * the loss grows) triggers once the price rises to/through the trigger, so
- * it fires when livePrice >= triggerPrice, i.e. all orders with score
- * (triggerPrice) <= livePrice.
+ * Find all stop (SL/SL-M) orders whose trigger fires on a RISE and whose
+ * triggerPrice <= livePrice — i.e. price has risen to/through the trigger.
  *
  * Returns array of tradeId strings.
  */
-const getMatchingStopBuyOrders = async (instrumentToken, livePrice) => {
+const getMatchingStopRiseOrders = async (instrumentToken, livePrice) => {
   if (!redisService.isAvailable()) return [];
 
   try {
-    const key = _stopBuyKey(instrumentToken);
+    const key = _stopRiseKey(instrumentToken);
     const tradeIds = await redisService.getClient().zrangebyscore(key, '-inf', livePrice);
     if (LOG_REDIS_ORDERS && tradeIds.length > 0) {
-      console.log(`🔍 [OrderBook] [${_ts()}] getMatchingStopBuyOrders | token=${instrumentToken} livePrice=${livePrice} | matched=${tradeIds.length} ids=[${tradeIds.join(',')}]`);
+      console.log(`🔍 [OrderBook] [${_ts()}] getMatchingStopRiseOrders | token=${instrumentToken} livePrice=${livePrice} | matched=${tradeIds.length} ids=[${tradeIds.join(',')}]`);
     }
     return tradeIds;
   } catch (err) {
-    console.error(`❌ [OrderBook] [${_ts()}] getMatchingStopBuyOrders error | token=${instrumentToken} livePrice=${livePrice} | ${err.message}`);
+    console.error(`❌ [OrderBook] [${_ts()}] getMatchingStopRiseOrders error | token=${instrumentToken} livePrice=${livePrice} | ${err.message}`);
     return [];
   }
 };
 
 /**
- * Find all stop (SL/SL-M) SELL orders whose triggerPrice >= livePrice —
- * INVERTED from a LIMIT sell. A stop SELL (typically closing a long before
- * the loss grows) triggers once the price falls to/through the trigger, so
- * it fires when livePrice <= triggerPrice, i.e. all orders with score
- * (triggerPrice) >= livePrice.
+ * Find all stop (SL/SL-M) orders whose trigger fires on a FALL and whose
+ * triggerPrice >= livePrice — i.e. price has fallen to/through the trigger.
  *
  * Returns array of tradeId strings.
  */
-const getMatchingStopSellOrders = async (instrumentToken, livePrice) => {
+const getMatchingStopFallOrders = async (instrumentToken, livePrice) => {
   if (!redisService.isAvailable()) return [];
 
   try {
-    const key = _stopSellKey(instrumentToken);
+    const key = _stopFallKey(instrumentToken);
     const tradeIds = await redisService.getClient().zrangebyscore(key, livePrice, '+inf');
     if (LOG_REDIS_ORDERS && tradeIds.length > 0) {
-      console.log(`🔍 [OrderBook] [${_ts()}] getMatchingStopSellOrders | token=${instrumentToken} livePrice=${livePrice} | matched=${tradeIds.length} ids=[${tradeIds.join(',')}]`);
+      console.log(`🔍 [OrderBook] [${_ts()}] getMatchingStopFallOrders | token=${instrumentToken} livePrice=${livePrice} | matched=${tradeIds.length} ids=[${tradeIds.join(',')}]`);
     }
     return tradeIds;
   } catch (err) {
-    console.error(`❌ [OrderBook] [${_ts()}] getMatchingStopSellOrders error | token=${instrumentToken} livePrice=${livePrice} | ${err.message}`);
+    console.error(`❌ [OrderBook] [${_ts()}] getMatchingStopFallOrders error | token=${instrumentToken} livePrice=${livePrice} | ${err.message}`);
     return [];
   }
 };
 
 /**
  * Bulk-remove a list of executed tradeIds from a given key.
+ * @param {'RISE'|'FALL'|null} [direction=null] – SL/SL-M only; ignored for LIMIT
  */
-const removeMany = async (instrumentToken, side, tradeIds, orderType = 'LIMIT') => {
+const removeMany = async (instrumentToken, side, tradeIds, orderType = 'LIMIT', direction = null) => {
   if (!redisService.isAvailable() || tradeIds.length === 0) return;
 
   try {
-    const key = _key(instrumentToken, side, orderType);
+    const key = _key(instrumentToken, side, orderType, direction);
     await redisService.getClient().zrem(key, ...tradeIds);
     if (LOG_REDIS_ORDERS) {
       console.log(`📕 [OrderBook] [${_ts()}] removeMany | token=${instrumentToken} ${orderType} ${side} | removed=${tradeIds.length} ids=[${tradeIds.join(',')}]`);
@@ -250,7 +267,7 @@ const syncFromDatabase = async () => {
     const pipeline = redisService.getClient().pipeline();
 
     for (const trade of pendingTrades) {
-      const key = _key(trade.instrument_token, trade.transaction_type, trade.order_type);
+      const key = _key(trade.instrument_token, trade.transaction_type, trade.order_type, trade.trigger_direction);
       pipeline.zadd(key, trade.price, trade._id.toString());
     }
 
@@ -285,11 +302,11 @@ const syncFromDatabase = async () => {
  * Verify a specific order exists in the Redis order book.
  * Useful for debugging "order placed but never triggered" issues.
  */
-const verifyOrderExists = async (tradeId, instrumentToken, side, orderType = 'LIMIT') => {
+const verifyOrderExists = async (tradeId, instrumentToken, side, orderType = 'LIMIT', direction = null) => {
   if (!redisService.isAvailable()) return { exists: false, reason: 'redis_unavailable' };
 
   try {
-    const key = _key(instrumentToken, side, orderType);
+    const key = _key(instrumentToken, side, orderType, direction);
     const score = await redisService.getClient().zscore(key, tradeId);
     const exists = score !== null;
     if (LOG_REDIS_ORDERS) {
@@ -304,12 +321,15 @@ const verifyOrderExists = async (tradeId, instrumentToken, side, orderType = 'LI
 
 /**
  * Get count of all orders in a specific key (for diagnostics).
+ * For stop orders, pass orderType='SL' and a direction ('RISE'|'FALL');
+ * `side` is ignored for stop orders since the key is direction-keyed, not
+ * side-keyed — pass null.
  */
-const getOrderCount = async (instrumentToken, side, orderType = 'LIMIT') => {
+const getOrderCount = async (instrumentToken, side, orderType = 'LIMIT', direction = null) => {
   if (!redisService.isAvailable()) return 0;
 
   try {
-    const key = _key(instrumentToken, side, orderType);
+    const key = _key(instrumentToken, side, orderType, direction);
     return await redisService.getClient().zcard(key);
   } catch (err) {
     return 0;
@@ -321,8 +341,8 @@ module.exports = {
   removeOrder,
   getMatchingBuyOrders,
   getMatchingSellOrders,
-  getMatchingStopBuyOrders,
-  getMatchingStopSellOrders,
+  getMatchingStopRiseOrders,
+  getMatchingStopFallOrders,
   removeMany,
   syncFromDatabase,
   verifyOrderExists,

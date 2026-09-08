@@ -690,7 +690,7 @@ const updateUserDetails = async (req, res) => {
         user_id: user._id,
         status: 'pending',
         deleted_at: null,
-      }).select('_id instrument_token transaction_type order_type').lean();
+      }).select('_id instrument_token transaction_type order_type trigger_direction').lean();
 
       if (cancelledOrders.length > 0) {
         await Trade.updateMany(
@@ -704,7 +704,8 @@ const updateUserDetails = async (req, res) => {
               order._id.toString(),
               order.instrument_token.toString(),
               order.transaction_type,
-              order.order_type
+              order.order_type,
+              order.trigger_direction
             );
           } catch (_) { /* best-effort — DB status is authoritative */ }
         }
