@@ -14,6 +14,12 @@ import 'package:stocker/providers/trade_metrics_provider.dart';
 class WatchlistProvider with ChangeNotifier {
   final List<WatchlistItem> _items = [];
   bool _isLoading = false;
+  // Set when loadWatchlist's fetch throws — previously swallowed silently,
+  // so a genuinely empty watchlist and "the request failed and _items was
+  // simply never populated" rendered identically as "No instruments in
+  // watchlist" with no way for the user to tell the difference or retry.
+  String? _error;
+  String? get error => _error;
   final LivePriceService _livePriceService = LivePriceService();
   WatchlistService? _watchlistService;
   final Map<String, String> _backendIdMap = {};
@@ -220,6 +226,7 @@ class WatchlistProvider with ChangeNotifier {
       final watchlistData = await _watchlistService!.getWatchlist();
       log('   Received ${watchlistData.length} items from backend');
 
+      _error = null;
       _items.clear();
       _backendIdMap.clear();
 
@@ -293,6 +300,13 @@ class WatchlistProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       log('❌ Error loading watchlist: $e');
+      // Only surface this as a load failure if we ended up with nothing to
+      // show — if items from a prior successful load are still present,
+      // treat this as a transient refresh error rather than blanking the
+      // screen the user was already looking at.
+      if (_items.isEmpty) {
+        _error = 'Failed to load watchlist';
+      }
     }
     setLoading(false);
   }

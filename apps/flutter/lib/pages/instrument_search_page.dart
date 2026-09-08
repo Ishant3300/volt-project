@@ -140,7 +140,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
       });
     } catch (e) {
       log('   ❌ Search error: $e');
-      setState(() => _isSearching = false);
+      if (mounted) setState(() => _isSearching = false);
     }
   }
 
@@ -185,7 +185,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
       });
     } catch (e) {
       log('   ❌ Browse error: $e');
-      setState(() => _isSearching = false);
+      if (mounted) setState(() => _isSearching = false);
     }
   }
 
@@ -223,7 +223,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
       });
     } catch (e) {
       log('   ❌ Load more browse error: $e');
-      setState(() => _isLoadingMore = false);
+      if (mounted) setState(() => _isLoadingMore = false);
     }
   }
 
@@ -265,7 +265,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
       });
     } catch (e) {
       log('   ❌ Load more error: $e');
-      setState(() => _isLoadingMore = false);
+      if (mounted) setState(() => _isLoadingMore = false);
     }
   }
 

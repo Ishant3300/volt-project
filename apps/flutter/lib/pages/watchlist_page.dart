@@ -100,6 +100,34 @@ class _WatchlistPageState extends State<WatchlistPage> {
                     return const Center(child: CircularProgressIndicator());
                   }
 
+                  if (watchlistProvider.isEmpty &&
+                      watchlistProvider.error != null) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.wifi_off,
+                              size: 64, color: Colors.grey[400]),
+                          const SizedBox(height: 16),
+                          Text(
+                            "Couldn't load your watchlist",
+                            style: TextStyle(
+                                fontSize: kFontSizeSectionHeader,
+                                color: Colors.grey[600]),
+                          ),
+                          const SizedBox(height: 8),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              watchlistProvider.loadWatchlist();
+                            },
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
                   if (watchlistProvider.isEmpty) {
                     return Center(
                       child: Column(

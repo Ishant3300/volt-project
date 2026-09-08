@@ -229,6 +229,13 @@ class _ProfilePageState extends State<ProfilePage> {
       builder: (_) => const Center(child: CircularProgressIndicator()),
     );
 
+    // Tracks whether the loading dialog is still on screen — if jsonDecode
+    // below throws (a non-JSON response, e.g. a gateway HTML error page),
+    // the catch block used to pop AGAIN unconditionally, closing the
+    // ProfilePage route itself (already-dismissed dialog gone, so the pop
+    // landed on the next thing on the stack) instead of just dismissing
+    // the loading indicator.
+    var dialogDismissed = false;
     try {
       final token = await _storage.getToken();
       final apiService = Provider.of<ApiService>(context, listen: false);
@@ -236,6 +243,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
       if (!mounted) return;
       Navigator.pop(context); // dismiss loading
+      dialogDismissed = true;
 
       final body = jsonDecode(response.body);
 
@@ -282,7 +290,7 @@ class _ProfilePageState extends State<ProfilePage> {
       }
     } catch (e) {
       if (mounted) {
-        Navigator.pop(context); // dismiss loading
+        if (!dialogDismissed) Navigator.pop(context); // dismiss loading
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: $e'),

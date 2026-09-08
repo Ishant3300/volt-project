@@ -134,10 +134,12 @@ class _PortfolioPageState extends State<PortfolioPage>
     } catch (e) {
       debugPrint('Error fetching master trades: $e');
     } finally {
-      setState(() {
-        _masterLoading = false;
-        _masterLoadingMore = false;
-      });
+      if (mounted) {
+        setState(() {
+          _masterLoading = false;
+          _masterLoadingMore = false;
+        });
+      }
     }
   }
 
@@ -179,7 +181,7 @@ class _PortfolioPageState extends State<PortfolioPage>
     } catch (e) {
       debugPrint('Error fetching filtered user trades: $e');
     } finally {
-      setState(() => _userFilterLoading = false);
+      if (mounted) setState(() => _userFilterLoading = false);
     }
   }
 

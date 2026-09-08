@@ -75,9 +75,9 @@ class _OptionChainViewState extends State<OptionChainView> {
           : null;
       final chain = await _kiteService.getOptionChain(symbol, expiry: expiryStr);
       _extractExpiries(chain);
-      setState(() { _optionChain = chain; _isLoading = false; });
+      if (mounted) setState(() { _optionChain = chain; _isLoading = false; });
     } catch (e) {
-      setState(() { _error = e.toString(); _isLoading = false; });
+      if (mounted) setState(() { _error = e.toString(); _isLoading = false; });
     }
   }
 

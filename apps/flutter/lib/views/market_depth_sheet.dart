@@ -60,12 +60,13 @@ class _MarketDepthSheetState extends State<MarketDepthSheet> {
 
     try {
       final depth = await _kiteService.getMarketDepth(widget.instrumentToken);
-
+      if (!mounted) return;
       setState(() {
         _marketDepth = depth;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _isLoading = false;

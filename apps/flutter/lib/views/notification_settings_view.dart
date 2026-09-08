@@ -13,6 +13,12 @@ class NotificationSettingsView extends StatefulWidget {
 class _NotificationSettingsViewState extends State<NotificationSettingsView> {
   bool _isLoading = true;
   bool _isSaving = false;
+  // Set when _fetch couldn't confirm the REAL server-side settings — the
+  // map below then holds its literal in-file defaults, not the user's
+  // actual preferences. Previously this was silently swallowed: a user on
+  // a flaky connection saw the defaults rendered as if freshly loaded,
+  // and tapping Update PUT those defaults over their real settings.
+  bool _loadFailed = false;
 
   // Settings map — keys match backend field names
   final Map<String, bool> _settings = {
@@ -36,7 +42,11 @@ class _NotificationSettingsViewState extends State<NotificationSettingsView> {
   void initState() { super.initState(); _fetch(); }
 
   Future<void> _fetch() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadFailed = false;
+    });
+    var loaded = false;
     try {
       final token = await SecureStorageService().getToken();
       final res = await ApiService(backendUrl).get('/auth/notification-settings', token: token);
@@ -47,13 +57,23 @@ class _NotificationSettingsViewState extends State<NotificationSettingsView> {
           for (var key in _settings.keys) {
             if (ns.containsKey(key)) _settings[key] = ns[key] == true;
           }
+          loaded = true;
         }
       }
     } catch (_) {}
-    if (mounted) setState(() => _isLoading = false);
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        _loadFailed = !loaded;
+      });
+    }
   }
 
   Future<void> _save() async {
+    if (_loadFailed) {
+      _snack('Could not confirm your current settings — retry loading before saving.', isError: true);
+      return;
+    }
     setState(() => _isSaving = true);
     try {
       final token = await SecureStorageService().getToken();
@@ -98,6 +118,25 @@ class _NotificationSettingsViewState extends State<NotificationSettingsView> {
           const SizedBox(width: 12),
           const Text('Notification Settings', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
         ])),
+
+        if (_loadFailed && !_isLoading)
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFECACA))),
+            child: Row(children: [
+              const Expanded(child: Text(
+                'Could not load your real settings — showing defaults. Saving now would overwrite your actual preferences.',
+                style: TextStyle(color: Color(0xFFB91C1C), fontSize: kFontSizeCaption, fontFamily: kFontFamily),
+              )),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: _fetch,
+                child: const Text('RETRY', style: TextStyle(color: Color(0xFFB91C1C), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
+              ),
+            ]),
+          ),
 
         Expanded(child: _isLoading
           ? const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
