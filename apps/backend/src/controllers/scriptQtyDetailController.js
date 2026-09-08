@@ -35,9 +35,20 @@ const getScriptQtyDetails = async (req, res) => {
       }
     }
 
-    const user = await User.findById(targetUserId).select('exchanges_allowed username name');
+    const user = await User.findById(targetUserId).select('exchanges_allowed username name master_id');
     if (!user || user.deleted_at) {
       return res.status(404).json({ success: false, message: 'User not found', data: null });
+    }
+
+    // A master could otherwise pass ANY user_id (belonging to an unrelated
+    // tenant) and read that user's script-quantity/lot limits — this
+    // previously trusted the query param outright.
+    if (role === 'master') {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const subtreeMasterIds = await getAllSubMasterIds(req.master.id);
+      if (!subtreeMasterIds.includes(user.master_id?.toString())) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view this user\'s script quantity details', data: null });
+      }
     }
 
     const result = [];
@@ -138,9 +149,18 @@ const getInstrumentLimit = async (req, res) => {
       });
     }
 
-    const user = await User.findById(targetUserId).select('exchanges_allowed');
+    const user = await User.findById(targetUserId).select('exchanges_allowed master_id');
     if (!user || user.deleted_at) {
       return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Same ownership gap as getScriptQtyDetails above.
+    if (role === 'master') {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const subtreeMasterIds = await getAllSubMasterIds(req.master.id);
+      if (!subtreeMasterIds.includes(user.master_id?.toString())) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view this user\'s instrument limit' });
+      }
     }
 
     // Find if the user is allowed this segment (map GLOBAL to INDICES)

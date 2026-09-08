@@ -4,6 +4,21 @@ const KiteInstrument = require('../models/KiteInstrument');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 const { categoryForNfoScript } = require('../constants/nfoIndexUnderlyings');
 
+/**
+ * ScriptQuantity.owner_id can be a User._id or a Master._id (Admin-owned
+ * global rows use a fixed owner_id too, but those are never gated behind
+ * this check since only a master calls it). Resolves it to the master_id
+ * whose subtree the record actually belongs to, so a caller's own subtree
+ * (getAllSubMasterIds) can be checked against it — same pattern already
+ * used for BrokerageSettings ownership in adminController.js.
+ */
+async function resolveScriptQuantityOwnerMasterId(ownerId) {
+  if (!ownerId) return null;
+  const owner = await User.findById(ownerId).select('master_id').lean();
+  if (owner) return owner.master_id?.toString() || null;
+  return ownerId.toString(); // not a User — assume Master, id is its own subtree root
+}
+
 // Get lot names by exchange
 const getLotNamesByExchange = async (req, res) => {
   try {
@@ -559,6 +574,20 @@ const getScriptQuantityByExchange = async (req, res) => {
 
     // If owner_id is provided, filter to that specific master/user's ScriptQuantity
     if (owner_id) {
+      // A master could otherwise pass ANY owner_id (belonging to an unrelated
+      // tenant) and read that account's script-quantity limits — this filter
+      // previously trusted the query param outright. Admin is unrestricted,
+      // matching every other owner-scoped endpoint in this codebase.
+      if (req.master) {
+        const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+        const allowedMasterIds = await getAllSubMasterIds(req.master.id);
+        const ownerMasterId = owner_id === req.master.id
+          ? req.master.id
+          : await resolveScriptQuantityOwnerMasterId(owner_id);
+        if (!ownerMasterId || !allowedMasterIds.includes(ownerMasterId)) {
+          return res.status(403).json({ success: false, message: 'Not authorized to view script quantities for this account', data: null });
+        }
+      }
       filter.owner_id = owner_id;
       const items = await ScriptQuantity.find(filter)
         .limit(parseInt(limit)).skip((parseInt(page) - 1) * parseInt(limit)).sort({ script_name: 1 });

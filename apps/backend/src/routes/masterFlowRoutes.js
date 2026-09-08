@@ -297,12 +297,20 @@ router.get('/login-history', async (req, res) => {
     // history, master sees own children + self
     const filter = {};
     if (role === 'master') {
-      // Get child user IDs and child master IDs
-      const childUserIds = await User.find({ master_id: callerId, deleted_at: null }).distinct('_id');
-      const childMasterIds = await Master.find({ parent_master_id: callerId, deleted_at: null }).distinct('_id');
+      // Get the full recursive subtree of sub-master IDs (inclusive of self)
+      // and every user under any of them. Previously this queried
+      // `Master.find({ parent_master_id: callerId })` — that field doesn't
+      // exist on the Master schema (the real parent-link field is
+      // `master_id`, per masterHierarchyService.js), so childMasterIds was
+      // always empty: no sub-master's login history ever surfaced here, and
+      // by extension neither did any user under a sub-master (only direct
+      // child users of the calling master itself were ever included).
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const subtreeMasterIds = await getAllSubMasterIds(callerId);
+      const subtreeUserIds = await User.find({ master_id: { $in: subtreeMasterIds }, deleted_at: null }).distinct('_id');
       const mongoose = require('mongoose');
-      const selfId = new mongoose.Types.ObjectId(callerId);
-      filter.userId = { $in: [selfId, ...childUserIds, ...childMasterIds] };
+      const subtreeMasterObjectIds = subtreeMasterIds.map(id => new mongoose.Types.ObjectId(id));
+      filter.userId = { $in: [...subtreeMasterObjectIds, ...subtreeUserIds] };
     } else {
       const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
       const hiddenMasterIds = await resolveHiddenMasterIds(req);
