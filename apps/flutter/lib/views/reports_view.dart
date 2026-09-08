@@ -226,6 +226,15 @@ class ReportsView extends StatelessWidget {
             MaterialPageRoute(
                 builder: (context) => const RejectionLogHistoryView()),
           );
+        } else if (title == 'Client Summary') {
+          // report_permissions.client_summary exists on the schema (and can
+          // be toggled on for a Master/User via Manage Reports) but no
+          // backend endpoint or screen for it has ever been built — this
+          // was previously a silent no-op tap. Surface that honestly rather
+          // than pretending a report exists.
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Client Summary report is not available yet')),
+          );
         }
       },
     );
