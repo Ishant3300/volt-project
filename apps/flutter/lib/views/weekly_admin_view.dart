@@ -251,7 +251,14 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
     final m2m = _d(row['m2m_pnl']);
     final brokerage = _d(row['brokerage']);
     final adminBrk = _d(row['caller_brk'] ?? row['admin_brk']);
-    final totalPnl = _d(row['total_pnl']);
+    // total_pnl is the house's perspective (a client win is negative) — right
+    // next to realised/m2m above, which are already shown in the client's
+    // own natural sign, that flip read as "profit shown as loss" on a
+    // master's own view. Recomputed here as a plain sum of the two columns
+    // already on screen, matching the same fix on the web ledger page.
+    // Admin's view (nothing above them in the hierarchy) keeps the report's
+    // own total_pnl unchanged.
+    final totalPnl = isAdmin ? _d(row['total_pnl']) : realised + m2m;
     final adminProfit = _d(row['caller_profit'] ?? row['admin_profit']);
     final totalAdmin = _d(row['total_caller'] ?? row['total_admin']);
     // What THIS row's own account owes UP to its own parent — the mirror
