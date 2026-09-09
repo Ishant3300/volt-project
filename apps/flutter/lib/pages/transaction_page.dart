@@ -102,6 +102,28 @@ class _TransactionPageState extends State<TransactionPage> {
     }
   }
 
+  /// Re-fetches the target account's real current `credits` from the
+  /// server, used as the fallback when a credit/debit response doesn't
+  /// include a recognized balance field. Leaves `_currentCredits` at its
+  /// last-known value on failure rather than guessing — the mutation
+  /// itself already succeeded; only this confirmation step failed.
+  Future<void> _refreshCurrentCredits() async {
+    try {
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      final adminService = AdminService(apiService);
+      final res = widget.master != null
+          ? await adminService.getMasterById(widget.master!.id)
+          : await adminService.getUserById(widget.user!.id);
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        final num? credits = body['data']?['credits'];
+        if (credits != null && mounted) {
+          setState(() => _currentCredits = credits.toDouble());
+        }
+      }
+    } catch (_) {}
+  }
+
   Future<void> _handleSubmit() async {
     final amount = double.tryParse(_amountController.text);
     if (amount == null || amount <= 0) {
@@ -153,11 +175,13 @@ class _TransactionPageState extends State<TransactionPage> {
           if (rawCredits != null) {
             setState(() => _currentCredits = rawCredits.toDouble());
           } else {
-            // Fallback: manually adjust
-            final amt = double.tryParse(_amountController.text) ?? 0;
-            setState(() {
-              _currentCredits += _txnType == 0 ? amt : -amt;
-            });
+            // Previously guessed the new balance via local arithmetic
+            // (_currentCredits +/- the entered amount) when none of the
+            // expected response paths were present — a silent drift risk
+            // if this response shape ever changes. The credit/debit action
+            // itself already succeeded (status 200); re-fetch the
+            // authoritative value from the server instead of guessing.
+            await _refreshCurrentCredits();
           }
 
           final profileProvider = Provider.of<UserProfileProvider>(context, listen: false);

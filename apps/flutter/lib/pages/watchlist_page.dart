@@ -100,6 +100,34 @@ class _WatchlistPageState extends State<WatchlistPage> {
                     return const Center(child: CircularProgressIndicator());
                   }
 
+                  if (watchlistProvider.isEmpty &&
+                      watchlistProvider.error != null) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.wifi_off,
+                              size: 64, color: Colors.grey[400]),
+                          const SizedBox(height: 16),
+                          Text(
+                            "Couldn't load your watchlist",
+                            style: TextStyle(
+                                fontSize: kFontSizeSectionHeader,
+                                color: Colors.grey[600]),
+                          ),
+                          const SizedBox(height: 8),
+                          ElevatedButton.icon(
+                            onPressed: () {
+                              watchlistProvider.loadWatchlist();
+                            },
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
                   if (watchlistProvider.isEmpty) {
                     return Center(
                       child: Column(
@@ -291,12 +319,18 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                     child: const Icon(Icons.delete,
                                         color: Colors.white),
                                   ),
-                                  onDismissed: (direction) {
-                                    watchlistProvider.removeInstrument(item.id);
+                                  onDismissed: (direction) async {
+                                    final removed = await watchlistProvider
+                                        .removeInstrument(item.id);
+                                    if (!context.mounted) return;
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text(
-                                            '${instrument.tradingsymbol} removed from watchlist'),
+                                        content: Text(removed
+                                            ? '${instrument.tradingsymbol} removed from watchlist'
+                                            : 'Could not remove ${instrument.tradingsymbol} — try again'),
+                                        backgroundColor: removed
+                                            ? null
+                                            : const Color(0xFFEF4444),
                                       ),
                                     );
                                   },
@@ -421,26 +455,38 @@ class _WatchlistPageState extends State<WatchlistPage> {
 
               final rawAsk = item.askPrice;
               final rawBid = item.bidPrice;
-              final effectiveAsk = (rawAsk != null && rawAsk > 0.1)
-                  ? rawAsk
-                  : (ltp > 0 ? ltp + spread : null);
-              final effectiveBid = (rawBid != null && rawBid > 0.1)
-                  ? rawBid
-                  : (ltp > 0 ? ltp - spread : null);
+              // A missing/zero raw bid or ask falls back to a fabricated
+              // ltp ± spread guess so the row isn't blank — but that guess
+              // must never look identical to a real quote, or the user has
+              // no way to tell a genuine market depth price from a filler.
+              final askIsSynthetic = !(rawAsk != null && rawAsk > 0.1);
+              final bidIsSynthetic = !(rawBid != null && rawBid > 0.1);
+              final effectiveAsk = askIsSynthetic
+                  ? (ltp > 0 ? ltp + spread : null)
+                  : rawAsk;
+              final effectiveBid = bidIsSynthetic
+                  ? (ltp > 0 ? ltp - spread : null)
+                  : rawBid;
+              const syntheticColor = Color(0xFF94A3B8);
 
-              // Determine tick color: blue if price went up, red if down
+              // Determine tick color: blue if price went up, red if down,
+              // neutral if unchanged OR no previous tick to compare against
+              // yet. This used to fall to red for BOTH of those cases too —
+              // every instrument showed red on first load (before any
+              // second tick arrived) and stayed red forever if the price
+              // never actually moved, reading as a market-wide sell-off.
+              const neutralTickColor = Color(0xFF0F172A);
+              Color tickColor(double? prev, double? current) {
+                if (prev == null || current == null || current == prev) {
+                  return neutralTickColor;
+                }
+                return current > prev ? kBrandPrimary : const Color(0xFFEF4444);
+              }
+
               final prevBid = item.previousBidPrice;
               final prevAsk = item.previousAskPrice;
-              final Color bidColor = (prevBid != null &&
-                      effectiveBid != null &&
-                      effectiveBid > prevBid)
-                  ? kBrandPrimary
-                  : const Color(0xFFEF4444);
-              final Color askColor = (prevAsk != null &&
-                      effectiveAsk != null &&
-                      effectiveAsk > prevAsk)
-                  ? kBrandPrimary
-                  : const Color(0xFFEF4444);
+              final Color bidColor = tickColor(prevBid, effectiveBid);
+              final Color askColor = tickColor(prevAsk, effectiveAsk);
 
               final double? high = item.high;
               final double? low = item.low;
@@ -461,7 +507,11 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                     fontFamily: kFontFamily,
                                     fontSize: kFontSizePriceMain,
                                     fontWeight: kFontWeightSemiBold,
-                                    color: bidColor,
+                                    fontStyle: bidIsSynthetic
+                                        ? FontStyle.italic
+                                        : FontStyle.normal,
+                                    color:
+                                        bidIsSynthetic ? syntheticColor : bidColor,
                                   ),
                                 )
                               : Text(
@@ -490,7 +540,11 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                     fontFamily: kFontFamily,
                                     fontSize: kFontSizePriceMain,
                                     fontWeight: kFontWeightSemiBold,
-                                    color: askColor,
+                                    fontStyle: askIsSynthetic
+                                        ? FontStyle.italic
+                                        : FontStyle.normal,
+                                    color:
+                                        askIsSynthetic ? syntheticColor : askColor,
                                   ),
                                 )
                               : Text(

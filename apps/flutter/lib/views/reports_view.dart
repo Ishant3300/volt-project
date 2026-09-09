@@ -23,6 +23,7 @@ import 'script_quantity_detail_view.dart';
 import 'deleted_trade_view.dart';
 import 'rejection_log_history_view.dart';
 import 'settlement_report_view.dart';
+import 'client_pnl_summary_view.dart';
 
 class ReportsView extends StatelessWidget {
   const ReportsView({super.key});
@@ -225,6 +226,11 @@ class ReportsView extends StatelessWidget {
             context,
             MaterialPageRoute(
                 builder: (context) => const RejectionLogHistoryView()),
+          );
+        } else if (title == 'Client Summary') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ClientPnlSummaryView()),
           );
         }
       },

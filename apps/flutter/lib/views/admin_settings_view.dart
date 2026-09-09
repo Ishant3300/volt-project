@@ -3,6 +3,8 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
+import '../providers/user_profile_provider.dart';
 import 'send_message_view.dart';
 import 'manage_reports_view.dart';
 import 'manage_instruments_view.dart';
@@ -364,7 +366,13 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                         'Manage Instruments',
                         () => _push(context, const ManageInstrumentsView())),
                     _divider(),
-                    _settingRow(context, Icons.mail_outline, 'Send Message',
+                    // Label previously read "Send Message", implying
+                    // per-master messaging (AdminService.sendMessageToMaster,
+                    // now removed as dead code) — this screen's own header
+                    // and actual behavior (AnnouncementService) are a
+                    // platform-wide announcement banner, not a message to a
+                    // specific master.
+                    _settingRow(context, Icons.campaign_outlined, 'Announcement',
                         () => _push(context, const SendMessageView())),
                     _divider(),
                     _settingRow(
@@ -432,6 +440,18 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
   }
 
   Future<void> _fetchSettlementPrices() async {
+    final profile = Provider.of<UserProfileProvider>(context, listen: false);
+    if (!profile.isSuperAdmin &&
+        !profile.adminPermissions.contains('SETTLEMENT_TRIGGER')) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Missing the "Trigger settlement" permission')));
+      return;
+    }
+    if (profile.isWatchOnlyAdmin) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Watch-only admins cannot make changes.')));
+      return;
+    }
     final confirmed = await _showConfirmDialog(
       'Fetch Settlement Prices?',
       'This will fetch the latest close prices from NSE, MCX, and BSE bhavcopy and broadcast them to all connected clients.',

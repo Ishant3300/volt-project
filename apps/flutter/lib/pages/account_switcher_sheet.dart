@@ -9,6 +9,7 @@ import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/providers/investor_mode_provider.dart';
 import 'package:stocker/pages/login_page.dart';
 import 'package:stocker/home_page.dart';
+import 'package:stocker/services/firebase_service.dart';
 
 class AccountSwitcherSheet extends StatefulWidget {
   const AccountSwitcherSheet({super.key});
@@ -47,6 +48,16 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
     setState(() => _switching = true);
 
     try {
+      // Unregister this device's FCM token from the OUTGOING account before
+      // overwriting stored credentials — unregisterToken() authenticates
+      // with whatever auth token is currently in secure storage, so it must
+      // run before the swap below or it would (wrongly) try to unregister
+      // using the incoming account's token instead. Without this, a real
+      // logout unregisters push notifications but switching accounts never
+      // did, leaving the previous account still receiving this device's
+      // push notifications after the switch.
+      await FirebaseService().unregisterToken();
+
       // Set the new token and role in secure storage
       await _storage.saveToken(token: account.token);
       await _storage.saveRole(role: account.role);
@@ -75,6 +86,11 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
         tradeMetrics.fetchBaseData(),
         watchlist.loadWatchlist(),
       ]);
+
+      // Register this device's FCM token against the newly active account
+      // (reads the token we just saved above) so push notifications follow
+      // the switch instead of silently stopping.
+      await FirebaseService().registerToken();
 
       if (!mounted) return;
 

@@ -82,10 +82,12 @@ class _ChartViewState extends State<ChartView> {
 
       if (data.isEmpty) {
         log('⚠️  No candle data received');
-        setState(() {
-          _candles = [];
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _candles = [];
+            _isLoading = false;
+          });
+        }
         return;
       }
 
@@ -152,16 +154,20 @@ class _ChartViewState extends State<ChartView> {
 
       log('✅ Loaded ${candles.length} valid candles');
 
-      setState(() {
-        _candles = candles;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _candles = candles;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       log('❌ Error loading chart data: $e');
-      setState(() {
-        _candles = [];
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _candles = [];
+          _isLoading = false;
+        });
+      }
     }
   }
 

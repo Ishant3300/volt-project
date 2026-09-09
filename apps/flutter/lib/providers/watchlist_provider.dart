@@ -14,6 +14,12 @@ import 'package:stocker/providers/trade_metrics_provider.dart';
 class WatchlistProvider with ChangeNotifier {
   final List<WatchlistItem> _items = [];
   bool _isLoading = false;
+  // Set when loadWatchlist's fetch throws — previously swallowed silently,
+  // so a genuinely empty watchlist and "the request failed and _items was
+  // simply never populated" rendered identically as "No instruments in
+  // watchlist" with no way for the user to tell the difference or retry.
+  String? _error;
+  String? get error => _error;
   final LivePriceService _livePriceService = LivePriceService();
   WatchlistService? _watchlistService;
   final Map<String, String> _backendIdMap = {};
@@ -220,6 +226,7 @@ class WatchlistProvider with ChangeNotifier {
       final watchlistData = await _watchlistService!.getWatchlist();
       log('   Received ${watchlistData.length} items from backend');
 
+      _error = null;
       _items.clear();
       _backendIdMap.clear();
 
@@ -293,16 +300,28 @@ class WatchlistProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       log('❌ Error loading watchlist: $e');
+      // Only surface this as a load failure if we ended up with nothing to
+      // show — if items from a prior successful load are still present,
+      // treat this as a transient refresh error rather than blanking the
+      // screen the user was already looking at.
+      if (_items.isEmpty) {
+        _error = 'Failed to load watchlist';
+      }
     }
     setLoading(false);
   }
 
-  Future<void> addInstrument(KiteInstrument instrument) async {
+  /// Returns true once the instrument is actually persisted on the backend.
+  /// If the backend call fails, the optimistic local add is rolled back —
+  /// previously it stayed in the in-memory list indefinitely (looking
+  /// "added" to the user) until the next full loadWatchlist() silently
+  /// dropped it, with no error ever shown.
+  Future<bool> addInstrument(KiteInstrument instrument) async {
     final localId = instrument.instrumentToken;
 
     if (_items.any((item) => item.instrument.instrumentToken == localId)) {
       log('⚠️  Instrument already in watchlist: ${instrument.tradingsymbol}');
-      return;
+      return true;
     }
 
     log('➕ Adding instrument: ${instrument.tradingsymbol} (Token: $localId)');
@@ -338,19 +357,32 @@ class WatchlistProvider with ChangeNotifier {
     if (result != null) {
       _backendIdMap[localId] = result['id'].toString();
       log('✅ Saved to backend with ID: ${result['id']}');
-    } else {
-      log('❌ Failed to save to backend');
+      return true;
     }
+
+    log('❌ Failed to save to backend — rolling back optimistic add');
+    _items.removeWhere((item) => item.instrument.instrumentToken == localId);
+    _livePriceService.unsubscribe([localId]);
+    notifyListeners();
+    return false;
   }
 
-  Future<void> removeInstrument(String localId) async {
-    final item = _items.firstWhere((item) => item.id == localId);
+  /// Returns true once the instrument is actually removed on the backend.
+  /// If the backend call fails, the optimistic local removal is rolled
+  /// back — previously the item stayed gone from the in-memory list
+  /// indefinitely (looking "removed" to the user) even though it was
+  /// still present server-side, until the next full loadWatchlist()
+  /// silently brought it back with no explanation.
+  Future<bool> removeInstrument(String localId) async {
+    final itemIndex = _items.indexWhere((item) => item.id == localId);
+    if (itemIndex == -1) return true;
+    final item = _items[itemIndex];
     final token = item.instrument.instrumentToken;
     final backendId = _backendIdMap[localId];
 
     log('➖ Removing instrument: ${item.instrument.tradingsymbol} (Token: $token)');
 
-    _items.removeWhere((item) => item.id == localId);
+    _items.removeAt(itemIndex);
     _backendIdMap.remove(localId);
     notifyListeners();
     _livePriceService.unsubscribe([token]);
@@ -360,14 +392,28 @@ class WatchlistProvider with ChangeNotifier {
       _watchlistService = WatchlistService(apiService);
     }
 
-    if (backendId != null) {
-      await _watchlistService!.removeFromWatchlist(backendId);
-      log('✅ Removed from backend');
-    } else {
+    if (backendId == null) {
       // If we don't have the backendId locally for some reason, we might need to fetch it first,
       // but typically we'll have it if it was loaded or just added.
-      log('⚠️ Cannot remove from backend: backendId is null');
+      log('⚠️ Cannot remove from backend: backendId is null — rolling back');
+      _items.insert(itemIndex, item);
+      notifyListeners();
+      _livePriceService.subscribe([token]);
+      return false;
     }
+
+    final removed = await _watchlistService!.removeFromWatchlist(backendId);
+    if (removed) {
+      log('✅ Removed from backend');
+      return true;
+    }
+
+    log('❌ Failed to remove from backend — rolling back');
+    _items.insert(itemIndex, item);
+    _backendIdMap[localId] = backendId;
+    notifyListeners();
+    _livePriceService.subscribe([token]);
+    return false;
   }
 
   void updatePrice(

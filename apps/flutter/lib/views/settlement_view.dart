@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/live_price_service.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
@@ -157,6 +159,10 @@ class _SettlementViewState extends State<SettlementView> {
     final currentInst = _status?['currentInstrument'] ?? '';
     final isDone = phase == 'done';
     final isError = phase == 'error';
+    final profile = Provider.of<UserProfileProvider>(context, listen: false);
+    final canTrigger = profile.isSuperAdmin ||
+        (profile.adminPermissions.contains('SETTLEMENT_TRIGGER') &&
+            !profile.isWatchOnlyAdmin);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FC),
@@ -356,6 +362,20 @@ class _SettlementViewState extends State<SettlementView> {
 
                     const Spacer(),
 
+                    if (!isRunning && !canTrigger)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        child: Text(
+                          profile.isWatchOnlyAdmin
+                              ? 'Watch-only admins cannot make changes.'
+                              : 'Missing the "Trigger settlement" permission.',
+                          style: const TextStyle(
+                              color: Color(0xFFB45309),
+                              fontSize: kFontSizeCaption,
+                              fontFamily: kFontFamily),
+                        ),
+                      ),
                     // Start button
                     if (!isRunning)
                       Padding(
@@ -366,7 +386,9 @@ class _SettlementViewState extends State<SettlementView> {
                           width: double.infinity,
                           height: 52,
                           child: ElevatedButton(
-                            onPressed: _isLoading ? null : _startSettlement,
+                            onPressed: (_isLoading || !canTrigger)
+                                ? null
+                                : _startSettlement,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: kBrandPrimary,
                               shape: RoundedRectangleBorder(

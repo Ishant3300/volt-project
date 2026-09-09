@@ -140,7 +140,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
       });
     } catch (e) {
       log('   ❌ Search error: $e');
-      setState(() => _isSearching = false);
+      if (mounted) setState(() => _isSearching = false);
     }
   }
 
@@ -185,7 +185,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
       });
     } catch (e) {
       log('   ❌ Browse error: $e');
-      setState(() => _isSearching = false);
+      if (mounted) setState(() => _isSearching = false);
     }
   }
 
@@ -223,7 +223,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
       });
     } catch (e) {
       log('   ❌ Load more browse error: $e');
-      setState(() => _isLoadingMore = false);
+      if (mounted) setState(() => _isLoadingMore = false);
     }
   }
 
@@ -265,7 +265,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
       });
     } catch (e) {
       log('   ❌ Load more error: $e');
-      setState(() => _isLoadingMore = false);
+      if (mounted) setState(() => _isLoadingMore = false);
     }
   }
 
@@ -316,7 +316,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
     return result;
   }
 
-  void _addToWatchlist(KiteInstrument instrument) {
+  Future<void> _addToWatchlist(KiteInstrument instrument) async {
     // Block in investor mode
     final investorMode =
         Provider.of<InvestorModeProvider>(context, listen: false);
@@ -333,13 +333,18 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
     final watchlistProvider =
         Provider.of<WatchlistProvider>(context, listen: false);
     if (!watchlistProvider.contains(instrument.instrumentToken)) {
-      watchlistProvider.addInstrument(instrument);
+      final displayName =
+          instrument.name.isNotEmpty ? instrument.name : instrument.tradingsymbol;
+      final added = await watchlistProvider.addInstrument(instrument);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-              '${instrument.name.isNotEmpty ? instrument.name : instrument.tradingsymbol} added'),
-          backgroundColor: const Color(0xFF10B981),
-          duration: const Duration(seconds: 1),
+          content: Text(added
+              ? '$displayName added'
+              : 'Could not add $displayName — try again'),
+          backgroundColor:
+              added ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+          duration: Duration(seconds: added ? 1 : 2),
         ),
       );
     }

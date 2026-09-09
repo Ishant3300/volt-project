@@ -149,17 +149,29 @@ class AuthService {
       final token = await storage.getToken();
       var response = await api.post(endpoint, {}, token: token);
 
-      if (response.statusCode == 200) {
-        // Clear token and role from secure storage
-        await storage.deleteToken();
-        await storage.deleteRole();
-        final decoded = jsonDecode(response.body);
-        return AuthenticationResponse.fromJson(decoded);
-      } else {
-        final decoded = jsonDecode(response.body);
-        return AuthenticationResponse.fromJson(decoded);
-      }
+      // Clear the LOCAL token/role regardless of the server's response
+      // status — logging out is fundamentally a device-side action (this
+      // device should forget its credentials the moment the user asks),
+      // and the caller (profile_page.dart's _handleLogout) proceeds to
+      // navigate to the login screen and remove the saved account
+      // unconditionally either way. Previously this only cleared storage
+      // on a 200: a session that had already expired server-side (a
+      // realistic logout scenario, not an edge case) returned a non-200,
+      // and the UI told the user "Logged out successfully" while their
+      // real JWT stayed in secure storage — walking them straight back
+      // into the funded account on next launch.
+      await storage.deleteToken();
+      await storage.deleteRole();
+      final decoded = jsonDecode(response.body);
+      return AuthenticationResponse.fromJson(decoded);
     } catch (err) {
+      // Same reasoning applies to a network failure: the device should
+      // still forget its credentials even though the server never
+      // acknowledged the logout. Only the SERVER-side session may remain
+      // valid until it naturally expires; the caller still sees this as a
+      // thrown error so it can tell the user the server round-trip failed.
+      await storage.deleteToken();
+      await storage.deleteRole();
       log(err.toString());
       rethrow;
     }

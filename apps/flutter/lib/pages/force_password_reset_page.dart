@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stocker/services/api_service.dart';
@@ -6,6 +7,7 @@ import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
+import 'package:stocker/providers/investor_mode_provider.dart';
 import 'package:stocker/services/firebase_service.dart';
 import '../home_page.dart';
 import '../utils/contants.dart';
@@ -84,8 +86,17 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
 
       if (mounted) {
         if (response.statusCode == 200 && body['success'] == true) {
-          // Password changed successfully — clear the pending flag and proceed
-          await SecureStorageService().clearPasswordResetPending();
+          // Password changed successfully on the backend — from this point
+          // on we must never show this form again or let a later local
+          // failure look like the change itself failed: widget.currentPassword
+          // is now stale, so a retry from this screen would be rejected by
+          // the backend as "current password incorrect", confusingly
+          // implying the just-confirmed success never happened.
+          try {
+            await SecureStorageService().clearPasswordResetPending();
+          } catch (e) {
+            log('⚠️ Failed to clear password-reset-pending flag locally: $e');
+          }
 
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -111,6 +122,15 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
 
   Future<void> _loadAppData() async {
     try {
+      // The backend only ever requires a forced password change for
+      // non-investor logins (see authController.js's requiresPasswordChange:
+      // `!isInvestorLogin && ...`), so this path is unreachable for a real
+      // investor session. Set it explicitly rather than leaving whatever
+      // stale value secure storage carried over from a previous account on
+      // this device.
+      await Provider.of<InvestorModeProvider>(context, listen: false)
+          .setInvestor(false);
+
       final profileProvider =
           Provider.of<UserProfileProvider>(context, listen: false);
       await profileProvider.fetchProfile();
@@ -136,8 +156,27 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
         (route) => false, // Remove all previous routes
       );
     } catch (e) {
+      // The password change itself already succeeded by the time this runs
+      // (this is only called from that success branch) — a failure here is
+      // just a secondary data load hiccup. Every screen it would have
+      // populated (profile, watchlist, metrics) already tracks and surfaces
+      // its own load-failure/retry state independently, so trap the user on
+      // this password screen instead — where retrying is broken — is worse
+      // than just letting them in and refreshing from inside.
+      log('⚠️ Post-password-change data load failed, proceeding to home anyway: $e');
       if (mounted) {
-        _showError('Failed to load app data. Please try again.');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Password changed. Some data failed to load — pull to refresh once inside.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const MyHomePage(title: kAppName)),
+          (route) => false,
+        );
       }
     }
   }

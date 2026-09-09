@@ -13,10 +13,29 @@ class TradeFilterResult {
   bool get hasActiveFilters =>
       dateFrom != null || dateTo != null || exchange != null || (tradingsymbol != null && tradingsymbol!.isNotEmpty);
 
+  // dateFrom/dateTo are calendar-date selections from a native date picker
+  // — they represent "00:00:00" / "23:59:59" of the IST trading day the
+  // user picked, not a real device-timezone instant. Serializing them with
+  // the device's raw local wall-clock via toIso8601String() (no timezone
+  // marker) lets a UTC-based backend parse them as UTC directly, shifting
+  // the intended IST day boundary by up to 5.5 hours — trades near midnight
+  // silently fall outside (or wrongly inside) the picked range. Re-anchor
+  // to IST explicitly before converting to a real UTC instant.
+  static String _istWallClockToUtcIso(DateTime wallClock) {
+    return DateTime.utc(
+      wallClock.year,
+      wallClock.month,
+      wallClock.day,
+      wallClock.hour,
+      wallClock.minute,
+      wallClock.second,
+    ).subtract(const Duration(hours: 5, minutes: 30)).toIso8601String();
+  }
+
   Map<String, String> toQueryParams() {
     final params = <String, String>{};
-    if (dateFrom != null) params['date_from'] = dateFrom!.toIso8601String();
-    if (dateTo != null) params['date_to'] = dateTo!.toIso8601String();
+    if (dateFrom != null) params['date_from'] = _istWallClockToUtcIso(dateFrom!);
+    if (dateTo != null) params['date_to'] = _istWallClockToUtcIso(dateTo!);
     if (exchange != null) params['exchange'] = exchange!;
     if (tradingsymbol != null && tradingsymbol!.isNotEmpty) params['tradingsymbol'] = tradingsymbol!;
     return params;

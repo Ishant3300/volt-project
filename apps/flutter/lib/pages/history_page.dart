@@ -104,9 +104,12 @@ class _PortfolioPageState extends State<PortfolioPage>
 
       final queryParams = <String>['limit=50', 'page=$page'];
       if (_activeFilters != null) {
-        _activeFilters!
-            .toQueryParams()
-            .forEach((k, v) => queryParams.add('$k=$v'));
+        // tradingsymbol is free-typed user input (see history_filter_sheet.dart)
+        // — unencoded, a script name containing '&' or '=' would silently
+        // inject extra query params or truncate the filter value instead of
+        // just failing to match.
+        _activeFilters!.toQueryParams().forEach((k, v) => queryParams
+            .add('${Uri.encodeQueryComponent(k)}=${Uri.encodeQueryComponent(v)}'));
       }
 
       // Both admin and master use /master/trades — backend handles both roles
@@ -134,10 +137,12 @@ class _PortfolioPageState extends State<PortfolioPage>
     } catch (e) {
       debugPrint('Error fetching master trades: $e');
     } finally {
-      setState(() {
-        _masterLoading = false;
-        _masterLoadingMore = false;
-      });
+      if (mounted) {
+        setState(() {
+          _masterLoading = false;
+          _masterLoadingMore = false;
+        });
+      }
     }
   }
 
@@ -159,9 +164,8 @@ class _PortfolioPageState extends State<PortfolioPage>
 
       final apiService = ApiService(backendUrl);
       final queryParams = <String>['limit=200', 'page=1'];
-      _activeFilters!
-          .toQueryParams()
-          .forEach((k, v) => queryParams.add('$k=$v'));
+      _activeFilters!.toQueryParams().forEach((k, v) => queryParams
+          .add('${Uri.encodeQueryComponent(k)}=${Uri.encodeQueryComponent(v)}'));
 
       final res = await apiService.get(
         '/users/$userId/trades?${queryParams.join('&')}',
@@ -179,7 +183,7 @@ class _PortfolioPageState extends State<PortfolioPage>
     } catch (e) {
       debugPrint('Error fetching filtered user trades: $e');
     } finally {
-      setState(() => _userFilterLoading = false);
+      if (mounted) setState(() => _userFilterLoading = false);
     }
   }
 
@@ -1409,6 +1413,29 @@ class _PortfolioPageState extends State<PortfolioPage>
                           if (_isAdmin && isPending) const SizedBox(width: 8),
                           if (isPending)
                             GestureDetector(
+                              onTap: () => _modifyOrder(trade),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color:
+                                      const Color(0xFF3B82F6).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Text(
+                                  'Modify',
+                                  style: TextStyle(
+                                    color: Color(0xFF3B82F6),
+                                    fontSize: kFontSizeSubtitle,
+                                    fontFamily: kFontFamily,
+                                    fontWeight: kFontWeightSemiBold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (isPending) const SizedBox(width: 8),
+                          if (isPending)
+                            GestureDetector(
                               onTap: () => _cancelOrder(trade),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
@@ -1840,8 +1867,11 @@ class _PortfolioPageState extends State<PortfolioPage>
         final body = jsonDecode(response.body);
         if (body['success'] == true) {
           await metricsProvider.fetchBaseData();
+          if (!mounted) return;
           await Provider.of<UserProfileProvider>(context, listen: false)
               .refreshProfile();
+          if (!mounted) return;
+          _fetchMasterTrades();
 
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -1856,6 +1886,184 @@ class _PortfolioPageState extends State<PortfolioPage>
         }
       } else {
         throw Exception('Server error: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    }
+  }
+
+  /// Change a still-pending LIMIT/SL order's price and/or quantity in
+  /// place — PUT /trade/:tradeId/modify (same trade id, not a
+  /// cancel-and-replace). Mirrors _cancelOrder's structure exactly.
+  Future<void> _modifyOrder(Trade trade) async {
+    final investorMode =
+        Provider.of<InvestorModeProvider>(context, listen: false);
+    if (investorMode.isInvestor) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Order modification is not available in investor mode'),
+            backgroundColor: Color(0xFF64748B)),
+      );
+      return;
+    }
+
+    final metricsProvider =
+        Provider.of<TradeMetricsProvider>(context, listen: false);
+    // Every other screen displays this trade's size via trade.displayVolume
+    // (lots for MCX-FUT/MCX-OPT/NFO-OPT/COMEX-FUT, raw quantity otherwise —
+    // see Trade.isLotBased). Pre-filling the raw quantity here instead was a
+    // real bug: a user seeing "2 LOT" on the card, then "200" in this
+    // dialog, could easily misjudge a resize by exactly the lot size.
+    final usesLots = trade.isLotBased;
+    final priceController =
+        TextEditingController(text: trade.price.toStringAsFixed(2));
+    final qtyController =
+        TextEditingController(text: trade.displayVolume.toString());
+    String? dialogError;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            'Modify ${trade.tradingSymbol}',
+            style: const TextStyle(
+              fontFamily: kFontFamily,
+              fontWeight: kFontWeightSemiBold,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: priceController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  labelText: trade.orderType == 'SL' || trade.orderType == 'SL-M'
+                      ? 'Trigger price'
+                      : 'Price',
+                  labelStyle: const TextStyle(fontFamily: kFontFamily),
+                ),
+                style: const TextStyle(fontFamily: kFontFamily),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: qtyController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: usesLots ? 'Quantity (lots)' : 'Quantity',
+                  labelStyle: const TextStyle(fontFamily: kFontFamily),
+                ),
+                style: const TextStyle(fontFamily: kFontFamily),
+              ),
+              if (dialogError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  dialogError!,
+                  style: const TextStyle(
+                    color: Color(0xFFEF4444),
+                    fontFamily: kFontFamily,
+                    fontSize: kFontSizeCaption,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontFamily: kFontFamily,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                final price = double.tryParse(priceController.text);
+                final qty = int.tryParse(qtyController.text);
+                if (price == null || price <= 0 || qty == null || qty <= 0) {
+                  setDialogState(() => dialogError = 'Enter a valid price and quantity');
+                  return;
+                }
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text(
+                'Modify',
+                style: TextStyle(
+                  color: Color(0xFF3B82F6),
+                  fontFamily: kFontFamily,
+                  fontWeight: kFontWeightSemiBold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    // Read both values BEFORE disposing either controller — .text throws
+    // once a TextEditingController is disposed.
+    final newPrice = confirmed == true ? double.tryParse(priceController.text) : null;
+    final enteredQty = confirmed == true ? int.tryParse(qtyController.text) : null;
+    priceController.dispose();
+    qtyController.dispose();
+
+    if (confirmed != true || newPrice == null || enteredQty == null) return;
+
+    // Convert lots back to raw quantity — the API always deals in raw
+    // quantity, same as the original placement.
+    final newQty = usesLots ? enteredQty * trade.lotSize : enteredQty;
+
+    try {
+      final storage = SecureStorageService();
+      final token = await storage.getToken();
+
+      if (token == null) {
+        throw Exception('Not authenticated');
+      }
+
+      final apiService = ApiService(backendUrl);
+      final response = await apiService.put(
+        '/trade/${trade.id}/modify',
+        {'price': newPrice, 'quantity': newQty},
+        token: token,
+      );
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body);
+        if (body['success'] == true) {
+          await metricsProvider.fetchBaseData();
+          if (!mounted) return;
+          await Provider.of<UserProfileProvider>(context, listen: false)
+              .refreshProfile();
+          if (!mounted) return;
+          _fetchMasterTrades();
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Order modified: ${trade.tradingSymbol}'),
+                backgroundColor: const Color(0xFF10B981),
+              ),
+            );
+          }
+        } else {
+          throw Exception(body['message'] ?? 'Failed to modify order');
+        }
+      } else {
+        final body = jsonDecode(response.body);
+        throw Exception(body['message'] ?? 'Server error: ${response.statusCode}');
       }
     } catch (e) {
       if (mounted) {

@@ -36,7 +36,7 @@ class SuperAdminAdmin {
   }
 }
 
-/// Fixed 9 permission keys a Super Admin can grant a regular Admin —
+/// Fixed 10 permission keys a Super Admin can grant a regular Admin —
 /// mirrors apps/backend/src/constants/adminPermissions.js exactly.
 const Map<String, String> kAdminPermissionLabels = {
   'TRADE_CUSTOM': 'Custom-price orders',
@@ -48,4 +48,5 @@ const Map<String, String> kAdminPermissionLabels = {
   'FRESH_STOPLOSS_MANAGE': 'Fresh stop-loss limits',
   'REPORTS_ACCESS': 'Reports access',
   'MASTER_EDIT_ANY': 'Edit any master',
+  'QUANTITY_MANAGE': 'Quantity limits (grouped/script)',
 };
