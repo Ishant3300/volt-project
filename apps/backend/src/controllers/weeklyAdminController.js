@@ -455,13 +455,19 @@ function _getUserEntryBatched(userDoc, metricsEngine, callerMaster, callerId, ca
   const incomingPoolMultiplier = _incomingPoolPnlMultiplierBatched(userId, callerId, userDoc, masterMap);
   const callerOwnPnlShare = masterMap[callerId]?.pnl_sharing || 0;
   const callerRetention = callerRole === 'admin' ? 1 : callerOwnPnlShare / 100;
-  const callerProfit = _r2((-grossPnl) * incomingPoolMultiplier * callerRetention);
+  // Sharing is priced off the client's REAL total exposure (realised + still-
+  // open m2m), not realised alone — a deliberate choice: this used to exclude
+  // m2m to avoid paying a share on floating P&L that could still reverse
+  // before settlement, but that basis is now applied uniformly regardless of
+  // caller role.
+  const sharingBasis = grossPnl + floatingPnl;
+  const callerProfit = _r2((-sharingBasis) * incomingPoolMultiplier * callerRetention);
 
   // What the caller (whoever is viewing this report — a sub-master included)
   // must pass UP to their OWN parent, as opposed to caller_profit/caller_brk
   // above (what the caller keeps for themselves). See _cascadeBrokerageOwedUpwardBatched
   // for the brokerage-side cascade.
-  const owedUpwardPnl = _r2(((-grossPnl) * incomingPoolMultiplier) * (100 - callerOwnPnlShare) / 100);
+  const owedUpwardPnl = _r2(((-sharingBasis) * incomingPoolMultiplier) * (100 - callerOwnPnlShare) / 100);
   const owedUpwardBrk = _r2(_cascadeBrokerageOwedUpwardBatched(
     userId, callerId, tradesByUser, brkRulesByUser, globalBrkRules, kiteMap, userDoc, masterMap, masterBaseRatesByMaster
   ));
@@ -479,11 +485,8 @@ function _getUserEntryBatched(userDoc, metricsEngine, callerMaster, callerId, ca
     caller_brk: _r2(callerBrk),
     // Net of BOTH realised and floating — was previously just -grossPnl,
     // silently ignoring m2m_pnl entirely, so "total" wasn't actually the
-    // total. caller_profit's own basis is deliberately left as grossPnl
-    // alone (realised only) — that's a separate, already-verified
-    // commission-sharing calculation, not the display total, and
-    // commission shouldn't be paid out on unrealised/floating P&L that
-    // could still reverse before settlement.
+    // total. caller_profit/owed_upward_pnl above now share this same
+    // realised+m2m basis (sharingBasis).
     total_pnl: _r2(-(grossPnl + floatingPnl)),
     caller_profit: callerProfit,
     total_caller: _r2(callerProfit + callerBrk),
@@ -516,15 +519,11 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
   // sums via _getUserBrokerageAndTurnoverBatched.
   //
   // P&L sharing is computed PER USER and summed, not as one flat
-  // multiplier applied to the combined total — the previous implementation
-  // (_getPnlUnpassedMultiplierBatched, removed) only walked masterId's
-  // direct children, ignoring anything deeper, and even walked fully, a
-  // single blended rate is wrong the moment two branches of the subtree
-  // have different pnl_sharing rates, which real accounts do (100%, 90%,
-  // 98%, 50%, 20%, 0% all seen on different masters).
-  // _getPnlUnpassedMultiplierForUserBatched already walks each user's own
-  // path correctly and stops at the right boundary relative to callerId
-  // (it's what _getUserEntryBatched uses for individual client rows).
+  // multiplier applied to the combined total — a single blended rate is
+  // wrong the moment two branches of the subtree have different
+  // pnl_sharing rates, which real accounts do (100%, 90%, 98%, 50%, 20%,
+  // 0% all seen on different masters).
+  //
   // What the CALLER keeps for themselves from their own retention, once the
   // pool has already survived every level strictly between the user and the
   // caller. Admin has no pnl_sharing% of their own and nothing further
@@ -554,16 +553,14 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
 
     const userGrossPnl = _getGrossPnlBatched(uid, tradesByUser);
     totalGrossPnl += userGrossPnl;
-    // Admin sits at the top of the tree with no parent of their own — their
-    // profit share is priced off the account's real total exposure (realised
-    // + still-open m2m), not realised alone. A master's own view keeps the
-    // realised-only basis unchanged: that caution (not paying commission on
-    // floating P&L that could still reverse) exists because a sub-master
-    // still has to settle upward with THEIR OWN parent later; admin has
-    // nothing further upstream that basis is protecting against.
-    const callerProfitBasis = callerRole === 'admin' ? (userGrossPnl + userFloatingPnl) : userGrossPnl;
+    // Sharing is priced off the client's REAL total exposure (realised +
+    // still-open m2m), not realised alone, for every caller role — see the
+    // same note in _getUserEntryBatched. caller_profit and owed_upward_pnl
+    // must use the SAME basis so the two always sum to the full incoming
+    // pool for this user, regardless of role.
+    const userSharingBasis = userGrossPnl + userFloatingPnl;
     const userIncomingPool = _incomingPoolPnlMultiplierBatched(uid, callerId, u, masterMap);
-    callerProfit += (-callerProfitBasis) * userIncomingPool * callerRetention;
+    callerProfit += (-userSharingBasis) * userIncomingPool * callerRetention;
     // Unlike caller_profit above (which depends on the VIEWER's position —
     // "how much of this reaches the person asking"), owed-upward is a
     // property of THIS ROW's own master (masterId) alone — what masterId
@@ -571,7 +568,7 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
     // Aggregated rows here are only ever built for a DIRECT child of the
     // caller, so masterId's own parent == callerId, but the cascade must
     // stop AT masterId (this row's own master), not at callerId.
-    sumIncomingPoolPnl += (-userGrossPnl) * _incomingPoolPnlMultiplierBatched(uid, masterId, u, masterMap);
+    sumIncomingPoolPnl += (-userSharingBasis) * _incomingPoolPnlMultiplierBatched(uid, masterId, u, masterMap);
 
     const { brokerage, turnover } = _getUserBrokerageAndTurnoverBatched(
       uid, tradesByUser, brkRulesByUser, globalBrkRules, kiteMap
