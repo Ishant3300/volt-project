@@ -260,13 +260,23 @@ const gatherCandidates = (resolved, category, rawQuery) => {
     }
   }
 
-  // Intersect with category if both exist
-  if (candidateSet && candidateSet.size > 0 && categorySet) {
+  // Intersect with category if one was explicitly requested. Confirmed bug
+  // this replaces: `if (intersected.size > 0) candidateSet = intersected`
+  // silently kept the UNFILTERED, cross-segment candidateSet whenever the
+  // requested category had zero matches — e.g. searching "Silver" under
+  // the MCX-FUT tab when every MCX Silver contract happened to be expired
+  // (a real data gap, not a search issue) surfaced and let a user add
+  // COMEX's Silver instead, despite explicitly filtering to MCX Futures.
+  // An empty category-scoped result should mean "no matches in this
+  // category", never "fall back to every other segment too".
+  if (categorySet) {
     const intersected = new Set();
-    for (const idx of candidateSet) {
-      if (categorySet.has(idx)) intersected.add(idx);
+    if (candidateSet) {
+      for (const idx of candidateSet) {
+        if (categorySet.has(idx)) intersected.add(idx);
+      }
     }
-    if (intersected.size > 0) candidateSet = intersected;
+    candidateSet = intersected;
   }
 
   // Pre-filter by instrument type
