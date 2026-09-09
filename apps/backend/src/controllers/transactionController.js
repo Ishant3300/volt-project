@@ -74,10 +74,38 @@ const getTransactionHistory = async (req, res) => {
       Transaction.countDocuments(filter)
     ]);
 
+    // Transaction.js stores Mongoose's default camelCase fields
+    // (createdAt/balanceBefore/balanceAfter) with no toJSON transform, and
+    // .lean() bypasses one even if it existed — every other endpoint in this
+    // API returns snake_case, so the web client only ever coded against
+    // created_at/balance_after/balance_before, which this endpoint never
+    // actually sent (confirmed live: the web ledger's "Client credit &
+    // debit history" panel showed "—" for Time and Balance after on every
+    // row). Mobile's transaction_page.dart already reads the ORIGINAL
+    // camelCase fields directly and is live in production today — both are
+    // included here rather than renaming outright, so this fix doesn't
+    // silently break the already-shipped mobile app the moment this
+    // deploys.
+    const mappedTransactions = transactions.map((t) => ({
+      id: t._id,
+      type: t.type,
+      amount: t.amount,
+      balanceBefore: t.balanceBefore,
+      balanceAfter: t.balanceAfter,
+      balance_before: t.balanceBefore,
+      balance_after: t.balanceAfter,
+      userId: t.userId,
+      userModel: t.userModel,
+      user_id: t.userId,
+      user_model: t.userModel,
+      createdAt: t.createdAt,
+      created_at: t.createdAt,
+    }));
+
     res.status(200).json({
       success: true,
       data: {
-        transactions,
+        transactions: mappedTransactions,
         total,
         page: parseInt(page),
         limit: parseInt(limit)
