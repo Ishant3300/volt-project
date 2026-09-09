@@ -52,44 +52,26 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     }
   }
 
-  // Hidden unlock gesture: 4 taps on the Watchlist nav icon within 2s of
-  // the first one reveals the full app. Total-time budget rather than a
-  // strict per-tap rhythm — easy to land by hand while still requiring a
-  // fast, deliberate burst rather than 4 taps spread out over time.
-  DateTime? _firstWatchlistTap;
-  int _watchlistTapCount = 0;
-
-  void _registerWatchlistUnlockTap() {
-    final now = DateTime.now();
-    final first = _firstWatchlistTap;
-
-    if (first == null || now.difference(first) > const Duration(milliseconds: 2000)) {
-      _firstWatchlistTap = now;
-      _watchlistTapCount = 1;
-      return;
-    }
-
-    _watchlistTapCount++;
-    if (_watchlistTapCount >= 4) {
-      _watchlistTapCount = 0;
-      _firstWatchlistTap = null;
-      Provider.of<FeatureUnlockProvider>(context, listen: false).unlock();
-    }
+  // Hidden unlock gesture: a long-press on the Watchlist nav icon reveals
+  // the full app — replaces the old "4 taps within 2s" gesture, which was
+  // easy to trigger by accident during fast, repeated tab-switching.
+  void _unlockFeatures() {
+    Provider.of<FeatureUnlockProvider>(context, listen: false).unlock();
   }
 
   void _onItemTapped(int index) {
-    if (index == 0) _registerWatchlistUnlockTap();
     setState(() {
       _selectedIndex = index;
     });
   }
 
-  Widget _buildNavItem(String svgPath, String label, int index) {
+  Widget _buildNavItem(String svgPath, String label, int index, {VoidCallback? onLongPress}) {
     final bool isSelected = _selectedIndex == index;
     final color =
         isSelected ? kBrandPrimary : const Color(0xFF94A3B8);
     return GestureDetector(
       onTap: () => _onItemTapped(index),
+      onLongPress: onLongPress,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -194,7 +176,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildNavItem(kIconWatchlist, 'Watchlist', 0),
+                _buildNavItem(kIconWatchlist, 'Watchlist', 0, onLongPress: _unlockFeatures),
                 if (isUnlocked) _buildNavItem(kIconOrders, 'Portfolio', 1),
                 if (isUnlocked) _buildNavItem(kIconHistory, 'Orders', 2),
                 _buildNavItem(kIconProfile, 'Profile', 3),
