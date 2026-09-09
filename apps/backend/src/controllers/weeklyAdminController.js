@@ -542,7 +542,7 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
   let totalFloatingPnl = 0;
   let callerProfit = 0;
   let totalBrokerage = 0, totalTurnover = 0, callerBrk = 0;
-  let sumIncomingPoolPnl = 0;
+  let owedUpwardPnl = 0;
   let owedUpwardBrk = 0;
   for (const u of users) {
     const uid = u._id.toString();
@@ -559,16 +559,24 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
     // must use the SAME basis so the two always sum to the full incoming
     // pool for this user, regardless of role.
     const userSharingBasis = userGrossPnl + userFloatingPnl;
+    // Pool arriving AT THE CALLER (e.g. a master viewing their own
+    // sub-broker), after every level strictly between this user and the
+    // caller has already absorbed their own cut — same helper
+    // _getUserEntryBatched uses for a direct client, applied here per-user
+    // across this row's entire sub-tree (not just masterId's direct clients).
     const userIncomingPool = _incomingPoolPnlMultiplierBatched(uid, callerId, u, masterMap);
     callerProfit += (-userSharingBasis) * userIncomingPool * callerRetention;
-    // Unlike caller_profit above (which depends on the VIEWER's position —
-    // "how much of this reaches the person asking"), owed-upward is a
-    // property of THIS ROW's own master (masterId) alone — what masterId
-    // itself owes to ITS OWN direct parent, independent of who's viewing.
-    // Aggregated rows here are only ever built for a DIRECT child of the
-    // caller, so masterId's own parent == callerId, but the cascade must
-    // stop AT masterId (this row's own master), not at callerId.
-    sumIncomingPoolPnl += (-userSharingBasis) * _incomingPoolPnlMultiplierBatched(uid, masterId, u, masterMap);
+    // What passes PAST the caller, upward — the caller's own complement of
+    // the SAME incoming pool. Confirmed bug this replaces: previously used
+    // masterId's OWN pnl_sharing% here instead of the caller's — since an
+    // aggregated row's masterId always has the caller as its direct parent,
+    // that produced the pool arriving AT the caller BEFORE the caller's own
+    // cut (i.e. the same total callerProfit is only ~90% of), not the ~10%
+    // that actually flows past the caller. A live report showed a
+    // sub-broker row's "ADMIN P&L" LARGER in magnitude than "MASTER
+    // PROFIT" — backwards from the direct-client rows on the same report,
+    // where the admin figure is correctly the smaller remainder.
+    owedUpwardPnl += (-userSharingBasis) * userIncomingPool * (1 - callerRetention);
 
     const { brokerage, turnover } = _getUserBrokerageAndTurnoverBatched(
       uid, tradesByUser, brkRulesByUser, globalBrkRules, kiteMap
@@ -579,17 +587,14 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
       uid, callerId, callerRole, tradesByUser, callerRules, kiteMap,
       masterMap, brkRulesByUser, globalBrkRules, u, brokerage
     );
+    // Same fix as owedUpwardPnl above — cascade all the way through the
+    // CALLER's own step, not just up to masterId's own step.
     owedUpwardBrk += _cascadeBrokerageOwedUpwardBatched(
-      uid, masterId, tradesByUser, brkRulesByUser, globalBrkRules, kiteMap, u, masterMap, masterBaseRatesByMaster
+      uid, callerId, tradesByUser, brkRulesByUser, globalBrkRules, kiteMap, u, masterMap, masterBaseRatesByMaster
     );
   }
   callerProfit = _r2(callerProfit);
-
-  // What THIS row's own master (masterId) owes UP to ITS OWN direct parent —
-  // a property of masterId's own sub-tree and own share %, independent of
-  // who's viewing the report. Mirrors _getUserEntryBatched's same fields.
-  const ownPnlShare = masterDoc.pnl_sharing || 0;
-  const owedUpwardPnl = _r2(sumIncomingPoolPnl * (100 - ownPnlShare) / 100);
+  owedUpwardPnl = _r2(owedUpwardPnl);
   owedUpwardBrk = _r2(owedUpwardBrk);
 
   return {
