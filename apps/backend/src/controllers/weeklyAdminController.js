@@ -435,16 +435,32 @@ function _getUserEntryBatched(userDoc, metricsEngine, callerMaster, callerId, ca
     masterMap, brkRulesByUser, globalBrkRules, userDoc, totalBrokerage
   );
 
-  // P&L sharing: caller's share = product of unpassed fractions from user up to caller
-  const pnlMultiplier = _getPnlUnpassedMultiplierForUserBatched(userId, callerId, userDoc, masterMap);
-  const callerProfit = _r2((-grossPnl) * pnlMultiplier);
+  // P&L sharing: what the CALLER keeps for themselves = the pool that
+  // arrives at them (nothing absorbed by anyone strictly between the user
+  // and the caller) × the caller's OWN retention. Admin has no
+  // pnl_sharing% of their own and no parent above them — whatever isn't
+  // claimed by a master below reaches admin in full, so admin's own
+  // retention is 100%. A master's retention is their own pnl_sharing%.
+  //
+  // Confirmed bug (this was previously `_getPnlUnpassedMultiplierForUserBatched`,
+  // which multiplies by (100 - share)/100 at the caller's own hop — that
+  // formula answers "what's left over after the caller's own cut", i.e.
+  // what flows PAST the caller to whoever is above them. For admin (no
+  // parent) that coincidentally equals what admin keeps, but for a master
+  // viewing their own direct client it silently returned the SAME number
+  // as owed_upward_pnl — the amount owed UP to admin, not what the master
+  // keeps. Real numbers off a live report: a master's own direct client
+  // showed "MASTER PROFIT" and "ADMIN P&L" as the identical figure, which
+  // should only ever coincide for admin's own view.
+  const incomingPoolMultiplier = _incomingPoolPnlMultiplierBatched(userId, callerId, userDoc, masterMap);
+  const callerOwnPnlShare = masterMap[callerId]?.pnl_sharing || 0;
+  const callerRetention = callerRole === 'admin' ? 1 : callerOwnPnlShare / 100;
+  const callerProfit = _r2((-grossPnl) * incomingPoolMultiplier * callerRetention);
 
   // What the caller (whoever is viewing this report — a sub-master included)
   // must pass UP to their OWN parent, as opposed to caller_profit/caller_brk
-  // above (what the caller keeps for themselves). See _incomingPoolPnlMultiplierBatched
-  // and _cascadeBrokerageOwedUpwardBatched for the full cascade.
-  const incomingPoolMultiplier = _incomingPoolPnlMultiplierBatched(userId, callerId, userDoc, masterMap);
-  const callerOwnPnlShare = masterMap[callerId]?.pnl_sharing || 0;
+  // above (what the caller keeps for themselves). See _cascadeBrokerageOwedUpwardBatched
+  // for the brokerage-side cascade.
   const owedUpwardPnl = _r2(((-grossPnl) * incomingPoolMultiplier) * (100 - callerOwnPnlShare) / 100);
   const owedUpwardBrk = _r2(_cascadeBrokerageOwedUpwardBatched(
     userId, callerId, tradesByUser, brkRulesByUser, globalBrkRules, kiteMap, userDoc, masterMap, masterBaseRatesByMaster
@@ -509,6 +525,20 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
   // _getPnlUnpassedMultiplierForUserBatched already walks each user's own
   // path correctly and stops at the right boundary relative to callerId
   // (it's what _getUserEntryBatched uses for individual client rows).
+  // What the CALLER keeps for themselves from their own retention, once the
+  // pool has already survived every level strictly between the user and the
+  // caller. Admin has no pnl_sharing% of their own and nothing further
+  // upstream — whatever isn't claimed by a master below reaches admin in
+  // full (100% retention). Confirmed bug this replaces: the previous
+  // `_getPnlUnpassedMultiplierForUserBatched`-based calc multiplied by
+  // (100 - share)/100 at the caller's own hop, which is "what flows PAST
+  // the caller" (the owed-upward amount) — coincidentally correct for
+  // admin (nothing sits above them) but wrong for a master, whose own
+  // "caller_profit" row was silently showing the exact same figure as
+  // their "owed_upward_pnl" for a direct child.
+  const callerOwnPnlShare = masterMap[callerId]?.pnl_sharing || 0;
+  const callerRetention = callerRole === 'admin' ? 1 : callerOwnPnlShare / 100;
+
   let totalGrossPnl = 0;
   let totalFloatingPnl = 0;
   let callerProfit = 0;
@@ -532,7 +562,8 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
     // still has to settle upward with THEIR OWN parent later; admin has
     // nothing further upstream that basis is protecting against.
     const callerProfitBasis = callerRole === 'admin' ? (userGrossPnl + userFloatingPnl) : userGrossPnl;
-    callerProfit += (-callerProfitBasis) * _getPnlUnpassedMultiplierForUserBatched(uid, callerId, u, masterMap);
+    const userIncomingPool = _incomingPoolPnlMultiplierBatched(uid, callerId, u, masterMap);
+    callerProfit += (-callerProfitBasis) * userIncomingPool * callerRetention;
     // Unlike caller_profit above (which depends on the VIEWER's position —
     // "how much of this reaches the person asking"), owed-upward is a
     // property of THIS ROW's own master (masterId) alone — what masterId
