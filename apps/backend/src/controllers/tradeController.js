@@ -590,10 +590,30 @@ const placeTrade = async (req, res) => {
                 }
             }
 
+            // ── Expiry check: an expired contract has no real market/settlement
+            // price and cannot legitimately be traded by ANYONE — unlike the
+            // enabled/deleted_at checks below (deliberate admin business
+            // toggles admin can override), this is a market fact, so there is
+            // no admin bypass here. Confirmed live: a user placed real MARKET
+            // orders on a NIFTY option the day AFTER its expiry (expiry
+            // 2026-09-08, trades placed 2026-09-09) — nothing in this endpoint
+            // ever checked expiry at all. Date-only comparison (matches
+            // fetchInstruments.js's own "expired" boundary) so trading is
+            // still allowed through the end of the expiry day itself.
+            const instCheckExpiry = await KiteInstrument.findOne({ instrument_token }).select('enabled deleted_at expiry').lean().session(session);
+            if (instCheckExpiry?.expiry) {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const expiryDate = new Date(instCheckExpiry.expiry);
+                if (expiryDate < today) {
+                    throw new Error('This contract has expired and can no longer be traded.');
+                }
+            }
+
             // ── Instrument enabled check: if instrument is disabled, only closing trades allowed ──
             // ── Instrument deleted check: if instrument is deleted, block ALL trades ──
             if (!req.admin) {
-                const instCheck = await KiteInstrument.findOne({ instrument_token }).select('enabled deleted_at').lean().session(session);
+                const instCheck = instCheckExpiry;
                 if (instCheck && instCheck.deleted_at) {
                     throw new Error('Admin has deactivated this script. Trading is not allowed.');
                 }
