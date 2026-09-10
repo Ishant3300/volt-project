@@ -257,9 +257,25 @@ const getWeeklyAdminReport = async (req, res) => {
     // query. callerRuleOwnerId is computed here (moved up from just below)
     // so it can be included in the fetch, not just the later lookup.
     const callerRuleOwnerId = role === 'admin' ? null : callerId;
+    // Confirmed live bug: for an ADMIN caller this previously fetched
+    // `allUserIds` alone — every CLIENT under scope, but never any TOP-LEVEL
+    // MASTER's own id. `masterOwnRules` (below, admin's per-master "what I
+    // charge THIS specific master" rate) reads `brkRulesByUser[master._id]`
+    // per row, which was therefore always empty regardless of whether that
+    // master had a real individually-assigned rate on file — silently
+    // falling back to the flat global default for EVERY top-level master's
+    // caller_brk, platform-wide. Unlike the master-role case (a single
+    // caller with one set of own rules), admin has no rules of its own —
+    // every DIFFERENT top-level master's own id has to be included here, one
+    // per row, not just a single "caller" id. Confirmed live: master 157459
+    // has ~200 individually-assigned per-script rates (e.g. GOLD MCX-FUT at
+    // their own rate), all silently ignored in favour of the global GOLD
+    // rate (500/lot vs their actual ~200/lot), inflating "ADMIN BRK" from a
+    // verified ~21,585 to a reported 86,184.89 for the same week's trades.
+    const topEntityIds = role === 'admin' ? topEntities.map((m) => m._id.toString()) : [];
     const brkSettingsOwnerIds = callerRuleOwnerId
       ? [...allUserIds, callerRuleOwnerId]
-      : allUserIds;
+      : [...allUserIds, ...topEntityIds];
     const allBrkSettings = await BrokerageSettings.find({
       $or: [
         { user_id: { $in: brkSettingsOwnerIds }, deleted_at: null },
