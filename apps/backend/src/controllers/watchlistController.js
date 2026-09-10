@@ -71,9 +71,35 @@ const getWatchlist = async (req, res) => {
       console.log(`   ✅ Healed ${healPromises.length} stale kite_instrument_id references`);
     }
 
+    // Auto-remove watchlist entries whose instrument has expired. A stale
+    // entry that still LOOKS tradable here is exactly what let a client
+    // find and place a real order on an already-expired NIFTY option the
+    // day after its expiry — placeTrade now hard-blocks that, but the
+    // watchlist itself needs to stop surfacing it in the first place.
+    // Date-only comparison (matches fetchInstruments.js's own "expired"
+    // boundary) — an instrument stays tradable through the end of its own
+    // expiry day. No `expiry` at all (indices, GLOBAL) never expires here.
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const expiredWatchlistIds = new Set();
+    for (const w of watchlist) {
+      const inst = instrumentMap[w.instrument_token];
+      if (inst?.expiry && new Date(inst.expiry) < today) {
+        expiredWatchlistIds.add(w._id.toString());
+      }
+    }
+    if (expiredWatchlistIds.size > 0) {
+      await Watchlist.updateMany(
+        { _id: { $in: [...expiredWatchlistIds] } },
+        { deleted_at: new Date() },
+      );
+      console.log(`   🗑️ Removed ${expiredWatchlistIds.size} expired watchlist entries`);
+    }
+
     // Build response items — skip any where we couldn't find the instrument
+    // or it's since expired.
     const items = watchlist
-      .filter(w => instrumentMap[w.instrument_token])
+      .filter(w => instrumentMap[w.instrument_token] && !expiredWatchlistIds.has(w._id.toString()))
       .map(w => ({
         id: w._id,
         instrument_token: w.instrument_token,
