@@ -1,10 +1,13 @@
 import 'package:flutter/foundation.dart';
 
-/// Gates the full app behind a tap gesture. Deliberately in-memory only —
-/// never persisted (no SecureStorageService) — so every cold start and every
-/// return from background defaults back to locked, regardless of role.
+/// Previously gated the full app behind a hidden long-press gesture on the
+/// Watchlist nav icon (locked by default on every cold start / return from
+/// background, never persisted). Turned off for now, per explicit request —
+/// every feature stays visible without needing to unlock anything. lock()/
+/// unlock() are kept intact (unused currently) rather than ripped out, in
+/// case this gate needs to come back.
 class FeatureUnlockProvider extends ChangeNotifier {
-  bool _isUnlocked = false;
+  bool _isUnlocked = true;
 
   bool get isUnlocked => _isUnlocked;
 
