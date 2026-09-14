@@ -24,6 +24,7 @@ import 'deleted_trade_view.dart';
 import 'rejection_log_history_view.dart';
 import 'settlement_report_view.dart';
 import 'client_pnl_summary_view.dart';
+import 'scriptwise_pnl_view.dart';
 
 class ReportsView extends StatelessWidget {
   const ReportsView({super.key});
@@ -45,6 +46,13 @@ class ReportsView extends StatelessWidget {
     }
     if (perms['client_summary'] == true && !isUser) {
       reportItems.add(_ReportItemData('Client Summary', kIconProfitAndLoss));
+    }
+    // Reuses the 'client_summary' permission flag rather than a new one —
+    // a genuinely separate per-report toggle would need a new backend
+    // Master.permissions field (+ admin UI to grant it), out of scope here.
+    if (perms['client_summary'] == true && !isUser) {
+      reportItems
+          .add(_ReportItemData('Scriptwise P&L Summary', kIconProfitAndLoss));
     }
     if (perms['generate_pdf'] == true) {
       reportItems.add(_ReportItemData('Generate PDF', kIconGeneratePdf));
@@ -231,6 +239,11 @@ class ReportsView extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const ClientPnlSummaryView()),
+          );
+        } else if (title == 'Scriptwise P&L Summary') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ScriptwisePnlView()),
           );
         }
       },
