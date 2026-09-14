@@ -73,13 +73,13 @@ app.use(cors({
   credentials: true,
 }));
 
-// Mobile force-update check (apps/flutter's UpdateCheckService) — a plain
-// static file fetch, not an API route, so it's served before the JSON body
-// parser / auth middleware below. `<brand>-version.json` + the APK itself
-// are overwritten by deploy/flutter-build-*.sh on every release build; no
-// DB model or admin endpoint needed since the file's own presence IS the
-// "latest version" state.
-app.use('/downloads', express.static(path.join(__dirname, '../public/downloads')));
+// Note: /downloads (apps/flutter's UpdateCheckService reads <brand>-version.json
+// from here) is served entirely by nginx's own `location /downloads/ { alias
+// /var/www/downloads/; }` block — confirmed live, and already predates this
+// feature (a manually-uploaded app-volt-release.apk was already sitting
+// there). nginx intercepts that path before it ever reaches this process, so
+// no Express route is needed or reachable here — deploy/flutter-build-*.sh
+// writes directly to /var/www/downloads/ on the server instead.
 
 // Body parsing with size limits
 app.use(express.json({ limit: '1mb' }));

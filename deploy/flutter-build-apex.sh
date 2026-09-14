@@ -10,7 +10,11 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 EC2_HOST="13.204.61.199"
 EC2_USER="ec2-user"
 SSH_KEY="/Users/devarshukani/Work/Keys/apex/my-ec2-key"
-REMOTE_DOWNLOADS_DIR="/home/ec2-user/stocker-backend-node/public/downloads"
+# Served directly by nginx's own `location /downloads/ { alias
+# /var/www/downloads/; }` — NOT proxied to the Node process, so this must
+# stay in sync with the actual nginx.conf on the server, not wherever the
+# backend app itself lives.
+REMOTE_DOWNLOADS_DIR="/var/www/downloads"
 
 cd "${ROOT_DIR}/apps/flutter"
 scripts/flavor.sh apex build apk --release
@@ -29,9 +33,8 @@ if [ -z "${BUILD_NUMBER}" ]; then
 fi
 
 echo "📦 Publishing build ${BUILD_NUMBER} to ${EC2_HOST}..."
-ssh -i "$SSH_KEY" "${EC2_USER}@${EC2_HOST}" "mkdir -p ${REMOTE_DOWNLOADS_DIR}"
-scp -i "$SSH_KEY" "${APK_PATH}" "${EC2_USER}@${EC2_HOST}:${REMOTE_DOWNLOADS_DIR}/apex-latest.apk"
+scp -i "$SSH_KEY" "${APK_PATH}" "${EC2_USER}@${EC2_HOST}:${REMOTE_DOWNLOADS_DIR}/app-apex-release.apk"
 ssh -i "$SSH_KEY" "${EC2_USER}@${EC2_HOST}" \
-  "echo '{\"build\": ${BUILD_NUMBER}, \"apk_url\": \"https://apexlive-api.mynpe.in/downloads/apex-latest.apk\"}' > ${REMOTE_DOWNLOADS_DIR}/apex-version.json"
+  "echo '{\"build\": ${BUILD_NUMBER}, \"apk_url\": \"https://apexlive-api.mynpe.in/downloads/app-apex-release.apk\"}' > ${REMOTE_DOWNLOADS_DIR}/apex-version.json"
 
 echo "✅ Published — every installed Apex build below ${BUILD_NUMBER} will now be prompted to update."
