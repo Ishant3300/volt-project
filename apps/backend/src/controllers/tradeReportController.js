@@ -5,6 +5,7 @@ const KiteInstrument = require('../models/KiteInstrument');
 const SettlementHistory = require('../models/SettlementHistory');
 const mongoose = require('mongoose');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
+const { computeAveragePricePnl } = require('../utils/averageCostPnl');
 
 /**
  * GET /api/trade/report
@@ -381,13 +382,14 @@ const getTradeReport = async (req, res) => {
       // ── Average-Price P&L Recomputation ──
       // Recompute P&L using the average-price method instead of stored
       // per-trade pnl values (despite the old name, this was never true
-      // FIFO — see _computeAveragePricePnl's own docstring below, which
-      // says so directly). Recomputing here — rather than trusting the
-      // stored `pnl` field — correctly handles cases where the stored
-      // value was computed against a running average that included
-      // prior-week buys, or a settlement close was computed against an
-      // overall average instead of the position actually being closed.
-      const pnl = _computeAveragePricePnl(g.all_trades, carryForwardSeeds[key]);
+      // FIFO — see computeAveragePricePnl's own docstring, which says so
+      // directly). Recomputing here — rather than trusting the stored
+      // `pnl` field — correctly handles cases where the stored value was
+      // computed against a running average that included prior-week buys,
+      // or a settlement close was computed against an overall average
+      // instead of the position actually being closed. Shared with
+      // scriptwisePnlController.js via utils/averageCostPnl.js.
+      const pnl = computeAveragePricePnl(g.all_trades, carryForwardSeeds[key]);
 
       // Brokerage: for ledger (settled) rows use the stored value captured at settlement time.
       // For live rows recalculate, but only with rules that were effective at the trade date
@@ -781,94 +783,6 @@ function _getOrderTypeLabel(trade) {
   if (orderType === 'LIMIT' || orderType === 'SL' || orderType === 'SL-M') return 'LIMIT';
   // Market order by user
   return 'NORMAL';
-}
-
-/**
- * Compute P&L for an instrument using the average-price method (NOT true
- * FIFO — this function used to be misleadingly named _computeFifoPnl,
- * despite this docstring always having said "Average Price method").
- * avgBuyPrice = totalBuyValue / totalBuyQty
- * For each closing trade: pnl = (exitPrice - avgEntryPrice) × closingQty
- *
- * A closing trade decrements only the closed side's running totals by the
- * qty actually matched (closingQty), not a blanket reset — a PARTIAL close
- * (qty < abs(prevNet)) must leave the remainder of the position open at its
- * existing average, otherwise the next trade prices against a wiped-out
- * average of zero. A full close (closingQty === abs(prevNet), no flip)
- * naturally decrements the closed side down to exactly zero via the same
- * arithmetic, so the position starts the next round trip clean — this also
- * fixes the separate case of more than one round trip within the report
- * period getting silently blended together. Confirmed with a worked
- * example: BUY 20/SELL 20 (closed, +4000) then BUY 30/SELL 30 (closed,
- * +7422) should total 11422.00.
- *
- * @param {Array} allTrades - trades sorted chronologically, each with buy_qty/sell_qty/rate
- * @param {Object} [seed] - starting position carried in from before the report
- *   window (from the settlement `trade_type: 'carry_forward'` marker record),
- *   as {totalBuyQty, totalBuyValue, totalSellQty, totalSellValue}. Without
- *   this, every report window is treated as starting flat, so a carried-in
- *   position's real closing trades get misclassified as opening trades and
- *   priced against nothing, understating P&L (often to exactly 0.00).
- * @returns {number} total P&L for this instrument
- */
-function _computeAveragePricePnl(allTrades, seed) {
-  const sorted = [...allTrades].sort((a, b) => new Date(a.date) - new Date(b.date));
-
-  let totalBuyQty = seed?.totalBuyQty || 0, totalBuyValue = seed?.totalBuyValue || 0;
-  let totalSellQty = seed?.totalSellQty || 0, totalSellValue = seed?.totalSellValue || 0;
-  let runningNet = totalBuyQty - totalSellQty;
-  let totalPnl = 0;
-
-  for (const trade of sorted) {
-    const isBuy = (trade.buy_qty || 0) > 0;
-    const qty = isBuy ? trade.buy_qty : (trade.sell_qty || 0);
-    if (qty <= 0) { trade.pnl = 0; continue; }
-
-    const price = trade.rate || 0;
-    const prevNet = runningNet;
-    const isClosing = (isBuy && prevNet < 0) || (!isBuy && prevNet > 0);
-
-    if (!isClosing) {
-      if (isBuy) { totalBuyQty += qty; totalBuyValue += qty * price; }
-      else { totalSellQty += qty; totalSellValue += qty * price; }
-      trade.pnl = 0;
-    } else {
-      const closingQty = Math.min(qty, Math.abs(prevNet));
-      let tradePnl = 0;
-
-      if (!isBuy && prevNet > 0) {
-        const avgBuy = totalBuyQty > 0 ? totalBuyValue / totalBuyQty : 0;
-        tradePnl = (price - avgBuy) * closingQty;
-        totalBuyQty -= closingQty;
-        totalBuyValue -= closingQty * avgBuy;
-      } else if (isBuy && prevNet < 0) {
-        const avgSell = totalSellQty > 0 ? totalSellValue / totalSellQty : 0;
-        tradePnl = (avgSell - price) * closingQty;
-        totalSellQty -= closingQty;
-        totalSellValue -= closingQty * avgSell;
-      }
-
-      trade.pnl = Math.round(tradePnl * 100) / 100;
-      totalPnl += tradePnl;
-
-      const excess = qty - Math.abs(prevNet);
-      if (excess > 0) {
-        // Same-trade flip — the excess beyond the close starts a fresh
-        // position on the opposite side. The closed side is already at
-        // zero from the decrement above.
-        if (isBuy) { totalBuyQty = excess; totalBuyValue = excess * price; }
-        else { totalSellQty = excess; totalSellValue = excess * price; }
-      }
-      // excess <= 0: either an exact full close (closed side already at
-      // zero from the decrement above) or a partial close (remainder of
-      // the position stays open at its existing average) — nothing more
-      // to do in either case.
-    }
-
-    runningNet = isBuy ? runningNet + qty : runningNet - qty;
-  }
-
-  return Math.round(totalPnl * 100) / 100;
 }
 
 module.exports = { getTradeReport, getOpenPositions, getSettlementHistory };

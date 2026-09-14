@@ -55,6 +55,8 @@ const {
   getLiveMetrics
 } = require('../controllers/masterPositionController');
 
+const { getScriptwisePnl } = require('../controllers/scriptwisePnlController');
+
 const { getPnlSummary } = require('../controllers/pnlSummaryController');
 const { getWeeklyAdminReport } = require('../controllers/weeklyAdminController');
 const { getSettlementReport } = require('../controllers/settlementController');
@@ -205,6 +207,11 @@ router.get('/positions/aggregated/:instrumentToken', getInstrumentUserBreakdown)
 
 // Admin: get all masters with their users' positions for live P&L
 router.get('/positions/admin-master-metrics', getAdminMasterMetrics);
+
+// Scriptwise P&L summary (Level 1: one row per script) / detail (Level 2:
+// one row per user, when exchange+tradingsymbol are both given) across the
+// caller's whole hierarchy — see scriptwisePnlController.js.
+router.get('/positions/scriptwise-pnl', requireAdminPermission('REPORTS_ACCESS'), getScriptwisePnl);
 
 // Bulk computed equity for user management list view
 router.get('/positions/bulk-equity', getBulkEquity);
