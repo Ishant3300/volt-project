@@ -1,10 +1,13 @@
 ﻿import 'dart:developer';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/services/multi_account_service.dart';
 import 'package:stocker/services/api_service.dart';
+import 'package:stocker/services/update_check_service.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
 import 'package:stocker/providers/investor_mode_provider.dart';
@@ -35,6 +38,10 @@ class _InitialScreenState extends State<InitialScreen> {
     print('🔐 Checking authentication status...');
 
     await Future.delayed(const Duration(seconds: 2));
+
+    if (!mounted) return;
+    await _checkForUpdate();
+    if (!mounted) return;
 
     try {
       final token = await _storage.getToken();
@@ -165,6 +172,48 @@ class _InitialScreenState extends State<InitialScreen> {
         MaterialPageRoute(builder: (context) => const LoginPage()),
       );
     }
+  }
+
+  /// Checked once per cold start, before the auth flow even runs, so it
+  /// applies to every role (client/master/admin) and to a logged-out
+  /// device alike. Update: opens the APK in the browser and lets the user
+  /// keep using the current install in the meantime — there's no
+  /// in-app-install flow for a sideloaded APK, so this is the closest to
+  /// "update" available. Cancel: closes the app outright, by design — an
+  /// outdated build simply isn't allowed to continue past this point.
+  Future<void> _checkForUpdate() async {
+    final update = await UpdateCheckService().check();
+    if (update == null || !mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: const Text('Update available'),
+          content: const Text(
+            'A new version of the app is available. Please update to continue using the app.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => SystemNavigator.pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                launchUrl(
+                  Uri.parse(update.apkUrl),
+                  mode: LaunchMode.externalApplication,
+                );
+                Navigator.of(dialogContext).pop();
+              },
+              child: const Text('Update'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override

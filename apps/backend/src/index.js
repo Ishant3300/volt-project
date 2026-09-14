@@ -73,6 +73,14 @@ app.use(cors({
   credentials: true,
 }));
 
+// Mobile force-update check (apps/flutter's UpdateCheckService) — a plain
+// static file fetch, not an API route, so it's served before the JSON body
+// parser / auth middleware below. `<brand>-version.json` + the APK itself
+// are overwritten by deploy/flutter-build-*.sh on every release build; no
+// DB model or admin endpoint needed since the file's own presence IS the
+// "latest version" state.
+app.use('/downloads', express.static(path.join(__dirname, '../public/downloads')));
+
 // Body parsing with size limits
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
