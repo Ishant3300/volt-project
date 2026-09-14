@@ -16,6 +16,14 @@ const settlementRunSchema = new mongoose.Schema({
   price_dates: {
     nse: { type: Date, required: true },
     mcx: { type: Date, required: true },
+    // GLOBAL/COMEX (massiveSettlementService.js) official price date — was
+    // missing from this schema even after settlementService.js started
+    // computing it, so Mongoose's default strict mode silently dropped it on
+    // every save. Every GLOBAL/COMEX position failed validation with
+    // "official settlement source unsupported" on every run/retry as a
+    // result, regardless of the instrument's own settlement price being
+    // correct.
+    global: { type: Date },
   },
   // False only when calendar resolution failed before source dates could be
   // certified. Such a run remains durable/failed and fences every writer.
