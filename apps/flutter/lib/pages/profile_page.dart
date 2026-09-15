@@ -17,7 +17,6 @@ import '../services/multi_account_service.dart';
 import '../providers/user_profile_provider.dart';
 import '../providers/trade_metrics_provider.dart';
 import '../providers/investor_mode_provider.dart';
-import '../providers/feature_unlock_provider.dart';
 import '../widgets/brand_menu_row.dart';
 import '../pages/login_page.dart';
 import '../services/firebase_service.dart';
@@ -497,23 +496,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: Consumer<FeatureUnlockProvider>(
-                  builder: (context, unlock, _) {
-                    if (!unlock.isUnlocked) {
-                      // Locked: only Settings is visible — everything else
-                      // (account management, admin tools, reports, logout,
-                      // even the fact that other accounts exist) stays
-                      // hidden until the tap gesture unlocks the app.
-                      return Column(
-                        children: [
-                          _buildMenuItem(context, 'Settings',
-                              svgPath: kIconSettings),
-                        ],
-                      );
-                    }
-                    return Column(
-                      children: [
-                        if (_isAdmin) ...[
+                child: Column(
+                  children: [
+                    if (_isAdmin) ...[
                           _buildMenuItem(context, 'Admin Setting',
                               svgPath: kIconAdminSettings),
                           _buildDivider(),
@@ -573,9 +558,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         ],
                         _buildMenuItem(context, 'Logout',
                             svgPath: kIconLogout, isRed: true),
-                      ],
-                    );
-                  },
+                  ],
                 ),
               ),
 

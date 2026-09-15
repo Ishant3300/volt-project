@@ -2,7 +2,6 @@
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:stocker/providers/investor_mode_provider.dart';
-import 'package:stocker/providers/feature_unlock_provider.dart';
 import 'utils/contants.dart';
 import 'pages/watchlist_page.dart';
 import 'pages/orders_page.dart';
@@ -18,7 +17,7 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
+class _MyHomePageState extends State<MyHomePage> {
   int _selectedIndex = 0;
 
   final List<Widget> _pages = [
@@ -28,50 +27,18 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     const ProfilePage(),
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Re-lock the instant the app leaves the foreground — a backgrounded
-    // app that gets glanced at or reopened by someone else should never
-    // still show the unlocked feature set.
-    if (state == AppLifecycleState.paused) {
-      final unlock = Provider.of<FeatureUnlockProvider>(context, listen: false);
-      unlock.lock();
-      if (_selectedIndex != 0) setState(() => _selectedIndex = 0);
-    }
-  }
-
-  // Hidden unlock gesture: a long-press on the Watchlist nav icon reveals
-  // the full app — replaces the old "4 taps within 2s" gesture, which was
-  // easy to trigger by accident during fast, repeated tab-switching.
-  void _unlockFeatures() {
-    Provider.of<FeatureUnlockProvider>(context, listen: false).unlock();
-  }
-
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
   }
 
-  Widget _buildNavItem(String svgPath, String label, int index, {VoidCallback? onLongPress}) {
+  Widget _buildNavItem(String svgPath, String label, int index) {
     final bool isSelected = _selectedIndex == index;
     final color =
         isSelected ? kBrandPrimary : const Color(0xFF94A3B8);
     return GestureDetector(
       onTap: () => _onItemTapped(index),
-      onLongPress: onLongPress,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -112,11 +79,6 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final isUnlocked = context.watch<FeatureUnlockProvider>().isUnlocked;
-    final effectiveIndex =
-        (!isUnlocked && (_selectedIndex == 1 || _selectedIndex == 2))
-            ? 0
-            : _selectedIndex;
     return Scaffold(
       body: Column(
         children: [
@@ -151,7 +113,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
               );
             },
           ),
-          Expanded(child: _pages[effectiveIndex]),
+          Expanded(child: _pages[_selectedIndex]),
         ],
       ),
       bottomNavigationBar: Container(
@@ -176,9 +138,9 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildNavItem(kIconWatchlist, 'Watchlist', 0, onLongPress: _unlockFeatures),
-                if (isUnlocked) _buildNavItem(kIconOrders, 'Portfolio', 1),
-                if (isUnlocked) _buildNavItem(kIconHistory, 'Orders', 2),
+                _buildNavItem(kIconWatchlist, 'Watchlist', 0),
+                _buildNavItem(kIconOrders, 'Portfolio', 1),
+                _buildNavItem(kIconHistory, 'Orders', 2),
                 _buildNavItem(kIconProfile, 'Profile', 3),
               ],
             ),
