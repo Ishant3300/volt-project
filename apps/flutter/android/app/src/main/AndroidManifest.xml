@@ -2,6 +2,13 @@
     <!-- Required permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Force-update flow: download the APK in-app then launch Android's own
+         package installer directly (open_filex), instead of a browser
+         download the user has to go find in their Downloads folder and
+         open manually. Android still shows its own "allow installs from
+         this app" prompt the first time — this permission is what makes
+         that prompt reachable at all, not a way to skip it. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     
     <application
         android:label="@string/app_name"

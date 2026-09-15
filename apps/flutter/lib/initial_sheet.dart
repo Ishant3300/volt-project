@@ -1,9 +1,12 @@
 ﻿import 'dart:developer';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
+import 'package:open_filex/open_filex.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/services/multi_account_service.dart';
 import 'package:stocker/services/api_service.dart';
@@ -176,11 +179,13 @@ class _InitialScreenState extends State<InitialScreen> {
 
   /// Checked once per cold start, before the auth flow even runs, so it
   /// applies to every role (client/master/admin) and to a logged-out
-  /// device alike. Update: opens the APK in the browser and lets the user
-  /// keep using the current install in the meantime — there's no
-  /// in-app-install flow for a sideloaded APK, so this is the closest to
-  /// "update" available. Cancel: closes the app outright, by design — an
-  /// outdated build simply isn't allowed to continue past this point.
+  /// device alike. Update: downloads the APK into the app's own temp
+  /// storage and hands it straight to Android's package installer
+  /// (open_filex) — a plain browser-launched download only ever produces a
+  /// "downloaded" notification the user has to go find in their Downloads
+  /// folder and open manually, which is exactly the friction this is meant
+  /// to remove. Cancel: closes the app outright, by design — an outdated
+  /// build simply isn't allowed to continue past this point.
   Future<void> _checkForUpdate() async {
     final update = await UpdateCheckService().check();
     if (update == null || !mounted) return;
@@ -190,28 +195,7 @@ class _InitialScreenState extends State<InitialScreen> {
       barrierDismissible: false,
       builder: (dialogContext) => PopScope(
         canPop: false,
-        child: AlertDialog(
-          title: const Text('Update available'),
-          content: const Text(
-            'A new version of the app is available. Please update to continue using the app.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => SystemNavigator.pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                launchUrl(
-                  Uri.parse(update.apkUrl),
-                  mode: LaunchMode.externalApplication,
-                );
-                Navigator.of(dialogContext).pop();
-              },
-              child: const Text('Update'),
-            ),
-          ],
-        ),
+        child: _UpdateDialog(apkUrl: update.apkUrl),
       ),
     );
   }
@@ -228,6 +212,115 @@ class _InitialScreenState extends State<InitialScreen> {
         },
         child: const SplashScreen(),
       ),
+    );
+  }
+}
+
+enum _UpdateStage { prompt, downloading, error }
+
+/// Update/Cancel prompt that, on Update, downloads the APK into the app's
+/// own cache dir and hands it straight to Android's package installer
+/// (open_filex) instead of just launching a browser download the user has
+/// to go find manually. Cancel stays reachable throughout, including mid
+/// download, so a stalled/slow download can never leave the user stuck.
+class _UpdateDialog extends StatefulWidget {
+  final String apkUrl;
+  const _UpdateDialog({required this.apkUrl});
+
+  @override
+  State<_UpdateDialog> createState() => _UpdateDialogState();
+}
+
+class _UpdateDialogState extends State<_UpdateDialog> {
+  _UpdateStage _stage = _UpdateStage.prompt;
+  double? _progress; // null = indeterminate (no Content-Length reported)
+  String? _errorMessage;
+
+  Future<void> _startDownload() async {
+    setState(() {
+      _stage = _UpdateStage.downloading;
+      _progress = null;
+      _errorMessage = null;
+    });
+    try {
+      final request = http.Request('GET', Uri.parse(widget.apkUrl));
+      final response = await http.Client().send(request);
+      if (response.statusCode != 200) {
+        throw Exception('Download failed (${response.statusCode})');
+      }
+
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/apex_update.apk');
+      final sink = file.openWrite();
+
+      final total = response.contentLength;
+      var received = 0;
+      await for (final chunk in response.stream) {
+        sink.add(chunk);
+        received += chunk.length;
+        if (total != null && total > 0 && mounted) {
+          setState(() => _progress = received / total);
+        }
+      }
+      await sink.close();
+
+      if (!mounted) return;
+      final result = await OpenFilex.open(file.path);
+      // A non-'done' result (e.g. the user has never allowed installs from
+      // this app, or declines Android's own "install unknown app" prompt)
+      // leaves the OLD build still running — return to the prompt so
+      // Update can be retried rather than silently stranding the dialog.
+      if (result.type != ResultType.done && mounted) {
+        setState(() {
+          _stage = _UpdateStage.error;
+          _errorMessage = result.message.isNotEmpty
+              ? result.message
+              : 'Could not open the installer — please allow installs from this app if prompted, then try again.';
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _stage = _UpdateStage.error;
+        _errorMessage = 'Download failed: $e';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Update available'),
+      content: switch (_stage) {
+        _UpdateStage.prompt => const Text(
+            'A new version of the app is available. Please update to continue using the app.',
+          ),
+        _UpdateStage.downloading => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Downloading update…'),
+              const SizedBox(height: 12),
+              LinearProgressIndicator(value: _progress),
+              if (_progress != null) ...[
+                const SizedBox(height: 6),
+                Text('${(_progress! * 100).toStringAsFixed(0)}%'),
+              ],
+            ],
+          ),
+        _UpdateStage.error => Text(_errorMessage ?? 'Something went wrong.'),
+      },
+      actions: [
+        TextButton(
+          onPressed: () => SystemNavigator.pop(),
+          child: const Text('Cancel'),
+        ),
+        if (_stage != _UpdateStage.downloading)
+          TextButton(
+            onPressed: _startDownload,
+            child: Text(_stage == _UpdateStage.error ? 'Retry' : 'Update'),
+          ),
+      ],
     );
   }
 }
