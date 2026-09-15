@@ -56,6 +56,7 @@ const {
 } = require('../controllers/masterPositionController');
 
 const { getScriptwisePnl } = require('../controllers/scriptwisePnlController');
+const { getTradeAlerts } = require('../controllers/tradeAlertController');
 
 const { getPnlSummary } = require('../controllers/pnlSummaryController');
 const { getWeeklyAdminReport } = require('../controllers/weeklyAdminController');
@@ -212,6 +213,14 @@ router.get('/positions/admin-master-metrics', getAdminMasterMetrics);
 // one row per user, when exchange+tradingsymbol are both given) across the
 // caller's whole hierarchy — see scriptwisePnlController.js.
 router.get('/positions/scriptwise-pnl', requireAdminPermission('REPORTS_ACCESS'), getScriptwisePnl);
+
+// Trade Alert (web-only) live-log backfill — see tradeAlertController.js.
+// This route/controller existed in the older apex-backend-node repo but was
+// never ported when apex-project became the real deployed backend — the web
+// Trade Alert page has been calling a 404 the whole time. Restored here
+// along with the metricsEngine.broadcastTradeAlert wiring (tradeController.js,
+// orderExecutionService.js, priceQueueService.js) that feeds it live.
+router.get('/trade-alerts', getTradeAlerts);
 
 // Bulk computed equity for user management list view
 router.get('/positions/bulk-equity', getBulkEquity);

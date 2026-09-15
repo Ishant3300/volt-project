@@ -1200,6 +1200,39 @@ const placeTrade = async (req, res) => {
                 pnl: resultTrade.pnl,
                 brokerage: resultTrade.brokerage,
             });
+
+            // Trade Alert (web-only): live log for a master watching their
+            // whole downstream tree, plus admin. Purely additive, own
+            // try/catch so any failure here can never affect the trade
+            // response already computed above.
+            try {
+                const metricsEngine = require('../services/metricsEngine');
+                const [alertUser, alertInst] = await Promise.all([
+                    User.findById(resultTrade.user_id).select('name username').lean(),
+                    // MCX-FUT trades only ever fill in whole lots on this platform —
+                    // the web Trade Alert page shows quantity as a lot count for
+                    // these rows, so the broadcast needs segment/lot_size too.
+                    KiteInstrument.findOne({ instrument_token: resultTrade.instrument_token }).select('segment lot_size').lean(),
+                ]);
+                metricsEngine.broadcastTradeAlert(resultTrade.user_id.toString(), {
+                    trade_id: resultTrade._id.toString(),
+                    user_id: resultTrade.user_id.toString(),
+                    client_name: alertUser?.name || null,
+                    client_username: alertUser?.username || null,
+                    instrument_token: resultTrade.instrument_token,
+                    tradingsymbol: resultTrade.tradingsymbol,
+                    segment: alertInst?.segment || null,
+                    lot_size: alertInst?.lot_size || null,
+                    transaction_type: resultTrade.transaction_type,
+                    quantity: resultTrade.executed_quantity,
+                    price: resultTrade.executed_price,
+                    order_type: resultTrade.order_type,
+                    status: 'completed',
+                    executed_at: resultTrade.executed_at || new Date(),
+                });
+            } catch (alertErr) {
+                console.error('⚠️ [TradeAlert] broadcast error:', alertErr.message);
+            }
         }
 
         // Register pending LIMIT and SL/SL-M orders before releasing the
@@ -1245,6 +1278,36 @@ const placeTrade = async (req, res) => {
                     order_type: resultTrade.order_type,
                     status: 'pending',
                 });
+
+                // Trade Alert (web-only): a pending LIMIT/SL/SL-M order was
+                // just placed, not yet filled — logged with status
+                // 'pending' so the live log distinguishes it from an actual
+                // execution. Own try/catch, purely additive.
+                try {
+                    const metricsEngine = require('../services/metricsEngine');
+                    const [alertUser, alertInst] = await Promise.all([
+                        User.findById(resultTrade.user_id).select('name username').lean(),
+                        KiteInstrument.findOne({ instrument_token: resultTrade.instrument_token }).select('segment lot_size').lean(),
+                    ]);
+                    metricsEngine.broadcastTradeAlert(resultTrade.user_id.toString(), {
+                        trade_id: resultTrade._id.toString(),
+                        user_id: resultTrade.user_id.toString(),
+                        client_name: alertUser?.name || null,
+                        client_username: alertUser?.username || null,
+                        instrument_token: resultTrade.instrument_token,
+                        tradingsymbol: resultTrade.tradingsymbol,
+                        segment: alertInst?.segment || null,
+                        lot_size: alertInst?.lot_size || null,
+                        transaction_type: resultTrade.transaction_type,
+                        quantity: resultTrade.quantity,
+                        price: resultTrade.price,
+                        order_type: resultTrade.order_type,
+                        status: 'pending',
+                        executed_at: resultTrade.createdAt || new Date(),
+                    });
+                } catch (alertErr) {
+                    console.error('⚠️ [TradeAlert] broadcast error:', alertErr.message);
+                }
             }
         }
 

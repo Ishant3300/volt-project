@@ -522,6 +522,34 @@ async function notifyOutcome(outcome, livePrice) {
     pnl: outcome.realisedPnl,
     status: 'completed',
   });
+
+  // Trade Alert (web-only) — this is the PRIMARY fill path when Redis/
+  // BullMQ is handling execution (the common case in production; see the
+  // DB-fallback engine in orderExecutionService.js for when it isn't).
+  // Own try/catch, purely additive.
+  try {
+    const alertUser = await User.findById(trade.user_id).select('name username').lean();
+    const alertInst = await KiteInstrument.findOne({ instrument_token: trade.instrument_token }).select('segment lot_size').lean();
+    metricsEngine.broadcastTradeAlert(trade.user_id.toString(), {
+      trade_id: trade._id.toString(),
+      user_id: trade.user_id.toString(),
+      client_name: alertUser?.name || null,
+      client_username: alertUser?.username || null,
+      instrument_token: trade.instrument_token,
+      tradingsymbol: trade.tradingsymbol,
+      segment: alertInst?.segment || null,
+      lot_size: alertInst?.lot_size || null,
+      transaction_type: trade.transaction_type,
+      quantity: trade.quantity,
+      price: trade.price,
+      order_type: trade.order_type,
+      status: 'completed',
+      executed_at: new Date(),
+    });
+  } catch (alertErr) {
+    console.error(`⚠️ [TradeAlert] broadcast error for trade ${trade._id}:`, alertErr.message);
+  }
+
   await metricsEngine.onTradeExecuted(trade.user_id.toString());
   const isStopOrder = trade.order_type === 'SL' || trade.order_type === 'SL-M';
   firebaseService.sendNotification(trade.user_id.toString(), 'pending_order', {

@@ -1255,6 +1255,51 @@ class MetricsEngine {
   }
 
   /**
+   * Broadcast a single trade event (placed, executed, or filled later off
+   * a pending LIMIT/SL order) to the trade owner's DIRECT MASTER and every
+   * ancestor master up the chain, plus all admin clients — for the web-only
+   * Trade Alert live-log page. Same fan-out walk _broadcastUserMetrics
+   * already uses for metrics_update (this._userCache / this._masterParentMap),
+   * just a different event type and payload; does not touch or replace
+   * anything that function does. Deliberately does NOT send to the trade
+   * owner's own socket — trade_executed/trade_placed already cover that
+   * separately (tradeController.js), this is purely for the
+   * watching-my-tree audience.
+   *
+   * Swallows its own errors — a failure here must never affect the trade
+   * placement/fill flow that calls it. Call sites wrap this in their own
+   * try/catch too as a second layer, since this runs on the hot trade path.
+   */
+  broadcastTradeAlert(userId, alertData) {
+    if (!this.livePriceService) return;
+    try {
+      const msg = { type: 'trade_alert', data: alertData };
+
+      const cache = this._userCache.get(userId);
+      if (cache && cache.masterId) {
+        let currentMasterId = cache.masterId;
+        const visited = new Set();
+        while (currentMasterId && !visited.has(currentMasterId)) {
+          visited.add(currentMasterId);
+          this.livePriceService.broadcastToUser(currentMasterId, msg);
+          currentMasterId = this._masterParentMap?.[currentMasterId] || null;
+        }
+      }
+
+      if (this.livePriceService.wss) {
+        const raw = JSON.stringify(msg);
+        this.livePriceService.wss.clients.forEach(client => {
+          if (client.readyState === 1 && client.isAdmin) {
+            client.send(raw);
+          }
+        });
+      }
+    } catch (e) {
+      console.error('📊 [MetricsEngine] broadcastTradeAlert error:', e.message);
+    }
+  }
+
+  /**
    * Returns the cached margin config for a user (loaded during cache rebuild).
    * Used by marginSquareOffService to avoid per-tick DB reads.
    */

@@ -553,6 +553,36 @@ const processPendingOrders = async () => {
                         status: 'completed',
                     });
 
+                    // Notify masters/admins on the Trade Alert live-log page — same
+                    // broadcast as tradeController.js's placeTrade and
+                    // priceQueueService.js's notifyOutcome; this is the DB-fallback
+                    // fill path (used when Redis/BullMQ is unavailable).
+                    try {
+                        const metricsEngine = require('./metricsEngine');
+                        const [alertInst, alertUser] = await Promise.all([
+                            KiteInstrument.findOne({ instrument_token: trade.instrument_token }).select('segment lot_size').lean(),
+                            User.findById(trade.user_id).select('name username').lean(),
+                        ]);
+                        metricsEngine.broadcastTradeAlert(trade.user_id.toString(), {
+                            trade_id: trade._id.toString(),
+                            user_id: trade.user_id.toString(),
+                            client_name: alertUser?.name || null,
+                            client_username: alertUser?.username || null,
+                            instrument_token: trade.instrument_token,
+                            tradingsymbol: trade.tradingsymbol,
+                            segment: alertInst?.segment || null,
+                            lot_size: alertInst?.lot_size || null,
+                            transaction_type: trade.transaction_type,
+                            quantity: trade.quantity,
+                            price: trade.price,
+                            order_type: trade.order_type,
+                            status: 'completed',
+                            executed_at: trade.executed_at || new Date(),
+                        });
+                    } catch (alertErr) {
+                        console.error('⚠️ [TradeAlert] broadcast error:', alertErr.message);
+                    }
+
                     // FCM push notification for pending order execution
                     firebaseService.sendNotification(trade.user_id.toString(), 'pending_order', {
                         title: 'Limit Order Executed',
