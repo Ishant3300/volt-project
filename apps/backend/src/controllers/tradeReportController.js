@@ -391,52 +391,6 @@ const getTradeReport = async (req, res) => {
       // scriptwisePnlController.js via utils/averageCostPnl.js.
       const pnl = computeAveragePricePnl(g.all_trades, carryForwardSeeds[key]);
 
-      // Brokerage: for ledger (settled) rows use the stored value captured at settlement time.
-      // For live rows recalculate, but only with rules that were effective at the trade date
-      // (prevents a brokerage rate change from retroactively affecting old trades).
-      const instrTrades = trades.filter(t => `${t.exchange}::${t.tradingsymbol}` === key);
-      let brokerage = 0;
-      for (const t of instrTrades) {
-        if (t.trade_type === 'carry_forward') continue;
-
-        // Settled/historical fills: trust the brokerage stored in the ledger.
-        if (t._is_ledger) {
-          brokerage += t._stored_brokerage || 0;
-          continue;
-        }
-
-        // A margin square-off already has real brokerage computed and billed
-        // at execution time (marginSquareOffService.js) — trust it directly
-        // rather than recalculating against whatever the CURRENT rate is,
-        // same reasoning as not recomputing a stored ledger value.
-        if (t.trade_type === 'margin_square_off') {
-          brokerage += t.brokerage || 0;
-          continue;
-        }
-
-        // Live fills: recalculate using only rules effective at the trade's execution time.
-        const tradeDate = new Date(t.executed_at);
-        const ki = kiteMap[t.instrument_token] || {};
-        const seg = ki.segment || '';
-        const rawName = ki.raw_name || '';
-        const lotSize = ki.lot_size || 1;
-
-        const rule = _findBrokerageRule(rawName, seg, tradeDate);
-
-        if (rule) {
-          if (rule.type === 'TURNOVER WISE') {
-            brokerage += t.executed_price * t.executed_quantity * (rule.brk_value / 10000);
-          } else if (rule.type === 'LOT WISE') {
-            brokerage += (lotSize > 1 ? t.executed_quantity / lotSize : t.executed_quantity) * rule.brk_value;
-          }
-        }
-      }
-
-      const netPnl = pnl - brokerage;
-
-      grandTotalPnl += pnl;
-      grandBrokerage += brokerage;
-
       // Per-trade brokerage in all_trades: use stored value for ledger rows,
       // recalculate with effective rules for live rows.
       const ki = kiteMap[g.instrument_token] || {};
@@ -474,6 +428,28 @@ const getTradeReport = async (req, res) => {
           }
         }
       }
+
+      // Confirmed bug: the "Script wise total" Br figure used to come from
+      // an INDEPENDENT second brokerage computation over `instrTrades`,
+      // re-deriving each live trade's rate via _findBrokerageRule a second
+      // time instead of reusing the per-row values just computed above —
+      // so it never actually reconciled against the individual row Br cells
+      // it was supposedly totaling. Confirmed live: two NFO legs correctly
+      // showing 116.29 and 116.26 individually, but a "Script wise total"
+      // of 30.77 instead of 232.55; two MCX legs correctly showing 1,000.00
+      // each, but a script total of 400.00 instead of 2,000.00. Summing the
+      // SAME g.all_trades rows the per-row loop just finalized guarantees
+      // the total always reconciles with what's actually displayed above it.
+      let brokerage = 0;
+      for (const at of g.all_trades) {
+        if (at.trade_type === 'carry_forward') continue;
+        brokerage += at.brokerage || 0;
+      }
+
+      const netPnl = pnl - brokerage;
+
+      grandTotalPnl += pnl;
+      grandBrokerage += brokerage;
 
       // Build friendly display name from KiteInstrument data
       let displayName = g.tradingsymbol;
