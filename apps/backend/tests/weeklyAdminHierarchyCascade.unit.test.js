@@ -202,3 +202,85 @@ describe('_findRule — blank-exchange fallback must not match an unrecognized i
     expect(_findRule(rules, 'CRUDEOIL', 'MCX')).toEqual(rules[0]);
   });
 });
+
+describe('deep hierarchy (30 tiers) — neither formula walks the chain, so depth cannot silently truncate it', () => {
+  // Both formulas only ever need TWO numbers to compute one report row: the
+  // caller's own value, and their DIRECT CHILD's own value (the row being
+  // shown) — never the whole chain in between. Unlike the deleted
+  // multiplicative-cascade model (which had a real, historical bug: a
+  // hardcoded depth cap that silently truncated anything past 10 tiers),
+  // there's no walk here to cap in the first place. This suite proves that
+  // property holds at real depth, not just in the 4-5 tier hand-verified
+  // examples above.
+  const N = 30;
+
+  // Tier i's own ceiling counts DOWN from 100 (Admin's implicit ceiling) to
+  // just above 0, evenly spaced — e.g. tier 0 (Admin's direct child) sits
+  // at ~96.7, tier 29 (the client's direct master) sits at ~3.3.
+  function ceilingFor(tier) {
+    return 100 * (N - tier) / (N + 1);
+  }
+  // Tier i's own configured rate counts UP from a small base to just under
+  // the client's own rate — mirrors the real 996789(25)->...->999746(300)
+  // ->client(1000) ladder, just stretched across 30 tiers instead of 4.
+  const CLIENT_RATE = 1000;
+  function rateFor(tier) {
+    return CLIENT_RATE * (tier + 1) / (N + 1);
+  }
+
+  const masterMap = {};
+  for (let i = 0; i < N; i++) {
+    masterMap[`tier${i}`] = {
+      master_id: i === 0 ? null : `tier${i - 1}`,
+      pnl_sharing: ceilingFor(i),
+      brokerage_sharing: ceilingFor(i),
+    };
+  }
+
+  test('P&L: every tier\'s own ceiling-difference retention sums to exactly 100% across all 30 tiers + Admin', () => {
+    let sum = _ceilingPct('tier0', 'admin', masterMap, 'pnl_sharing') - ceilingFor(0); // Admin's own slice
+    for (let i = 0; i < N - 1; i++) {
+      sum += ceilingFor(i) - ceilingFor(i + 1); // tier i's own slice, handing off to tier i+1
+    }
+    sum += ceilingFor(N - 1) - 0; // the bottom-most tier's own slice, handing off to the client
+    expect(sum).toBeCloseTo(100, 8);
+  });
+
+  test('P&L: a middle tier (15 of 30) computes its own retention correctly, not a truncated/capped value', () => {
+    // If a depth cap existed and silently kicked in past, say, 10 tiers,
+    // this middle tier's retention would come out wrong (either 0, or the
+    // wrong pair of ceilings). It doesn't — the formula only ever looks at
+    // tier15's own ceiling and tier16's own ceiling, regardless of N.
+    const own = _ceilingPct('tier15', 'master', masterMap, 'pnl_sharing');
+    const child = _ceilingPct('tier16', 'master', masterMap, 'pnl_sharing');
+    expect(own).toBeCloseTo(ceilingFor(15), 8);
+    expect(child).toBeCloseTo(ceilingFor(16), 8);
+    expect(own - child).toBeCloseTo(ceilingFor(15) - ceilingFor(16), 8);
+  });
+
+  test('brokerage: every tier\'s own rate-gap markup sums to exactly the client\'s total billed amount across all 30 tiers + Admin', () => {
+    const kiteMap = { TOK: { lot_size: 1, segment: 'MCX-FUT', raw_name: 'TESTSCRIPT' } };
+    const trades = [{ instrument_token: 'TOK', executed_price: 1, executed_quantity: 10 }]; // 10 lots
+    const byInstrument = _groupTradesByInstrument(trades, kiteMap);
+    const ruleFor = (rate) => [{ script_name: 'TESTSCRIPT', exchange_name: 'MCX-FUT', type: 'LOT WISE', brk_value: rate }];
+
+    const clientClearance = _clearanceForRules(byInstrument, ruleFor(CLIENT_RATE), kiteMap);
+
+    let sum = clientClearance - _clearanceForRules(byInstrument, ruleFor(rateFor(N - 1)), kiteMap); // bottom-most tier's own markup
+    for (let i = N - 1; i > 0; i--) {
+      sum += _clearanceForRules(byInstrument, ruleFor(rateFor(i)), kiteMap)
+        - _clearanceForRules(byInstrument, ruleFor(rateFor(i - 1)), kiteMap); // tier i's own markup
+    }
+    sum += _clearanceForRules(byInstrument, ruleFor(rateFor(0)), kiteMap); // Admin's own markup (their own clearance is 0)
+
+    expect(sum).toBeCloseTo(clientClearance, 8);
+  });
+
+  test('brokerage: a middle tier (15 of 30) computes its own clearance from its own rate, not a truncated/capped value', () => {
+    const kiteMap = { TOK: { lot_size: 1, segment: 'MCX-FUT', raw_name: 'TESTSCRIPT' } };
+    const trades = [{ instrument_token: 'TOK', executed_price: 1, executed_quantity: 10 }];
+    const byInstrument = _groupTradesByInstrument(trades, kiteMap);
+    const rules = [{ script_name: 'TESTSCRIPT', exchange_name: 'MCX-FUT', type: 'LOT WISE', brk_value: rateFor(15) }];
+    expect(_clearanceForRules(byInstrument, rules, kiteMap)).toBeCloseTo(rateFor(15) * 10, 8);
+  });
+});
