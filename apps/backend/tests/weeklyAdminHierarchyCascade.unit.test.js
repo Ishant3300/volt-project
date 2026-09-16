@@ -27,8 +27,9 @@
 // tiers.
 
 const {
-  _computeCallerBrkForUserBatched,
   _ceilingPct,
+  _groupTradesByInstrument,
+  _clearanceForRules,
   _getUserBrokerageAndTurnoverBatched,
   _findRule,
 } = require('../src/controllers/weeklyAdminController')._private;
@@ -102,38 +103,65 @@ describe('flat ceiling-based P&L partition — real 4-tier hierarchy, user-confi
   function _r2(n) { return Math.round(n * 100) / 100; }
 });
 
-describe('_computeCallerBrkForUserBatched — own base rate + ceiling-based share of the spread', () => {
+describe('rate-gap brokerage model — a tier keeps the MARKUP between the next rate down and their own, not a % share of the spread', () => {
+  // Confirmed business rule, user-verified against a real 4-tier hierarchy
+  // (Admin -> 996789(rate 25/lot) -> 705206(100/lot) -> 254831(200/lot) ->
+  // 999746(300/lot) -> a client billed at 1000/lot, 2 lots): each tier
+  // keeps (the rate charged to whoever is directly below them, on the path
+  // to this pool - their own configured rate) * volume. Their own
+  // configured rate flows entirely upward, to be split the exact same way
+  // one level up — NOT a percentage-weighted share of the spread (that
+  // model was tried and confirmed wrong: it gave every tier only a
+  // FRACTION of the markup instead of the whole thing).
   const kiteMap = { TOK: { lot_size: 1, segment: 'MCX-FUT', raw_name: 'TESTSCRIPT' } };
-  const callerRules = [{ script_name: 'TESTSCRIPT', exchange_name: 'MCX-FUT', type: 'LOT WISE', brk_value: 200 }];
-  const tradesByUser = { u1: [{ instrument_token: 'TOK', executed_price: 800, executed_quantity: 12 }] };
+  const clientRules = [{ script_name: 'TESTSCRIPT', exchange_name: 'MCX-FUT', type: 'LOT WISE', brk_value: 1000 }];
+  const tier999746Rules = [{ script_name: 'TESTSCRIPT', exchange_name: 'MCX-FUT', type: 'LOT WISE', brk_value: 300 }];
+  const tier254831Rules = [{ script_name: 'TESTSCRIPT', exchange_name: 'MCX-FUT', type: 'LOT WISE', brk_value: 200 }];
+  const clientTrades = [{ instrument_token: 'TOK', executed_price: 1000, executed_quantity: 2 }];
 
-  test('caller with 0% retention on the spread keeps only their own base clearance', () => {
-    const brk = _computeCallerBrkForUserBatched('u1', tradesByUser, callerRules, kiteMap, 9600, 0);
-    // base = 12 lots * 200 = 2400; spread = 9600-2400=7200; unpassed = 7200*(100-0)/100=7200 (all of it, since 0% retained)
-    expect(brk).toBeCloseTo(2400 + 7200, 5);
+  test('999746 (direct master of the client) keeps the FULL markup (1000-300)*2=1400, not a fraction of it', () => {
+    const byInstrument = _groupTradesByInstrument(clientTrades, kiteMap);
+    const clientBilled = _clearanceForRules(byInstrument, clientRules, kiteMap); // 2000
+    const own999746Clearance = _clearanceForRules(byInstrument, tier999746Rules, kiteMap); // 600
+    const callerBrk = clientBilled - own999746Clearance;
+    expect(callerBrk).toBeCloseTo(1400, 5);
   });
 
-  test('caller with 100% retention on the spread keeps their base clearance plus the WHOLE spread', () => {
-    const brk = _computeCallerBrkForUserBatched('u1', tradesByUser, callerRules, kiteMap, 9600, 100);
-    // unpassed = 7200*(100-100)/100 = 0
-    expect(brk).toBeCloseTo(2400, 5);
+  test('254831 (one tier further up) keeps the gap to 999746\'s rate: (300-200)*2=200', () => {
+    const byInstrument = _groupTradesByInstrument(clientTrades, kiteMap);
+    const masterClearance = _clearanceForRules(byInstrument, tier999746Rules, kiteMap); // 600 (999746's own rate)
+    const callerClearance = _clearanceForRules(byInstrument, tier254831Rules, kiteMap); // 400 (254831's own rate)
+    const callerBrk = masterClearance - callerClearance;
+    expect(callerBrk).toBeCloseTo(200, 5);
   });
 
-  test('a mid-range retention splits the spread proportionally', () => {
-    const brk = _computeCallerBrkForUserBatched('u1', tradesByUser, callerRules, kiteMap, 9600, 25);
-    // unpassed = 7200*(100-25)/100 = 5400; total = 2400+5400=7800
-    expect(brk).toBeCloseTo(7800, 5);
+  test('a tier with no matching rate rule contributes zero clearance, not a crash', () => {
+    const byInstrument = _groupTradesByInstrument(clientTrades, kiteMap);
+    expect(_clearanceForRules(byInstrument, [], kiteMap)).toBe(0);
   });
 
-  test('no matching rule for the caller means zero base clearance, not a crash', () => {
-    const brk = _computeCallerBrkForUserBatched('u1', tradesByUser, [], kiteMap, 9600, 50);
-    // base=0; spread=9600; unpassed=9600*0.5=4800
-    expect(brk).toBeCloseTo(4800, 5);
+  test('an empty trade list produces zero clearance for any rules', () => {
+    const byInstrument = _groupTradesByInstrument([], kiteMap);
+    expect(_clearanceForRules(byInstrument, clientRules, kiteMap)).toBe(0);
   });
 
-  test('a user with no trades returns 0', () => {
-    const brk = _computeCallerBrkForUserBatched('nobody', tradesByUser, callerRules, kiteMap, 9600, 50);
-    expect(brk).toBe(0);
+  test('_groupTradesByInstrument accumulates across MULTIPLE trades on the same instrument', () => {
+    const trades = [
+      { instrument_token: 'TOK', executed_price: 1000, executed_quantity: 2 },
+      { instrument_token: 'TOK', executed_price: 1000, executed_quantity: 3 },
+    ];
+    const byInstrument = _groupTradesByInstrument(trades, kiteMap);
+    expect(byInstrument.TOK.lots).toBe(5);
+    expect(byInstrument.TOK.turnover).toBe(5000);
+  });
+
+  test('a TURNOVER WISE rule computes clearance as turnover * brk_value/10000, matching the platform-wide convention', () => {
+    const nfoKiteMap = { NFOTOK: { lot_size: 65, segment: 'NFO-FUT', raw_name: 'NIFTY' } };
+    const trades = [{ instrument_token: 'NFOTOK', executed_price: 23000, executed_quantity: 65 }];
+    const byInstrument = _groupTradesByInstrument(trades, nfoKiteMap);
+    const rules = [{ script_name: 'NIFTY', exchange_name: 'NFO-FUT', type: 'TURNOVER WISE', brk_value: 5 }];
+    // turnover = 23000*65 = 1,495,000; clearance = 1,495,000 * 5/10000 = 747.5
+    expect(_clearanceForRules(byInstrument, rules, nfoKiteMap)).toBeCloseTo(747.5, 5);
   });
 });
 

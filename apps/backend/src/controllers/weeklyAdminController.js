@@ -272,10 +272,18 @@ const getWeeklyAdminReport = async (req, res) => {
     // their own rate), all silently ignored in favour of the global GOLD
     // rate (500/lot vs their actual ~200/lot), inflating "ADMIN BRK" from a
     // verified ~21,585 to a reported 86,184.89 for the same week's trades.
-    const topEntityIds = role === 'admin' ? topEntities.map((m) => m._id.toString()) : [];
-    const brkSettingsOwnerIds = callerRuleOwnerId
-      ? [...allUserIds, callerRuleOwnerId]
-      : [...allUserIds, ...topEntityIds];
+    // BUG (confirmed live, introduced by the rate-gap brokerage model): every
+    // INTERMEDIATE master's own rate is now needed too, not just the
+    // caller's/admin's — a master viewing a subordinate master's whole
+    // sub-tree keeps the markup between that SUBORDINATE's own configured
+    // rate and the caller's own rate, which requires the subordinate's own
+    // BrokerageSettings rows. Previously only allUserIds (plain clients)
+    // plus the caller's own id (master role) or each top-level master's id
+    // (admin role) were fetched — any master strictly BETWEEN the caller
+    // and the client (e.g. 705206 when 996789 views their whole sub-tree)
+    // was never fetched, silently falling back to the global default rate
+    // for masterOwnRules and producing a wildly wrong markup.
+    const brkSettingsOwnerIds = [...allUserIds, ...allScopeMasterIds];
     const allBrkSettings = await BrokerageSettings.find({
       $or: [
         { user_id: { $in: brkSettingsOwnerIds }, deleted_at: null },
@@ -297,10 +305,19 @@ const getWeeklyAdminReport = async (req, res) => {
       }
     }
 
-    // Caller's rules (for caller brokerage base clearance calculation)
+    // Caller's rules (for caller brokerage base clearance calculation).
+    // Admin's own clearance is 0 (an empty rule set — _clearanceForRules
+    // matches nothing and returns 0), not the global default rate: under
+    // the rate-gap brokerage model, Admin keeps the FULL markup on
+    // whatever they're viewing (there's nothing further above Admin to
+    // pass a "base cost" up to). Falling back to globalBrkRules here
+    // previously produced a NEGATIVE caller_brk for Admin whenever the
+    // global default rate happened to be higher than the top-level
+    // master's own rate — confirmed live: Admin viewing 996789 (own rate
+    // 25/lot) showed caller_brk: -996.51 before this fix.
     let callerRules;
     if (callerRuleOwnerId === null) {
-      callerRules = globalBrkRules;
+      callerRules = [];
     } else {
       callerRules = brkRulesByUser[callerRuleOwnerId] || [];
       if (callerRules.length === 0) callerRules = globalBrkRules;
@@ -314,22 +331,20 @@ const getWeeklyAdminReport = async (req, res) => {
 
     if (role === 'admin') {
       for (const master of topEntities) {
-        // Admin's "own rate" is NOT one flat global default shared by every
-        // master — admin assigns each top-level master its own base rate
-        // (stored as that master's own BrokerageSettings rows, same as any
-        // other owner), and different masters are routinely given different
-        // rates. Using the single request-wide `callerRules` (always
-        // resolved to global for role==='admin', see callerRuleOwnerId
-        // above) here meant every master's row was priced at the flat
-        // global default regardless of what admin actually assigned that
-        // specific master — inflating (or deflating) Master Brk for every
-        // master whose own assigned rate differs from the global default.
-        // Resolve per-master here instead, falling back to global only if
-        // this master has no rate of their own.
+        // masterId's (this top-level master's) OWN configured rate — NOT
+        // one flat global default shared by every master. Admin assigns
+        // each top-level master its own base rate (stored as that master's
+        // own BrokerageSettings rows, same as any other owner), and
+        // different masters are routinely given different rates. Resolved
+        // per-master here, falling back to global only if this master has
+        // no rate of their own. Admin's OWN clearance (callerRules, below)
+        // is separately resolved to the global default — Admin has no
+        // downline-facing rate of their own to fall back on instead.
         const masterOwnRules = brkRulesByUser[master._id.toString()] || globalBrkRules;
         const entry = _getAggregatedEntryBatched(
           master._id.toString(), master, metricsEngine, callerId, 'admin',
-          masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, masterOwnRules
+          masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, callerRules,
+          masterOwnRules
         );
         entry.parent_username = 'ADMIN';
         entry.type = 'master';
@@ -338,9 +353,14 @@ const getWeeklyAdminReport = async (req, res) => {
     } else {
       // Child masters
       for (const cm of topEntities) {
+        // Each child master's OWN configured rate, for the rate-gap
+        // brokerage split (see _getAggregatedEntryBatched) — distinct from
+        // callerRules (this report's caller's own rate).
+        const masterOwnRules = brkRulesByUser[cm._id.toString()] || globalBrkRules;
         const entry = _getAggregatedEntryBatched(
           cm._id.toString(), cm, metricsEngine, callerId, 'master',
-          masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, callerRules
+          masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, callerRules,
+          masterOwnRules
         );
         entry.parent_username = callerMaster?.username || '';
         entry.type = 'master';
@@ -428,12 +448,19 @@ function _getUserEntryBatched(userDoc, metricsEngine, callerMaster, callerId, ca
   // of the chain, so the caller's own retention for THIS pool is their full
   // ceiling (nothing further was carved out below them on this line).
   const callerPnlCeiling = _ceilingPct(callerId, callerRole, masterMap, 'pnl_sharing');
-  const callerBrkCeiling = _ceilingPct(callerId, callerRole, masterMap, 'brokerage_sharing');
 
-  // Caller's brokerage share (own base rate + ceiling-based share of the spread)
-  const callerBrk = _computeCallerBrkForUserBatched(
-    userId, tradesByUser, callerRules, kiteMap, totalBrokerage, callerBrkCeiling
-  );
+  // Confirmed business rule (rate-gap model, distinct from P&L's ceiling
+  // model): the caller keeps the MARKUP between what the client is actually
+  // billed and the caller's OWN configured rate — not a percentage share of
+  // it. The caller's own rate-based amount (their "base cost", exactly what
+  // they'd charge if this were passed straight through at their own rate)
+  // flows entirely upward instead, to be split the same way one level up.
+  // Confirmed against a real 4-tier hierarchy: 999746 (client's direct
+  // master, own rate 300 MCX vs the client's 1000) keeps (1000-300)*lots on
+  // the MCX leg, not a percentage-weighted fraction of the spread.
+  const byInstrument = _groupTradesByInstrument(tradesByUser[userId] || [], kiteMap);
+  const callerClearance = _clearanceForRules(byInstrument, callerRules, kiteMap);
+  const callerBrk = totalBrokerage - callerClearance;
 
   // Sharing is priced off the client's REAL total exposure (realised + still-
   // open m2m), not realised alone.
@@ -444,9 +471,10 @@ function _getUserEntryBatched(userDoc, metricsEngine, callerMaster, callerId, ca
   // must pass UP to their OWN parent — the complement of the caller's own
   // ceiling, applied to the same original total (not a shrinking remainder).
   const owedUpwardPnl = _r2((-sharingBasis) * (100 - callerPnlCeiling) / 100);
-  // owed_upward_brk is the complement of caller_brk against this user's own
-  // totalBrokerage — mirrors owed_upward_pnl's own complement pattern above.
-  const owedUpwardBrk = _r2(totalBrokerage - callerBrk);
+  // What flows past the caller, upward — their own base clearance (see
+  // above), to be split further by whoever is above them using the exact
+  // same rate-gap rule.
+  const owedUpwardBrk = _r2(callerClearance);
 
   return {
     id: userId,
@@ -476,7 +504,8 @@ function _getUserEntryBatched(userDoc, metricsEngine, callerMaster, callerId, ca
  * Aggregated report entry for a master and their entire sub-hierarchy. (No DB queries)
  */
 function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId, callerRole,
-  masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, callerRules) {
+  masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, callerRules,
+  masterOwnRules) {
 
   const allMasterIds = _getAllSubMasterIdsBatched(masterId, masterChildrenMap);
 
@@ -505,15 +534,19 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
   // tier was supposed to keep a flat, non-cascading % of the client's
   // ORIGINAL total (10%/15%/25%/25%/25% from Admin down, summing to 100%).
   const callerPnlCeiling = _ceilingPct(callerId, callerRole, masterMap, 'pnl_sharing');
-  const callerBrkCeiling = _ceilingPct(callerId, callerRole, masterMap, 'brokerage_sharing');
   const masterPnlCeiling = masterDoc.pnl_sharing || 0;
-  const masterBrkCeiling = masterDoc.brokerage_sharing || 0;
   const callerPnlRetentionPct = callerPnlCeiling - masterPnlCeiling;
-  const callerBrkRetentionPct = callerBrkCeiling - masterBrkCeiling;
 
   let totalGrossPnl = 0;
   let totalFloatingPnl = 0;
-  let totalBrokerage = 0, totalTurnover = 0, callerBrk = 0;
+  let totalBrokerage = 0, totalTurnover = 0;
+  // Accumulated per-instrument volume across the WHOLE sub-tree — the
+  // rate-gap brokerage model (see _getUserEntryBatched's own comment) needs
+  // masterId's and the caller's OWN clearance applied to this row's TOTAL
+  // volume, not summed per user, since both rates are constants for the
+  // whole row (masterId is always the caller's direct child on the path to
+  // every user here, exactly like the P&L ceiling weight above).
+  const subtreeByInstrument = {};
   for (const u of users) {
     const uid = u._id.toString();
 
@@ -529,10 +562,28 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
     );
     totalBrokerage += brokerage;
     totalTurnover += turnover;
-    callerBrk += _computeCallerBrkForUserBatched(
-      uid, tradesByUser, callerRules, kiteMap, brokerage, callerBrkRetentionPct
-    );
+
+    for (const [token, d] of Object.entries(_groupTradesByInstrument(tradesByUser[uid] || [], kiteMap))) {
+      if (!subtreeByInstrument[token]) subtreeByInstrument[token] = { turnover: 0, lots: 0 };
+      subtreeByInstrument[token].turnover += d.turnover;
+      subtreeByInstrument[token].lots += d.lots;
+    }
   }
+
+  // Confirmed business rule (rate-gap model — see _getUserEntryBatched):
+  // the caller keeps the markup between masterId's OWN configured rate
+  // (what masterId would charge if they billed this volume directly) and
+  // the caller's OWN rate — NOT a percentage share of the spread. masterId's
+  // own clearance flows to them and everyone below them in their own
+  // sub-tree (already reflected in totalBrokerage, not re-derived here);
+  // the caller's own clearance is what continues flowing further up past
+  // the caller. Confirmed against a real 4-tier hierarchy: 996789 viewing
+  // 705206's whole sub-tree keeps (705206's own rate minus 996789's own
+  // rate) * volume, landing on 196.51 — not a fraction of the row's total
+  // billed brokerage.
+  const masterClearance = _clearanceForRules(subtreeByInstrument, masterOwnRules, kiteMap);
+  const callerClearance = _clearanceForRules(subtreeByInstrument, callerRules, kiteMap);
+  const callerBrk = _r2(masterClearance - callerClearance);
 
   // Sharing is priced off the sub-tree's REAL total exposure (realised +
   // still-open m2m), not realised alone.
@@ -542,10 +593,9 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
   // the caller's own ceiling (not masterId's), applied to the row's whole
   // original total.
   const owedUpwardPnl = _r2((-sharingBasis) * (100 - callerPnlCeiling) / 100);
-  callerBrk = _r2(callerBrk);
-  // owed_upward_brk is the complement of caller_brk against this row's own
-  // totalBrokerage — mirrors owed_upward_pnl's own complement pattern above.
-  const owedUpwardBrk = _r2(totalBrokerage - callerBrk);
+  // What flows past the caller, upward — their own clearance on this
+  // sub-tree's volume, same complement pattern as _getUserEntryBatched.
+  const owedUpwardBrk = _r2(callerClearance);
 
   return {
     id: masterId,
@@ -590,26 +640,13 @@ function _ceilingPct(id, role, masterMap, shareField) {
 }
 
 /**
- * Compute caller's brokerage share for a single user using their own
- * configured rate as a floor, plus their ceiling-based share of the spread
- * above that floor. (No DB queries)
- *
- * `userTotalBrk` is passed in rather than recomputed — every call site
- * already calls _getUserBrokerageAndTurnoverBatched for this same user a
- * few lines earlier (for the report's own `brokerage` column); this used
- * to redo that same per-trade iteration a second time internally, doubling
- * the JS-side work for every user in the report.
- *
- * `callerOwnRetentionPct` is the caller's own ceiling-based retention for
- * THIS specific pool (see _ceilingPct) — 0-100, computed once by the caller
- * (identical for every user in an aggregated sub-tree row, so it's wasteful
- * to recompute per user here).
+ * Groups a set of trades into per-instrument {turnover, lots} volume. (No
+ * DB queries) Shared by _getUserEntryBatched (a single user's trades) and
+ * _getAggregatedEntryBatched (accumulated across an entire sub-tree) — both
+ * need the SAME per-instrument volume map to apply different tiers' own
+ * rate rules against via _clearanceForRules.
  */
-function _computeCallerBrkForUserBatched(userId, tradesByUser, callerRules, kiteMap, userTotalBrk, callerOwnRetentionPct) {
-  const trades = tradesByUser[userId] || [];
-  if (trades.length === 0) return 0;
-
-  // Group trades by instrument
+function _groupTradesByInstrument(trades, kiteMap) {
   const byInstrument = {};
   for (const t of trades) {
     const token = t.instrument_token;
@@ -619,31 +656,30 @@ function _computeCallerBrkForUserBatched(userId, tradesByUser, callerRules, kite
     byInstrument[token].turnover += t.executed_price * t.executed_quantity;
     byInstrument[token].lots += lotSize > 1 ? t.executed_quantity / lotSize : t.executed_quantity;
   }
+  return byInstrument;
+}
 
-  // Compute caller's base clearance per instrument
-  let callerBaseClearance = 0;
+/**
+ * What a given set of brokerage rules would bill against a per-instrument
+ * volume map — i.e. "what this ONE account's own configured rate would
+ * charge for this volume," regardless of who actually generated it. (No DB
+ * queries) This is the building block for the rate-gap brokerage model: a
+ * tier's own clearance is what flows past them upward, and the difference
+ * between two tiers' clearances on the SAME volume is the lower tier's own
+ * markup.
+ */
+function _clearanceForRules(byInstrument, rules, kiteMap) {
+  let total = 0;
   for (const [token, data] of Object.entries(byInstrument)) {
     const ki = kiteMap[token];
     const seg = ki?.segment || '';
     const rawName = ki?.raw_name || '';
-
-    let callerRule = _findRule(callerRules, rawName, seg);
-    if (!callerRule) continue;
-
-    if (callerRule.type === 'TURNOVER WISE') {
-      callerBaseClearance += data.turnover * (callerRule.brk_value / 10000);
-    } else if (callerRule.type === 'LOT WISE') {
-      callerBaseClearance += data.lots * callerRule.brk_value;
-    }
+    const rule = _findRule(rules, rawName, seg);
+    if (!rule) continue;
+    if (rule.type === 'TURNOVER WISE') total += data.turnover * (rule.brk_value / 10000);
+    else if (rule.type === 'LOT WISE') total += data.lots * rule.brk_value;
   }
-
-  // Spread above caller's base = what's left after caller takes their base;
-  // the caller adds their ceiling-based complement share of that spread on
-  // top of their own base clearance.
-  const spreadAboveCaller = Math.max(0, userTotalBrk - callerBaseClearance);
-  const unpassedAmount = spreadAboveCaller * (100 - callerOwnRetentionPct) / 100;
-
-  return callerBaseClearance + unpassedAmount;
+  return total;
 }
 
 /**
@@ -738,8 +774,9 @@ const _r2 = (n) => Math.round(n * 100) / 100;
 module.exports = {
   getWeeklyAdminReport,
   _private: {
-    _computeCallerBrkForUserBatched,
     _ceilingPct,
+    _groupTradesByInstrument,
+    _clearanceForRules,
     _getUserBrokerageAndTurnoverBatched,
     _findRule,
   },
