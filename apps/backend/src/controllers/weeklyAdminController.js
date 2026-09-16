@@ -424,55 +424,28 @@ function _getUserEntryBatched(userDoc, metricsEngine, callerMaster, callerId, ca
     userId, tradesByUser, brkRulesByUser, globalBrkRules, kiteMap
   );
 
-  // Caller's brokerage share (per-instrument cascade)
+  // Ceiling-based sharing (see _ceilingPct) — a direct client is the bottom
+  // of the chain, so the caller's own retention for THIS pool is their full
+  // ceiling (nothing further was carved out below them on this line).
+  const callerPnlCeiling = _ceilingPct(callerId, callerRole, masterMap, 'pnl_sharing');
+  const callerBrkCeiling = _ceilingPct(callerId, callerRole, masterMap, 'brokerage_sharing');
+
+  // Caller's brokerage share (own base rate + ceiling-based share of the spread)
   const callerBrk = _computeCallerBrkForUserBatched(
-    userId, callerId, callerRole, tradesByUser, callerRules, kiteMap,
-    masterMap, brkRulesByUser, globalBrkRules, userDoc, totalBrokerage
+    userId, tradesByUser, callerRules, kiteMap, totalBrokerage, callerBrkCeiling
   );
 
-  // P&L sharing: what the CALLER keeps for themselves = the pool that
-  // arrives at them (nothing absorbed by anyone strictly between the user
-  // and the caller) × the caller's OWN retention. Admin has no
-  // pnl_sharing% of their own and no parent above them — whatever isn't
-  // claimed by a master below reaches admin in full, so admin's own
-  // retention is 100%. A master's retention is their own pnl_sharing%.
-  //
-  // Confirmed bug (this was previously `_getPnlUnpassedMultiplierForUserBatched`,
-  // which multiplies by (100 - share)/100 at the caller's own hop — that
-  // formula answers "what's left over after the caller's own cut", i.e.
-  // what flows PAST the caller to whoever is above them. For admin (no
-  // parent) that coincidentally equals what admin keeps, but for a master
-  // viewing their own direct client it silently returned the SAME number
-  // as owed_upward_pnl — the amount owed UP to admin, not what the master
-  // keeps. Real numbers off a live report: a master's own direct client
-  // showed "MASTER PROFIT" and "ADMIN P&L" as the identical figure, which
-  // should only ever coincide for admin's own view.
-  const incomingPoolMultiplier = _incomingPoolPnlMultiplierBatched(userId, callerId, userDoc, masterMap);
-  const callerOwnPnlShare = masterMap[callerId]?.pnl_sharing || 0;
-  const callerRetention = callerRole === 'admin' ? 1 : callerOwnPnlShare / 100;
   // Sharing is priced off the client's REAL total exposure (realised + still-
-  // open m2m), not realised alone — a deliberate choice: this used to exclude
-  // m2m to avoid paying a share on floating P&L that could still reverse
-  // before settlement, but that basis is now applied uniformly regardless of
-  // caller role.
+  // open m2m), not realised alone.
   const sharingBasis = grossPnl + floatingPnl;
-  const callerProfit = _r2((-sharingBasis) * incomingPoolMultiplier * callerRetention);
+  const callerProfit = _r2((-sharingBasis) * callerPnlCeiling / 100);
 
   // What the caller (whoever is viewing this report — a sub-master included)
-  // must pass UP to their OWN parent, as opposed to caller_profit/caller_brk
-  // above (what the caller keeps for themselves).
-  const owedUpwardPnl = _r2(((-sharingBasis) * incomingPoolMultiplier) * (100 - callerOwnPnlShare) / 100);
-  // Confirmed bug: this used to come from _cascadeBrokerageOwedUpwardBatched,
-  // an INDEPENDENT calculation based on the MasterBaseRate collection (each
-  // level's own upline-assigned cost) rather than on callerBrk's own
-  // BrokerageSettings-based clearance. The two had no mathematical relationship
-  // to each other, so caller_brk + owed_upward_brk routinely didn't sum to the
-  // client's actual total billed brokerage — confirmed live on a real 4-tier
-  // hierarchy: caller_brk 1870.93 + owed_upward_brk 1674.41 = 3545.34, against
-  // an actual total of 2232.55 (over 1,300 more than what was ever billed).
-  // owed_upward_pnl above is correctly defined as the complement of
-  // caller_profit (same sharingBasis, same pool) — owed_upward_brk now
-  // mirrors that exact pattern instead of an unrelated formula.
+  // must pass UP to their OWN parent — the complement of the caller's own
+  // ceiling, applied to the same original total (not a shrinking remainder).
+  const owedUpwardPnl = _r2((-sharingBasis) * (100 - callerPnlCeiling) / 100);
+  // owed_upward_brk is the complement of caller_brk against this user's own
+  // totalBrokerage — mirrors owed_upward_pnl's own complement pattern above.
   const owedUpwardBrk = _r2(totalBrokerage - callerBrk);
 
   return {
@@ -514,38 +487,33 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
     users.push(...usersForMaster);
   }
 
-  // Single pass per user for every per-user figure this row needs — P&L
-  // share, brokerage/turnover, and the caller's brokerage cut. Used to be
-  // three separate loops over the same `users` array, two of which
-  // (brokerage and caller_brk) independently recomputed the same per-trade
-  // sums via _getUserBrokerageAndTurnoverBatched.
+  // Single pass per user for every per-user figure this row needs — raw
+  // sums only (P&L, brokerage, turnover, caller's brokerage base+spread).
+  // Sharing itself (caller_profit/owed_upward_pnl/owed_upward_brk) is NOT
+  // computed per user — see the ceiling-based math below the loop.
   //
-  // P&L sharing is computed PER USER and summed, not as one flat
-  // multiplier applied to the combined total — a single blended rate is
-  // wrong the moment two branches of the subtree have different
-  // pnl_sharing rates, which real accounts do (100%, 90%, 98%, 50%, 20%,
-  // 0% all seen on different masters).
-  //
-  // What the CALLER keeps for themselves from their own retention, once the
-  // pool has already survived every level strictly between the user and the
-  // caller. Admin has no pnl_sharing% of their own and nothing further
-  // upstream — whatever isn't claimed by a master below reaches admin in
-  // full (100% retention). Confirmed bug this replaces: the previous
-  // `_getPnlUnpassedMultiplierForUserBatched`-based calc multiplied by
-  // (100 - share)/100 at the caller's own hop, which is "what flows PAST
-  // the caller" (the owed-upward amount) — coincidentally correct for
-  // admin (nothing sits above them) but wrong for a master, whose own
-  // "caller_profit" row was silently showing the exact same figure as
-  // their "owed_upward_pnl" for a direct child.
-  const callerOwnPnlShare = masterMap[callerId]?.pnl_sharing || 0;
-  const callerRetention = callerRole === 'admin' ? 1 : callerOwnPnlShare / 100;
+  // Ceiling-based sharing (see _ceilingPct): masterId (this row's own top
+  // node) is ALWAYS the caller's DIRECT child on the path to every single
+  // user in this row's entire sub-tree, no matter how many further tiers
+  // sit between masterId and any individual user — so the caller's own
+  // retention weight (their own ceiling minus masterId's ceiling) is the
+  // SAME flat percentage for every user here, and can be applied to the
+  // row's TOTAL pool once, rather than per user. Replaces an earlier
+  // "retention of a shrinking remainder" cascade that multiplied
+  // (100-share)/100 at every intermediate tier between a user and the
+  // caller — confirmed wrong against a real 4-tier hierarchy where every
+  // tier was supposed to keep a flat, non-cascading % of the client's
+  // ORIGINAL total (10%/15%/25%/25%/25% from Admin down, summing to 100%).
+  const callerPnlCeiling = _ceilingPct(callerId, callerRole, masterMap, 'pnl_sharing');
+  const callerBrkCeiling = _ceilingPct(callerId, callerRole, masterMap, 'brokerage_sharing');
+  const masterPnlCeiling = masterDoc.pnl_sharing || 0;
+  const masterBrkCeiling = masterDoc.brokerage_sharing || 0;
+  const callerPnlRetentionPct = callerPnlCeiling - masterPnlCeiling;
+  const callerBrkRetentionPct = callerBrkCeiling - masterBrkCeiling;
 
   let totalGrossPnl = 0;
   let totalFloatingPnl = 0;
-  let callerProfit = 0;
   let totalBrokerage = 0, totalTurnover = 0, callerBrk = 0;
-  let owedUpwardPnl = 0;
-  let owedUpwardBrk = 0;
   for (const u of users) {
     const uid = u._id.toString();
 
@@ -555,30 +523,6 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
 
     const userGrossPnl = _getGrossPnlBatched(uid, tradesByUser);
     totalGrossPnl += userGrossPnl;
-    // Sharing is priced off the client's REAL total exposure (realised +
-    // still-open m2m), not realised alone, for every caller role — see the
-    // same note in _getUserEntryBatched. caller_profit and owed_upward_pnl
-    // must use the SAME basis so the two always sum to the full incoming
-    // pool for this user, regardless of role.
-    const userSharingBasis = userGrossPnl + userFloatingPnl;
-    // Pool arriving AT THE CALLER (e.g. a master viewing their own
-    // sub-broker), after every level strictly between this user and the
-    // caller has already absorbed their own cut — same helper
-    // _getUserEntryBatched uses for a direct client, applied here per-user
-    // across this row's entire sub-tree (not just masterId's direct clients).
-    const userIncomingPool = _incomingPoolPnlMultiplierBatched(uid, callerId, u, masterMap);
-    callerProfit += (-userSharingBasis) * userIncomingPool * callerRetention;
-    // What passes PAST the caller, upward — the caller's own complement of
-    // the SAME incoming pool. Confirmed bug this replaces: previously used
-    // masterId's OWN pnl_sharing% here instead of the caller's — since an
-    // aggregated row's masterId always has the caller as its direct parent,
-    // that produced the pool arriving AT the caller BEFORE the caller's own
-    // cut (i.e. the same total callerProfit is only ~90% of), not the ~10%
-    // that actually flows past the caller. A live report showed a
-    // sub-broker row's "ADMIN P&L" LARGER in magnitude than "MASTER
-    // PROFIT" — backwards from the direct-client rows on the same report,
-    // where the admin figure is correctly the smaller remainder.
-    owedUpwardPnl += (-userSharingBasis) * userIncomingPool * (1 - callerRetention);
 
     const { brokerage, turnover } = _getUserBrokerageAndTurnoverBatched(
       uid, tradesByUser, brkRulesByUser, globalBrkRules, kiteMap
@@ -586,18 +530,22 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
     totalBrokerage += brokerage;
     totalTurnover += turnover;
     callerBrk += _computeCallerBrkForUserBatched(
-      uid, callerId, callerRole, tradesByUser, callerRules, kiteMap,
-      masterMap, brkRulesByUser, globalBrkRules, u, brokerage
+      uid, tradesByUser, callerRules, kiteMap, brokerage, callerBrkRetentionPct
     );
   }
-  callerProfit = _r2(callerProfit);
-  owedUpwardPnl = _r2(owedUpwardPnl);
-  // Same fix as the per-user version in _getUserEntryBatched: owed_upward_brk
-  // is the complement of caller_brk against this row's own totalBrokerage,
-  // not an independently-computed MasterBaseRate cascade that had no
-  // guaranteed relationship to caller_brk and could sum to more than the
-  // total ever billed.
-  owedUpwardBrk = _r2(totalBrokerage - callerBrk);
+
+  // Sharing is priced off the sub-tree's REAL total exposure (realised +
+  // still-open m2m), not realised alone.
+  const sharingBasis = totalGrossPnl + totalFloatingPnl;
+  const callerProfit = _r2((-sharingBasis) * callerPnlRetentionPct / 100);
+  // What the caller must pass UP to their OWN parent — the complement of
+  // the caller's own ceiling (not masterId's), applied to the row's whole
+  // original total.
+  const owedUpwardPnl = _r2((-sharingBasis) * (100 - callerPnlCeiling) / 100);
+  callerBrk = _r2(callerBrk);
+  // owed_upward_brk is the complement of caller_brk against this row's own
+  // totalBrokerage — mirrors owed_upward_pnl's own complement pattern above.
+  const owedUpwardBrk = _r2(totalBrokerage - callerBrk);
 
   return {
     id: masterId,
@@ -621,19 +569,43 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
 }
 
 /**
- * Compute caller's brokerage share for a single user using per-instrument cascade. (No DB queries)
- *
- * Same logic as original _computeCallerBrkForUser but reads from pre-loaded maps.
+ * Confirmed business rule (replaces an earlier "retention of a shrinking
+ * remainder" cascade that multiplied (100-share)/100 at every intermediate
+ * tier): sharing is a CEILING, not a per-hop retention rate. Each account's
+ * own pnl_sharing/brokerage_sharing is the CUMULATIVE allocation their own
+ * parent handed them at creation time — Admin's implicit ceiling is 100
+ * (nothing sits above them). A specific master's own personal cut for a
+ * given pool = their own ceiling % MINUS the ceiling % they actually handed
+ * to whichever direct child sits between them and that pool (0 for a direct
+ * client, since nothing further was carved out on that specific line) —
+ * see _getUserEntryBatched and _getAggregatedEntryBatched for the two call
+ * sites. Every tier's own cut, from Admin down to a client's direct master,
+ * always sums to exactly 100% of the client's original total — confirmed
+ * against a real 4-tier hierarchy where every intermediate tier's stored
+ * ceiling summed correctly (Admin 10% + 15% + 25% + 25% + 25% = 100%).
+ */
+function _ceilingPct(id, role, masterMap, shareField) {
+  if (role === 'admin') return 100;
+  return masterMap[id]?.[shareField] || 0;
+}
+
+/**
+ * Compute caller's brokerage share for a single user using their own
+ * configured rate as a floor, plus their ceiling-based share of the spread
+ * above that floor. (No DB queries)
  *
  * `userTotalBrk` is passed in rather than recomputed — every call site
  * already calls _getUserBrokerageAndTurnoverBatched for this same user a
  * few lines earlier (for the report's own `brokerage` column); this used
  * to redo that same per-trade iteration a second time internally, doubling
  * the JS-side work for every user in the report.
+ *
+ * `callerOwnRetentionPct` is the caller's own ceiling-based retention for
+ * THIS specific pool (see _ceilingPct) — 0-100, computed once by the caller
+ * (identical for every user in an aggregated sub-tree row, so it's wasteful
+ * to recompute per user here).
  */
-function _computeCallerBrkForUserBatched(userId, callerId, callerRole, tradesByUser, callerRules, kiteMap,
-  masterMap, brkRulesByUser, globalBrkRules, userDoc, userTotalBrk) {
-
+function _computeCallerBrkForUserBatched(userId, tradesByUser, callerRules, kiteMap, userTotalBrk, callerOwnRetentionPct) {
   const trades = tradesByUser[userId] || [];
   if (trades.length === 0) return 0;
 
@@ -665,145 +637,13 @@ function _computeCallerBrkForUserBatched(userId, callerId, callerRole, tradesByU
     }
   }
 
-  // Cascade through EVERY intermediate master's own brokerage_sharing%
-  // between the user and the caller — mirrors
-  // _getPnlUnpassedMultiplierForUserBatched exactly. Previously this only
-  // looked at the SINGLE topmost master below the caller (the first whose
-  // own parent was the caller) and applied just that one master's
-  // brokerage_sharing% to the entire spread, silently ignoring any
-  // different brokerage_sharing% configured on deeper intermediate masters
-  // — correct by coincidence for 1- and 2-tier hierarchies (nothing to
-  // ignore), wrong for 3+ tiers.
-  const unpassedFraction = _getBrkUnpassedMultiplierForUserBatched(userId, callerId, userDoc, masterMap);
-
-  // Spread above caller's base = what's left after caller takes their base
+  // Spread above caller's base = what's left after caller takes their base;
+  // the caller adds their ceiling-based complement share of that spread on
+  // top of their own base clearance.
   const spreadAboveCaller = Math.max(0, userTotalBrk - callerBaseClearance);
-  const unpassedAmount = spreadAboveCaller * unpassedFraction;
+  const unpassedAmount = spreadAboveCaller * (100 - callerOwnRetentionPct) / 100;
 
   return callerBaseClearance + unpassedAmount;
-}
-
-/**
- * For a direct user: compute what fraction of their P&L flows up to the caller. (No DB queries)
- *
- * Same logic as original _getPnlUnpassedMultiplierForUser.
- *
- * No depth limit — real hierarchies here run 50-60+ tiers deep, and a
- * fixed cap (previously 10, then 500) silently truncates the cascade for
- * anything deeper, attributing the wrong share to every tier above the
- * cap instead of continuing to the real caller. The only guard is cycle
- * detection: a `visited` set stops the walk if the SAME master is reached
- * twice, which can only happen from a corrupted circular master_id
- * reference (impossible in a valid tree) — without it, that one bad row
- * would spin this synchronous loop forever and freeze the whole Node
- * process (this runs on the single-threaded event loop), not just fail
- * one request.
- */
-function _getPnlUnpassedMultiplierForUserBatched(userId, callerId, userDoc, masterMap) {
-  const userMasterId = userDoc?.master_id?.toString();
-  if (!userMasterId) return 0;
-
-  let multiplier = 1;
-  let currentMasterId = userMasterId;
-  const visited = new Set();
-
-  while (currentMasterId && !visited.has(currentMasterId)) {
-    visited.add(currentMasterId);
-    const master = masterMap[currentMasterId];
-    if (!master) break;
-
-    multiplier *= (100 - (master.pnl_sharing || 0)) / 100;
-
-    // Stop the INSTANT we've just applied the caller's own hop — for a
-    // direct client (userMasterId === callerId), that's this very first
-    // iteration. The old check below tested this master's PARENT against
-    // callerId instead of the master itself, so a direct client's row kept
-    // climbing past the caller into every ancestor above them, multiplying
-    // in shares that don't belong to this calculation at all (confirmed
-    // bug — collapses to near-zero whenever an ancestor has a high share).
-    if (currentMasterId === callerId) break;
-    if (!master.master_id) break;
-    currentMasterId = master.master_id.toString();
-  }
-
-  return multiplier;
-}
-
-/**
- * The P&L pool ARRIVING at the caller for this user, before the caller's own
- * pnl_sharing% is taken out — i.e. every intermediate master strictly
- * BETWEEN the user and the caller absorbs their own share and passes the
- * remainder up, but the caller's own absorption is deliberately excluded
- * here (the caller applies their own rate to this result separately, to get
- * "owed upward" = what's left after that). Returns 1 for a direct client of
- * the caller (nothing has been absorbed by anyone yet).
- *
- * Structural sibling of _getPnlUnpassedMultiplierForUserBatched, which
- * answers a different question ("how much reaches the caller as THEIR OWN
- * take") — that function's stopping boundary works backwards for this one's
- * purpose: for a direct client (userMasterId === callerId), that walk
- * absorbs the caller's own share (and, since a master's own parent is never
- * itself, incorrectly keeps climbing past the caller into their ancestors
- * too) — fine for its own purpose, wrong for "pool before caller's
- * absorption." This function stops the instant callerId is reached, before
- * ever processing it.
- */
-function _incomingPoolPnlMultiplierBatched(userId, callerId, userDoc, masterMap) {
-  const userMasterId = userDoc?.master_id?.toString();
-  if (!userMasterId) return 0;
-  if (userMasterId === callerId) return 1;
-
-  let multiplier = 1;
-  let currentMasterId = userMasterId;
-  const visited = new Set();
-
-  while (currentMasterId && currentMasterId !== callerId && !visited.has(currentMasterId)) {
-    visited.add(currentMasterId);
-    const master = masterMap[currentMasterId];
-    if (!master) break;
-
-    multiplier *= (100 - (master.pnl_sharing || 0)) / 100;
-    currentMasterId = master.master_id ? master.master_id.toString() : null;
-  }
-
-  return multiplier;
-}
-
-/**
- * For a direct user: compute what fraction of their brokerage spread flows
- * up to the caller. (No DB queries)
- *
- * Structural mirror of _getPnlUnpassedMultiplierForUserBatched — walks
- * every intermediate master between the user and the caller, multiplying
- * in each one's own brokerage_sharing%, instead of only looking at a
- * single master along the path.
- *
- * No depth limit, same cycle-detection safety net — see
- * _getPnlUnpassedMultiplierForUserBatched's comment on the same pattern.
- */
-function _getBrkUnpassedMultiplierForUserBatched(userId, callerId, userDoc, masterMap) {
-  const userMasterId = userDoc?.master_id?.toString();
-  if (!userMasterId) return 0;
-
-  let multiplier = 1;
-  let currentMasterId = userMasterId;
-  const visited = new Set();
-
-  while (currentMasterId && !visited.has(currentMasterId)) {
-    visited.add(currentMasterId);
-    const master = masterMap[currentMasterId];
-    if (!master) break;
-
-    multiplier *= (100 - (master.brokerage_sharing || 0)) / 100;
-
-    // Same fix as _getPnlUnpassedMultiplierForUserBatched — stop right
-    // after applying the caller's own hop, not their parent's.
-    if (currentMasterId === callerId) break;
-    if (!master.master_id) break;
-    currentMasterId = master.master_id.toString();
-  }
-
-  return multiplier;
 }
 
 /**
@@ -899,9 +739,7 @@ module.exports = {
   getWeeklyAdminReport,
   _private: {
     _computeCallerBrkForUserBatched,
-    _getPnlUnpassedMultiplierForUserBatched,
-    _getBrkUnpassedMultiplierForUserBatched,
-    _incomingPoolPnlMultiplierBatched,
+    _ceilingPct,
     _getUserBrokerageAndTurnoverBatched,
     _findRule,
   },
