@@ -229,8 +229,13 @@ const createChildMaster = async (req, res) => {
       // display-only MasterBaseRate table below (no effect on what a trade
       // actually got billed) — this is what makes the sub-master creation
       // form's brokerage input real.
+      //
+      // enforceFloor: true only when a real parentMaster exists — same
+      // "skip when admin creates a top-level master directly" convention
+      // already used for the pnl_sharing/brokerage_sharing % checks above
+      // (there's no parent to violate against in that case).
       if (Array.isArray(req.body.base_rates) && req.body.base_rates.length > 0) {
-        await applyBrokerageOverrides(childMaster._id.toString(), req.body.base_rates, session);
+        await applyBrokerageOverrides(childMaster._id.toString(), req.body.base_rates, session, !!parentMaster);
       }
 
       // This new master's own per-segment base rates (see MasterBaseRate
@@ -302,7 +307,7 @@ const createChildMaster = async (req, res) => {
     let statusCode = 500;
     if (error.message.includes('not found')) statusCode = 404;
     else if (error.message === 'Unauthorized' || error.message.includes('No permission')) statusCode = 403;
-    else if (error.message.includes('Insufficient') || error.message.includes('exists') || error.message.includes('between 0 and 100') || error.message.includes('grant permission') || error.message.includes('Account limit reached')) statusCode = 400;
+    else if (error.message.includes('Insufficient') || error.message.includes('exists') || error.message.includes('between 0 and 100') || error.message.includes('grant permission') || error.message.includes('Account limit reached') || error.message.includes('cannot be less than your own rate')) statusCode = 400;
     // Task 13: an inline wallet transfer the master's pool can't cover aborts the
     // create — surface it as a clear 400 naming the category.
     else if (error.code === 'INSUFFICIENT_WALLET') {

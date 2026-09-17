@@ -222,8 +222,15 @@ async function validateBrokerageFloor(targetId, targetType, exchangeName, script
  * @param {string} childId - the new Master/User's _id
  * @param {Array} overrides
  * @param {object} [session]
+ * @param {boolean} [enforceFloor] - Reject an override below the copied
+ *   baseline (the parent's own rate) when true. Only meaningful when the
+ *   baseline actually came from a real parent master — matches this same
+ *   file's createChildMaster/createMaster call sites, which already skip
+ *   the analogous pnl_sharing/brokerage_sharing % floor check when there's
+ *   no parent (admin creating a top-level master). Defaults to false so
+ *   existing callers that don't pass it keep today's behavior.
  */
-async function applyBrokerageOverrides(childId, overrides, session) {
+async function applyBrokerageOverrides(childId, overrides, session, enforceFloor = false) {
   if (!Array.isArray(overrides) || overrides.length === 0) return;
 
   const now = new Date();
@@ -256,6 +263,32 @@ async function applyBrokerageOverrides(childId, overrides, session) {
     }
 
     for (const scriptName of scriptNames) {
+      // Floor check (only when enforceFloor — a real parent master exists):
+      // copyBrokerageFromParent already ran before this function is called
+      // (see call site), so the child's CURRENT row for this script —
+      // before this override overwrites it — is exactly the parent's rate.
+      // Comparing against it here is equivalent to checking against the
+      // parent directly, without a separate parent lookup. Confirmed real
+      // gap: a master creating a new sub-master could set the sub-master's
+      // rate below their own, which makes that master's rate-gap markup
+      // negative under the revenue-sharing model (weeklyAdminController.js)
+      // — the standalone brokerage-settings CRUD endpoints
+      // (adminController.js) already enforce this via
+      // validateBrokerageFloor, but this creation-time override path never
+      // did.
+      if (enforceFloor) {
+        const currentQuery = BrokerageSettings.findOne({
+          user_id: childId, exchange_name: exchangeName, script_name: scriptName, type, deleted_at: null,
+        });
+        if (session) currentQuery.session(session);
+        const current = await currentQuery.lean();
+        if (current && brkValue < current.brk_value) {
+          throw new Error(
+            `Brokerage for ${scriptName} (${exchangeName}) cannot be less than your own rate (${current.brk_value})`
+          );
+        }
+      }
+
       ops.push({
         updateOne: {
           filter: { user_id: childId, exchange_name: exchangeName, script_name: scriptName, type, deleted_at: null },
