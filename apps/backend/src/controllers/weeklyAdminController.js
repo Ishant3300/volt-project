@@ -506,6 +506,11 @@ function _getUserEntryBatched(userDoc, metricsEngine, callerMaster, callerId, ca
     m2m_pnl: _r2(floatingPnl),
     brokerage: _r2(totalBrokerage),
     turnover: _r2(turnover),
+    // Display-only — the caller's own configured rate applied to this
+    // row's volume, never itself split (only the spread above it is).
+    // Purely additive: reuses the callerClearance already computed above
+    // for caller_brk/owed_upward_brk, doesn't touch the sharing math.
+    broker_brokerage: _r2(callerClearance),
     caller_brk: _r2(callerBrk),
     // Net of BOTH realised and floating — was previously just -grossPnl,
     // silently ignoring m2m_pnl entirely, so "total" wasn't actually the
@@ -644,6 +649,10 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
     m2m_pnl: _r2(totalFloatingPnl),
     brokerage: _r2(totalBrokerage),
     turnover: _r2(totalTurnover),
+    // Display-only — same as _getUserEntryBatched's field, reusing the
+    // callerClearance already computed above for owed_upward_brk. Purely
+    // additive, doesn't touch the sharing math.
+    broker_brokerage: _r2(callerClearance),
     caller_brk: _r2(callerBrk),
     // Net of BOTH realised and floating. caller_profit's own basis differs
     // by caller role — see the callerProfitBasis comment in the loop above:
