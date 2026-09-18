@@ -283,20 +283,12 @@ const getWeeklyAdminReport = async (req, res) => {
     // and the client (e.g. 705206 when 996789 views their whole sub-tree)
     // was never fetched, silently falling back to the global default rate
     // for masterOwnRules and producing a wildly wrong markup.
-    // BUG (confirmed live, introduced by the base-share model): the
-    // topmost master in the caller's OWN chain (needed to compute
-    // baseClearance — see _topmostMasterId) can sit OUTSIDE the caller's
-    // downward scope entirely (allScopeMasterIds only ever walks DOWN from
-    // the caller, never up to an ancestor) — a master-role caller who isn't
-    // themselves the topmost (e.g. 705206, whose topmost ancestor is
-    // 996789, strictly above them) would never have 996789's own
-    // BrokerageSettings rows fetched at all, silently falling back to the
-    // global default rate for baseClearance and producing a wrong base
-    // share for every row on that caller's own report.
-    const topmostOwnerId = role === 'master' ? _topmostMasterId(callerId, masterMap) : null;
-    const brkSettingsOwnerIds = topmostOwnerId
-      ? [...allUserIds, ...allScopeMasterIds, topmostOwnerId]
-      : [...allUserIds, ...allScopeMasterIds];
+    // The earlier "topmost base-share" model needed the caller's topmost
+    // ancestor's own BrokerageSettings rows fetched too (baseClearance —
+    // see _topmostMasterId's history). That layer is gone: the caller's own
+    // clearance is now split by the caller's own ceiling instead of an
+    // ancestor's rate, so only the caller's own scope is needed.
+    const brkSettingsOwnerIds = [...allUserIds, ...allScopeMasterIds];
     const allBrkSettings = await BrokerageSettings.find({
       $or: [
         { user_id: { $in: brkSettingsOwnerIds }, deleted_at: null },
@@ -474,30 +466,17 @@ function _getUserEntryBatched(userDoc, metricsEngine, callerMaster, callerId, ca
   const byInstrument = _groupTradesByInstrument(tradesByUser[userId] || [], kiteMap);
   const callerClearance = _clearanceForRules(byInstrument, callerRules, kiteMap);
 
-  // Confirmed business rule, added on top of the rate-gap markup above: the
-  // TOPMOST master's own configured rate (the hierarchy-wide "base" — what
-  // used to flow entirely to Admin, since Admin's own clearance is 0) is no
-  // longer kept 100% by whoever's at the very top. It's split among EVERY
-  // tier — Admin included — by ceiling-difference %, the exact same formula
-  // already used for P&L. This is ADDITIVE to the rate-gap markup, not a
-  // replacement for it: a topmost master's own rate-gap markup (relative to
-  // their own direct child) is completely separate from their base share.
-  const topmostId = _topmostMasterId(callerId, masterMap);
-  const topmostRules = brkRulesByUser[topmostId] || globalBrkRules;
-  const baseClearance = _clearanceForRules(byInstrument, topmostRules, kiteMap);
+  // Confirmed business rule (replaces the earlier "topmost base-share"
+  // layer): the caller's own rate-based clearance is no longer passed
+  // entirely upward — it's split by the caller's OWN brokerage_sharing
+  // ceiling, the exact same ceiling-split pattern P&L already uses. The
+  // rate-gap markup (totalBrokerage - callerClearance) still belongs wholly
+  // to the caller, unshared, same as before. Confirmed against two real
+  // accounts (gmuser: callerClearance 1517.55725, ceiling 60 -> caller_brk
+  // 1214.0458; gmuser2: callerClearance 233.6115, ceiling 60 -> caller_brk
+  // 186.8892), both matching the reference software exactly.
   const callerBrkCeiling = _ceilingPct(callerId, callerRole, masterMap, 'brokerage_sharing');
-  // A direct client is the bottom of the chain, so the caller's base-share
-  // weight is their full ceiling (nothing further was carved out below them
-  // on this specific line) — mirrors callerPnlCeiling's own reasoning above.
-  const baseShare = baseClearance * callerBrkCeiling / 100;
-  // The rate-gap portion must never reach INTO the base — clamping the
-  // caller's own clearance up to at least baseClearance keeps the two
-  // components strictly separate (matters only for Admin, whose own
-  // clearance is 0 but who still needs their FULL base-share counted via
-  // baseShare above, not an inflated rate-gap markup that would otherwise
-  // include the whole base a second time).
-  const rateGapClearance = Math.max(callerClearance, baseClearance);
-  const callerBrk = (totalBrokerage - rateGapClearance) + baseShare;
+  const callerBrk = (totalBrokerage - callerClearance) + callerClearance * callerBrkCeiling / 100;
 
   // Sharing is priced off the client's REAL total exposure (realised + still-
   // open m2m), not realised alone.
@@ -508,10 +487,14 @@ function _getUserEntryBatched(userDoc, metricsEngine, callerMaster, callerId, ca
   // must pass UP to their OWN parent — the complement of the caller's own
   // ceiling, applied to the same original total (not a shrinking remainder).
   const owedUpwardPnl = _r2((-sharingBasis) * (100 - callerPnlCeiling) / 100);
-  // What flows past the caller, upward — their own base clearance (see
-  // above), to be split further by whoever is above them using the exact
-  // same rate-gap rule.
-  const owedUpwardBrk = _r2(callerClearance);
+  // What flows past the caller, upward — the complement of the caller's own
+  // ceiling applied to their own clearance (not the full clearance anymore,
+  // now that the caller keeps a ceiling-% share of it directly above) — to
+  // be split further by whoever is above them using the exact same rule.
+  // Without this complement, caller_brk + owed_upward_brk would double-count
+  // callerClearance * callerBrkCeiling/100 (kept once by the caller, then
+  // ALSO passed up in full).
+  const owedUpwardBrk = _r2(callerClearance * (100 - callerBrkCeiling) / 100);
 
   return {
     id: userId,
@@ -621,24 +604,15 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
   const masterClearance = _clearanceForRules(subtreeByInstrument, masterOwnRules, kiteMap);
   const callerClearance = _clearanceForRules(subtreeByInstrument, callerRules, kiteMap);
 
-  // Confirmed business rule, added on top of the rate-gap markup above —
-  // see _getUserEntryBatched's matching comment for the full reasoning.
-  // masterId is always the caller's direct child on the path to every user
-  // in this row (same reasoning as the P&L ceiling weight above), so the
-  // base-share weight uses masterId's own ceiling the same way callerPnl
-  // RetentionPct does for P&L.
-  const topmostId = _topmostMasterId(masterId, masterMap);
-  const topmostRules = brkRulesByUser[topmostId] || globalBrkRules;
-  const baseClearance = _clearanceForRules(subtreeByInstrument, topmostRules, kiteMap);
+  // Confirmed business rule (replaces the earlier "topmost base-share"
+  // layer — see _getUserEntryBatched's matching comment): the caller's own
+  // clearance is split by the caller's OWN brokerage_sharing ceiling instead
+  // of flowing upward in full. masterClearance plays the same role here
+  // that totalBrokerage plays in the direct-client case (the pool that
+  // reaches the caller before their own cut), since masterId is always the
+  // caller's direct child on the path to every user in this row.
   const callerBrkCeiling = _ceilingPct(callerId, callerRole, masterMap, 'brokerage_sharing');
-  const masterBrkCeiling = masterDoc.brokerage_sharing || 0;
-  const baseSharePct = callerBrkCeiling - masterBrkCeiling;
-  const baseShare = baseClearance * baseSharePct / 100;
-  // Clamped for the same reason as _getUserEntryBatched: Admin's own
-  // clearance is 0, so without this the rate-gap portion below would
-  // include the WHOLE base a second time on top of Admin's baseShare.
-  const rateGapClearance = Math.max(callerClearance, baseClearance);
-  const callerBrk = _r2((masterClearance - rateGapClearance) + baseShare);
+  const callerBrk = _r2((masterClearance - callerClearance) + callerClearance * callerBrkCeiling / 100);
 
   // Sharing is priced off the sub-tree's REAL total exposure (realised +
   // still-open m2m), not realised alone.
@@ -648,9 +622,9 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
   // the caller's own ceiling (not masterId's), applied to the row's whole
   // original total.
   const owedUpwardPnl = _r2((-sharingBasis) * (100 - callerPnlCeiling) / 100);
-  // What flows past the caller, upward — their own clearance on this
-  // sub-tree's volume, same complement pattern as _getUserEntryBatched.
-  const owedUpwardBrk = _r2(callerClearance);
+  // What flows past the caller, upward — the complement of the caller's own
+  // ceiling applied to their own clearance, same as _getUserEntryBatched.
+  const owedUpwardBrk = _r2(callerClearance * (100 - callerBrkCeiling) / 100);
 
   return {
     id: masterId,
@@ -699,12 +673,11 @@ function _ceilingPct(id, role, masterMap, shareField) {
  * whose own master_id is null (Admin's direct child). Cycle-guarded, same
  * pattern as _getAllSubMasterIdsBatched's own walk.
  *
- * Confirmed business rule: the topmost master's own configured rate is the
- * hierarchy-wide "base" — what used to flow entirely to Admin under the
- * pure rate-gap model. That base is now split among EVERY tier (Admin
- * included) by ceiling-difference %, the same way P&L already works,
- * layered ON TOP of each tier's existing rate-gap markup (which is
- * unaffected — see _getUserEntryBatched/_getAggregatedEntryBatched).
+ * No longer used by the brokerage computation itself — it backed the
+ * earlier "topmost base-share" model, since replaced by splitting each
+ * caller's own clearance by their own ceiling (see _getUserEntryBatched /
+ * _getAggregatedEntryBatched). Kept as a tested utility in case a future
+ * feature needs the topmost-ancestor walk again.
  */
 function _topmostMasterId(masterId, masterMap) {
   let current = masterId;

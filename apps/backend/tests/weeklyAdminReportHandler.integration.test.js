@@ -203,13 +203,11 @@ describe('a 30-tier hierarchy computes correctly end-to-end through the real HTT
     const expectedPnl = Math.round((100 - ceilingFor(0)) / 100 * 1000 * 100) / 100;
     expect(row.caller_profit).toBeCloseTo(expectedPnl, 1);
 
-    // caller_brk = rate-gap markup (0 here, since tier0 IS the topmost — see
-    // baseClearance below) + Admin's ceiling-difference share of the base
-    // (tier0's own clearance, since Admin's own clearance is 0). This is
-    // the newer base-share layer on top of the original rate-gap model —
-    // see _topmostMasterId's own comment in weeklyAdminController.js.
-    const baseClearance = rateFor(0) * 10;
-    const expectedBrk = baseClearance * (100 - ceilingFor(0)) / 100;
+    // caller_brk = (tier0's own clearance - Admin's own clearance) +
+    // Admin's own clearance * Admin's ceiling/100. Admin's own clearance is
+    // always 0 (no BrokerageSettings rows), so this collapses to tier0's
+    // full own clearance — see _getAggregatedEntryBatched.
+    const expectedBrk = rateFor(0) * 10;
     expect(row.caller_brk).toBeCloseTo(expectedBrk, 1);
   });
 
@@ -225,13 +223,12 @@ describe('a 30-tier hierarchy computes correctly end-to-end through the real HTT
     const row = body.data.find((r) => r.id === CHILD);
     expect(row).toBeDefined();
 
-    // caller_brk = (CHILD's own rate - CALLER's own rate) * 10 lots, PLUS
-    // the caller's ceiling-difference share of the topmost tier's own
-    // clearance (tier0 — unaffected by which tier is being viewed, only by
-    // who the caller and the row's own master are).
-    const baseClearance = rateFor(0) * 10;
-    const baseSharePct = ceilingFor(14) - ceilingFor(15);
-    const expectedBrk = (rateFor(15) - rateFor(14)) * 10 + baseClearance * baseSharePct / 100;
+    // caller_brk = (CHILD's own rate - CALLER's own rate) * 10 lots [the
+    // rate-gap markup, wholly the caller's] + the caller's OWN clearance
+    // split by the caller's OWN ceiling [replaces the old topmost
+    // base-share layer — see _getAggregatedEntryBatched].
+    const callerClearance = rateFor(14) * 10;
+    const expectedBrk = (rateFor(15) - rateFor(14)) * 10 + callerClearance * ceilingFor(14) / 100;
     expect(row.caller_brk).toBeCloseTo(expectedBrk, 1);
 
     // caller_profit = (CALLER's own ceiling - CHILD's own ceiling) * total P&L
@@ -253,24 +250,28 @@ describe('a 30-tier hierarchy computes correctly end-to-end through the real HTT
     // BOTTOM_TIER's aggregate row instead.
     expect(directUserRow).toBeUndefined();
     const bottomRow = body.data.find((r) => r.id === BOTTOM_TIER);
-    const baseClearance = rateFor(0) * 10;
-    const baseSharePct = ceilingFor(N - 2) - ceilingFor(N - 1);
-    const expectedBrk = (rateFor(N - 1) - rateFor(N - 2)) * 10 + baseClearance * baseSharePct / 100;
+    const callerClearance = rateFor(N - 2) * 10;
+    const expectedBrk = (rateFor(N - 1) - rateFor(N - 2)) * 10 + callerClearance * ceilingFor(N - 2) / 100;
     expect(bottomRow.caller_brk).toBeCloseTo(expectedBrk, 1);
   });
 
-  test('every tier\'s own base-share (ceiling-difference of the topmost tier\'s own clearance) sums to exactly that base clearance, including Admin', () => {
-    // Structural proof, not just a spot-check: the base-share layer is a
-    // flat ceiling-difference partition of ONE fixed quantity (the topmost
-    // tier's own clearance) — same structure already proven for P&L. Admin
-    // gets (100 - ceilingFor(0))%, each tier i gets
-    // (ceilingFor(i) - ceilingFor(i+1))%, and the bottom-most tier gets
-    // ceilingFor(N-1)% (down to the client, whose own ceiling is 0).
-    const baseClearance = rateFor(0) * 10;
-    let sumPct = (100 - ceilingFor(0));
-    for (let i = 0; i < N - 1; i++) sumPct += ceilingFor(i) - ceilingFor(i + 1);
-    sumPct += ceilingFor(N - 1) - 0;
-    expect(sumPct).toBeCloseTo(100, 8);
-    expect(baseClearance * sumPct / 100).toBeCloseTo(baseClearance, 8);
+  test('caller_brk + owed_upward_brk always reconstructs exactly the row\'s own clearance, no double-counting', async () => {
+    // Structural proof: splitting the caller's own clearance into a
+    // ceiling% kept locally and a (100-ceiling)% passed upward must sum
+    // back to that SAME clearance, for every row, at any depth — otherwise
+    // brokerage would leak or double-count across the chain.
+    const CALLER = tierId(14);
+    const CHILD = tierId(15);
+    const req = { admin: null, master: { id: CALLER }, query: {} };
+    const res = makeRes();
+
+    await getWeeklyAdminReport(req, res);
+
+    const body = res.json.mock.calls[0][0];
+    const row = body.data.find((r) => r.id === CHILD);
+    const masterClearance = rateFor(15) * 10;
+    const callerClearance = rateFor(14) * 10;
+    const rateGapMarkup = masterClearance - callerClearance;
+    expect(row.caller_brk + row.owed_upward_brk).toBeCloseTo(rateGapMarkup + callerClearance, 1);
   });
 });

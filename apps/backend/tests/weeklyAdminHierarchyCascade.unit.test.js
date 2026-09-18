@@ -310,54 +310,42 @@ describe('_topmostMasterId — walks to the master whose own master_id is null',
   });
 });
 
-describe('base-share layer — the topmost tier\'s own clearance is split by ceiling-difference among EVERY tier including Admin', () => {
-  // Confirmed business rule, added on top of the rate-gap model above: the
-  // topmost real master's own configured rate no longer flows entirely to
-  // Admin (who previously kept the whole thing, since Admin's own clearance
-  // is 0) — it's split by the same ceiling-difference % already used for
-  // P&L, among Admin and every real tier. Verified against the real
-  // production hierarchy (996789 90% -> 705206 75% -> 254831 50% ->
-  // 999746 25% -> a client billed 2232.55, whose topmost tier 996789's own
-  // clearance/"base" is 96.51): Admin=9.65, 996789=210.99 (196.51 rate-gap
-  // + 14.48 base-share), 705206=270.64 (246.51 + 24.13), 254831=270.64
-  // (246.51 + 24.13), 999746=1470.64 (1446.51 + 24.13) — summing to
-  // exactly 2232.55.
-  const BASE = 96.51; // 996789's own clearance for this client's trades
-
-  function baseSharePct(ownCeiling, childCeiling) {
-    return ownCeiling - childCeiling;
+describe('caller-clearance ceiling-split — replaces the earlier topmost base-share layer', () => {
+  // Confirmed business rule (replaces the earlier "topmost base-share"
+  // model above): the caller's own rate-based clearance is no longer
+  // passed entirely upward as a lump — it's split by the CALLER's OWN
+  // brokerage_sharing ceiling, the same ceiling-split pattern already used
+  // for P&L. The rate-gap markup (totalBrokerage - callerClearance) still
+  // belongs wholly to the caller, unshared. Verified against two real
+  // accounts on the real Volt hierarchy (gm5, ceiling 60%, viewing two
+  // different direct clients): gmuser (totalBrokerage 1821.0687,
+  // callerClearance 1517.55725) -> caller_brk 1214.0458; gmuser2
+  // (totalBrokerage 280.3338, callerClearance 233.6115) -> caller_brk
+  // 186.8892 — both matching the reference software exactly.
+  function callerBrk(totalBrokerage, callerClearance, callerCeiling) {
+    return (totalBrokerage - callerClearance) + callerClearance * callerCeiling / 100;
   }
 
-  test('every tier\'s base-share % sums to exactly 100%, Admin included', () => {
-    const admin = baseSharePct(100, 90);   // 10
-    const m1 = baseSharePct(90, 75);       // 15 (996789)
-    const m2 = baseSharePct(75, 50);       // 25 (705206)
-    const m3 = baseSharePct(50, 25);       // 25 (254831)
-    const m4 = baseSharePct(25, 0);        // 25 (999746)
-    expect(admin + m1 + m2 + m3 + m4).toBe(100);
+  test('matches the confirmed production numbers for two real clients under the same caller', () => {
+    expect(callerBrk(1821.0687, 1517.55725, 60)).toBeCloseTo(1214.0458, 3);
+    expect(callerBrk(280.3338, 233.6115, 60)).toBeCloseTo(186.8892, 3);
   });
 
-  test('each real tier\'s FULL total (rate-gap markup + base-share) matches the confirmed production numbers', () => {
-    const rateGap = { m1: 196.51, m2: 246.51, m3: 246.51, m4: 1446.51 };
-    const shares = {
-      admin: BASE * baseSharePct(100, 90) / 100,
-      m1: BASE * baseSharePct(90, 75) / 100,
-      m2: BASE * baseSharePct(75, 50) / 100,
-      m3: BASE * baseSharePct(50, 25) / 100,
-      m4: BASE * baseSharePct(25, 0) / 100,
-    };
+  test('caller_brk + owed_upward_brk always reconstructs the caller\'s own clearance plus the rate-gap markup, no double-counting', () => {
+    const totalBrokerage = 1821.0687;
+    const callerClearance = 1517.55725;
+    const callerCeiling = 60;
+    const rateGapMarkup = totalBrokerage - callerClearance;
+    const owedUpwardBrk = callerClearance * (100 - callerCeiling) / 100;
+    expect(callerBrk(totalBrokerage, callerClearance, callerCeiling) + owedUpwardBrk)
+      .toBeCloseTo(rateGapMarkup + callerClearance, 6);
+  });
 
-    expect(shares.admin).toBeCloseTo(9.651, 2);
-    expect(rateGap.m1 + shares.m1).toBeCloseTo(210.99, 1);
-    expect(rateGap.m2 + shares.m2).toBeCloseTo(270.64, 1);
-    expect(rateGap.m3 + shares.m3).toBeCloseTo(270.64, 1);
-    expect(rateGap.m4 + shares.m4).toBeCloseTo(1470.64, 1);
+  test('a 0% ceiling caller passes the entire clearance upward and keeps only the rate-gap markup', () => {
+    expect(callerBrk(1000, 400, 0)).toBeCloseTo(600, 6);
+  });
 
-    const total = shares.admin
-      + (rateGap.m1 + shares.m1)
-      + (rateGap.m2 + shares.m2)
-      + (rateGap.m3 + shares.m3)
-      + (rateGap.m4 + shares.m4);
-    expect(total).toBeCloseTo(2232.55, 1);
+  test('a 100% ceiling caller (e.g. Admin viewing the topmost tier) keeps clearance in full', () => {
+    expect(callerBrk(1000, 400, 100)).toBeCloseTo(1000, 6);
   });
 });
