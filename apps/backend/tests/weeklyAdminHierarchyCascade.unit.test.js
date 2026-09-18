@@ -349,3 +349,67 @@ describe('caller-clearance ceiling-split — replaces the earlier topmost base-s
     expect(callerBrk(1000, 400, 100)).toBeCloseTo(1000, 6);
   });
 });
+
+describe('aggregate-row brokerage — each tier\'s owed-upward is computed independently off its OWN clearance and OWN ceiling, never by comparing adjacent tiers\' rates', () => {
+  // Confirmed business rule (replaces an earlier per-hop rate-gap
+  // comparison between masterId's and the caller's own rates, which
+  // produced 3036.33 instead of the correct 639.23 for gm44 viewing gm55):
+  // owedUpward(X) = X's own clearance * (100 - X's own ceiling)/100,
+  // computed independently per tier. What a caller keeps viewing their
+  // direct child (master or client) = child's own owedUpward (the
+  // "incoming pool") minus the caller's OWN owedUpward. This is
+  // algebraically identical to _getUserEntryBatched's direct-client
+  // formula when the child is an actual client (whose "owedUpward" is
+  // just their real total bill). Verified against a real 6-tier hierarchy
+  // (gm55->gm44->gm33->gm22->gm11->Admin) on real Volt trade data (turnover
+  // 7,990,350, total client brokerage 4,794.21):
+  const TOTAL = 7990350; // client turnover
+  function ownClearance(rate) { return TOTAL * rate / 10000; }
+  function owedUpward(rate, ceiling) { return ownClearance(rate) * (100 - ceiling) / 100; }
+  function keptByCaller(childRate, childCeiling, callerRate, callerCeiling) {
+    return owedUpward(childRate, childCeiling) - owedUpward(callerRate, callerCeiling);
+  }
+
+  const tiers = [
+    { name: 'gm55', rate: 5, ceiling: 60 },
+    { name: 'gm44', rate: 4, ceiling: 70 },
+    { name: 'gm33', rate: 3, ceiling: 80 },
+    { name: 'gm22', rate: 2, ceiling: 90 },
+    { name: 'gm11', rate: 1, ceiling: 94 },
+  ];
+  // gm55's "child" is the real client (rate 6, i.e. the full 4,794.21 bill,
+  // not a computed owedUpward) — everyone else's child is the tier below.
+  const clientTotal = TOTAL * 6 / 10000;
+
+  test('gm55 (direct-client row) keeps 3196.14, matching the real client bill exactly', () => {
+    const kept = clientTotal - owedUpward(tiers[0].rate, tiers[0].ceiling);
+    expect(kept).toBeCloseTo(3196.14, 1);
+    expect(owedUpward(tiers[0].rate, tiers[0].ceiling)).toBeCloseTo(1598.07, 1);
+  });
+
+  test('gm44 viewing gm55 keeps exactly 639.23 — the number the old per-hop rate-gap formula got wrong (produced 3036.33)', () => {
+    const kept = keptByCaller(tiers[0].rate, tiers[0].ceiling, tiers[1].rate, tiers[1].ceiling);
+    expect(kept).toBeCloseTo(639.23, 1);
+  });
+
+  test('every remaining tier matches its real confirmed ground-truth number', () => {
+    expect(keptByCaller(tiers[1].rate, tiers[1].ceiling, tiers[2].rate, tiers[2].ceiling)).toBeCloseTo(479.42, 1);
+    expect(keptByCaller(tiers[2].rate, tiers[2].ceiling, tiers[3].rate, tiers[3].ceiling)).toBeCloseTo(319.61, 1);
+    expect(keptByCaller(tiers[3].rate, tiers[3].ceiling, tiers[4].rate, tiers[4].ceiling)).toBeCloseTo(111.86, 1);
+    // Admin's own clearance is always 0 (no BrokerageSettings rows) —
+    // Admin keeps gm11's full owed-upward.
+    expect(owedUpward(tiers[4].rate, tiers[4].ceiling)).toBeCloseTo(47.94, 1);
+  });
+
+  test('every tier\'s kept amount plus its own owed-upward sums to exactly what it received from its child — no leakage across the whole 6-tier chain', () => {
+    let incoming = clientTotal;
+    for (const t of tiers) {
+      const ownOwed = owedUpward(t.rate, t.ceiling);
+      const kept = incoming - ownOwed;
+      expect(kept + ownOwed).toBeCloseTo(incoming, 6);
+      incoming = ownOwed;
+    }
+    // What finally reaches Admin.
+    expect(incoming).toBeCloseTo(47.94, 1);
+  });
+});

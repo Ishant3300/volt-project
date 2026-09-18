@@ -604,15 +604,25 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
   const masterClearance = _clearanceForRules(subtreeByInstrument, masterOwnRules, kiteMap);
   const callerClearance = _clearanceForRules(subtreeByInstrument, callerRules, kiteMap);
 
-  // Confirmed business rule (replaces the earlier "topmost base-share"
-  // layer — see _getUserEntryBatched's matching comment): the caller's own
-  // clearance is split by the caller's OWN brokerage_sharing ceiling instead
-  // of flowing upward in full. masterClearance plays the same role here
-  // that totalBrokerage plays in the direct-client case (the pool that
-  // reaches the caller before their own cut), since masterId is always the
-  // caller's direct child on the path to every user in this row.
+  // Confirmed business rule (replaces the earlier per-hop rate-gap
+  // comparison between masterId's and the caller's own rates): each tier's
+  // owed-upward amount is computed independently off ITS OWN clearance and
+  // OWN ceiling — never by comparing rates between adjacent tiers. What the
+  // caller keeps is simply (what flows in from masterId's own owed-upward)
+  // minus (what the caller themselves owes upward). This is the exact same
+  // pattern _getUserEntryBatched already uses (that formula is algebraically
+  // identical to this one when the "child" is a real client rather than a
+  // master) — see owed_upward_brk below for the caller's own half.
+  // Verified against a real 6-tier hierarchy (gm55->gm11), matching every
+  // tier's ground-truth number exactly: gm44 (own clearance 3196.14,
+  // ceiling 70%) viewing gm55 (own clearance 3995.175, ceiling 60%) ->
+  // incoming pool 3995.175*0.4=1598.07, gm44's own owed-upward
+  // 3196.14*0.3=958.84, caller_brk = 1598.07-958.84 = 639.23.
   const callerBrkCeiling = _ceilingPct(callerId, callerRole, masterMap, 'brokerage_sharing');
-  const callerBrk = _r2((masterClearance - callerClearance) + callerClearance * callerBrkCeiling / 100);
+  const masterBrkCeiling = masterDoc.brokerage_sharing || 0;
+  const incomingBrkPool = masterClearance * (100 - masterBrkCeiling) / 100;
+  const callerOwedUpwardBrk = callerClearance * (100 - callerBrkCeiling) / 100;
+  const callerBrk = _r2(incomingBrkPool - callerOwedUpwardBrk);
 
   // Sharing is priced off the sub-tree's REAL total exposure (realised +
   // still-open m2m), not realised alone.
@@ -622,9 +632,9 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
   // the caller's own ceiling (not masterId's), applied to the row's whole
   // original total.
   const owedUpwardPnl = _r2((-sharingBasis) * (100 - callerPnlCeiling) / 100);
-  // What flows past the caller, upward — the complement of the caller's own
-  // ceiling applied to their own clearance, same as _getUserEntryBatched.
-  const owedUpwardBrk = _r2(callerClearance * (100 - callerBrkCeiling) / 100);
+  // What flows past the caller, upward — the caller's own owed-upward
+  // amount computed above, same as _getUserEntryBatched.
+  const owedUpwardBrk = _r2(callerOwedUpwardBrk);
 
   return {
     id: masterId,

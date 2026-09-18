@@ -203,11 +203,11 @@ describe('a 30-tier hierarchy computes correctly end-to-end through the real HTT
     const expectedPnl = Math.round((100 - ceilingFor(0)) / 100 * 1000 * 100) / 100;
     expect(row.caller_profit).toBeCloseTo(expectedPnl, 1);
 
-    // caller_brk = (tier0's own clearance - Admin's own clearance) +
-    // Admin's own clearance * Admin's ceiling/100. Admin's own clearance is
-    // always 0 (no BrokerageSettings rows), so this collapses to tier0's
-    // full own clearance — see _getAggregatedEntryBatched.
-    const expectedBrk = rateFor(0) * 10;
+    // caller_brk = tier0's own owed-upward pool (their own clearance *
+    // (100-their ceiling)/100) minus Admin's own owed-upward (0, since
+    // Admin's own clearance is always 0 — no BrokerageSettings rows).
+    const incomingPool = rateFor(0) * 10 * (100 - ceilingFor(0)) / 100;
+    const expectedBrk = incomingPool;
     expect(row.caller_brk).toBeCloseTo(expectedBrk, 1);
   });
 
@@ -223,12 +223,14 @@ describe('a 30-tier hierarchy computes correctly end-to-end through the real HTT
     const row = body.data.find((r) => r.id === CHILD);
     expect(row).toBeDefined();
 
-    // caller_brk = (CHILD's own rate - CALLER's own rate) * 10 lots [the
-    // rate-gap markup, wholly the caller's] + the caller's OWN clearance
-    // split by the caller's OWN ceiling [replaces the old topmost
-    // base-share layer — see _getAggregatedEntryBatched].
-    const callerClearance = rateFor(14) * 10;
-    const expectedBrk = (rateFor(15) - rateFor(14)) * 10 + callerClearance * ceilingFor(14) / 100;
+    // caller_brk = CHILD's own owed-upward pool (their own clearance *
+    // (100-their ceiling)/100) minus CALLER's own owed-upward (same
+    // formula, their own clearance and ceiling) — each computed
+    // independently off that tier's own rate, never by comparing adjacent
+    // tiers' rates directly. See _getAggregatedEntryBatched.
+    const incomingPool = rateFor(15) * 10 * (100 - ceilingFor(15)) / 100;
+    const callerOwedUpward = rateFor(14) * 10 * (100 - ceilingFor(14)) / 100;
+    const expectedBrk = incomingPool - callerOwedUpward;
     expect(row.caller_brk).toBeCloseTo(expectedBrk, 1);
 
     // caller_profit = (CALLER's own ceiling - CHILD's own ceiling) * total P&L
@@ -250,16 +252,16 @@ describe('a 30-tier hierarchy computes correctly end-to-end through the real HTT
     // BOTTOM_TIER's aggregate row instead.
     expect(directUserRow).toBeUndefined();
     const bottomRow = body.data.find((r) => r.id === BOTTOM_TIER);
-    const callerClearance = rateFor(N - 2) * 10;
-    const expectedBrk = (rateFor(N - 1) - rateFor(N - 2)) * 10 + callerClearance * ceilingFor(N - 2) / 100;
+    const incomingPool = rateFor(N - 1) * 10 * (100 - ceilingFor(N - 1)) / 100;
+    const callerOwedUpward = rateFor(N - 2) * 10 * (100 - ceilingFor(N - 2)) / 100;
+    const expectedBrk = incomingPool - callerOwedUpward;
     expect(bottomRow.caller_brk).toBeCloseTo(expectedBrk, 1);
   });
 
-  test('caller_brk + owed_upward_brk always reconstructs exactly the row\'s own clearance, no double-counting', async () => {
-    // Structural proof: splitting the caller's own clearance into a
-    // ceiling% kept locally and a (100-ceiling)% passed upward must sum
-    // back to that SAME clearance, for every row, at any depth — otherwise
-    // brokerage would leak or double-count across the chain.
+  test('caller_brk + owed_upward_brk always reconstructs exactly the incoming pool from the child\'s own owed-upward, no leakage', async () => {
+    // Structural proof: caller_brk = incomingPool - callerOwedUpward, and
+    // owed_upward_brk = callerOwedUpward — so their sum must always equal
+    // incomingPool exactly, for every row, at any depth.
     const CALLER = tierId(14);
     const CHILD = tierId(15);
     const req = { admin: null, master: { id: CALLER }, query: {} };
@@ -269,9 +271,7 @@ describe('a 30-tier hierarchy computes correctly end-to-end through the real HTT
 
     const body = res.json.mock.calls[0][0];
     const row = body.data.find((r) => r.id === CHILD);
-    const masterClearance = rateFor(15) * 10;
-    const callerClearance = rateFor(14) * 10;
-    const rateGapMarkup = masterClearance - callerClearance;
-    expect(row.caller_brk + row.owed_upward_brk).toBeCloseTo(rateGapMarkup + callerClearance, 1);
+    const incomingPool = rateFor(15) * 10 * (100 - ceilingFor(15)) / 100;
+    expect(row.caller_brk + row.owed_upward_brk).toBeCloseTo(incomingPool, 1);
   });
 });
