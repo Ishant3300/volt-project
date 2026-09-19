@@ -84,6 +84,14 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   // Brokerage settings per exchange (inline during creation)
   Map<String, Map<String, dynamic>> _brokerageSettings = {};
 
+  // The logged-in master's OWN rate per exchange — the real floor a new
+  // sub-broker's flat brokerage can't be set below (mirrors the backend's
+  // own enforceFloor/validateBrokerageFloor rejection in
+  // brokerageCopyService.js). Only meaningful when a master (not an admin
+  // creating a top-level master directly) is doing the creating — same
+  // "no parent to violate against" case the backend itself skips.
+  final Map<String, double> _brokerageFloor = {};
+
   @override
   void dispose() {
     if (!_isSuccess) _releaseUsername();
@@ -204,6 +212,64 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           _highLowBetweenTradeLimit[key] = true;
         }
       }
+    } else {
+      // New sub-broker, created by a master (not an admin creating a
+      // top-level master, which has no parent to floor against) —
+      // pre-fill every rate field from the creating master's own rate.
+      final profileProvider =
+          Provider.of<UserProfileProvider>(context, listen: false);
+      if (!profileProvider.isAdmin) {
+        _fetchOwnBrokerageFloor();
+      }
+    }
+  }
+
+  /// Pre-fills the "Base rate" fields (currently blank on this screen) from
+  /// the logged-in master's own rate, and records the same values as the
+  /// floor _createMaster checks against before submit. Mirrors
+  /// _fetchCurrentBrokerage in create_user_view.dart.
+  Future<void> _fetchOwnBrokerageFloor() async {
+    // Read BEFORE the first await below — same reasoning as
+    // create_user_view.dart's _fetchCurrentBrokerage.
+    final ownMasterId =
+        Provider.of<UserProfileProvider>(context, listen: false).master?.id;
+    if (ownMasterId == null) return;
+    try {
+      final token = await SecureStorageService().getToken();
+      final apiService = ApiService(backendUrl);
+
+      for (final exchange in _brokerageSettings.keys.toList()) {
+        final apiExchange = exchange == 'GLOBAL' ? 'INDICES' : exchange;
+        final brkSettings = _brokerageSettings[exchange];
+        if (brkSettings == null) continue;
+        final type = brkSettings['type'] as String;
+        final res = await apiService.get(
+          '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=1&user_id=$ownMasterId',
+          token: token,
+        );
+        if (res.statusCode == 200) {
+          final body = jsonDecode(res.body);
+          if (body['success'] == true) {
+            final items = body['data']['items'] as List? ?? [];
+            if (items.isNotEmpty) {
+              final firstVal =
+                  (items[0]['brk_value'] as num?)?.toDouble() ?? 0;
+              if (mounted) {
+                setState(() {
+                  brkSettings['value'] = firstVal.toString();
+                  (brkSettings['controller'] as TextEditingController).text =
+                      firstVal % 1 == 0
+                          ? firstVal.toInt().toString()
+                          : firstVal.toString();
+                  _brokerageFloor[exchange] = firstVal;
+                });
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      log('⚠️ Error fetching own brokerage floor: \$e');
     }
   }
 
@@ -258,6 +324,30 @@ class _CreateMasterViewState extends State<CreateMasterView> {
         _showSnack('Investor password must be different from main password',
             isError: true);
         return;
+      }
+    }
+
+    // Floor check — mirrors the backend's own enforceFloor/
+    // validateBrokerageFloor rejection (brokerageCopyService.js), surfaced
+    // here before the request instead of after a failed submit. Only
+    // applies to a NEW sub-broker created by a master (an admin creating a
+    // top-level master directly has no parent to violate against, same as
+    // the backend skips it there) and only covers the flat per-exchange
+    // rate, not the per-script/per-category customize sub-fields.
+    if (widget.master == null && _brokerageFloor.isNotEmpty) {
+      for (final exchange in _exchangeAllow.keys) {
+        if (_exchangeAllow[exchange] != true) continue;
+        final brkSettings = _brokerageSettings[exchange];
+        final floor = _brokerageFloor[exchange];
+        if (brkSettings == null || floor == null) continue;
+        final entered = double.tryParse(
+            (brkSettings['controller'] as TextEditingController).text.trim());
+        if (entered != null && entered < floor) {
+          _showSnack(
+              '$exchange brokerage ($entered) cannot be less than your own rate ($floor).',
+              isError: true);
+          return;
+        }
       }
     }
 

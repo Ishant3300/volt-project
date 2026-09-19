@@ -66,6 +66,14 @@ class _CreateUserViewState extends State<CreateUserView> {
   Map<String, Map<String, dynamic>> _brokerageSettings = {};
   // { 'NFO-FUT': { 'type': 'TURNOVER WISE', 'value': 0.02 }, ... }
 
+  // The logged-in master's OWN rate per exchange — the real floor a new
+  // client's flat brokerage can't be set below (mirrors the backend's own
+  // enforceFloor/validateBrokerageFloor rejection in
+  // brokerageCopyService.js). Populated once via _fetchOwnBrokerageFloor,
+  // independent of whatever _brokerageSettings' own 'value' currently
+  // shows (which the master then edits).
+  final Map<String, double> _brokerageFloor = {};
+
   // Trade Wallet inputs per allowed category (NSE/MCX/GLOBAL)
   final Map<String, TextEditingController> _walletControllers = {};
 
@@ -291,13 +299,28 @@ class _CreateUserViewState extends State<CreateUserView> {
     }
   }
 
-  /// Fetch current brokerage values for each exchange to pre-fill the inline section
+  /// Fetch current brokerage values for each exchange to pre-fill the inline
+  /// section. When editing an existing user, scoped to THEIR user_id (shows
+  /// what they're already charged). When creating a new user, this used to
+  /// omit user_id entirely — silently pulling the shared GLOBAL default
+  /// instead of the logged-in master's own rate, so a master who had
+  /// already overridden their own rate above the global default got a
+  /// prefilled value their new client would immediately fail the backend's
+  /// floor check against. Now scoped to the logged-in master's own id in
+  /// that case, same source _fetchOwnBrokerageFloor below uses.
   Future<void> _fetchCurrentBrokerage() async {
+    // Read BEFORE the first await below — Provider.of needs a still-valid
+    // context, and this method has no mounted guard until its own setState
+    // calls further down.
+    final ownMasterId = widget.user == null
+        ? Provider.of<UserProfileProvider>(context, listen: false)
+            .master
+            ?.id
+        : null;
     try {
       final token = await SecureStorageService().getToken();
       final apiService = ApiService(backendUrl);
-      // When editing an existing user, scope to their user_id
-      final userId = widget.user?.id;
+      final userId = widget.user?.id ?? ownMasterId;
 
       for (final exchange in _allowedExchanges) {
         final apiExchange = exchange == 'GLOBAL' ? 'INDICES' : exchange;
@@ -323,6 +346,12 @@ class _CreateUserViewState extends State<CreateUserView> {
                       firstVal % 1 == 0
                           ? firstVal.toInt().toString()
                           : firstVal.toString();
+                  // Creating (not editing) means this fetched value IS the
+                  // master's own rate — capture it as the floor too, since
+                  // the field above is about to become editable.
+                  if (widget.user == null) {
+                    _brokerageFloor[exchange] = firstVal;
+                  }
                 });
               }
             }
@@ -679,6 +708,29 @@ class _CreateUserViewState extends State<CreateUserView> {
     _tradeLimit.forEach((exchange, enabled) {
       if (enabled) tradeLimitList.add(exchange.toUpperCase());
     });
+
+    // Floor check — mirrors the backend's own enforceFloor/
+    // validateBrokerageFloor rejection (brokerageCopyService.js), surfaced
+    // here before the request instead of after a failed submit. Only
+    // covers the flat per-exchange rate (not the per-script/per-category
+    // "Customize" sub-fields, which don't have their own floor hint here
+    // yet — same gap the web portal had before those were wired up).
+    if (widget.user == null) {
+      for (final exchange in _allowedExchanges) {
+        if (_exchangeSettings[exchange]?['enabled'] != true) continue;
+        final brkSettings = _brokerageSettings[exchange];
+        final floor = _brokerageFloor[exchange];
+        if (brkSettings == null || floor == null) continue;
+        final entered = double.tryParse(
+            (brkSettings['controller'] as TextEditingController).text.trim());
+        if (entered != null && entered < floor) {
+          _showSnack(
+              '$exchange brokerage ($entered) cannot be less than your own rate ($floor).',
+              isError: true);
+          return;
+        }
+      }
+    }
 
     setState(() => _isSubmitting = true);
 
