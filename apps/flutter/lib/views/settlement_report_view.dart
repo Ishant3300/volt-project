@@ -20,9 +20,17 @@ import '../utils/contants.dart';
 /// selected (a specific client/sub-master under the viewer, or the
 /// viewer's own team by default) with each of THEIR own direct
 /// clients/sub-masters' own P&L, brokerage, and net total for the picked
-/// date range, split into who profited and who lost. No sharing-cascade
-/// math on this screen — every row is that account's own real result, as
-/// the backend now computes it (settlementReportService.js).
+/// date range, split into who profited and who lost. Every real row's
+/// P&L/Brk/Total is deliberately raw — no sharing-cascade or
+/// house-perspective sign flip, that account's own real result, as the
+/// backend computes it (settlementReportService.js).
+///
+/// The caller's own post-cut share appears as three extra ROWS —
+/// "Admin" (what flows PAST the caller further up the chain), "My
+/// Profit/Loss", and "My Brokerage" — bucketed into Profit or Loss by
+/// their own sign, same as every real row (see _rowsWithCascade). The top
+/// "Total Profit & Loss" tile is the caller's own combined net
+/// (caller_total_pnl), not the raw sum of every row.
 class SettlementReportView extends StatefulWidget {
   final Master? master;
   final User? user;
@@ -194,6 +202,58 @@ class _SettlementReportViewState extends State<SettlementReportView> {
     }
   }
 
+  // The caller's own post-cut share, broken out as three extra line-items
+  // (bucketed into Profit/Loss by their own sign, same as every real row)
+  // instead of extra columns — matches the reference terminal's own layout
+  // and the web portal's identical restructuring. Summed across EVERY real
+  // row regardless of which section it's in: these represent what the
+  // caller keeps/passes on from their WHOLE downline's combined result, not
+  // a per-section figure. `username` (not `name`) carries the label since
+  // _dataRow/_pdfCell only ever render `r['username']`.
+  (List<Map<String, dynamic>>, List<Map<String, dynamic>>) _rowsWithCascade(
+      List<Map<String, dynamic>> profit, List<Map<String, dynamic>> loss) {
+    final all = [...profit, ...loss];
+    final hasCascade = all.any((r) => r['caller_total'] != null);
+    if (!hasCascade) return (profit, loss);
+
+    double sum(num? Function(Map<String, dynamic>) get) =>
+        all.fold(0.0, (s, r) => s + (get(r)?.toDouble() ?? 0));
+
+    final admin = <String, dynamic>{
+      'id': 'admin',
+      'username': 'Admin',
+      'pnl': sum((r) => r['owed_upward_pnl'] as num?),
+      'brokerage': sum((r) => r['owed_upward_brokerage'] as num?),
+      'total': sum((r) => r['owed_upward_total'] as num?),
+    };
+    final myPnl = <String, dynamic>{
+      'id': 'my-pnl',
+      'username': 'My Profit/Loss',
+      'pnl': 0.0,
+      'brokerage': 0.0,
+      'total': sum((r) => r['caller_pnl'] as num?),
+    };
+    final myBrokerage = <String, dynamic>{
+      'id': 'my-brokerage',
+      'username': 'My Brokerage',
+      'pnl': 0.0,
+      'brokerage': 0.0,
+      'total': sum((r) => r['caller_brokerage'] as num?),
+    };
+
+    // Skip a line-item that's genuinely zero across the board (e.g.
+    // "Admin" when the caller IS Admin — nothing ever flows past them)
+    // rather than clutter every report with a permanent 0.00 row.
+    final synthetic = [admin, myPnl, myBrokerage]
+        .where((r) => (r['pnl'] as double) != 0 || (r['brokerage'] as double) != 0 || (r['total'] as double) != 0)
+        .toList();
+
+    return (
+      [...profit, ...synthetic.where((r) => (r['total'] as double) >= 0)],
+      [...loss, ...synthetic.where((r) => (r['total'] as double) < 0)],
+    );
+  }
+
   void _reset() {
     setState(() {
       _selectedRange = 'this_week';
@@ -249,9 +309,11 @@ class _SettlementReportViewState extends State<SettlementReportView> {
 
   pw.Document _buildPdf(Map<String, dynamic> report) {
     final fmt = NumberFormat('#,##0.00');
-    final profit = List<Map<String, dynamic>>.from(report['profit'] ?? []);
-    final loss = List<Map<String, dynamic>>.from(report['loss'] ?? []);
-    final totalPnl = (report['total_pnl'] as num?)?.toDouble() ?? 0;
+    final (profit, loss) = _rowsWithCascade(
+      List<Map<String, dynamic>>.from(report['profit'] ?? []),
+      List<Map<String, dynamic>>.from(report['loss'] ?? []),
+    );
+    final totalPnl = (report['caller_total_pnl'] as num?)?.toDouble() ?? (report['total_pnl'] as num?)?.toDouble() ?? 0;
     final targetName = report['target']?['name'] ?? report['target']?['username'] ?? '';
 
     pw.Widget table(String title, List<Map<String, dynamic>> rows) {
@@ -472,9 +534,17 @@ class _SettlementReportViewState extends State<SettlementReportView> {
                     else if (_report != null) ...[
                       _buildTotalBar(),
                       const SizedBox(height: 12),
-                      _buildSection('PROFIT', List<Map<String, dynamic>>.from(_report!['profit'] ?? []), true),
-                      const SizedBox(height: 12),
-                      _buildSection('LOSS', List<Map<String, dynamic>>.from(_report!['loss'] ?? []), false),
+                      Builder(builder: (_) {
+                        final (profitRows, lossRows) = _rowsWithCascade(
+                          List<Map<String, dynamic>>.from(_report!['profit'] ?? []),
+                          List<Map<String, dynamic>>.from(_report!['loss'] ?? []),
+                        );
+                        return Column(children: [
+                          _buildSection('PROFIT', profitRows, true),
+                          const SizedBox(height: 12),
+                          _buildSection('LOSS', lossRows, false),
+                        ]);
+                      }),
                       const SizedBox(height: 24),
                     ],
                   ],
@@ -630,7 +700,13 @@ class _SettlementReportViewState extends State<SettlementReportView> {
   }
 
   Widget _buildTotalBar() {
-    final totalPnl = (_report!['total_pnl'] as num?)?.toDouble() ?? 0;
+    // The caller's own combined net (caller_total_pnl — "My Profit/Loss" +
+    // "My Brokerage" combined below), not the raw sum of every row's total —
+    // matches the reference terminal's own top tile and the web portal's
+    // identical fix. Falls back to the raw total only if caller identity
+    // isn't known (shouldn't happen in practice, but keeps the tile from
+    // going blank).
+    final totalPnl = (_report!['caller_total_pnl'] as num?)?.toDouble() ?? (_report!['total_pnl'] as num?)?.toDouble() ?? 0;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(color: const Color(0xFFE5E5EA), borderRadius: BorderRadius.circular(8)),
