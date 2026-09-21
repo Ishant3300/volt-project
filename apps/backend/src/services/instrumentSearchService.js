@@ -131,10 +131,11 @@ const _buildAndSetCache = async () => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Single optimized query: only active, enabled, non-expired derivatives + indices + global
+  // Single optimized query: only active, enabled, non-NSE-banned, non-expired derivatives + indices + global
   const rawInstruments = await KiteInstrument.find({
     is_active: true,
     enabled: { $ne: false },
+    nse_banned: { $ne: true },
     deleted_at: null,
     $or: [
       // Derivatives: only non-expired

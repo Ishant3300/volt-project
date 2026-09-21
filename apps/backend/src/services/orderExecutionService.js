@@ -248,22 +248,27 @@ const processPendingOrders = async () => {
                         //    `freshTrade.exchange` (which carries no segment), so 'NFO-FUT'
                         //    maps to NSE and 'MCX-FUT' to MCX rather than GLOBAL.
                         const walletInstrument = await KiteInstrument.findOne({ instrument_token: freshTrade.instrument_token })
-                            .select('segment enabled deleted_at instrument_type').session(session).lean();
+                            .select('segment enabled deleted_at instrument_type nse_banned ban_reason').session(session).lean();
                         const walletCategory = categoryForSegment(walletInstrument?.segment || freshTrade.exchange || '');
 
                         const { closingQty: walletClosingQty, openingQty: walletOpeningQty } =
                             computeWalletSplit(prevNetQtyCheck, freshTrade.transaction_type, freshTrade.quantity);
 
-                        // Instrument enabled/deleted gate at FILL time — mirrors placeTrade's
+                        // Instrument enabled/deleted/NSE-ban gate at FILL time — mirrors placeTrade's
                         // placement-time check and priceQueueService's primary-path fill gate.
-                        // Deleted blocks unconditionally (even a close); disabled-only still
-                        // allows closing/reducing.
+                        // Deleted blocks unconditionally (even a close); disabled/nse_banned still
+                        // allow closing/reducing. nse_banned is set/cleared automatically by
+                        // nseBanListService, independent of the admin-driven `enabled` flag.
+                        const walletDisabled = walletInstrument?.enabled === false;
+                        const walletNseBanned = walletInstrument?.nse_banned === true;
                         const instrumentBlocked = walletInstrument?.deleted_at
-                            || (walletInstrument?.enabled === false && walletOpeningQty > 0);
+                            || ((walletDisabled || walletNseBanned) && walletOpeningQty > 0);
                         if (instrumentBlocked) {
                             const instrumentRejectRemark = walletInstrument?.deleted_at
                                 ? 'Admin has deactivated this script. Trading is not allowed.'
-                                : 'This instrument has been disabled by admin. You cannot open new positions on this script.';
+                                : walletNseBanned
+                                    ? 'This script is under NSE F&O ban (MWPL limit exceeded). You cannot open new positions on this script.'
+                                    : (walletInstrument?.ban_reason || 'This instrument has been disabled by admin.') + ' You cannot open new positions on this script.';
                             freshTrade.status = 'rejected';
                             freshTrade.pnl = 0;
                             freshTrade.net_amount = 0;

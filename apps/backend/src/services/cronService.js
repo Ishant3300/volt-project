@@ -178,6 +178,23 @@ class CronService {
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(nseBhavcopyJob);
 
+        // ── NSE F&O Ban List Sync ─────────────────────────────────────────
+        // NSE publishes each trading day's ban list before market open.
+        // 8:00 AM IST gives comfortable margin ahead of the 9:15 AM open.
+        // Also auto-lifts any previously-banned symbol no longer on today's
+        // list — see nseBanListService for the independent nse_banned field.
+        const nseBanListJob = cron.schedule('0 8 * * 1-5', async () => {
+            console.log('🚫 [CRON] Syncing NSE F&O ban list...');
+            try {
+                const { syncNseBanList } = require('./nseBanListService');
+                const result = await syncNseBanList();
+                console.log(`✅ [CRON] NSE ban list synced: ${result.symbolsInBanList} banned symbols, ${result.bannedCount} instruments newly/still banned, ${result.liftedCount} lifted.`);
+            } catch (error) {
+                console.error(`❌ [CRON] NSE ban list sync error: ${error.message}`);
+            }
+        }, { timezone: 'Asia/Kolkata' });
+        this.jobs.push(nseBanListJob);
+
         const mcxBhavcopyJob = cron.schedule('0 1 * * 2-6', async () => {
             console.log(`📊 [CRON] Fetching MCX settlement prices (1:00 AM IST)...`);
             try {

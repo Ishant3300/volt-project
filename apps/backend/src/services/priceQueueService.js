@@ -189,25 +189,31 @@ async function executeMatchedOrder(match, livePrice, options = {}) {
       //    segment, so categoryForSegment('NFO')→GLOBAL / ('MCX')→GLOBAL would be
       //    wrong. Resolving from segment maps 'NFO-FUT'→NSE, 'MCX-FUT'→MCX, etc.
       const walletInstrument = await KiteInstrument.findOne({ instrument_token: trade.instrument_token })
-        .select('segment enabled deleted_at instrument_type').session(session).lean();
+        .select('segment enabled deleted_at instrument_type nse_banned ban_reason').session(session).lean();
       const walletCategory = categoryForSegment(walletInstrument?.segment || trade.exchange || '');
 
       const { closingQty: walletClosingQty, openingQty: walletOpeningQty } =
         computeWalletSplit(previousNetQty, trade.transaction_type, trade.quantity);
 
-      // Instrument enabled/deleted gate at FILL time — mirrors placeTrade's
-      // placement-time check (tradeController.js). Disabling/deleting an
+      // Instrument enabled/deleted/NSE-ban gate at FILL time — mirrors placeTrade's
+      // placement-time check (tradeController.js). Disabling/deleting/banning an
       // instrument previously only blocked NEW order placement; an already-
       // pending LIMIT/SL order sitting in the book would still fill and open
-      // a fresh position once the price crossed, bypassing the admin's
+      // a fresh position once the price crossed, bypassing the admin's (or NSE's)
       // intent entirely. Deleted blocks unconditionally (even a close);
-      // disabled-only still allows closing/reducing, same as placeTrade.
+      // disabled/nse_banned still allow closing/reducing, same as placeTrade.
+      // nse_banned is set/cleared automatically by nseBanListService, independent
+      // of the admin-driven `enabled` flag.
+      const walletDisabled = walletInstrument?.enabled === false;
+      const walletNseBanned = walletInstrument?.nse_banned === true;
       const instrumentBlocked = walletInstrument?.deleted_at
-        || (walletInstrument?.enabled === false && walletOpeningQty > 0);
+        || ((walletDisabled || walletNseBanned) && walletOpeningQty > 0);
       if (instrumentBlocked) {
         const instrumentRejectRemark = walletInstrument?.deleted_at
           ? 'Admin has deactivated this script. Trading is not allowed.'
-          : 'This instrument has been disabled by admin. You cannot open new positions on this script.';
+          : walletNseBanned
+            ? 'This script is under NSE F&O ban (MWPL limit exceeded). You cannot open new positions on this script.'
+            : (walletInstrument?.ban_reason || 'This instrument has been disabled by admin.') + ' You cannot open new positions on this script.';
         trade.status = 'rejected';
         trade.pnl = 0;
         trade.net_amount = 0;

@@ -82,6 +82,27 @@ const kiteInstrumentSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // Reason shown to clients when an admin disables/bans this instrument
+  ban_reason: {
+    type: String,
+    default: null
+  },
+  banned_at: {
+    type: Date,
+    default: null
+  },
+  // Set/cleared automatically by the daily NSE F&O ban-list sync (nseBanListService).
+  // Independent of the admin-driven `enabled` flag above: this reflects NSE's own
+  // MWPL-breach ban period for the underlying symbol and lifts on its own the day
+  // NSE removes it, without needing an admin to re-enable anything.
+  nse_banned: {
+    type: Boolean,
+    default: false
+  },
+  nse_ban_date: {
+    type: Date,
+    default: null
+  },
   // Soft delete timestamp (admin can soft-delete instruments)
   deleted_at: {
     type: Date,

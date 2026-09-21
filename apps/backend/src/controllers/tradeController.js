@@ -600,7 +600,7 @@ const placeTrade = async (req, res) => {
             // ever checked expiry at all. Date-only comparison (matches
             // fetchInstruments.js's own "expired" boundary) so trading is
             // still allowed through the end of the expiry day itself.
-            const instCheckExpiry = await KiteInstrument.findOne({ instrument_token }).select('enabled deleted_at expiry').lean().session(session);
+            const instCheckExpiry = await KiteInstrument.findOne({ instrument_token }).select('enabled deleted_at expiry nse_banned ban_reason').lean().session(session);
             if (instCheckExpiry?.expiry) {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
@@ -612,12 +612,17 @@ const placeTrade = async (req, res) => {
 
             // ── Instrument enabled check: if instrument is disabled, only closing trades allowed ──
             // ── Instrument deleted check: if instrument is deleted, block ALL trades ──
+            // ── NSE F&O ban check: same closing-only rule, but driven by nse_banned
+            //    (set/cleared automatically by nseBanListService, independent of the
+            //    admin-driven `enabled` flag above) ──
             if (!req.admin) {
                 const instCheck = instCheckExpiry;
                 if (instCheck && instCheck.deleted_at) {
                     throw new Error('Admin has deactivated this script. Trading is not allowed.');
                 }
-                if (instCheck && instCheck.enabled === false) {
+                const isDisabled = instCheck && instCheck.enabled === false;
+                const isNseBanned = instCheck && instCheck.nse_banned === true;
+                if (isDisabled || isNseBanned) {
                     // Check if this trade is closing an existing position
                     const posAggEnabled = await Trade.aggregate([
                         { $match: { user_id: user._id, instrument_token, status: 'completed', deleted_at: null } },
@@ -635,15 +640,19 @@ const placeTrade = async (req, res) => {
                     const isClosingEnabled = (transaction_type === 'SELL' && currentNetQtyEnabled > 0) ||
                                              (transaction_type === 'BUY' && currentNetQtyEnabled < 0);
 
+                    const blockedReason = isNseBanned
+                        ? 'This script is under NSE F&O ban (MWPL limit exceeded).'
+                        : (instCheck.ban_reason || 'This instrument has been disabled by admin.');
+
                     // Allow closing up to the net position qty, block anything beyond
                     if (!isClosingEnabled) {
-                        throw new Error('This instrument has been disabled by admin. You cannot open new positions on this script.');
+                        throw new Error(`${blockedReason} You cannot open new positions on this script.`);
                     }
 
                     // If closing, check that quantity doesn't exceed net position (no new position beyond close)
                     const absNetQtyEnabled = Math.abs(currentNetQtyEnabled);
                     if (quantity > absNetQtyEnabled) {
-                        throw new Error(`This instrument is disabled. You can only close your existing ${absNetQtyEnabled} qty position. Cannot open new positions on this script.`);
+                        throw new Error(`${blockedReason} You can only close your existing ${absNetQtyEnabled} qty position. Cannot open new positions on this script.`);
                     }
                 }
             }

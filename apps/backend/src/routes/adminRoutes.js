@@ -383,11 +383,14 @@ router.get('/instruments/expiries', authenticateAdmin, async (req, res) => {
 // PUT /admin/instruments/bulk-toggle — enable/disable multiple instruments
 router.put('/instruments/bulk-toggle', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('INSTRUMENT_MANAGE'), async (req, res) => {
   try {
-    const { ids, enabled } = req.body;
+    const { ids, enabled, reason } = req.body;
     if (!ids || !Array.isArray(ids) || enabled === undefined) {
       return res.status(400).json({ success: false, message: 'ids array and enabled field required', data: null });
     }
-    const result = await KiteInstrument.updateMany({ _id: { $in: ids } }, { $set: { enabled } });
+    const bulkUpdate = enabled === false
+      ? { enabled, ban_reason: reason || null, banned_at: new Date() }
+      : { enabled, ban_reason: null, banned_at: null };
+    const result = await KiteInstrument.updateMany({ _id: { $in: ids } }, { $set: bulkUpdate });
 
     if (enabled === false) {
       const disabledInstruments = await KiteInstrument.find({ _id: { $in: ids } }).select('instrument_token').lean();
@@ -457,7 +460,7 @@ router.get('/instruments', authenticateAdmin, async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [instruments, total] = await Promise.all([
       KiteInstrument.find(filter)
-        .select('instrument_token tradingsymbol raw_name display_name segment exchange instrument_type expiry strike lot_size enabled is_active last_price deleted_at')
+        .select('instrument_token tradingsymbol raw_name display_name segment exchange instrument_type expiry strike lot_size enabled ban_reason banned_at nse_banned nse_ban_date is_active last_price deleted_at')
         .sort({ raw_name: 1, instrument_type: 1, expiry: 1 })
         .skip(skip)
         .limit(parseInt(limit))
@@ -478,11 +481,14 @@ router.get('/instruments', authenticateAdmin, async (req, res) => {
 // PUT /admin/instruments/:id/toggle — enable/disable an instrument
 router.put('/instruments/:id/toggle', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('INSTRUMENT_MANAGE'), async (req, res) => {
   try {
-    const { enabled } = req.body;
+    const { enabled, reason } = req.body;
     if (enabled === undefined) {
       return res.status(400).json({ success: false, message: 'enabled field required', data: null });
     }
-    const inst = await KiteInstrument.findByIdAndUpdate(req.params.id, { enabled }, { new: true });
+    const update = enabled === false
+      ? { enabled, ban_reason: reason || null, banned_at: new Date() }
+      : { enabled, ban_reason: null, banned_at: null };
+    const inst = await KiteInstrument.findByIdAndUpdate(req.params.id, update, { new: true });
     if (!inst) return res.status(404).json({ success: false, message: 'Instrument not found', data: null });
 
     if (enabled === false) {
