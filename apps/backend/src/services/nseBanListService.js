@@ -6,13 +6,16 @@
  * ban is entirely NSE's own call and lifts on its own the day a symbol drops
  * back under the limit — this sync just mirrors that state onto
  * KiteInstrument.nse_banned/nse_ban_date each morning, independent of the
- * admin-driven `enabled`/`ban_reason` fields.
+ * admin-driven `enabled`/`ban_reason` fields. Also posts the day's ban list
+ * as the active Announcement (same single-slot mechanism as an admin manually
+ * setting one — this replaces whatever was active, admin-set or not).
  *
  * Main entry: syncNseBanList()
  */
 
 const axios = require('axios');
 const KiteInstrument = require('../models/KiteInstrument');
+const Announcement = require('../models/Announcement');
 const { toIndiaDateOnly } = require('../utils/settlementDates');
 
 const BAN_LIST_URL = 'https://nsearchives.nseindia.com/content/fo/fo_secban.csv';
@@ -71,6 +74,20 @@ async function syncNseBanList() {
   if (lifted.modifiedCount > 0 || banned.modifiedCount > 0) {
     try {
       require('./instrumentSearchService').invalidateCache();
+    } catch (_) {}
+  }
+
+  // Auto-post today's ban list as the active announcement, same behavior as
+  // an admin manually setting one (Announcement only ever holds one active
+  // row — this replaces whatever was there, admin-set or not). Only touches
+  // it when there's an actual ban list to show; an empty day leaves whatever
+  // announcement is already active alone rather than posting "no bans".
+  if (symbols.size > 0) {
+    try {
+      const dateLabel = today.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+      const message = `NSE F&O Ban (${dateLabel}): ${[...symbols].sort().join(', ')} — new positions blocked, existing positions may still be closed.`;
+      await Announcement.updateMany({ is_active: true }, { $set: { is_active: false } });
+      await Announcement.create({ message, is_active: true });
     } catch (_) {}
   }
 
