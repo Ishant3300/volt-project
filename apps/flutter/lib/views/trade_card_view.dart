@@ -45,6 +45,13 @@ class TradeCardPage extends StatefulWidget {
   final int? initialQuantity;
   final String?
       forceSide; // 'BUY' or 'SELL' — only show this button (for pending orders)
+  /// Pre-selects the client this order is placed for (admin/master only) —
+  /// same effect as searching and picking them in the user field below, just
+  /// done up front. Used when opened from that client's own account-detail
+  /// Position tab, where the client is already known and re-searching for
+  /// them would be redundant. Map shape matches _selectUser's own param
+  /// (needs at least 'id' and 'username'/'name').
+  final Map<String, dynamic>? initialSelectedUser;
 
   const TradeCardPage({
     super.key,
@@ -52,6 +59,7 @@ class TradeCardPage extends StatefulWidget {
     this.initialOrderType,
     this.initialQuantity,
     this.forceSide,
+    this.initialSelectedUser,
   });
 
   @override
@@ -156,6 +164,14 @@ class _TradeCardPageState extends State<TradeCardPage> {
   void initState() {
     super.initState();
     _loadQuickQuantities();
+
+    if (widget.initialSelectedUser != null) {
+      _selectedUser = widget.initialSelectedUser;
+      _userSearchCtrl.text = widget.initialSelectedUser!['username'] ??
+          widget.initialSelectedUser!['name'] ??
+          '';
+      _fetchLotLimitForUser();
+    }
 
     // Pre-fill quantity from initialQuantity or from current position
     if (widget.initialQuantity != null) {

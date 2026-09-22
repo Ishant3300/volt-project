@@ -8,6 +8,10 @@ import 'package:provider/provider.dart';
 import '../models/master.dart';
 import '../models/user.dart';
 import '../models/trade.dart';
+import '../models/watchlist_item.dart';
+import '../models/kite_instrument.dart';
+import '../providers/watchlist_provider.dart';
+import 'trade_card_view.dart';
 import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../services/live_price_service.dart';
@@ -1522,7 +1526,9 @@ class _UsernameViewState extends State<UsernameView> {
     // metricsEngine is the single source of truth for all metrics.
     double floating = (pos['floating_pnl'] as num?)?.toDouble() ?? 0;
 
-    return Container(
+    return GestureDetector(
+      onTap: _currentUser != null ? () => _openTradeCardFor(pos) : null,
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1614,6 +1620,70 @@ class _UsernameViewState extends State<UsernameView> {
               ],
             ),
           ],
+        ),
+      ),
+      ),
+    );
+  }
+
+  /// Opens the same order window a client sees for their own trading, pre-
+  /// scoped to this specific client via master/admin trade authority — used
+  /// when tapping a position on that client's own Position tab. Only wired
+  /// up when `_currentUser != null` (a real single client), never from a
+  /// master's own aggregated cross-downline view, where there's no single
+  /// account to place an order against.
+  void _openTradeCardFor(Map<String, dynamic> pos) {
+    final user = _currentUser;
+    if (user == null) return;
+
+    final watchlistProvider =
+        Provider.of<WatchlistProvider>(context, listen: false);
+    final String iToken = pos['instrument_token']?.toString() ?? '';
+    final String symbol = pos['tradingsymbol'] ?? '';
+    final double ltp =
+        _ltpMap[iToken] ?? (pos['ltp'] as num?)?.toDouble() ?? 0;
+
+    WatchlistItem? existingItem = watchlistProvider.getByToken(iToken);
+    final WatchlistItem itemToUse;
+    if (existingItem != null) {
+      itemToUse = existingItem;
+    } else {
+      final instrument = KiteInstrument(
+        id: '',
+        instrumentToken: iToken,
+        exchangeToken: '',
+        tradingsymbol: symbol,
+        name: symbol,
+        rawName: symbol,
+        displayName: symbol,
+        lastPrice: ltp,
+        strike: 0,
+        tickSize: 0.05,
+        lotSize: (pos['lot_size'] as num?)?.toInt() ?? 1,
+        instrumentType: '',
+        segment: pos['segment'] ?? '',
+        exchange: pos['exchange'] ?? '',
+        isActive: true,
+        updatedAt: DateTime.now(),
+      );
+      itemToUse = WatchlistItem(
+        id: iToken,
+        instrument: instrument,
+        currentPrice: ltp > 0 ? ltp : null,
+        lastUpdated: DateTime.now(),
+      );
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TradeCardPage(
+          item: itemToUse,
+          initialSelectedUser: {
+            'id': user.id,
+            'name': user.name,
+            'username': user.username,
+          },
         ),
       ),
     );
