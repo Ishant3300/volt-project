@@ -187,7 +187,10 @@ class _WatchlistPageState extends State<WatchlistPage> {
                       ),
                       child: Column(
                         children: [
-                          // Header row with BID / ASK / HIGH / LOW labels
+                          // Header row with BID / ASK labels — LOW/HIGH now
+                          // render as small inline captions under each price
+                          // per row instead of their own header columns (see
+                          // _buildWatchlistCard's compact 2-column layout).
                           Padding(
                             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                             child: Row(
@@ -206,70 +209,34 @@ class _WatchlistPageState extends State<WatchlistPage> {
                                 ),
                                 SizedBox(
                                   width: 180,
-                                  child: Column(
+                                  child: Row(
                                     children: [
-                                      Row(
-                                        children: [
-                                          const Expanded(
-                                            child: Text(
-                                              'BID',
-                                              textAlign: TextAlign.end,
-                                              style: TextStyle(
-                                                color: Color(0xFF94A3B8),
-                                                fontSize: kFontSizeCaption,
-                                                fontFamily: kFontFamily,
-                                                fontWeight: kFontWeightSemiBold,
-                                                letterSpacing: 0.5,
-                                              ),
-                                            ),
+                                      const Expanded(
+                                        child: Text(
+                                          'BID',
+                                          textAlign: TextAlign.end,
+                                          style: TextStyle(
+                                            color: Color(0xFF94A3B8),
+                                            fontSize: kFontSizeCaption,
+                                            fontFamily: kFontFamily,
+                                            fontWeight: kFontWeightSemiBold,
+                                            letterSpacing: 0.5,
                                           ),
-                                          SizedBox(width: 21),
-                                          const Expanded(
-                                            child: Text(
-                                              'ASK',
-                                              textAlign: TextAlign.end,
-                                              style: TextStyle(
-                                                color: Color(0xFF94A3B8),
-                                                fontSize: kFontSizeCaption,
-                                                fontFamily: kFontFamily,
-                                                fontWeight: kFontWeightSemiBold,
-                                                letterSpacing: 0.5,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
+                                        ),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          const Expanded(
-                                            child: Text(
-                                              'HIGH',
-                                              textAlign: TextAlign.end,
-                                              style: TextStyle(
-                                                color: Color(0xFF94A3B8),
-                                                fontSize: kFontSizeCaption,
-                                                fontFamily: kFontFamily,
-                                                fontWeight: kFontWeightSemiBold,
-                                                letterSpacing: 0.5,
-                                              ),
-                                            ),
+                                      const SizedBox(width: 21),
+                                      const Expanded(
+                                        child: Text(
+                                          'ASK',
+                                          textAlign: TextAlign.end,
+                                          style: TextStyle(
+                                            color: Color(0xFF94A3B8),
+                                            fontSize: kFontSizeCaption,
+                                            fontFamily: kFontFamily,
+                                            fontWeight: kFontWeightSemiBold,
+                                            letterSpacing: 0.5,
                                           ),
-                                          SizedBox(width: 21),
-                                          const Expanded(
-                                            child: Text(
-                                              'LOW',
-                                              textAlign: TextAlign.end,
-                                              style: TextStyle(
-                                                color: Color(0xFF94A3B8),
-                                                fontSize: kFontSizeCaption,
-                                                fontFamily: kFontFamily,
-                                                fontWeight: kFontWeightSemiBold,
-                                                letterSpacing: 0.5,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -384,35 +351,9 @@ class _WatchlistPageState extends State<WatchlistPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Name line: "NIFTY FUT" or "ADANIENT 1680 CE"
-                  Text(
-                    _buildInstrumentTitle(
-                        instrument, instType, strike, isOption, isFut),
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: kFontSizeTradeSymbol,
-                      fontFamily: kFontFamily,
-                      fontWeight: kFontWeightSemiBold,
-                      letterSpacing: -0.3,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 3),
-                  // Expiry row
-                  if (instrument.expiry != null)
-                    Text(
-                      instrument.expiryDisplay.toString().toUpperCase(),
-                      style: const TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: kFontSizeCaption,
-                        fontFamily: kFontFamily,
-                        fontWeight: kFontWeightSemiBold,
-                        letterSpacing: 0.5,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  // Change row — now leads the card (was last), matching
+                  // the reference terminal's layout of change on top,
+                  // symbol + expiry below it.
                   Row(
                     children: [
                       Icon(
@@ -442,6 +383,36 @@ class _WatchlistPageState extends State<WatchlistPage> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 3),
+                  // Name line: "NIFTY FUT" or "ADANIENT 1680 CE"
+                  Text(
+                    _buildInstrumentTitle(
+                        instrument, instType, strike, isOption, isFut),
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontSize: kFontSizeTradeSymbol,
+                      fontFamily: kFontFamily,
+                      fontWeight: kFontWeightSemiBold,
+                      letterSpacing: -0.3,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 3),
+                  // Expiry row
+                  if (instrument.expiry != null)
+                    Text(
+                      instrument.expiryDisplay.toString().toUpperCase(),
+                      style: const TextStyle(
+                        color: Color(0xFF94A3B8),
+                        fontSize: kFontSizeCaption,
+                        fontFamily: kFontFamily,
+                        fontWeight: kFontWeightSemiBold,
+                        letterSpacing: 0.5,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                 ],
               ),
             ),
@@ -491,132 +462,64 @@ class _WatchlistPageState extends State<WatchlistPage> {
               final double? high = item.high;
               final double? low = item.low;
 
+              // Compact 2-column layout: BID (with today's Low underneath)
+              // and ASK (with today's High underneath), replacing the old
+              // separate BID/ASK row + HIGH/LOW row 2x2 grid — same tick-
+              // color/synthetic-price logic above, just re-laid-out.
+              Widget priceText(double? value, Color color, bool synthetic) {
+                return Text(
+                  value != null ? value.toStringAsFixed(2) : '--',
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                    fontFamily: kFontFamily,
+                    fontSize: kFontSizePriceMain,
+                    fontWeight: kFontWeightSemiBold,
+                    fontStyle: synthetic ? FontStyle.italic : FontStyle.normal,
+                    color: synthetic ? syntheticColor : color,
+                  ),
+                );
+              }
+
+              Widget captionText(String label, double? value) {
+                return Text(
+                  (value != null && value > 0)
+                      ? '$label: ${value.toStringAsFixed(2)}'
+                      : '$label: --',
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(
+                    fontFamily: kFontFamily,
+                    fontSize: kFontSizeCaption,
+                    fontWeight: kFontWeightSemiBold,
+                    color: Color(0xFF94A3B8),
+                  ),
+                );
+              }
+
               return SizedBox(
                 width: 180,
-                child: Column(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // BID / ASK row
-                    Row(
-                      children: [
-                        Expanded(
-                          child: effectiveBid != null
-                              ? Text(
-                                  effectiveBid.toStringAsFixed(2),
-                                  textAlign: TextAlign.end,
-                                  style: TextStyle(
-                                    fontFamily: kFontFamily,
-                                    fontSize: kFontSizePriceMain,
-                                    fontWeight: kFontWeightSemiBold,
-                                    fontStyle: bidIsSynthetic
-                                        ? FontStyle.italic
-                                        : FontStyle.normal,
-                                    color:
-                                        bidIsSynthetic ? syntheticColor : bidColor,
-                                  ),
-                                )
-                              : Text(
-                                  '--',
-                                  textAlign: TextAlign.end,
-                                  style: TextStyle(
-                                    fontFamily: kFontFamily,
-                                    fontSize: kFontSizePriceMain,
-                                    fontWeight: kFontWeightSemiBold,
-                                    color: bidColor,
-                                  ),
-                                ),
-                        ),
-                        Container(
-                          width: 1,
-                          height: 28,
-                          margin: const EdgeInsets.symmetric(horizontal: 10),
-                          color: const Color(0xFFF1F5F9),
-                        ),
-                        Expanded(
-                          child: effectiveAsk != null
-                              ? Text(
-                                  effectiveAsk.toStringAsFixed(2),
-                                  textAlign: TextAlign.end,
-                                  style: TextStyle(
-                                    fontFamily: kFontFamily,
-                                    fontSize: kFontSizePriceMain,
-                                    fontWeight: kFontWeightSemiBold,
-                                    fontStyle: askIsSynthetic
-                                        ? FontStyle.italic
-                                        : FontStyle.normal,
-                                    color:
-                                        askIsSynthetic ? syntheticColor : askColor,
-                                  ),
-                                )
-                              : Text(
-                                  '--',
-                                  textAlign: TextAlign.end,
-                                  style: TextStyle(
-                                    fontFamily: kFontFamily,
-                                    fontSize: kFontSizePriceMain,
-                                    fontWeight: kFontWeightSemiBold,
-                                    color: askColor,
-                                  ),
-                                ),
-                        ),
-                      ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          priceText(effectiveBid, bidColor, bidIsSynthetic),
+                          const SizedBox(height: 2),
+                          captionText('L', low),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 6),
-                    // HIGH / LOW row
-                    Row(
-                      children: [
-                        Expanded(
-                          child: (high != null && high > 0)
-                              ? Text(
-                                  high.toStringAsFixed(2),
-                                  textAlign: TextAlign.end,
-                                  style: const TextStyle(
-                                    fontFamily: kFontFamily,
-                                    fontSize: kFontSizePriceSecondary,
-                                    fontWeight: kFontWeightSemiBold,
-                                    color: Color(0xFF475569),
-                                  ),
-                                )
-                              : const Text(
-                                  '--',
-                                  textAlign: TextAlign.end,
-                                  style: TextStyle(
-                                    fontFamily: kFontFamily,
-                                    fontSize: kFontSizePriceSecondary,
-                                    fontWeight: kFontWeightSemiBold,
-                                    color: Color(0xFF475569),
-                                  ),
-                                ),
-                        ),
-                        Container(
-                          width: 1,
-                          height: 16,
-                          margin: const EdgeInsets.symmetric(horizontal: 10),
-                          color: const Color(0xFFF1F5F9),
-                        ),
-                        Expanded(
-                          child: (low != null && low > 0)
-                              ? Text(
-                                  low.toStringAsFixed(2),
-                                  textAlign: TextAlign.end,
-                                  style: const TextStyle(
-                                    fontFamily: kFontFamily,
-                                    fontSize: kFontSizePriceSecondary,
-                                    fontWeight: kFontWeightSemiBold,
-                                    color: Color(0xFF475569),
-                                  ),
-                                )
-                              : const Text(
-                                  '--',
-                                  textAlign: TextAlign.end,
-                                  style: TextStyle(
-                                    fontFamily: kFontFamily,
-                                    fontSize: kFontSizePriceSecondary,
-                                    fontWeight: kFontWeightSemiBold,
-                                    color: Color(0xFF475569),
-                                  ),
-                                ),
-                        ),
-                      ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          priceText(effectiveAsk, askColor, askIsSynthetic),
+                          const SizedBox(height: 2),
+                          captionText('H', high),
+                        ],
+                      ),
                     ),
                   ],
                 ),
