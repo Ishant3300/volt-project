@@ -518,6 +518,32 @@ class _TradeCardPageState extends State<TradeCardPage> {
       }
     }
 
+    // Stale-quote guard: a bid/ask that hasn't ticked in a while is a sign
+    // of thin/no volume (or a dropped feed) — trading against it risks a
+    // fill at a price that no longer reflects the real market. Blocks the
+    // trade with a rejection message rather than just warning, and stays
+    // blocked on every retry until WatchlistProvider actually applies a
+    // fresh tick (lastUpdated only advances on a genuine tick, so the
+    // computed age here keeps growing — and keeps blocking — on its own
+    // with no extra state to track).
+    const staleQuoteThreshold = Duration(seconds: 25);
+    final currentItem =
+        Provider.of<WatchlistProvider>(context, listen: false)
+                .getByToken(widget.item.instrument.instrumentToken) ??
+            widget.item;
+    final lastTick = currentItem.lastUpdated;
+    if (lastTick == null ||
+        DateTime.now().difference(lastTick) > staleQuoteThreshold) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Low volume — price hasn\'t updated recently. Trade blocked until a fresh quote arrives.'),
+          backgroundColor: Color(0xFFEF4444),
+        ),
+      );
+      return;
+    }
+
     // Lot validation for exchanges with lot assignments
     if (_hasLotInfo) {
       if (_lotCount <= 0) {
@@ -584,9 +610,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
       return;
     }
 
-    final currentItem = Provider.of<WatchlistProvider>(context, listen: false)
-            .getByToken(widget.item.instrument.instrumentToken) ??
-        widget.item;
+    // currentItem already resolved above, by the stale-quote guard.
 
     // Determine orderType string from selected tab
     // 0=Market, 1=Limit, 2=Stop (SL), 3=Custom (MARKET with custom price)
