@@ -27,6 +27,12 @@ let worker = null;
 let _jobsProcessed = 0;
 let _lastHeartbeat = Date.now();
 const HEARTBEAT_INTERVAL_MS = 60000; // Log heartbeat every 60s
+// A tick this old is a stale replay (worker fell behind, or the queue backed
+// up during a Redis outage), not a real current price — never let it trigger
+// a LIMIT/SL match. Confirmed real: a 26h-old, 430k-job backlog (built up
+// while disk-full blocked Redis writes) drained through the matcher and
+// fired fills against yesterday-morning prices once Redis recovered.
+const STALE_TICK_MS = 10000;
 
 const _ts = () => new Date().toISOString();
 
@@ -574,6 +580,11 @@ const _processJob = async job => {
   if (LOG_REDIS_ORDERS && (now - _lastHeartbeat) >= HEARTBEAT_INTERVAL_MS) {
     console.log(`💓 [PriceQueue] [${_ts()}] Worker heartbeat | jobsProcessed=${_jobsProcessed} | queueActive=true`);
     _lastHeartbeat = now;
+  }
+
+  if (tickTimestamp && (now - tickTimestamp) > STALE_TICK_MS) {
+    console.warn(`⚠️  [PriceQueue] [${_ts()}] STALE TICK SKIPPED | token=${instrument_token} livePrice=${live_price} | tickAge=${now - tickTimestamp}ms (> ${STALE_TICK_MS}ms) — not used for order matching`);
+    return;
   }
 
   if (LOG_PRICE_QUEUE) console.log(`🔄 [PriceQueue] Processing price update: Token ${instrument_token} @ ${live_price}`);
