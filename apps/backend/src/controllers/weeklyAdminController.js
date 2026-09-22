@@ -353,6 +353,14 @@ const getWeeklyAdminReport = async (req, res) => {
         );
         entry.parent_username = 'ADMIN';
         entry.type = 'master';
+        // What THIS master retains from THEIR OWN downline — independent of
+        // (and purely additive alongside) total_caller above, which is what
+        // the real caller (admin, here) keeps. See _computeOwnDownlineTotalCaller.
+        entry.downline_mtm = _computeOwnDownlineTotalCaller(
+          master._id.toString(), master, metricsEngine,
+          masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules,
+          masterOwnRules
+        );
         data.push(entry);
       }
     } else {
@@ -369,6 +377,14 @@ const getWeeklyAdminReport = async (req, res) => {
         );
         entry.parent_username = callerMaster?.username || '';
         entry.type = 'master';
+        // Same as the admin branch above — what THIS sub-master retains
+        // from THEIR OWN downline, independent of total_caller (what the
+        // real caller keeps from this row).
+        entry.downline_mtm = _computeOwnDownlineTotalCaller(
+          cm._id.toString(), cm, metricsEngine,
+          masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules,
+          masterOwnRules
+        );
         data.push(entry);
       }
 
@@ -667,6 +683,55 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
 }
 
 /**
+ * What masterId itself retains from ITS OWN entire downline — i.e. the
+ * report masterId would see if they called this endpoint themselves,
+ * summed to one number. Distinct from (and computed independently of)
+ * total_caller on the same row, which is what the REAL caller (whoever is
+ * actually viewing this report) keeps from masterId's subtree.
+ *
+ * Reuses _getAggregatedEntryBatched/_getUserEntryBatched exactly as PHASE 2
+ * above already does for the real caller — just rooted at masterId instead,
+ * with masterId standing in as its own "caller". No new formula: this is
+ * the same ceiling-cascade math, called one more time per master row, from
+ * already-loaded in-memory data (zero additional DB queries).
+ *
+ * NOT the same as calling _getAggregatedEntryBatched(masterId, ..., callerId:
+ * masterId, ...) directly — that treats masterId as its own direct child on
+ * the path to itself, which zeroes the retention gap (ceiling minus itself
+ * is always 0). Retention only exists one hop down, so this walks masterId's
+ * own direct children (both sub-masters and users) exactly like the real
+ * PHASE 2 loop does, and sums each child's total_caller.
+ */
+function _computeOwnDownlineTotalCaller(masterId, masterDoc, metricsEngine,
+  masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules,
+  masterOwnRules) {
+
+  let total = 0;
+
+  const childMasters = masterChildrenMap[masterId] || [];
+  for (const cm of childMasters) {
+    const cmOwnRules = brkRulesByUser[cm._id.toString()] || globalBrkRules;
+    const entry = _getAggregatedEntryBatched(
+      cm._id.toString(), cm, metricsEngine, masterId, 'master',
+      masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, masterOwnRules,
+      cmOwnRules
+    );
+    total += entry.total_caller;
+  }
+
+  const directUsers = usersByMaster[masterId] || [];
+  for (const u of directUsers) {
+    const entry = _getUserEntryBatched(
+      u, metricsEngine, masterDoc, masterId, 'master',
+      masterMap, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, masterOwnRules
+    );
+    total += entry.total_caller;
+  }
+
+  return _r2(total);
+}
+
+/**
  * Confirmed business rule (replaces an earlier "retention of a shrinking
  * remainder" cascade that multiplied (100-share)/100 at every intermediate
  * tier): sharing is a CEILING, not a per-hop retention rate. Each account's
@@ -835,6 +900,7 @@ function _sumTotals(data) {
     total_pnl: _r2(data.reduce((s, d) => s + d.total_pnl, 0)),
     caller_profit: _r2(data.reduce((s, d) => s + (d.caller_profit || 0), 0)),
     total_caller: _r2(data.reduce((s, d) => s + (d.total_caller || 0), 0)),
+    downline_mtm: _r2(data.reduce((s, d) => s + (d.downline_mtm || 0), 0)),
     owed_upward_pnl: _r2(data.reduce((s, d) => s + (d.owed_upward_pnl || 0), 0)),
     owed_upward_brk: _r2(data.reduce((s, d) => s + (d.owed_upward_brk || 0), 0)),
     total_owed_upward: _r2(data.reduce((s, d) => s + (d.total_owed_upward || 0), 0)),
