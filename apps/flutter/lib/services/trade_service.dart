@@ -141,10 +141,22 @@ class TradeService {
       final jsonResponse = jsonDecode(response.body);
 
       if (response.statusCode == 201 && jsonResponse['success'] == true) {
-        return (
-          true,
-          jsonResponse['message'] as String? ?? 'Trade placed successfully'
-        );
+        final message =
+            jsonResponse['message'] as String? ?? 'Trade placed successfully';
+        // The backend's own message never carries the price (confirmed real:
+        // "Trade executed successfully", nothing else) — the pop-up told the
+        // user it worked but not at what price. `data.executed_price` is set
+        // once a MARKET order (or a LIMIT/SL that fired immediately) fills;
+        // a still-pending LIMIT/SL has no execution yet, so fall back to the
+        // price the user actually submitted, same as the web app's own
+        // OrderResultToast (`trade.executed_price ?? priceValue`).
+        final data = jsonResponse['data'];
+        final executedPrice = data is Map
+            ? (data['executed_price'] as num?)?.toDouble()
+            : null;
+        final displayPrice =
+            (executedPrice != null && executedPrice > 0) ? executedPrice : price;
+        return (true, '$message @ ₹${displayPrice.toStringAsFixed(2)}');
       } else {
         return (
           false,
