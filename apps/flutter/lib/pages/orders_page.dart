@@ -1653,11 +1653,28 @@ class _OrdersPageState extends State<OrdersPage> {
                                         listen: false);
                                 final wItem =
                                     watchlist.getByToken(pos.instrumentToken);
+                                // rawName is just the underlying (e.g.
+                                // "BANKNIFTY" for every one of its option
+                                // contracts) — when it's a strict prefix of
+                                // tradingsymbol, tradingsymbol is the more
+                                // detailed one (carries strike/expiry/CE-PE)
+                                // and should win. Otherwise (e.g. GLOBAL/COMEX
+                                // futures, "Dow Jones 30" vs raw ticker
+                                // "YMU6") rawName is still the friendlier
+                                // choice.
+                                final rawIsPrefix = pos.rawName.isNotEmpty &&
+                                    pos.tradingsymbol
+                                        .toUpperCase()
+                                        .startsWith(pos.rawName.toUpperCase()) &&
+                                    pos.tradingsymbol.length >
+                                        pos.rawName.length;
                                 final displayName =
                                     wItem?.instrument.userFriendlyName ??
-                                        (pos.rawName.isNotEmpty
-                                            ? pos.rawName
-                                            : pos.tradingsymbol);
+                                        (rawIsPrefix
+                                            ? pos.tradingsymbol
+                                            : (pos.rawName.isNotEmpty
+                                                ? pos.rawName
+                                                : pos.tradingsymbol));
                                 final ltp = pos.ltp;
                                 final fallbackSpread = ltp * 0.0005;
                                 final cmp = pos.cmp > 0

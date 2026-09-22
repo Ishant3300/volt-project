@@ -803,11 +803,19 @@ class _PortfolioPageState extends State<PortfolioPage>
       return base;
     }
 
-    // Fallback: prefer the backend-resolved friendly name (e.g. GLOBAL/COMEX
-    // futures like "Dow Jones 30" for tradingsymbol "YMU6") before parsing
-    // the raw tradingsymbol, which only handles NSE/MCX-style symbols.
+    // Fallback: try parsing the raw tradingsymbol first — it's the only
+    // field that actually carries strike/expiry/CE-PE for NSE/MCX options
+    // and futures. `trade.rawName` is just the underlying (e.g. "BANKNIFTY"
+    // for every one of its option contracts), so preferring it unconditionally
+    // silently dropped the strike/expiry from every option row here (confirmed
+    // real: a BANKNIFTY CE order showed as bare "BANKNIFTY" with no strike).
+    // Only fall back to rawName when tradingSymbol doesn't match any known
+    // NSE/MCX pattern — that's the GLOBAL/COMEX case this was written for
+    // (e.g. "Dow Jones 30" for the raw ticker "YMU6").
+    final parsed = _friendlySymbolName(trade.tradingSymbol);
+    if (parsed != trade.tradingSymbol.toUpperCase()) return parsed;
     if (trade.rawName.isNotEmpty) return trade.rawName.toUpperCase();
-    return _friendlySymbolName(trade.tradingSymbol);
+    return parsed;
   }
 
   /// Parse tradingsymbol like "GOLD26APRFUT" or "NIFTY2530622500CE"
