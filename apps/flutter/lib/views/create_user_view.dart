@@ -487,8 +487,18 @@ class _CreateUserViewState extends State<CreateUserView> {
                 ? _indexBrkControllers[exchange]
                 : _stockBrkControllers[exchange];
             final catValueStr = controller?.text.trim() ?? '';
-            if (catValueStr.isEmpty) continue;
-            final catValue = double.tryParse(catValueStr);
+            // A blank per-category field is NOT "leave unset" — the flat
+            // field above stays visible and editable even while this panel
+            // is expanded, and a master naturally expects it to still be
+            // the value that applies. Previously this `continue`d, silently
+            // discarding whatever was typed into the flat field for any
+            // category whose own override was left blank — confirmed live
+            // (801351, MCX-FUT): the per-script panel was open, no script
+            // was individually overridden, and the flat field's edit never
+            // reached the backend at all.
+            final catValue = catValueStr.isEmpty
+                ? value
+                : double.tryParse(catValueStr);
             if (catValue == null || catValue <= 0) continue;
 
             final ids = items
@@ -513,8 +523,12 @@ class _CreateUserViewState extends State<CreateUserView> {
             final scriptName = item['script_name'] as String?;
             final controller = scriptControllers[scriptName];
             final scriptValueStr = controller?.text.trim() ?? '';
-            if (scriptValueStr.isEmpty) continue;
-            final scriptValue = double.tryParse(scriptValueStr);
+            // Same fallback as the category branch above — a script left
+            // blank in the per-script panel still gets the flat field's
+            // value, not silence.
+            final scriptValue = scriptValueStr.isEmpty
+                ? value
+                : double.tryParse(scriptValueStr);
             if (scriptValue == null || scriptValue <= 0) continue;
             idsByValue.putIfAbsent(scriptValue, () => []).add(item['id'].toString());
           }

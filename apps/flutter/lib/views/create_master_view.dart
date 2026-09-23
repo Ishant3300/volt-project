@@ -662,8 +662,14 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 ? _indexBrkControllers[exchange]
                 : _stockBrkControllers[exchange];
             final catValueStr = controller?.text.trim() ?? '';
-            if (catValueStr.isEmpty) continue;
-            final catValue = double.tryParse(catValueStr);
+            // A blank per-category field falls back to the flat field's own
+            // value rather than discarding it — the flat field stays
+            // editable even while this panel is expanded, so a master
+            // naturally expects it to still apply. See create_user_view.dart's
+            // matching fix for the confirmed-live repro of this bug.
+            final catValue = catValueStr.isEmpty
+                ? value
+                : double.tryParse(catValueStr);
             if (catValue == null || catValue <= 0) continue;
 
             final ids = items
@@ -689,8 +695,10 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             final scriptName = item['script_name'] as String?;
             final controller = scriptControllers[scriptName];
             final scriptValueStr = controller?.text.trim() ?? '';
-            if (scriptValueStr.isEmpty) continue;
-            final scriptValue = double.tryParse(scriptValueStr);
+            // Same fallback as the category branch above.
+            final scriptValue = scriptValueStr.isEmpty
+                ? value
+                : double.tryParse(scriptValueStr);
             if (scriptValue == null || scriptValue <= 0) continue;
             idsByValue.putIfAbsent(scriptValue, () => []).add(item['id'].toString());
           }
