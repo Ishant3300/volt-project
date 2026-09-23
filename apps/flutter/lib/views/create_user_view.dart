@@ -52,6 +52,18 @@ class _CreateUserViewState extends State<CreateUserView> {
   final Map<String, Map<String, TextEditingController>> _scriptBrkControllers =
       {};
   final Map<String, bool> _loadingScripts = {};
+
+  // Multi-select "apply value to several scripts at once" for per-script
+  // segments (MCX-FUT/MCX-OPT) — check ALUMINI/COPPER/LEAD/ZINC, type one
+  // value, tap apply, and all four fill in one go instead of typing into
+  // each field individually. Purely a faster way to populate the SAME
+  // per-script controllers _applyBrokerageSettings already reads on
+  // submit — no new submission path, so a script left unchecked still
+  // falls back to the flat value exactly as already fixed above.
+  final Map<String, Set<String>> _selectedScriptsForBulk = {};
+  final Map<String, TextEditingController> _bulkScriptValueControllers = {};
+  final Map<String, String?> _bulkApplyError = {};
+
   String? _generatedUsername;
   bool _isSuccess = false;
 
@@ -402,6 +414,39 @@ class _CreateUserViewState extends State<CreateUserView> {
     return map.putIfAbsent(exchange, () => TextEditingController());
   }
 
+  TextEditingController _bulkScriptValueController(String exchange) =>
+      _bulkScriptValueControllers.putIfAbsent(exchange, () => TextEditingController());
+
+  /// Fills every checked script's own controller with the typed value, then
+  /// clears the selection so the next batch starts fresh. Validates the
+  /// same way the rest of this form does (see the empty-state error pattern
+  /// used elsewhere): a clear inline message, no silent no-op.
+  void _applyBulkScriptValue(String exchange) {
+    final controller = _bulkScriptValueController(exchange);
+    final raw = controller.text.trim();
+    final value = double.tryParse(raw);
+    final selected = _selectedScriptsForBulk[exchange] ?? {};
+
+    setState(() {
+      if (raw.isEmpty || value == null || value <= 0) {
+        _bulkApplyError[exchange] = 'Enter a valid value first';
+        return;
+      }
+      if (selected.isEmpty) {
+        _bulkApplyError[exchange] = 'Select at least one script';
+        return;
+      }
+      final scriptControllers = _scriptBrkControllers[exchange] ?? const {};
+      final display = value % 1 == 0 ? value.toInt().toString() : value.toString();
+      for (final script in selected) {
+        scriptControllers[script]?.text = display;
+      }
+      _selectedScriptsForBulk[exchange] = {};
+      _bulkApplyError[exchange] = null;
+      controller.clear();
+    });
+  }
+
   /// Apply brokerage settings for enabled exchanges after user creation
   Future<void> _applyBrokerageSettings(String? userId) async {
     try {
@@ -565,6 +610,9 @@ class _CreateUserViewState extends State<CreateUserView> {
       (entry['controller'] as TextEditingController?)?.dispose();
     }
     for (final controller in _walletControllers.values) {
+      controller.dispose();
+    }
+    for (final controller in _bulkScriptValueControllers.values) {
       controller.dispose();
     }
     super.dispose();
@@ -1931,10 +1979,12 @@ class _CreateUserViewState extends State<CreateUserView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildBulkApplyBar(exchange),
             for (final script in scripts)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: _buildScriptValueRow(
+                  exchange,
                   script['raw_name'] as String,
                   controllers[script['raw_name']],
                 ),
@@ -1971,10 +2021,83 @@ class _CreateUserViewState extends State<CreateUserView> {
     );
   }
 
-  Widget _buildScriptValueRow(String rawName, TextEditingController? controller) {
+  Widget _buildBulkApplyBar(String exchange) {
+    final selectedCount = (_selectedScriptsForBulk[exchange] ?? const {}).length;
+    final error = _bulkApplyError[exchange];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: _brokerageValueField(_bulkScriptValueController(exchange))),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => _applyBulkScriptValue(exchange),
+                child: Container(
+                  height: 32,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: kBrandPrimary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    'Apply to selected ($selectedCount)',
+                    style: const TextStyle(
+                      color: kBrandPrimary,
+                      fontSize: kFontSizeCaption,
+                      fontFamily: kFontFamily,
+                      fontWeight: kFontWeightMedium,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              error ?? 'Select scripts below, type a value, tap apply',
+              style: TextStyle(
+                color: error != null ? const Color(0xFFEF4444) : const Color(0xFF94A3B8),
+                fontSize: kFontSizeCaption,
+                fontFamily: kFontFamily,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScriptValueRow(String exchange, String rawName, TextEditingController? controller) {
     if (controller == null) return const SizedBox.shrink();
+    final selected = _selectedScriptsForBulk[exchange] ?? const {};
+    final checked = selected.contains(rawName);
     return Row(
       children: [
+        SizedBox(
+          width: 26,
+          height: 26,
+          child: Checkbox(
+            value: checked,
+            visualDensity: VisualDensity.compact,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            onChanged: (v) {
+              setState(() {
+                final set = _selectedScriptsForBulk.putIfAbsent(exchange, () => {});
+                if (v == true) {
+                  set.add(rawName);
+                } else {
+                  set.remove(rawName);
+                }
+              });
+            },
+          ),
+        ),
+        const SizedBox(width: 6),
         Expanded(
           flex: 3,
           child: Text(
