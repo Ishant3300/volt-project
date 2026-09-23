@@ -1987,6 +1987,48 @@ const deleteTrade = async (req, res) => {
             }
         }
 
+        // ── Equity reversal for completed trades ──
+        // The wallet reversal above only undoes the blocked MARGIN; it never
+        // touched user.equity, which is where placeTrade actually applied
+        // (pnl - brokerage) at execution time (see the `balanceChange` write
+        // there). Without this, a deleted trade's realised P&L and brokerage
+        // silently stayed baked into the balance forever — confirmed live: a
+        // deleted ₹500-brokerage trade left the client permanently ₹500 short
+        // even though the trade no longer appears anywhere.
+        if (trade.status === 'completed' && trade.executed_quantity > 0) {
+            try {
+                const tradeUser = await User.findById(trade.user_id);
+                if (tradeUser) {
+                    const balanceBefore = tradeUser.equity;
+                    const equityReversal = -(trade.pnl - trade.brokerage);
+                    tradeUser.equity = tradeUser.equity + equityReversal;
+                    await tradeUser.save();
+
+                    await Transaction.create({
+                        transactionId: `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 6)}_DEL`,
+                        userId: tradeUser._id,
+                        userModel: 'User',
+                        type: 'ADJUSTMENT',
+                        status: 'SUCCESS',
+                        amount: Math.abs(equityReversal),
+                        referenceId: trade._id,
+                        referenceModel: 'Trade',
+                        balanceBefore,
+                        balanceAfter: tradeUser.equity,
+                        metadata: {
+                            tradingsymbol: trade.tradingsymbol,
+                            reversedPnl: trade.pnl,
+                            reversedBrokerage: trade.brokerage,
+                            reason: 'trade_deleted',
+                        },
+                    });
+                    console.log(`🗑️  [DeleteTrade] Reversed ₹${equityReversal.toFixed(2)} equity impact (pnl ${trade.pnl}, brokerage ${trade.brokerage}) for user ${trade.user_id}`);
+                }
+            } catch (equityErr) {
+                console.error(`⚠️  [DeleteTrade] Equity reversal failed (non-fatal):`, equityErr.message);
+            }
+        }
+
         trade.deleted_at = new Date();
         await withTradeWriteLease('delete_trade', () => trade.save());
 
