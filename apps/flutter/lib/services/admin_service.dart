@@ -961,4 +961,64 @@ class AdminService {
       token: token,
     );
   }
+
+  // ============================================
+  // Expiry management (manual expiry toggle + MCX square-off) — two
+  // deliberately separate, fully manual controls. No automatic timer
+  // anywhere; both only ever act when an admin triggers them.
+  // ============================================
+
+  /// Upcoming expiry dates for a segment (NFO-FUT/NFO-OPT/MCX-FUT/MCX-OPT),
+  /// one row per expiry with an instrument count and current on/off state.
+  Future<http.Response> getExpiries(String segment) async {
+    final token = await _storage.getToken();
+    return await _apiService.get(
+      '/admin/instruments/expiries?segment=$segment',
+      token: token,
+    );
+  }
+
+  /// Bulk-flips every instrument sharing one exact expiry within a segment.
+  Future<http.Response> toggleExpiry({
+    required String segment,
+    required String expiry,
+    required bool enabled,
+    String? reason,
+  }) async {
+    final token = await _storage.getToken();
+    return await _apiService.put(
+      '/admin/instruments/expiry-toggle',
+      {
+        'segment': segment,
+        'expiry': expiry,
+        'enabled': enabled,
+        if (reason != null) 'reason': reason,
+      },
+      token: token,
+    );
+  }
+
+  /// Starts a batched close of every open MCX position system-wide. Runs in
+  /// the background — poll getMcxSquareOffStatus/getMcxSquareOffLatest for
+  /// progress. Separate action from toggleExpiry above, by design.
+  Future<http.Response> startMcxSquareOff() async {
+    final token = await _storage.getToken();
+    return await _apiService.post('/admin/mcx-square-off', {}, token: token);
+  }
+
+  Future<http.Response> getMcxSquareOffStatus(String runId) async {
+    final token = await _storage.getToken();
+    return await _apiService.get(
+      '/admin/mcx-square-off/status/$runId',
+      token: token,
+    );
+  }
+
+  Future<http.Response> getMcxSquareOffLatest() async {
+    final token = await _storage.getToken();
+    return await _apiService.get(
+      '/admin/mcx-square-off/latest',
+      token: token,
+    );
+  }
 }
