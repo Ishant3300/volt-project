@@ -464,6 +464,63 @@ async function _validateHighLowLimit(canCustomPrice, user, instrument_token, ord
 }
 
 /**
+ * One-pending-order-type-per-script: a script can never have both a
+ * pending LIMIT order and a pending SL/SL-M order at once, whether or not
+ * a position is currently open. Same-type orders may still be stacked —
+ * e.g. splitting an exit into 2x50 or 5x20 qty — but only on the CLOSING
+ * side of an open position (opposite direction of the held position), and
+ * only up to the position's own quantity: the sum of that side's pending
+ * quantity (existing + this new order) can never exceed what's actually
+ * held. Opening-side orders and orders placed while flat are NOT capped by
+ * this rule — those are governed by the existing quantity/lot-size limits
+ * elsewhere. `excludeTradeId` lets modifyTrade re-check a trade against
+ * every OTHER pending order without counting itself.
+ */
+async function _validateSingleOrderTypePerScript(user, instrument_token, order_type, transaction_type, quantity, session, excludeTradeId = null) {
+    if (order_type !== 'LIMIT' && order_type !== 'SL' && order_type !== 'SL-M') return;
+    const isStopType = order_type === 'SL' || order_type === 'SL-M';
+
+    const pendingFilter = { user_id: user._id, instrument_token, status: 'pending', deleted_at: null };
+    if (excludeTradeId) pendingFilter._id = { $ne: excludeTradeId };
+    const pendingTrades = await Trade.find(pendingFilter)
+        .select('order_type transaction_type quantity')
+        .session(session)
+        .lean();
+
+    // ── Rule 1: no mixing types, regardless of side or position ──
+    const hasOtherTypePending = pendingTrades.some((t) => {
+        const tIsStop = t.order_type === 'SL' || t.order_type === 'SL-M';
+        return tIsStop !== isStopType;
+    });
+    if (hasOtherTypePending) {
+        const otherLabel = isStopType ? 'Limit' : 'Stop-Loss';
+        const thisLabel = isStopType ? 'Stop-Loss' : 'Limit';
+        throw new Error(`You already have a pending ${otherLabel} order on this script — cancel it before placing a ${thisLabel} order.`);
+    }
+
+    // ── Rule 2: same-type closing-side quantity capped at position size ──
+    const completedTrades = await Trade.find({
+        user_id: user._id, instrument_token, status: 'completed', deleted_at: null
+    }).select('transaction_type executed_quantity').session(session).lean();
+    let netQty = 0;
+    for (const t of completedTrades) {
+        netQty += t.transaction_type === 'BUY' ? (t.executed_quantity || 0) : -(t.executed_quantity || 0);
+    }
+    if (netQty === 0) return;
+
+    const isClosingSide = (netQty > 0 && transaction_type === 'SELL') || (netQty < 0 && transaction_type === 'BUY');
+    if (!isClosingSide) return;
+
+    const sameSidePendingQty = pendingTrades
+        .filter((t) => t.transaction_type === transaction_type)
+        .reduce((sum, t) => sum + (t.quantity || 0), 0);
+    const positionQty = Math.abs(netQty);
+    if (sameSidePendingQty + quantity > positionQty) {
+        throw new Error(`Pending ${transaction_type} order quantity (${sameSidePendingQty + quantity}) would exceed your open position (${positionQty}). Reduce the quantity or cancel an existing pending order.`);
+    }
+}
+
+/**
  * Place a new trade order
  */
 const placeTrade = async (req, res) => {
@@ -870,6 +927,9 @@ const placeTrade = async (req, res) => {
             // never had req.admin set, so they always hit this check regardless).
             const adminCanCustomPrice = !!req.admin && (req.admin.isSuperAdmin || (req.admin.permissions || []).includes('TRADE_CUSTOM'));
             await _validateHighLowLimit(adminCanCustomPrice, user, instrument_token, order_type, transaction_type, price, segment, exchange, instrumentRawName);
+
+            // ── One pending order TYPE per script (no mixing LIMIT + SL) ──
+            await _validateSingleOrderTypePerScript(user, instrument_token, order_type, transaction_type, quantity, session);
 
             // 1. Determine execution price
             let executedPrice = price;
@@ -1810,6 +1870,11 @@ const modifyTrade = async (req, res) => {
             await _validateFreshStoplossOpenPosition(isAdmin, user, trade.instrument_token, trade.order_type, trade.transaction_type, null);
             const adminCanCustomPrice = isAdmin && (req.admin.isSuperAdmin || (req.admin.permissions || []).includes('TRADE_CUSTOM'));
             await _validateHighLowLimit(adminCanCustomPrice, user, trade.instrument_token, trade.order_type, trade.transaction_type, newPrice, trade.segment, trade.exchange, instrumentRawName);
+            // Re-checked against every OTHER pending order — a quantity
+            // increase here could push this trade's own side over the
+            // position-size cap even though the order TYPE can't have
+            // changed (order_type itself isn't editable, validated above).
+            await _validateSingleOrderTypePerScript(user, trade.instrument_token, trade.order_type, trade.transaction_type, newQuantity, null, trade._id);
         } catch (validationErr) {
             return res.status(400).json({ success: false, message: validationErr.message });
         }
