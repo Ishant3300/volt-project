@@ -248,6 +248,7 @@ const getTradeReport = async (req, res) => {
         sell_qty: t.transaction_type === 'SELL' ? (t.executed_quantity || 0) : 0,
         rate: t.executed_price || 0,
         brokerage: t.brokerage || 0,
+        brokerage_exempt: t.brokerage_exempt || false,
         pnl: t.pnl || 0,
         order_type_label: _getOrderTypeLabel(t),
         _is_ledger: t._is_ledger || false,
