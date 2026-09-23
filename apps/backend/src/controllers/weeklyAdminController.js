@@ -37,8 +37,8 @@ const getWeeklyAdminReport = async (req, res) => {
   const _mark = (label) => { _timings[label] = Date.now() - _t0; };
 
   try {
-    const role = req.admin ? 'admin' : 'master';
-    const callerId = req.admin?.id || req.master?.id;
+    let role = req.admin ? 'admin' : 'master';
+    let callerId = req.admin?.id || req.master?.id;
     const metricsEngine = require('../services/metricsEngine');
 
     // requireAdminPermission('REPORTS_ACCESS') on this route is a no-op for
@@ -94,6 +94,28 @@ const getWeeklyAdminReport = async (req, res) => {
       }
     }
     _mark('1_masters');
+
+    // ── "View as" drill-down (Ledger page only) ──
+    // Lets the caller open this SAME report from a specific master's own
+    // point of view — e.g. clicking a master's name in the Ledger table —
+    // instead of the account-detail page. Read-only identity substitution:
+    // only WHO the report is computed for changes here; every formula below
+    // is unaware this happened and runs exactly as it would for that
+    // master's own real login. An admin may view any master; a master may
+    // only view a master within their OWN downline (never a sibling/cousin
+    // sub-tree, never upward).
+    const { as_master_id } = req.query;
+    if (as_master_id) {
+      const target = masterMap[as_master_id];
+      if (!target) {
+        return res.status(404).json({ success: false, message: 'Master not found', data: null });
+      }
+      if (role === 'master' && !_getAllSubMasterIdsBatched(callerId, masterChildrenMap).includes(as_master_id)) {
+        return res.status(403).json({ success: false, message: 'Not authorized to view this master\'s ledger', data: null });
+      }
+      role = 'master';
+      callerId = as_master_id;
+    }
 
     // 2. Determine scope based on role
     let topEntities; // masters to report on (top-level for admin, children for master)
