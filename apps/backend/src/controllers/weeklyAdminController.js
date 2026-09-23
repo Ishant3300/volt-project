@@ -194,7 +194,7 @@ const getWeeklyAdminReport = async (req, res) => {
         // on a carried position's reopen leg that the cache path wouldn't.
         trade_type: { $ne: 'carry_forward' },
         executed_at: executedAtFilter
-      }).select('user_id instrument_token executed_price executed_quantity pnl').lean();
+      }).select('user_id instrument_token executed_price executed_quantity pnl brokerage_exempt').lean();
 
       for (const t of liveTrades) {
         const uid = t.user_id.toString();
@@ -843,6 +843,11 @@ function _getUserBrokerageAndTurnoverBatched(userId, tradesByUser, brkRulesByUse
 
   let totalBrk = 0, totalTurnover = 0, totalLots = 0;
   for (const t of trades) {
+    // A trade the admin Custom-ticket toggle exempted contributes no
+    // brokerage AND no turnover/lots basis — it must not feed the
+    // brokerage-rate cascade at all, same as carry_forward's own exclusion.
+    if (t.brokerage_exempt) continue;
+
     const ki = kiteMap[t.instrument_token];
     const seg = ki?.segment || '';
     const rawName = ki?.raw_name || '';

@@ -54,7 +54,7 @@ class TradeMetricsService {
 
         const rawTrades = await Trade.find({
             user_id: user._id, status: 'completed', deleted_at: null
-        }).select('instrument_token transaction_type executed_quantity executed_price pnl').lean();
+        }).select('instrument_token transaction_type executed_quantity executed_price pnl brokerage_exempt').lean();
 
         const allTokens = [...new Set(rawTrades.map(t => t.instrument_token))];
         const kiteInstruments = await KiteInstrument.find(
@@ -75,10 +75,12 @@ class TradeMetricsService {
             const lotSize = ki?.lot_size || 1;
 
             let brkRule = null;
+            if (!t.brokerage_exempt) {
             if (rawName && seg) brkRule = brkRules.find(r => r.script_name?.toUpperCase() === rawName.toUpperCase() && r.exchange_name === seg.toUpperCase());
             if (!brkRule && rawName) brkRule = brkRules.find(r => r.script_name?.toUpperCase() === rawName.toUpperCase());
             if (!brkRule && seg) brkRule = brkRules.find(r => r.exchange_name === seg.toUpperCase() && !r.script_name);
             if (!brkRule) brkRule = brkRules.find(r => r.exchange_name === (seg.split('-')[0] || '').toUpperCase() && !r.script_name);
+            }
 
             if (brkRule) {
                 if (brkRule.type === 'TURNOVER WISE') {

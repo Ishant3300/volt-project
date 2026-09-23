@@ -309,8 +309,12 @@ class MetricsEngine {
         const token = t.instrument_token.toString();
         totalFifoPnl += (t.pnl || 0);
 
-        // Skip brokerage for carry_forward and margin_square_off trades (system trades)
-        if (t.trade_type !== 'carry_forward' && t.trade_type !== 'margin_square_off') {
+        // Skip brokerage for carry_forward and margin_square_off trades (system trades),
+        // and for any trade the admin Custom-ticket toggle exempted — this loop
+        // re-derives brokerage from the rate rules rather than trusting t.brokerage,
+        // so without this check an exempted trade's brokerage silently came back
+        // anyway the moment metrics were recomputed.
+        if (t.trade_type !== 'carry_forward' && t.trade_type !== 'margin_square_off' && !t.brokerage_exempt) {
           // Brokerage calculation (same 4-level fallback as Flutter)
           const ki = this._kiteMap[token] || {};
           const seg = ki.segment || '';

@@ -66,12 +66,16 @@ async function computeUserWeeklyAggregate(userId) {
     // cascade billed real brokerage on a trade that never happened.
     trade_type: { $ne: 'carry_forward' },
     executed_at: { $gte: weekStart },
-  }).select('instrument_token executed_price executed_quantity pnl').lean();
+  }).select('instrument_token executed_price executed_quantity pnl brokerage_exempt').lean();
 
   let realised_pnl = 0;
   const byInstrument = {};
   for (const t of trades) {
     realised_pnl += t.pnl || 0;
+    // Exempted trades still count toward P&L but must not feed the
+    // turnover/qty basis the brokerage cascade rates against — same
+    // exclusion as _getUserBrokerageAndTurnoverBatched's live-query path.
+    if (t.brokerage_exempt) continue;
     const token = t.instrument_token;
     if (!byInstrument[token]) byInstrument[token] = { turnover: 0, qty: 0, pnl: 0 };
     byInstrument[token].turnover += (t.executed_price || 0) * (t.executed_quantity || 0);

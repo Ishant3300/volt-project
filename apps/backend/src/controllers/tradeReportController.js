@@ -410,8 +410,10 @@ const getTradeReport = async (req, res) => {
         // Live fill: use the brokerage already stored on the trade (calculated at execution time).
         // Only recalculate if the stored value is 0 and we can find an effective rule. A margin
         // square-off already has real brokerage from marginSquareOffService.js, so it naturally
-        // takes this same "already >0, leave it alone" path — no separate case needed.
-        if (at.brokerage > 0) continue;
+        // takes this same "already >0, leave it alone" path — no separate case needed. A trade
+        // the admin Custom-ticket toggle deliberately exempted is also a genuine, intentional 0 —
+        // not a missing-rule gap — so it must not be recalculated either.
+        if (at.brokerage > 0 || at.brokerage_exempt) continue;
 
         if (at.rate && (at.buy_qty || at.sell_qty)) {
           const tradeDate = new Date(at.date);

@@ -1169,7 +1169,7 @@ function buildSnapshot({ group, instrument, settlementPrice, settlementPriceDate
     // zeroing it out, which previously made the settlement ledger silently
     // under-report a real, already-charged cost. Only carry_forward is a
     // synthetic marker with genuinely no brokerage.
-    const fillBrokerage = fill.trade_type === 'carry_forward'
+    const fillBrokerage = fill.trade_type === 'carry_forward' || fill.brokerage_exempt
       ? 0
       : fill.trade_type === 'margin_square_off'
         ? Number(fill.brokerage || 0)
