@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:stocker/providers/investor_mode_provider.dart';
@@ -35,8 +36,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Widget _buildNavItem(String svgPath, String label, int index) {
     final bool isSelected = _selectedIndex == index;
-    final color =
-        isSelected ? kBrandPrimary : const Color(0xFF94A3B8);
+    final color = isSelected ? kBrandPrimary : const Color(0xFF94A3B8);
     return GestureDetector(
       onTap: () => _onItemTapped(index),
       behavior: HitTestBehavior.opaque,
@@ -77,72 +77,105 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          // Investor mode banner (only shown when logged in with investor password)
-          Consumer<InvestorModeProvider>(
-            builder: (context, investor, _) {
-              if (!investor.isInvestor) return const SizedBox.shrink();
-              return Container(
-                width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
-                color: const Color(0xFF64748B),
-                child: SafeArea(
-                  bottom: false,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: const [
-                      Icon(Icons.lock_outline, size: 14, color: Colors.white),
-                      SizedBox(width: 6),
-                      Text(
-                        'Investor Mode (Read Only)',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontFamily: kFontFamily,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
+  /// Confirms before the system back gesture/button actually exits the app
+  /// from this root screen — previously a single back press here closed the
+  /// app immediately with no prompt.
+  Future<void> _confirmExit(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Exit app?'),
+        content: const Text('Are you sure you want to exit?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
           ),
-          Expanded(child: _pages[_selectedIndex]),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Exit'),
+          ),
         ],
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(24),
-            topRight: Radius.circular(24),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 4,
-              offset: const Offset(0, -2),
+    );
+    if (confirmed == true) {
+      SystemNavigator.pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _confirmExit(context);
+      },
+      child: Scaffold(
+        body: Column(
+          children: [
+            // Investor mode banner (only shown when logged in with investor password)
+            Consumer<InvestorModeProvider>(
+              builder: (context, investor, _) {
+                if (!investor.isInvestor) return const SizedBox.shrink();
+                return Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+                  color: const Color(0xFF64748B),
+                  child: SafeArea(
+                    bottom: false,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.lock_outline, size: 14, color: Colors.white),
+                        SizedBox(width: 6),
+                        Text(
+                          'Investor Mode (Read Only)',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontFamily: kFontFamily,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
+            Expanded(child: _pages[_selectedIndex]),
           ],
         ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(kIconWatchlist, 'Watchlist', 0),
-                _buildNavItem(kIconOrders, 'Portfolio', 1),
-                _buildNavItem(kIconHistory, 'Orders', 2),
-                _buildNavItem(kIconProfile, 'Profile', 3),
-              ],
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 4,
+                offset: const Offset(0, -2),
+              ),
+            ],
+          ),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(kIconWatchlist, 'Watchlist', 0),
+                  _buildNavItem(kIconOrders, 'Portfolio', 1),
+                  _buildNavItem(kIconHistory, 'Orders', 2),
+                  _buildNavItem(kIconProfile, 'Profile', 3),
+                ],
+              ),
             ),
           ),
         ),
