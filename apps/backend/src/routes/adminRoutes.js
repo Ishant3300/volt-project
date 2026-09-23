@@ -410,6 +410,88 @@ router.put('/instruments/bulk-toggle', authenticateAdmin, rejectIfAdminWatchOnly
   }
 });
 
+// GET /admin/instruments/expiries?segment=MCX-FUT — upcoming expiry dates for
+// a segment, one row per expiry, with instrument count and current on/off
+// state (mixed state — some enabled, some not, within the same expiry batch
+// — is flagged so the UI can show it distinctly instead of silently picking
+// one side).
+router.get('/instruments/expiries', authenticateAdmin, async (req, res) => {
+  try {
+    const { segment } = req.query;
+    if (!segment) {
+      return res.status(400).json({ success: false, message: 'segment is required', data: null });
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const rows = await KiteInstrument.aggregate([
+      { $match: { segment, expiry: { $gte: today }, deleted_at: null } },
+      {
+        $group: {
+          _id: '$expiry',
+          count: { $sum: 1 },
+          enabledCount: { $sum: { $cond: ['$enabled', 1, 0] } },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+    const data = rows.map((r) => ({
+      expiry: r._id,
+      count: r.count,
+      enabled: r.enabledCount === r.count,
+      mixed: r.enabledCount > 0 && r.enabledCount < r.count,
+    }));
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
+  }
+});
+
+// PUT /admin/instruments/expiry-toggle — bulk enable/disable every
+// instrument sharing one exact expiry within a segment, in one call. Same
+// cancel-pending-orders + cache-invalidate steps as bulk-toggle above,
+// just filtered by segment+expiry server-side instead of a caller-supplied
+// id list — this IS the "close/open this whole expiry for trading" control.
+router.put('/instruments/expiry-toggle', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('INSTRUMENT_MANAGE'), async (req, res) => {
+  try {
+    const { segment, expiry, enabled, reason } = req.body;
+    if (!segment || !expiry || enabled === undefined) {
+      return res.status(400).json({ success: false, message: 'segment, expiry, and enabled are required', data: null });
+    }
+    const expiryDate = new Date(expiry);
+    if (Number.isNaN(expiryDate.getTime())) {
+      return res.status(400).json({ success: false, message: 'Invalid expiry date', data: null });
+    }
+    const nextDay = new Date(expiryDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    const filter = { segment, expiry: { $gte: expiryDate, $lt: nextDay }, deleted_at: null };
+
+    const bulkUpdate = enabled === false
+      ? { enabled, ban_reason: reason || 'Expiry closed for trading', banned_at: new Date() }
+      : { enabled, ban_reason: null, banned_at: null };
+    const result = await KiteInstrument.updateMany(filter, { $set: bulkUpdate });
+
+    if (enabled === false) {
+      const disabledInstruments = await KiteInstrument.find(filter).select('instrument_token').lean();
+      for (const inst of disabledInstruments) {
+        try { await cancelPendingOrdersForInstrument(inst.instrument_token); } catch (_) {}
+      }
+    }
+
+    try {
+      const searchService = require('../services/instrumentSearchService');
+      searchService.invalidateCache();
+    } catch (_) {}
+
+    res.json({
+      success: true,
+      message: `${result.modifiedCount} instrument(s) ${enabled ? 'enabled' : 'disabled'} for ${segment} expiry ${expiryDate.toISOString().slice(0, 10)}`,
+      data: { modified: result.modifiedCount },
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
+  }
+});
+
 // GET /admin/instruments — list instruments with filters (paginated)
 // Shows ALL instruments including soft-deleted ones (admin needs to see them to restore)
 router.get('/instruments', authenticateAdmin, async (req, res) => {
@@ -502,6 +584,49 @@ router.put('/instruments/:id/toggle', authenticateAdmin, rejectIfAdminWatchOnly,
     } catch (_) {}
 
     res.json({ success: true, message: `Instrument ${enabled ? 'enabled' : 'disabled'}`, data: inst });
+  } catch (e) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
+  }
+});
+
+// POST /admin/mcx-square-off — closes every open MCX position system-wide,
+// in batches, running in the background. Returns immediately with a run id;
+// poll GET /admin/mcx-square-off/status/:runId for progress. A manual,
+// admin-triggered counterpart to expiry-toggle above — deliberately two
+// separate controls (see mcxSquareOffService.js's own header comment).
+router.post('/mcx-square-off', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('SETTLEMENT_TRIGGER'), async (req, res) => {
+  try {
+    const mcxSquareOffService = require('../services/mcxSquareOffService');
+    const { runId, totalUsers } = await mcxSquareOffService.startMcxSquareOff(req.admin.id);
+    res.json({ success: true, message: `Square-off started for ${totalUsers} user(s) with open MCX positions`, data: { runId, totalUsers } });
+  } catch (e) {
+    if (e.code === 'ALREADY_RUNNING') {
+      return res.status(409).json({ success: false, message: e.message, data: { runId: e.runId } });
+    }
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
+  }
+});
+
+// GET /admin/mcx-square-off/status/:runId — poll progress of a specific run.
+router.get('/mcx-square-off/status/:runId', authenticateAdmin, async (req, res) => {
+  try {
+    const mcxSquareOffService = require('../services/mcxSquareOffService');
+    const run = await mcxSquareOffService.getRunStatus(req.params.runId);
+    if (!run) return res.status(404).json({ success: false, message: 'Run not found', data: null });
+    res.json({ success: true, data: run });
+  } catch (e) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
+  }
+});
+
+// GET /admin/mcx-square-off/latest — most recent run (running or not), so
+// the UI can resume showing progress after a page refresh without needing
+// the runId from the original POST response.
+router.get('/mcx-square-off/latest', authenticateAdmin, async (req, res) => {
+  try {
+    const mcxSquareOffService = require('../services/mcxSquareOffService');
+    const run = await mcxSquareOffService.getLatestRun('MCX');
+    res.json({ success: true, data: run || null });
   } catch (e) {
     res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
   }

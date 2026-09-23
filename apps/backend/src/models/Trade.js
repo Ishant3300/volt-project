@@ -78,11 +78,15 @@ const tradeSchema = new mongoose.Schema({
     default: 'USER'
   },
   // Trade type: 'regular' for normal trades, 'carry_forward' for ATP adjustment,
-  // 'margin_square_off' for auto margin square-off trades
+  // 'margin_square_off' for auto margin square-off trades, 'admin_square_off'
+  // for an admin-triggered batch close (e.g. MCX expiry square-off) — unlike
+  // margin_square_off, this one is NOT hidden from the client's own
+  // orders/history page, since it's a real, visible closure the client
+  // should see, just admin-initiated rather than self-placed.
   // carry_forward and margin_square_off trades are hidden from orders/history page
   trade_type: {
     type: String,
-    enum: ['regular', 'carry_forward', 'margin_square_off'],
+    enum: ['regular', 'carry_forward', 'margin_square_off', 'admin_square_off'],
     default: 'regular'
   },
   status: {

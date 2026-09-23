@@ -332,6 +332,8 @@ const startServer = async () => {
   if (!bgDisabled) {
     const marginSquareOffService = require('./services/marginSquareOffService');
     await marginSquareOffService.init(livePriceService);
+    const mcxSquareOffService = require('./services/mcxSquareOffService');
+    mcxSquareOffService.init(livePriceService);
     await cronService.init();
     _ts('Margin square-off + cron jobs initialized');
   } else {
