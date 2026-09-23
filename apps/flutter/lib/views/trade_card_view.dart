@@ -74,6 +74,10 @@ class _TradeCardPageState extends State<TradeCardPage> {
   // Tab-based order type: 0=Market, 1=Limit, 2=Stop, 3=Custom (admin only)
   int _selectedTab = 0;
 
+  // Custom-tab-only, admin-only: bypasses brokerage for this one trade when on.
+  // Everything else about the trade (price, quantity, P&L) is unaffected.
+  bool _carryForwardNoBrokerage = false;
+
   final TextEditingController _qtyController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
   final TradeService _tradeService = TradeService();
@@ -706,6 +710,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
       userId: _selectedUser != null
           ? (_selectedUser!['id'] ?? _selectedUser!['_id'])?.toString()
           : null,
+      noBrokerage: _selectedTab == 3 && _carryForwardNoBrokerage,
     );
 
     if (!mounted) return;
@@ -2109,7 +2114,31 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 14),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Carry Forward (no brokerage)',
+                                  style: TextStyle(
+                                    color: Color(0xFF2B2B2B),
+                                    fontSize: kFontSizeBody,
+                                    fontFamily: kFontFamily,
+                                    fontWeight: kFontWeightMedium,
+                                  ),
+                                ),
+                                Switch(
+                                  value: _carryForwardNoBrokerage,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _carryForwardNoBrokerage = value;
+                                    });
+                                  },
+                                  activeThumbColor: kBrandGradientEnd,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
                             Row(
                               children: [
                                 Expanded(

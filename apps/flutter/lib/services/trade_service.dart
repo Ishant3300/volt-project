@@ -121,6 +121,7 @@ class TradeService {
     required String orderType, // 'MARKET' or 'LIMIT'
     String? segment, // e.g. NFO-FUT, MCX-FUT — used for limit validation
     String? userId, // Admin/Master can trade on behalf of a user
+    bool noBrokerage = false, // Admin Custom-ticket toggle — server re-checks admin role
   }) async {
     try {
       final token = await _storage.getToken();
@@ -136,6 +137,7 @@ class TradeService {
       };
       if (segment != null && segment.isNotEmpty) body['segment'] = segment;
       if (userId != null) body['user_id'] = userId;
+      if (noBrokerage) body['no_brokerage'] = true;
 
       final response = await _apiService.post('/trade', body, token: token);
       final jsonResponse = jsonDecode(response.body);

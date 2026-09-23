@@ -498,7 +498,14 @@ const placeTrade = async (req, res) => {
             price, // Usually 0 or market price for MARKET orders, specific price for LIMIT
             order_type, // 'MARKET', 'LIMIT'
             segment,   // e.g. NFO-FUT, MCX-FUT — sent by Flutter for accurate limit lookup
+            no_brokerage, // Custom-ticket "carry forward" toggle — admin-only, see below
         } = req.body;
+
+        // Admin-only brokerage bypass from the Custom order-ticket toggle. Never
+        // trust the client's role claim — only honoured when this exact request
+        // is authenticated as `req.admin` (master/user requests ignore the flag
+        // even if somehow sent).
+        const skipBrokerage = !!(req.admin && no_brokerage === true);
 
         if (!['BUY', 'SELL'].includes(transaction_type)) {
             return res.status(400).json({ success: false, message: 'Invalid transaction_type' });
@@ -1064,6 +1071,7 @@ const placeTrade = async (req, res) => {
                 executed_quantity: shouldExecuteNow ? quantity : 0,
                 pnl: tradeRealisedPnl,
                 brokerage: 0,
+                brokerage_exempt: skipBrokerage,
                 taxes: 0,
                 net_amount: tradeRealisedPnl
             });
@@ -1150,7 +1158,7 @@ const placeTrade = async (req, res) => {
                 // already saved with instrument_token/tradingsymbol/exchange/price/quantity/user_id,
                 // which is everything calculateBrokerage needs; it re-resolves segment/lot_size
                 // itself from a fresh KiteInstrument lookup rather than trusting caller-local state.
-                const brokerage = await calculateBrokerage(newTrade, session);
+                const brokerage = skipBrokerage ? 0 : await calculateBrokerage(newTrade, session);
 
                 const balanceBefore = user.equity;
                 const balanceChange = tradeRealisedPnl - brokerage;

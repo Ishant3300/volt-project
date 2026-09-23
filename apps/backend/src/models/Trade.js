@@ -115,6 +115,15 @@ const tradeSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  // Admin-only "Custom" order-ticket toggle: when true, calculateBrokerage()
+  // was deliberately skipped for this trade (brokerage forced to 0) rather
+  // than genuinely rating to ₹0 — kept as its own flag, separate from
+  // trade_type's 'carry_forward' (which hides a trade from orders/history
+  // entirely), since this trade is still a normal, fully-visible trade.
+  brokerage_exempt: {
+    type: Boolean,
+    default: false
+  },
   taxes: {
     type: Number,
     default: 0
