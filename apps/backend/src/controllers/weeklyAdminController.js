@@ -413,6 +413,12 @@ const getWeeklyAdminReport = async (req, res) => {
     const availableExchanges = [...new Set(kiteInstruments.map((k) => k.exchange).filter(Boolean))].sort();
     const availableScripts = [...new Set(kiteInstruments.map((k) => k.raw_name).filter(Boolean))].sort();
 
+    // Purely additive — attaches the permanent Ledger column's running total
+    // (User.ledger_balance / Master.ledger_balance, written weekly by
+    // weeklySummaryService.js's snapshotWeeklyLedger()) to each row already
+    // built above. Touches no existing field and no sharing/cascade formula.
+    await _attachLedgerBalances(data);
+
     res.json({
       success: true,
       data,
@@ -876,6 +882,28 @@ function _getUserBrokerageAndTurnoverBatched(userId, tradesByUser, brkRulesByUse
   }
 
   return { brokerage: totalBrk, turnover: totalTurnover, lots: totalLots };
+}
+
+/**
+ * Attaches ledger_balance (the permanent "Ledger" column's running total)
+ * to each already-built report row, in place. Read-only, one batched query
+ * per role — does not affect any other field on these rows.
+ */
+async function _attachLedgerBalances(data) {
+  const userIds = data.filter((d) => d.type === 'user').map((d) => d.id);
+  const masterIds = data.filter((d) => d.type === 'master').map((d) => d.id);
+
+  const [users, masters] = await Promise.all([
+    userIds.length ? User.find({ _id: { $in: userIds } }).select('_id ledger_balance').lean() : [],
+    masterIds.length ? Master.find({ _id: { $in: masterIds } }).select('_id ledger_balance').lean() : [],
+  ]);
+  const balanceById = new Map();
+  for (const u of users) balanceById.set(u._id.toString(), u.ledger_balance || 0);
+  for (const m of masters) balanceById.set(m._id.toString(), m.ledger_balance || 0);
+
+  for (const row of data) {
+    row.ledger_balance = balanceById.get(row.id) ?? 0;
+  }
 }
 
 /**

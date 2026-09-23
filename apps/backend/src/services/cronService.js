@@ -6,7 +6,7 @@ const User = require('../models/User');
 const Master = require('../models/Master');
 const orderExecutionService = require('./orderExecutionService');
 const redisService = require('./redisService');
-const { snapshotWeeklySummary } = require('./weeklySummaryService');
+const { snapshotWeeklySummary, snapshotWeeklyLedger } = require('./weeklySummaryService');
 const livePriceService = require('./livePriceService');
 const { beginTradeWrite } = require('./tradeWriteFenceService');
 const walletService = require('./walletService');
@@ -75,6 +75,20 @@ class CronService {
             }
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(weeklySummarySnapshot);
+
+        // Same slot as the Weekly Summary Snapshot above, but its own cron
+        // entry and its own try/catch — a failure here must never affect
+        // that existing snapshot, and vice versa.
+        const weeklyLedgerSnapshot = cron.schedule('55 23 * * 0', async () => {
+            console.log('📒 [CRON] Starting Weekly Ledger Snapshot...');
+            try {
+                await snapshotWeeklyLedger();
+                console.log('✅ [CRON] Weekly Ledger Snapshot completed.');
+            } catch (error) {
+                console.error('❌ [CRON] Error during Weekly Ledger Snapshot:', error);
+            }
+        }, { timezone: 'Asia/Kolkata' });
+        this.jobs.push(weeklyLedgerSnapshot);
 
         // Schedule Weekly Balance Reset at Sunday 00:00 AM
         const weeklyBalanceReset = cron.schedule('0 0 * * 0', async () => {

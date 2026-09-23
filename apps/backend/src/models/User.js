@@ -203,6 +203,14 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  // Display-only running total for the Master Ledger's "Ledger" column —
+  // this week's Total P&L (same figure/sign the live report already shows,
+  // see LedgerEntry.js) added on every Sunday 23:55 weekly snapshot. Does
+  // NOT feed equity/settled_pnl or any sharing/cascade calculation.
+  ledger_balance: {
+    type: Number,
+    default: 0,
+  },
   deleted_at: {
     type: Date,
     default: null

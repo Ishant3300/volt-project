@@ -162,6 +162,15 @@ const masterSchema = new mongoose.Schema({
     ref: 'Master',
     default: null
   },
+  // Display-only running total for the Master Ledger's "Ledger" column —
+  // this week's Total P&L across this master's entire downline (same
+  // figure/sign the live report already shows, see LedgerEntry.js) added
+  // on every Sunday 23:55 weekly snapshot. Does NOT feed any sharing/
+  // cascade calculation.
+  ledger_balance: {
+    type: Number,
+    default: 0,
+  },
   add_master: {
     type: Boolean,
     default: false
