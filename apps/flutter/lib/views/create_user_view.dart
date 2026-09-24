@@ -447,24 +447,40 @@ class _CreateUserViewState extends State<CreateUserView> {
     });
   }
 
-  /// Apply brokerage settings for enabled exchanges after user creation
+  /// Apply brokerage settings for enabled exchanges after user creation.
+  ///
+  /// Each exchange's setup (its own bulk-create + bulk-update calls, scoped
+  /// to that exchange_name) is fully independent of every other exchange's
+  /// — there was no reason they were awaited one at a time other than that
+  /// being the easiest way to write the loop. With every exchange enabled
+  /// (now 6, incl. COMEX-FUT/GLOBAL) that meant up to ~15+ sequential
+  /// network round trips to create one user, each paying full latency
+  /// before the next could even start — confirmed as the dominant
+  /// contributor to "account creation taking a long time" complaints.
+  /// Running them concurrently via Future.wait cuts the total wait down to
+  /// roughly the slowest single exchange's round trip instead of the sum
+  /// of all of them.
   Future<void> _applyBrokerageSettings(String? userId) async {
-    try {
-      final token = await SecureStorageService().getToken();
-      final apiService = ApiService(backendUrl);
+    final token = await SecureStorageService().getToken();
+    final apiService = ApiService(backendUrl);
+    await Future.wait(_allowedExchanges.map((exchange) =>
+        _applyBrokerageSettingsForExchange(userId, exchange, token, apiService)));
+  }
 
-      for (final exchange in _allowedExchanges) {
+  Future<void> _applyBrokerageSettingsForExchange(String? userId,
+      String exchange, String? token, ApiService apiService) async {
+    try {
         // Only apply for enabled exchanges
-        if (_exchangeSettings[exchange]?['enabled'] != true) continue;
+        if (_exchangeSettings[exchange]?['enabled'] != true) return;
 
         final brkSettings = _brokerageSettings[exchange];
-        if (brkSettings == null) continue;
+        if (brkSettings == null) return;
 
         final valueStr =
             (brkSettings['controller'] as TextEditingController).text.trim();
-        if (valueStr.isEmpty) continue;
+        if (valueStr.isEmpty) return;
         final value = double.tryParse(valueStr);
-        if (value == null || value <= 0) continue;
+        if (value == null || value <= 0) return;
 
         final type = brkSettings['type'] as String;
         final apiExchange = exchange == 'GLOBAL' ? 'INDICES' : exchange;
@@ -509,7 +525,7 @@ class _CreateUserViewState extends State<CreateUserView> {
               }
             }
           }
-          continue;
+          return;
         }
 
         // Customized path: fetch the freshly-created rows (now carrying
@@ -520,11 +536,11 @@ class _CreateUserViewState extends State<CreateUserView> {
           '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=2000$userQuery',
           token: token,
         );
-        if (fetchRes.statusCode != 200) continue;
+        if (fetchRes.statusCode != 200) return;
         final body = jsonDecode(fetchRes.body);
-        if (body['success'] != true) continue;
+        if (body['success'] != true) return;
         final items = List<Map<String, dynamic>>.from(body['data']['items'] ?? []);
-        if (items.isEmpty) continue;
+        if (items.isEmpty) return;
 
         if (_categorySegments.contains(exchange)) {
           for (final category in ['INDEX', 'STOCK']) {
@@ -589,9 +605,8 @@ class _CreateUserViewState extends State<CreateUserView> {
             );
           }
         }
-      }
     } catch (e) {
-      log('⚠️ Error applying brokerage settings: \$e');
+      log('⚠️ Error applying brokerage settings for $exchange: $e');
     }
   }
 

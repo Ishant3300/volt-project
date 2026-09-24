@@ -626,24 +626,37 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     });
   }
 
-  /// Apply brokerage settings for enabled exchanges after master creation
+  /// Apply brokerage settings for enabled exchanges after master creation.
+  ///
+  /// Each exchange's setup is fully independent of every other exchange's —
+  /// running them concurrently instead of one at a time cuts the total
+  /// wait for creating a master down to roughly the slowest single
+  /// exchange's round trip instead of the sum of all of them. See
+  /// create_user_view.dart's matching fix for the full rationale (this was
+  /// the confirmed dominant contributor to "account creation taking a long
+  /// time" complaints).
   Future<void> _applyBrokerageSettings(String? masterId) async {
     if (masterId == null) return;
-    try {
-      final token = await SecureStorageService().getToken();
-      final apiService = ApiService(backendUrl);
+    final token = await SecureStorageService().getToken();
+    final apiService = ApiService(backendUrl);
+    await Future.wait(_exchangeAllow.keys.map((exchange) =>
+        _applyBrokerageSettingsForExchange(
+            masterId, exchange, token, apiService)));
+  }
 
-      for (final exchange in _exchangeAllow.keys) {
-        if (!_exchangeAllow[exchange]!) continue;
+  Future<void> _applyBrokerageSettingsForExchange(String masterId,
+      String exchange, String? token, ApiService apiService) async {
+    try {
+        if (!_exchangeAllow[exchange]!) return;
 
         final brkSettings = _brokerageSettings[exchange];
-        if (brkSettings == null) continue;
+        if (brkSettings == null) return;
 
         final valueStr =
             (brkSettings['controller'] as TextEditingController).text.trim();
-        if (valueStr.isEmpty) continue;
+        if (valueStr.isEmpty) return;
         final value = double.tryParse(valueStr);
-        if (value == null || value <= 0) continue;
+        if (value == null || value <= 0) return;
 
         final type = brkSettings['type'] as String;
         final apiExchange = exchange == 'GLOBAL' ? 'INDICES' : exchange;
@@ -685,7 +698,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               }
             }
           }
-          continue;
+          return;
         }
 
         // Customized path: fetch the freshly-created rows (now carrying
@@ -696,11 +709,11 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=2000&user_id=$masterId',
           token: token,
         );
-        if (fetchRes.statusCode != 200) continue;
+        if (fetchRes.statusCode != 200) return;
         final body = jsonDecode(fetchRes.body);
-        if (body['success'] != true) continue;
+        if (body['success'] != true) return;
         final items = List<Map<String, dynamic>>.from(body['data']['items'] ?? []);
-        if (items.isEmpty) continue;
+        if (items.isEmpty) return;
 
         if (_categorySegments.contains(exchange)) {
           for (final category in ['INDEX', 'STOCK']) {
@@ -759,9 +772,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 token: token);
           }
         }
-      }
     } catch (e) {
-      log('⚠️ Error applying brokerage settings: $e');
+      log('⚠️ Error applying brokerage settings for $exchange: $e');
     }
   }
 
