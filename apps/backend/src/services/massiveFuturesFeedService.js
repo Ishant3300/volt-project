@@ -39,6 +39,14 @@ const OHLC_POLL_INTERVAL_MS = 20_000;
 const OHLC_POLL_BATCH_SIZE = 6;
 const OHLC_POLL_BATCH_GAP_MS = 400;
 
+// Dow/Nasdaq/gold etc print real trades multiple times per second during
+// active hours — broadcasting every single one to clients made the UI flicker
+// at a rate no human actually reads. This only throttles the CLIENT-FACING
+// broadcast; latestPrices and metricsEngine.onTick (below) still update on
+// every real tick, so P&L/order-matching accuracy is unaffected — only how
+// often the price visibly refreshes on screen is capped.
+const BROADCAST_THROTTLE_MS = 500;
+
 class MassiveFuturesFeedService {
   constructor() {
     this.livePriceService = null;
@@ -62,6 +70,18 @@ class MassiveFuturesFeedService {
     this.tokenToOhlc = new Map();
     this._initialized = false;
     this._ohlcPollInFlight = false;
+    // instrument_token -> Date.now() of the last CLIENT broadcast (not the
+    // last tick) — see BROADCAST_THROTTLE_MS above.
+    this.tokenToLastBroadcast = new Map();
+  }
+
+  /** True once per token per BROADCAST_THROTTLE_MS window — records the hit as a side effect. */
+  _shouldBroadcast(token) {
+    const now = Date.now();
+    const last = this.tokenToLastBroadcast.get(token) || 0;
+    if (now - last < BROADCAST_THROTTLE_MS) return false;
+    this.tokenToLastBroadcast.set(token, now);
+    return true;
   }
 
   async init(livePriceService) {
@@ -274,6 +294,7 @@ class MassiveFuturesFeedService {
     const metricsEngine = require('./metricsEngine');
     metricsEngine.onTick(token, lastPrice, bidPrice, askPrice);
 
+    if (!this._shouldBroadcast(token)) return;
     lps._broadcastToClients({
       type: 'ticks',
       data: [{
@@ -301,6 +322,7 @@ class MassiveFuturesFeedService {
     const metricsEngine = require('./metricsEngine');
     metricsEngine.onTick(token, lastPrice, null, null);
 
+    if (!this._shouldBroadcast(token)) return;
     lps._broadcastToClients({
       type: 'ticks',
       data: [{
