@@ -24,7 +24,7 @@ class ExpiryManagementView extends StatefulWidget {
 }
 
 class _ExpiryManagementViewState extends State<ExpiryManagementView> {
-  static const _segments = ['NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT'];
+  static const _segments = ['NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'COMEX-FUT', 'GLOBAL'];
   String _selectedSegment = 'NFO-FUT';
   List<Map<String, dynamic>> _rows = [];
   bool _isLoading = false;
