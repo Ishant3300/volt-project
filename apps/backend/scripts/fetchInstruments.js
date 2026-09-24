@@ -12,6 +12,13 @@ const KiteInstrument = require('../src/models/KiteInstrument');
 // Path to the master list of allowed instruments
 const ACTIVE_INSTRUMENTS_CSV = path.join(__dirname, 'required_scripts', 'active_instruments (UPDATED).csv');
 
+// Cash-index quotes (segment INDICES) to exclude even though the same raw
+// name is otherwise allowed for its real tradable FUT/OPT derivatives —
+// e.g. SENSEX's BFO-FUT/BFO-OPT contracts stay, but its plain cash-index
+// quote (exchange BSE, no expiry, never used anywhere on the platform) is
+// filtered out. Segment-scoped so this can never affect the derivatives.
+const EXCLUDED_CASH_INDEX_NAMES = new Set(['SENSEX']);
+
 // ══════════════════════════════════════════════════════════════════════════════
 // MCX LOT SIZES — from official MCX contract specifications table
 // MT values converted to KG (1 MT = 1000 KG)
@@ -206,6 +213,12 @@ function parseAndFilterInstruments(csvText, allowedNames) {
     // Filter: only keep instruments whose name matches the allowed list
     const instName = (instrument.name || '').toUpperCase().trim();
     if (!allowedNames.has(instName)) {
+      stats.filtered++;
+      continue;
+    }
+
+    // Filter: explicitly-excluded cash-index quotes (see EXCLUDED_CASH_INDEX_NAMES)
+    if (instrument.segment === 'INDICES' && EXCLUDED_CASH_INDEX_NAMES.has(instName)) {
       stats.filtered++;
       continue;
     }
