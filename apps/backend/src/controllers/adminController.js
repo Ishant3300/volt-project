@@ -563,6 +563,26 @@ const creditUserByAdmin = async (req, res) => {
       const user = await User.findById(id).session(session);
       if (!user) throw new Error('User not found');
 
+      // Debit the client's own DIRECT parent master for this credit — same
+      // "money must come from somewhere in the tree, never be created out
+      // of thin air" rule already enforced for master-initiated credits
+      // (masterUserController.js, scoped by master_id) and for
+      // master-to-master crediting (masterController.js's creditMaster,
+      // which resolves master.master_id rather than blindly debiting
+      // req.master.id). Admin was the one path that skipped this entirely —
+      // confirmed live: an admin credit/debit of a client had no offsetting
+      // balance change anywhere, so it silently created/destroyed money
+      // instead of transferring it from the client's actual parent.
+      if (!user.master_id) throw new Error('Client has no parent master');
+      const parentMaster = await Master.findById(user.master_id).session(session);
+      if (!parentMaster) throw new Error('Parent master not found');
+      if (parentMaster.equity < amount) {
+        throw new Error(`Insufficient parent balance to credit. Available: ${parentMaster.equity}, Required: ${amount}`);
+      }
+      const parentBalanceBefore = parentMaster.equity;
+      parentMaster.equity -= amount;
+      await parentMaster.save({ session });
+
       const creditsBefore = user.credits;
       user.credits += amount;
       // A prior margin square-off blocked further trading (marginSquareOffService.js)
@@ -584,10 +604,26 @@ const creditUserByAdmin = async (req, res) => {
         metadata: { note: note || 'Admin credit', credited_by: req.admin?.username }
       });
       await tx.save({ session });
+
+      const parentTx = new Transaction({
+        transactionId: `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 6)}_ACP`,
+        userId: parentMaster._id,
+        userModel: 'Master',
+        type: 'DEBIT',
+        status: 'SUCCESS',
+        amount,
+        referenceId: user._id,
+        referenceModel: 'User',
+        balanceBefore: parentBalanceBefore,
+        balanceAfter: parentMaster.equity,
+        metadata: { note: `Debited for admin credit to client ${user.username}` }
+      });
+      await parentTx.save({ session });
+
       result = { new_balance: user.credits, amount_credited: amount, current_credits: user.credits };
     });
     session.endSession();
-    
+
     try {
       const metricsEngine = require('../services/metricsEngine');
       metricsEngine.onTradeExecuted(id);
@@ -616,6 +652,16 @@ const debitUserByAdmin = async (req, res) => {
       const user = await User.findById(id).session(session);
       if (!user) throw new Error('User not found');
 
+      // Credit the client's own DIRECT parent master back — the mirror of
+      // creditUserByAdmin's debit above. See that function's comment for
+      // the full rationale.
+      if (!user.master_id) throw new Error('Client has no parent master');
+      const parentMaster = await Master.findById(user.master_id).session(session);
+      if (!parentMaster) throw new Error('Parent master not found');
+      const parentBalanceBefore = parentMaster.equity;
+      parentMaster.equity += amount;
+      await parentMaster.save({ session });
+
       const creditsBefore = user.credits;
       user.credits -= amount;
       await user.save({ session });
@@ -634,10 +680,26 @@ const debitUserByAdmin = async (req, res) => {
         metadata: { note: note || 'Admin debit', debited_by: req.admin?.username }
       });
       await tx.save({ session });
+
+      const parentTx = new Transaction({
+        transactionId: `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 6)}_ADP`,
+        userId: parentMaster._id,
+        userModel: 'Master',
+        type: 'CREDIT',
+        status: 'SUCCESS',
+        amount,
+        referenceId: user._id,
+        referenceModel: 'User',
+        balanceBefore: parentBalanceBefore,
+        balanceAfter: parentMaster.equity,
+        metadata: { note: `Credited back for admin debit of client ${user.username}` }
+      });
+      await parentTx.save({ session });
+
       result = { new_balance: user.credits, amount_debited: amount, current_credits: user.credits };
     });
     session.endSession();
-    
+
     try {
       const metricsEngine = require('../services/metricsEngine');
       metricsEngine.onTradeExecuted(id);

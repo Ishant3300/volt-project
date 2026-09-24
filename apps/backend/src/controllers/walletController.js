@@ -13,13 +13,17 @@ const { sanitizeErrorMessage } = require('../utils/sanitizeError');
  *   - `/api/master/wallet/*` via masterFlowRoutes (`authenticateAdminOrMaster`) —
  *     a MASTER funds/withdraws a DIRECT child from the master's own pool (a
  *     transfer: debit master + credit child). Admin may also hit these.
- *   - `/api/admin/wallet/*` via adminRoutes (`authenticateAdmin`) — ADMIN grants /
- *     removes funds for anyone (no admin debit), plus the `reconcile` drift audit.
+ *   - `/api/admin/wallet/*` via adminRoutes (`authenticateAdmin`) — ADMIN funds/
+ *     withdraws anyone, plus the `reconcile` drift audit.
  *
  * Actor resolution: `req.master` → a Master actor, else `req.admin` → an Admin
- * actor. `walletService.assign`/`withdraw` branch on `actor.type`:
- *   - Master → transfer (guarded debit of the master's own pool, then credit).
- *   - Admin  → grant/remove (credit/guarded-debit of the target only).
+ * actor. `walletService.assign`/`withdraw` branch on `actor.type` AND target type:
+ *   - Master actor → transfer (guarded debit of the master's own pool, then credit).
+ *   - Admin actor, target is a User (client) → also a transfer, but the debit
+ *     lands on the client's own DIRECT parent master, not the admin — money
+ *     always comes from somewhere in the tree.
+ *   - Admin actor, target is a Master → grant/remove (credit/guarded-debit of
+ *     the target only) — this is the system's actual capital-injection point.
  *
  * @module controllers/walletController
  */
@@ -71,13 +75,17 @@ function httpError(status, message) {
  * new account through the same audited, hierarchy-debited `walletService.assign`
  * path as the dedicated funding endpoints.
  *
- * Actor semantics (resolved from the authenticated request):
- *   - **Master** → each category funding is a TRANSFER: `walletService.assign`
- *     debits the master's OWN same-category pool then credits the target. If the
- *     master's pool cannot cover it, `assign` throws `INSUFFICIENT_WALLET`, which
- *     PROPAGATES to the caller (a master cannot fund a child beyond its own
- *     balance — Requirement 5.3).
- *   - **Admin** → each funding is a GRANT: credit the target only (no debit).
+ * Actor semantics (resolved from the authenticated request) — see
+ * `walletService.assign`'s own doc for the full breakdown:
+ *   - **Master** → each category funding is a TRANSFER: debits the master's
+ *     OWN same-category pool then credits the target. If the master's pool
+ *     cannot cover it, `assign` throws `INSUFFICIENT_WALLET`, which PROPAGATES
+ *     to the caller (a master cannot fund a child beyond its own balance —
+ *     Requirement 5.3).
+ *   - **Admin, target is a User (client)** → also a TRANSFER: debits the
+ *     client's own DIRECT parent master's pool instead of the admin's.
+ *   - **Admin, target is a Master** → a GRANT: credit the target only (no
+ *     debit) — the system's capital-injection point.
  *
  * For each category in `walletService.CATEGORIES` the map's amount is read; a
  * non-finite or `<= 0` amount is skipped (a create/edit only funds the categories

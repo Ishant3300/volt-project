@@ -308,8 +308,13 @@ async function writeFundingAudit(params) {
  * - **Master actor** → a transfer: atomic guarded `block` on the master's own
  *   pool (rejected if it would go below 0) followed by `release` on the target.
  *   Because the block runs first, a failed debit never credits the target.
- * - **Admin actor** → a grant: `release` on the target only (admin is the root
- *   of funds, so there is no debit source).
+ * - **Admin actor, target is a User (client)** → also a transfer: same guarded
+ *   `block`, but on the client's own DIRECT parent master's pool (looked up via
+ *   `User.master_id`), not the admin's. Money always comes from somewhere in
+ *   the tree; an admin funding a client is never a free grant.
+ * - **Admin actor, target is a Master** → a true grant: `release` on the
+ *   target only. This is the system's actual capital-injection point — an
+ *   admin funding a master (at any depth) has no debit source, by design.
  *
  * Runs inside the caller's `session` when provided, otherwise opens and owns a
  * transaction so the debit + credit + audit are atomic.
@@ -350,9 +355,24 @@ async function assign(actor, targetModel, targetId, category, amount, session = 
       // transaction) before the target is ever credited.
       await block('Master', actor.id, category, rounded, s);
       actorAfter = roundMoney(actorBefore - rounded);
+    } else if (actor.type === 'Admin' && targetModel === 'User') {
+      // Admin funding a CLIENT's wallet: debit the client's own DIRECT
+      // parent master, not a free grant — same rule as every other
+      // client-facing credit path (creditUserByAdmin, masterUserController's
+      // createUser). Admin funding a MASTER directly stays a true grant
+      // (deliberately not touched here) — that's the system's capital-
+      // injection mechanism, distinct from moving money between a client
+      // and its own parent.
+      const clientUser = await User.findById(targetId).select('master_id').session(s);
+      if (!clientUser || !clientUser.master_id) {
+        throw new Error('Client has no parent master');
+      }
+      actorBefore = (await readWallet(Master, clientUser.master_id, s))[category];
+      await block('Master', clientUser.master_id, category, rounded, s);
+      actorAfter = roundMoney(actorBefore - rounded);
     }
 
-    // Credit the target (grant for admin, transfer leg for master).
+    // Credit the target (grant for admin-funds-master, transfer leg otherwise).
     await release(targetModel, targetId, category, rounded, s);
     const targetAfter = roundMoney(targetBefore + rounded);
 
@@ -381,8 +401,11 @@ async function assign(actor, targetModel, targetId, category, amount, session = 
  *
  * Guarded `block` on the **target** (rejected if it would drive the target
  * below 0). When the actor is a **Master**, the withdrawn amount is `release`d
- * back to the master's own pool; for an **Admin** the funds simply leave the
- * system (no destination).
+ * back to the master's own pool. When the actor is an **Admin** and the
+ * target is a **User (client)**, it's `release`d to the client's own DIRECT
+ * parent master instead (same rule as `assign` above) — only an admin
+ * withdrawing from a **Master** target has no destination (the funds truly
+ * leave the system, mirroring that target's own grant-only funding).
  *
  * Runs inside the caller's `session` when provided, otherwise opens and owns a
  * transaction so the debit + credit + audit are atomic.
@@ -421,6 +444,17 @@ async function withdraw(actor, targetModel, targetId, category, amount, session 
     if (actor.type === 'Master') {
       actorBefore = (await readWallet(Master, actor.id, s))[category];
       await release('Master', actor.id, category, rounded, s);
+      actorAfter = roundMoney(actorBefore + rounded);
+    } else if (actor.type === 'Admin' && targetModel === 'User') {
+      // Mirror of assign()'s admin-funds-client branch above: withdrawing
+      // from a client's wallet credits the client's own direct parent
+      // master back, instead of the funds simply leaving the system.
+      const clientUser = await User.findById(targetId).select('master_id').session(s);
+      if (!clientUser || !clientUser.master_id) {
+        throw new Error('Client has no parent master');
+      }
+      actorBefore = (await readWallet(Master, clientUser.master_id, s))[category];
+      await release('Master', clientUser.master_id, category, rounded, s);
       actorAfter = roundMoney(actorBefore + rounded);
     }
 
