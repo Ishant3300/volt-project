@@ -17,6 +17,14 @@ const bool kLogLivePrices = false;
 const bool kLogWebSockets = false;
 const bool kLogTokenWarnings = false;
 
+// One-tap "Reset Password" (username_view.dart / web's PasswordResetPage.tsx)
+// sets a user's/master's password to this fixed value instead of requiring
+// the admin/master to type one every time. change_pass_on_first_login isn't
+// touched by this — it only applies at account creation — so whether the
+// account is forced to change it on next login depends on however that flag
+// was already set.
+const String kDefaultResetPassword = '123456';
+
 // ─── Font Sizes ─────────────────────────────────────────────────────────────
 
 // Font Weights

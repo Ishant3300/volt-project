@@ -758,6 +758,7 @@ class _UsernameViewState extends State<UsernameView> {
             child: Column(
               children: [
                 _settingRow(kIconCreditDebit, 'Credit/Debit'),
+                _settingRow(Icons.lock_reset, 'Reset Password'),
                 _settingRow(kIconTradeWallet, 'Trade Wallet'),
                 _settingRow(kIconGroupQuantity, 'Group Quantity Settings'),
                 if (_currentUser != null)
@@ -2116,6 +2117,9 @@ class _UsernameViewState extends State<UsernameView> {
           _fetchLivePositions(); // Refresh position tab metrics after credit/debit
         }
         break;
+      case 'Reset Password':
+        _confirmResetPassword();
+        break;
       case 'Trade Wallet':
         {
           final walletResult = await showModalBottomSheet<bool>(
@@ -2205,6 +2209,60 @@ class _UsernameViewState extends State<UsernameView> {
       case 'Delete Master':
         if (_currentMaster != null) _confirmDeleteMaster();
         break;
+    }
+  }
+
+  // One-tap reset to a fixed default password, instead of having to open
+  // the edit form and type it in every time — reuses the exact same
+  // updateUser/updateMaster calls the edit form's password field already
+  // makes, just with 'DEFAULT_RESET_PASSWORD' hardcoded and no other field
+  // touched.
+  Future<void> _confirmResetPassword() async {
+    final username = _currentUser?.username ?? _currentMaster?.username ?? '';
+    final name = _currentUser?.name ?? _currentMaster?.name ?? '';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Reset Password'),
+        content: Text(
+            'Reset the password for $name ($username) to the default ($kDefaultResetPassword)? They can log in with this password immediately.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Reset')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      final adminService = AdminService(apiService);
+      final res = _currentUser != null
+          ? await adminService.updateUser(
+              userId: _currentUser!.id, password: kDefaultResetPassword)
+          : await adminService.updateMaster(
+              masterId: _currentMaster!.id, password: kDefaultResetPassword);
+      if (!mounted) return;
+      final body = jsonDecode(res.body);
+      if (res.statusCode == 200 && body['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Password reset to $kDefaultResetPassword'),
+              backgroundColor: const Color(0xFF10B981)),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(body['message'] ?? 'Reset failed')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     }
   }
 
