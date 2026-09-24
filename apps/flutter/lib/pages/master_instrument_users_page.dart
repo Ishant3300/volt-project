@@ -1,12 +1,13 @@
 ﻿import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
-import 'package:stocker/models/user.dart' as user_model;
+import 'package:stocker/models/kite_instrument.dart';
+import 'package:stocker/models/watchlist_item.dart';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/live_price_service.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/utils/contants.dart';
-import 'package:stocker/views/username_view.dart';
+import 'package:stocker/views/trade_card_view.dart';
 
 class MasterInstrumentUsersPage extends StatefulWidget {
   final String instrumentToken;
@@ -48,6 +49,9 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
   // LTP map for all instruments (for recalculating metrics live)
   final Map<String, double> _ltpMap = {};
 
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +65,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
       _livePriceService.unsubscribe(_allTokens.toList());
     }
     _livePriceService.disconnect();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -189,59 +194,68 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
     }
   }
 
-  Future<void> _openUserProfile(String userId) async {
-    // Captured before the dialog opens so it can still be dismissed via
-    // this reference even if this page unmounts mid-request — an
-    // `if (!mounted) return;` right before the pop would otherwise leave a
-    // barrierDismissible:false dialog stuck forever.
-    final navigator = Navigator.of(context);
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+  /// Opens the order ticket directly for this client + script, instead of
+  /// the old flow (loading dialog -> fetch full user -> full account
+  /// overview page). Mirrors username_view.dart's _openTradeCardFor: no
+  /// network call needed, since everything the ticket needs is already on
+  /// this page — the matching entry in this user's already-fetched
+  /// _userMetrics positions (same source the P&L figure on this card reads
+  /// from) carries lot_size/segment, with the widget-level exchange as a
+  /// fallback if that position isn't found for some reason.
+  void _openTradeTicket(Map<String, dynamic> user) {
+    final String userId = user['user_id']?.toString() ?? '';
+    if (userId.isEmpty) return;
 
-    try {
-      final token = await _storage.getToken();
-      // Try master flow first, then admin endpoint as fallback
-      var res = await _apiService.get('/master/users/$userId', token: token);
-
-      if (res.statusCode != 200) {
-        // Fallback to admin endpoint
-        res = await _apiService.get('/admin/users/$userId', token: token);
-      }
-
-      navigator.pop(); // dismiss loading
-      if (!mounted) return;
-
-      if (res.statusCode == 200) {
-        final body = jsonDecode(res.body);
-        if (body['success'] == true && body['data'] != null) {
-          final user = user_model.User.fromJson(body['data']);
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => UsernameView(user: user),
-            ),
-          );
-          return;
+    Map<String, dynamic>? positionData;
+    final userMetrics = _userMetrics[userId];
+    if (userMetrics != null) {
+      final List positions = userMetrics['positions'] ?? [];
+      for (final pos in positions) {
+        if (pos['instrument_token']?.toString() == widget.instrumentToken) {
+          positionData = Map<String, dynamic>.from(pos);
+          break;
         }
       }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to load user details')),
-        );
-      }
-    } catch (e) {
-      navigator.pop(); // dismiss loading
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
     }
+
+    final instrument = KiteInstrument(
+      id: '',
+      instrumentToken: widget.instrumentToken,
+      exchangeToken: '',
+      tradingsymbol: widget.tradingsymbol,
+      name: widget.tradingsymbol,
+      rawName: widget.tradingsymbol,
+      displayName: widget.tradingsymbol,
+      lastPrice: _ltp ?? 0,
+      strike: 0,
+      tickSize: 0.05,
+      lotSize: (positionData?['lot_size'] as num?)?.toInt() ?? 1,
+      instrumentType: '',
+      segment: positionData?['segment'] ?? widget.exchange,
+      exchange: positionData?['exchange'] ?? widget.exchange,
+      isActive: true,
+      updatedAt: DateTime.now(),
+    );
+    final item = WatchlistItem(
+      id: widget.instrumentToken,
+      instrument: instrument,
+      currentPrice: _ltp,
+      lastUpdated: DateTime.now(),
+    );
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TradeCardPage(
+          item: item,
+          initialSelectedUser: {
+            'id': userId,
+            'name': user['name'],
+            'username': user['username'],
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -249,6 +263,15 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
     final bool isNetLong = widget.netQty > 0;
     final Color sideColor =
         isNetLong ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+
+    final query = _searchQuery.toLowerCase();
+    final filteredUsers = query.isEmpty
+        ? _users
+        : _users.where((u) {
+            final name = (u['name'] ?? '').toString().toLowerCase();
+            final username = (u['username'] ?? '').toString().toLowerCase();
+            return name.contains(query) || username.contains(query);
+          }).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
@@ -370,13 +393,67 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
               ),
             ),
 
+            // Search bar
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Container(
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(left: 12),
+                      child: Icon(Icons.search,
+                          size: 18, color: Color(0xFF94A3B8)),
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        style: const TextStyle(
+                          fontSize: kFontSizeBodySmall,
+                          color: Color(0xFF0F172A),
+                          fontFamily: kFontFamily,
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: 'Search client...',
+                          hintStyle: TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: kFontSizeBodySmall,
+                            fontFamily: kFontFamily,
+                          ),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 10),
+                        ),
+                        onChanged: (v) =>
+                            setState(() => _searchQuery = v.trim()),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
             // User count label
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
                   Text(
-                    '${_users.length} user${_users.length != 1 ? "s" : ""} with open positions',
+                    _searchQuery.isEmpty
+                        ? '${_users.length} user${_users.length != 1 ? "s" : ""} with open positions'
+                        : '${filteredUsers.length} of ${_users.length} user${_users.length != 1 ? "s" : ""}',
                     style: const TextStyle(
                       color: Color(0xFF94A3B8),
                       fontSize: kFontSizeSubtitle,
@@ -394,15 +471,16 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : _users.isEmpty
-                      ? _buildEmptyState()
+                  : filteredUsers.isEmpty
+                      ? _buildEmptyState(
+                          isSearching: _searchQuery.isNotEmpty)
                       : RefreshIndicator(
                           onRefresh: _fetchData,
                           child: ListView.builder(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
-                            itemCount: _users.length,
+                            itemCount: filteredUsers.length,
                             itemBuilder: (context, index) {
-                              return _buildUserCard(_users[index]);
+                              return _buildUserCard(filteredUsers[index]);
                             },
                           ),
                         ),
@@ -414,7 +492,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState({bool isSearching = false}) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -433,13 +511,16 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                 ),
               ],
             ),
-            child: const Icon(Icons.people_outline,
-                size: 28, color: Color(0xFF94A3B8)),
+            child: Icon(
+                isSearching ? Icons.search_off : Icons.people_outline,
+                size: 28, color: const Color(0xFF94A3B8)),
           ),
           const SizedBox(height: 12),
-          const Text(
-            'No users with open positions',
-            style: TextStyle(
+          Text(
+            isSearching
+                ? 'No clients match your search'
+                : 'No users with open positions',
+            style: const TextStyle(
               color: Color(0xFF94A3B8),
               fontSize: kFontSizeBody,
               fontFamily: kFontFamily,
@@ -491,7 +572,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
-        if (userId.isNotEmpty) _openUserProfile(userId);
+        if (userId.isNotEmpty) _openTradeTicket(user);
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
