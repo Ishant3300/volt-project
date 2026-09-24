@@ -353,6 +353,13 @@ class _OrdersPageState extends State<OrdersPage> {
   }
 
   Future<void> _openMasterProfile(String masterId) async {
+    // Captured before the dialog opens (context still valid here,
+    // synchronously) so the loader can be dismissed via this reference even
+    // if this page itself unmounts while the request is in flight — an
+    // `if (!mounted) return;` right before the pop would otherwise skip it
+    // entirely, leaving barrierDismissible:false dialog stuck permanently
+    // over whatever screen replaces this one.
+    final navigator = Navigator.of(context);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -365,8 +372,8 @@ class _OrdersPageState extends State<OrdersPage> {
       final apiService = Provider.of<ApiService>(context, listen: false);
       final adminService = AdminService(apiService);
       final res = await adminService.getMasterById(masterId);
+      navigator.pop(); // dismiss loader
       if (!mounted) return;
-      Navigator.pop(context); // dismiss loader
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         if (body['success'] == true) {
@@ -378,7 +385,7 @@ class _OrdersPageState extends State<OrdersPage> {
         }
       }
     } catch (e) {
-      if (mounted) Navigator.pop(context);
+      navigator.pop();
       debugPrint('Error opening master profile: $e');
     }
   }
@@ -2396,6 +2403,13 @@ class _OrdersPageState extends State<OrdersPage> {
 
     if (confirmed != true) return;
 
+    // Tracks whether the loading dialog is still on screen — without this,
+    // an exception thrown AFTER it's already dismissed on the normal path
+    // (e.g. from the errors dialog or a Provider lookup below) hits the
+    // outer catch's unconditional Navigator.pop(context), which then pops
+    // whatever's actually on top instead (the errors dialog, or this page
+    // itself) — same shape as profile_page.dart's _handleDeleteAccount bug.
+    var dialogDismissed = false;
     try {
       final storage = SecureStorageService();
       final token = await storage.getToken();
@@ -2491,6 +2505,7 @@ class _OrdersPageState extends State<OrdersPage> {
       // Close loading dialog
       if (mounted) {
         Navigator.pop(context);
+        dialogDismissed = true;
       }
 
       // Refresh data
@@ -2604,7 +2619,7 @@ class _OrdersPageState extends State<OrdersPage> {
       }
     } catch (e) {
       // Close loading dialog if open
-      if (mounted) {
+      if (mounted && !dialogDismissed) {
         Navigator.pop(context);
       }
 
@@ -2731,6 +2746,8 @@ class _OrdersPageState extends State<OrdersPage> {
 
     if (confirmed != true) return;
 
+    // See _squareOffSelected's matching flag for why this exists.
+    var dialogDismissed = false;
     try {
       final storage = SecureStorageService();
       final token = await storage.getToken();
@@ -2786,6 +2803,7 @@ class _OrdersPageState extends State<OrdersPage> {
       // Close loading dialog
       if (mounted) {
         Navigator.pop(context);
+        dialogDismissed = true;
       }
 
       // Refresh data
@@ -2898,7 +2916,7 @@ class _OrdersPageState extends State<OrdersPage> {
       }
     } catch (e) {
       // Close loading dialog if open
-      if (mounted) {
+      if (mounted && !dialogDismissed) {
         Navigator.pop(context);
       }
 

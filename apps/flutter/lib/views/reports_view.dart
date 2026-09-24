@@ -284,6 +284,19 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
   bool _isLoading = false;
   bool _isUser = true;
 
+  // Guards against a double-pop: CLEAR isn't gated by _isLoading, so a user
+  // can tap it while _generatePdf's network fetch + PDF render is still in
+  // flight. That pop closes this sheet, then _generatePdf's own success-path
+  // pop (guarded only by `mounted`, which stays true through the pop
+  // transition) fires moments later on whatever screen is now underneath —
+  // same shape as the trade_card_view.dart double-pop bug.
+  bool _hasClosed = false;
+  void _closeSheet() {
+    if (_hasClosed) return;
+    _hasClosed = true;
+    Navigator.pop(context);
+  }
+
   // User selection (admin/master only)
   List<Map<String, dynamic>> _users = [];
   List<Map<String, dynamic>> _filteredUsers = [];
@@ -576,7 +589,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
           final bytes = await pdf.save();
 
           if (!mounted) return;
-          Navigator.pop(context); // dismiss loading
+          _closeSheet(); // dismiss loading
 
           // Show options: Download or Share
           await _showPdfOptionsSheet(context, bytes,
@@ -988,7 +1001,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                 children: [
                   Expanded(
                     child: GestureDetector(
-                      onTap: () => Navigator.pop(context),
+                      onTap: _isLoading ? null : _closeSheet,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 32, vertical: 16),

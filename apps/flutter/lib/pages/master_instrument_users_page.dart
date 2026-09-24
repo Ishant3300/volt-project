@@ -190,6 +190,11 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
   }
 
   Future<void> _openUserProfile(String userId) async {
+    // Captured before the dialog opens so it can still be dismissed via
+    // this reference even if this page unmounts mid-request — an
+    // `if (!mounted) return;` right before the pop would otherwise leave a
+    // barrierDismissible:false dialog stuck forever.
+    final navigator = Navigator.of(context);
     // Show loading indicator
     showDialog(
       context: context,
@@ -207,8 +212,8 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
         res = await _apiService.get('/admin/users/$userId', token: token);
       }
 
+      navigator.pop(); // dismiss loading
       if (!mounted) return;
-      Navigator.pop(context); // dismiss loading
 
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
@@ -230,8 +235,8 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
         );
       }
     } catch (e) {
+      navigator.pop(); // dismiss loading
       if (mounted) {
-        Navigator.pop(context); // dismiss loading
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
         );

@@ -163,6 +163,12 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
     }
   }
 
+  // Gated by `_switching` at the call site: _switchTo also replaces the
+  // whole navigation stack (pop the sheet + pushAndRemoveUntil), and its
+  // `if (!mounted) return;` guard only checks whether this State is still
+  // attached — not whether _addNewAccount already tore down the stack out
+  // from under it. Without the gate, tapping this while a switch is mid-
+  // flight could fire both stack replacements back to back.
   void _addNewAccount() {
     Navigator.of(context).pop(); // close sheet
     Navigator.of(context).pushAndRemoveUntil(
@@ -261,7 +267,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
               padding: EdgeInsets.fromLTRB(
                   16, 8, 16, 24 + MediaQuery.of(context).viewPadding.bottom),
               child: GestureDetector(
-                onTap: _addNewAccount,
+                onTap: _switching ? null : _addNewAccount,
                 child: Container(
                   width: double.infinity,
                   height: 52,

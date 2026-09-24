@@ -466,6 +466,13 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
     if (confirmed != true) return;
 
     if (!mounted) return;
+    // Captured before the dialog opens so it can still be dismissed via
+    // this reference even if this page unmounts during the up-to-120s
+    // bhavcopy fetch below — an `if (!mounted) return;` right before the
+    // pop would otherwise leave a barrierDismissible:false dialog stuck
+    // forever, and 120s is a very plausible window for the user to have
+    // navigated away in.
+    final navigator = Navigator.of(context);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -488,8 +495,8 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
             body: jsonEncode({}),
           )
           .timeout(const Duration(seconds: 120));
+      navigator.pop();
       if (!mounted) return;
-      Navigator.pop(context);
 
       final body = jsonDecode(res.body);
       if (res.statusCode == 200 && body['success'] == true) {
@@ -510,8 +517,8 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
         );
       }
     } catch (e) {
+      navigator.pop();
       if (mounted) {
-        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
