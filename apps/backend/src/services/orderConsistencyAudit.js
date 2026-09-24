@@ -14,6 +14,16 @@
  * When orphans are found, this service:
  * 1. Logs them prominently (always — not gated by LOG_REDIS_ORDERS)
  * 2. Optionally re-registers them into Redis (auto-heal)
+ *
+ * runReverseAudit() below checks the opposite direction: a Redis order-book
+ * entry (ob:{token}:buy/sell/stoprise/stopfall) whose trade is no longer
+ * pending in MongoDB (filled, cancelled, expired, settled). removeOrder()
+ * is called on every one of those paths, but it's deliberately best-effort
+ * (a Redis hiccup must never block a real fill/cancel from completing in
+ * Mongo) — if that one removeOrder call ever fails, its ZSET member is
+ * never cleaned up and sits in Redis forever. Individually rare, but with
+ * thousands of pending orders a day this is exactly the kind of thing that
+ * quietly regrows the same way the price-updates queue leak did.
  */
 
 const Trade = require('../models/Trade');
@@ -133,4 +143,94 @@ const runAudit = async (options = {}) => {
   }
 };
 
-module.exports = { runAudit };
+/**
+ * Run the reverse audit: find Redis order-book members whose trade is no
+ * longer pending, and remove them.
+ * @param {object} options
+ * @param {boolean} [options.autoHeal=true] - If true, remove stale members from Redis
+ * @param {boolean} [options.silent=false] - If true, suppress "all consistent" log
+ * @returns {{ stale: Array, healed: number, total: number }}
+ */
+const runReverseAudit = async (options = {}) => {
+  const { autoHeal = true, silent = false } = options;
+
+  if (!redisService.isAvailable()) {
+    if (!silent) {
+      console.log(`⚠️  [OrderAudit] [${_ts()}] Reverse audit skipped — Redis unavailable`);
+    }
+    return { stale: [], healed: 0, total: 0, skipped: true };
+  }
+
+  try {
+    const client = redisService.getClient();
+    // ob:{token}:buy / :sell / :stoprise / :stopfall — see orderBookService.js's
+    // own key-schema comment for what each suffix means.
+    const keys = await client.keys('ob:*');
+    if (keys.length === 0) {
+      if (LOG_REDIS_ORDERS && !silent) {
+        console.log(`✅ [OrderAudit] [${_ts()}] No order-book keys in Redis — nothing to reverse-audit`);
+      }
+      return { stale: [], healed: 0, total: 0 };
+    }
+
+    // member -> every (key, instrumentToken, side) it was found under, so a
+    // single tradeId that's somehow stuck in more than one key still gets
+    // fully cleaned up, not just the first one found.
+    const membersByKey = [];
+    let total = 0;
+    for (const key of keys) {
+      const members = await client.zrange(key, 0, -1);
+      total += members.length;
+      for (const tradeId of members) {
+        membersByKey.push({ key, tradeId });
+      }
+    }
+
+    if (total === 0) {
+      if (LOG_REDIS_ORDERS && !silent) {
+        console.log(`✅ [OrderAudit] [${_ts()}] Order-book keys exist but are empty — nothing to reverse-audit`);
+      }
+      return { stale: [], healed: 0, total: 0 };
+    }
+
+    const tradeIds = [...new Set(membersByKey.map((m) => m.tradeId))];
+    const pendingTrades = await Trade.find({
+      _id: { $in: tradeIds },
+      status: 'pending',
+      deleted_at: null,
+    }).select('_id').lean();
+    const pendingIds = new Set(pendingTrades.map((t) => t._id.toString()));
+
+    const stale = membersByKey.filter((m) => !pendingIds.has(m.tradeId));
+
+    if (stale.length > 0) {
+      console.log(`🚨 [OrderAudit] [${_ts()}] REVERSE MISMATCH: ${stale.length}/${total} Redis order-book entr${stale.length === 1 ? 'y' : 'ies'} not pending in DB!`);
+      for (const s of stale) {
+        console.log(`   🔴 [OrderAudit] STALE: tradeId=${s.tradeId} key=${s.key}`);
+      }
+
+      let healed = 0;
+      if (autoHeal) {
+        for (const s of stale) {
+          const removed = await client.zrem(s.key, s.tradeId);
+          if (removed) {
+            healed++;
+            console.log(`   🟢 [OrderAudit] [${_ts()}] HEALED: tradeId=${s.tradeId} removed from key=${s.key}`);
+          }
+        }
+        console.log(`📋 [OrderAudit] [${_ts()}] Reverse audit complete: ${stale.length} stale entr${stale.length === 1 ? 'y' : 'ies'} found, ${healed} removed, ${total} total in Redis`);
+      }
+      return { stale, healed, total };
+    }
+
+    if (!silent && LOG_REDIS_ORDERS) {
+      console.log(`✅ [OrderAudit] [${_ts()}] All ${total} Redis order-book entries verified pending in DB`);
+    }
+    return { stale: [], healed: 0, total };
+  } catch (err) {
+    console.error(`❌ [OrderAudit] [${_ts()}] Reverse audit error: ${err.message}`);
+    return { stale: [], healed: 0, total: 0, error: err.message };
+  }
+};
+
+module.exports = { runAudit, runReverseAudit };
