@@ -17,7 +17,15 @@ const ACTIVE_INSTRUMENTS_CSV = path.join(__dirname, 'required_scripts', 'active_
 // e.g. SENSEX's BFO-FUT/BFO-OPT contracts stay, but its plain cash-index
 // quote (exchange BSE, no expiry, never used anywhere on the platform) is
 // filtered out. Segment-scoped so this can never affect the derivatives.
-const EXCLUDED_CASH_INDEX_NAMES = new Set(['SENSEX']);
+// US 100/US 500/US 30/UK 100 are the old Zerodha/Kite-sourced global cash
+// indices (exchange GLOBAL, segment INDICES, no expiry) — superseded by the
+// real Massive-fed tradable futures (NQ/ES/YM etc, same GLOBAL segment but a
+// different raw_name/instrument_token). These were deleted once before by
+// scripts/removeZerodhaGlobalIndices.js, but without this exclusion the
+// daily fetchInstruments cron kept silently recreating them every day since
+// — confirmed live: still showing up in the Watchlist GLOBAL tab with dead
+// 0.00 change values months after that one-time cleanup ran.
+const EXCLUDED_CASH_INDEX_NAMES = new Set(['SENSEX', 'US 100', 'US 500', 'US 30', 'UK 100']);
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MCX LOT SIZES — from official MCX contract specifications table
