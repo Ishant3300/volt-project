@@ -345,6 +345,66 @@ async function cancelPendingOrdersForInstrument(instrumentToken, { blockAll = fa
   return toCancel.length;
 }
 
+/**
+ * Same logic as `cancelPendingOrdersForInstrument`, but for many instrument
+ * tokens in one pass — the expiry-toggle and bulk-toggle routes were calling
+ * the single-instrument version in a loop, one `Trade.find` round trip per
+ * instrument. Fine for a handful of ids, but a whole expiry batch can be
+ * thousands of instruments (confirmed live: closing a 6822-instrument
+ * NFO-OPT expiry timed out the request at 30s from this alone, since almost
+ * every one of those round trips returns zero pending orders and still costs
+ * a full query). Batches the find + position-aggregation across all tokens
+ * at once and issues a single `updateMany` for every trade to cancel,
+ * instead of one per instrument.
+ */
+async function cancelPendingOrdersForInstruments(instrumentTokens, { blockAll = false } = {}) {
+  const Trade = require('../models/Trade');
+  const orderBookService = require('../services/orderBookService');
+
+  if (!instrumentTokens || instrumentTokens.length === 0) return 0;
+
+  const pendingOrders = await Trade.find({
+    status: 'pending',
+    instrument_token: { $in: instrumentTokens },
+    deleted_at: null,
+  }).select('_id user_id instrument_token transaction_type quantity order_type trigger_direction').lean();
+  if (pendingOrders.length === 0) return 0;
+
+  let toCancel = pendingOrders;
+  if (!blockAll) {
+    const posAgg = await Trade.aggregate([
+      { $match: { user_id: { $in: pendingOrders.map(o => o.user_id) }, instrument_token: { $in: instrumentTokens }, status: 'completed', deleted_at: null } },
+      { $group: {
+        _id: { user_id: '$user_id', instrument_token: '$instrument_token' },
+        buy_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'BUY'] }, '$executed_quantity', 0] } },
+        sell_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'SELL'] }, '$executed_quantity', 0] } },
+      } },
+    ]);
+    const netQtyByUserAndInstrument = new Map(
+      posAgg.map(p => [`${p._id.user_id.toString()}:${p._id.instrument_token}`, p.buy_qty - p.sell_qty])
+    );
+
+    toCancel = pendingOrders.filter(order => {
+      const netQty = netQtyByUserAndInstrument.get(`${order.user_id.toString()}:${order.instrument_token}`) || 0;
+      const isClosing = (order.transaction_type === 'SELL' && netQty > 0) || (order.transaction_type === 'BUY' && netQty < 0);
+      const staysWithinPosition = isClosing && order.quantity <= Math.abs(netQty);
+      return !staysWithinPosition;
+    });
+  }
+  if (toCancel.length === 0) return 0;
+
+  await Trade.updateMany(
+    { _id: { $in: toCancel.map(o => o._id) }, status: 'pending', deleted_at: null },
+    { $set: { status: 'cancelled', remarks: blockAll ? 'Auto-cancelled: instrument deleted by admin' : 'Auto-cancelled: instrument disabled by admin' } }
+  );
+  for (const order of toCancel) {
+    try {
+      await orderBookService.removeOrder(order._id.toString(), order.instrument_token.toString(), order.transaction_type, order.order_type, order.trigger_direction);
+    } catch (_) { /* best-effort — DB status is authoritative */ }
+  }
+  return toCancel.length;
+}
+
 // GET /admin/instruments/segments — get unique segments for filter dropdown
 router.get('/instruments/segments', authenticateAdmin, async (req, res) => {
   try {
@@ -394,9 +454,7 @@ router.put('/instruments/bulk-toggle', authenticateAdmin, rejectIfAdminWatchOnly
 
     if (enabled === false) {
       const disabledInstruments = await KiteInstrument.find({ _id: { $in: ids } }).select('instrument_token').lean();
-      for (const inst of disabledInstruments) {
-        try { await cancelPendingOrdersForInstrument(inst.instrument_token); } catch (_) {}
-      }
+      try { await cancelPendingOrdersForInstruments(disabledInstruments.map(i => i.instrument_token)); } catch (_) {}
     }
 
     try {
@@ -460,10 +518,13 @@ router.get('/instruments/expiry-summary', authenticateAdmin, async (req, res) =>
 });
 
 // PUT /admin/instruments/expiry-toggle — bulk enable/disable every
-// instrument sharing one exact expiry within a segment, in one call. Same
-// cancel-pending-orders + cache-invalidate steps as bulk-toggle above,
-// just filtered by segment+expiry server-side instead of a caller-supplied
-// id list — this IS the "close/open this whole expiry for trading" control.
+// instrument sharing one exact expiry within a segment, in one call.
+// Deliberately skips the cancel-pending-orders step bulk-toggle above does:
+// expiry toggling only ever happens after market close, and the existing
+// EOD job already cancels every pending order by then, so there is never
+// anything left to cancel here — running that check anyway was pure
+// wasted work (and, before batching, the actual cause of this endpoint
+// timing out on a 6822-instrument NFO-OPT expiry).
 router.put('/instruments/expiry-toggle', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('INSTRUMENT_MANAGE'), async (req, res) => {
   try {
     const { segment, expiry, enabled, reason } = req.body;
@@ -482,13 +543,6 @@ router.put('/instruments/expiry-toggle', authenticateAdmin, rejectIfAdminWatchOn
       ? { enabled, ban_reason: reason || 'Expiry closed for trading', banned_at: new Date() }
       : { enabled, ban_reason: null, banned_at: null };
     const result = await KiteInstrument.updateMany(filter, { $set: bulkUpdate });
-
-    if (enabled === false) {
-      const disabledInstruments = await KiteInstrument.find(filter).select('instrument_token').lean();
-      for (const inst of disabledInstruments) {
-        try { await cancelPendingOrdersForInstrument(inst.instrument_token); } catch (_) {}
-      }
-    }
 
     try {
       const searchService = require('../services/instrumentSearchService');
