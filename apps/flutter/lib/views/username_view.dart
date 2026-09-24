@@ -22,7 +22,6 @@ import 'package:intl/intl.dart';
 import 'create_user_view.dart';
 import 'create_master_view.dart';
 import 'group_quantity_view.dart';
-import 'expiry_management_view.dart';
 import 'margin_squareoff_bottom_sheet.dart';
 import 'trade_wallet_bottom_sheet.dart';
 import 'brokerage_settings_view.dart';
@@ -761,10 +760,6 @@ class _UsernameViewState extends State<UsernameView> {
                 _settingRow(kIconCreditDebit, 'Credit/Debit'),
                 _settingRow(kIconTradeWallet, 'Trade Wallet'),
                 _settingRow(kIconGroupQuantity, 'Group Quantity Settings'),
-                if (Provider.of<UserProfileProvider>(context, listen: false)
-                    .isAdmin)
-                  _settingRow(
-                      Icons.event_busy_outlined, 'Expiry Management'),
                 if (_currentUser != null)
                   _settingRow(
                       kIconMarginSquareoff, 'Margin SquareOff Settings'),
@@ -2139,10 +2134,6 @@ class _UsernameViewState extends State<UsernameView> {
       case 'Group Quantity Settings':
         Navigator.push(context,
             MaterialPageRoute(builder: (_) => const GroupQuantityView()));
-        break;
-      case 'Expiry Management':
-        Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const ExpiryManagementView()));
         break;
       case 'Margin SquareOff Settings':
         showModalBottomSheet(

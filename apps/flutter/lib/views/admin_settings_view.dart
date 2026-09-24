@@ -13,6 +13,7 @@ import 'group_quantity_view.dart';
 import 'script_quantity_settings_view.dart';
 import 'fresh_stoploss_limit_view.dart';
 import 'settlement_view.dart';
+import 'expiry_management_view.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
@@ -386,6 +387,12 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                         Icons.account_balance_outlined,
                         'Settlement',
                         () => _push(context, const SettlementView())),
+                    _divider(),
+                    _settingRow(
+                        context,
+                        Icons.event_busy_outlined,
+                        'Expiry Management',
+                        () => _push(context, const ExpiryManagementView())),
                     _divider(),
                     _settingRow(context, Icons.download_outlined,
                         'Fetch Settlement Prices', _fetchSettlementPrices,
