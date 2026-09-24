@@ -83,6 +83,21 @@ class _TradeCardPageState extends State<TradeCardPage> {
   final TradeService _tradeService = TradeService();
   bool _isLoading = false;
 
+  // Guards against a double-pop: the manual back-arrow tap and the
+  // auto-close-on-success path (after placeTrade() resolves) both call
+  // Navigator.pop(context), and `mounted` alone doesn't stop that — it
+  // stays true through the pop transition, so a back-arrow tap while an
+  // order is still in flight could fire both pops in quick succession,
+  // closing this screen AND the watchlist screen underneath it, leaving a
+  // blank route. Routing every close through here means only the first
+  // call ever actually pops.
+  bool _hasClosed = false;
+  void _closeTicket() {
+    if (_hasClosed) return;
+    _hasClosed = true;
+    Navigator.pop(context);
+  }
+
   // Lot limit info for any exchange with lot assignments
   LotLimitInfo? _lotLimitInfo;
   bool _isLoadingLotLimit = false;
@@ -742,7 +757,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
         }
       } catch (_) {}
       if (mounted) {
-        Navigator.pop(context);
+        _closeTicket();
       }
     }
   }
@@ -815,7 +830,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                   child: Row(
                     children: [
                       GestureDetector(
-                        onTap: () => Navigator.pop(context),
+                        onTap: _closeTicket,
                         child: Container(
                           width: 44,
                           height: 44,

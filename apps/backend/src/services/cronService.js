@@ -131,6 +131,24 @@ class CronService {
         });
         this.jobs.push(orderConsistencyAudit);
 
+        // ── Redis-vs-MongoDB Order Consistency Audit (reverse direction) ──
+        // Same 2-minute cadence, opposite check: a Redis order-book entry
+        // (ob:{token}:buy/sell/stoprise/stopfall) left behind after its
+        // trade filled/cancelled/expired/settled, because removeOrder() is
+        // deliberately best-effort and can silently no-op on a Redis
+        // hiccup. Individually rare, but with thousands of pending orders a
+        // day this is the same slow-leak shape as the price-updates queue
+        // incident — catch it here instead of letting it regrow unnoticed.
+        const orderConsistencyReverseAudit = cron.schedule('*/2 * * * *', async () => {
+            try {
+                const { runReverseAudit } = require('./orderConsistencyAudit');
+                await runReverseAudit({ autoHeal: true, silent: false });
+            } catch (error) {
+                console.error('❌ [CRON] Error during reverse order consistency audit:', error.message);
+            }
+        });
+        this.jobs.push(orderConsistencyReverseAudit);
+
         // ── Kite Token Refresh ─────────────────────────────────────────
         // Check every hour if the Kite access token is still valid.
         // If expired or expiring soon, perform automated login (same as server startup).
