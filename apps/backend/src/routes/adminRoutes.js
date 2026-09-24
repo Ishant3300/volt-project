@@ -437,6 +437,11 @@ router.get('/instruments/expiry-summary', authenticateAdmin, async (req, res) =>
           _id: '$expiry',
           count: { $sum: 1 },
           enabledCount: { $sum: { $cond: ['$enabled', 1, 0] } },
+          // $addToSet dedupes for free — an options expiry with 200+ strikes
+          // of the same underlying collapses to one name (e.g. "NIFTY"), not
+          // a 200-item list; an MCX expiry shared by several distinct
+          // commodities shows each of them.
+          rawNames: { $addToSet: '$raw_name' },
         },
       },
       { $sort: { _id: 1 } },
@@ -444,6 +449,7 @@ router.get('/instruments/expiry-summary', authenticateAdmin, async (req, res) =>
     const data = rows.map((r) => ({
       expiry: r._id,
       count: r.count,
+      rawNames: r.rawNames.filter(Boolean).sort(),
       enabled: r.enabledCount === r.count,
       mixed: r.enabledCount > 0 && r.enabledCount < r.count,
     }));
