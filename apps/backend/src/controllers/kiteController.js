@@ -320,11 +320,19 @@ const browseInstruments = async (req, res) => {
       return res.status(400).json({ success: false, message: `Unknown category: ${category}` });
     }
 
-    // Only non-expired for FUT/OPT, no expiry filter for indices
+    // Only non-expired for FUT/OPT. GLOBAL is mixed: true indices (segment
+    // INDICES) have no expiry at all and must pass through unfiltered, but
+    // it also holds Massive-fed futures contracts (Dow Jones 30, Nasdaq 100,
+    // Nikkei 225 etc, seeded by seedGlobalFutures.js) which DO have a real
+    // expiry — those still need filtering, or an expired contract sits in
+    // the browse list forever showing dead 0.00/— prices. `expiry: null`
+    // lets the true indices through while still excluding expired futures.
     // Exclude disabled, NSE-banned, and soft-deleted instruments
     const filter = { ...catFilter, is_active: true, enabled: { $ne: false }, nse_banned: { $ne: true }, deleted_at: null };
     if (category !== 'GLOBAL') {
       filter.expiry = { $gte: today };
+    } else {
+      filter.$and = [{ $or: [{ expiry: null }, { expiry: { $gte: today } }] }];
     }
 
     const pageNum = parseInt(page);

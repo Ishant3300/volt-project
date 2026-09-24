@@ -154,8 +154,13 @@ const _buildAndSetCache = async () => {
 
   const instruments = rawInstruments.filter(inst => {
     if (!inst.expiry || inst.segment === 'INDICES') return true; // Always include non-expiring
+    // Expiry-bearing GLOBAL/SGX contracts (Dow Jones 30, Nasdaq 100, Nikkei
+    // 225 etc, seeded by seedGlobalFutures.js) reach here too via the
+    // `exchange: SGX/GLOBAL` branch of the DB query above, which has no
+    // expiry condition — without this lower bound an already-expired
+    // contract would stay searchable/tradeable indefinitely.
     const expiryDate = new Date(inst.expiry);
-    return expiryDate <= threeMonthsLater;
+    return expiryDate >= today && expiryDate <= threeMonthsLater;
   });
 
   instrumentList = instruments;
