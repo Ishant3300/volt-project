@@ -410,12 +410,19 @@ router.put('/instruments/bulk-toggle', authenticateAdmin, rejectIfAdminWatchOnly
   }
 });
 
-// GET /admin/instruments/expiries?segment=MCX-FUT — upcoming expiry dates for
-// a segment, one row per expiry, with instrument count and current on/off
-// state (mixed state — some enabled, some not, within the same expiry batch
-// — is flagged so the UI can show it distinctly instead of silently picking
-// one side).
-router.get('/instruments/expiries', authenticateAdmin, async (req, res) => {
+// GET /admin/instruments/expiry-summary?segment=MCX-FUT — upcoming expiry
+// dates for a segment, one row per expiry, with instrument count and
+// current on/off state (mixed state — some enabled, some not, within the
+// same expiry batch — is flagged so the UI can show it distinctly instead
+// of silently picking one side).
+// NOT /instruments/expiries — that path was already taken by an older,
+// differently-shaped route a few lines up (a plain array of date strings,
+// no count/enabled). Express matches the FIRST registered handler for a
+// path, so reusing that name here would have silently made this whole
+// route dead code — confirmed live: every field the Expiry Management page
+// read came back blank/wrong because every request was actually hitting
+// the older route the whole time.
+router.get('/instruments/expiry-summary', authenticateAdmin, async (req, res) => {
   try {
     const { segment } = req.query;
     if (!segment) {

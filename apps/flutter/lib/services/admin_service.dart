@@ -973,7 +973,7 @@ class AdminService {
   Future<http.Response> getExpiries(String segment) async {
     final token = await _storage.getToken();
     return await _apiService.get(
-      '/admin/instruments/expiries?segment=$segment',
+      '/admin/instruments/expiry-summary?segment=$segment',
       token: token,
     );
   }
