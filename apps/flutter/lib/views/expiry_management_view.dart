@@ -366,6 +366,10 @@ class _ExpiryManagementViewState extends State<ExpiryManagementView> {
   Widget _expiryRow(Map<String, dynamic> row) {
     final enabled = row['enabled'] == true;
     final mixed = row['mixed'] == true;
+    final rawNames = List<String>.from(row['rawNames'] ?? const []);
+    final rawNamesLabel = rawNames.length > 4
+        ? '${rawNames.take(4).join(', ')} +${rawNames.length - 4} more'
+        : (rawNames.isEmpty ? '—' : rawNames.join(', '));
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -383,6 +387,9 @@ class _ExpiryManagementViewState extends State<ExpiryManagementView> {
               children: [
                 Text(_formatDate(row['expiry']),
                     style: const TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+                const SizedBox(height: 2),
+                Text(rawNamesLabel,
+                    style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
                 const SizedBox(height: 2),
                 Text('${row['count']} instrument(s)',
                     style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
