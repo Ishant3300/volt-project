@@ -3,9 +3,9 @@
 # Usage: pnpm logs:redis:prod
 set -e
 
-EC2_HOST="13.204.61.199"
+EC2_HOST="13.207.113.128"
 EC2_USER="ec2-user"
-SSH_KEY="/Users/devarshukani/Work/Keys/apex/my-ec2-key"
+SSH_KEY="/Users/devarshukani/Work/Keys/apex/apex-backend-prod.pem"
 
 echo "📡 Connecting to $EC2_HOST — checking Redis logs..."
 ssh -i "$SSH_KEY" "${EC2_USER}@${EC2_HOST}" '
