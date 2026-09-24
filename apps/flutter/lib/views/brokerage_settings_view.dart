@@ -28,8 +28,7 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
     'MCX-FUT',
     'MCX-OPT',
     'COMEX-FUT',
-    'GLOBAL',
-    'SGX'
+    'GLOBAL'
   ];
   final _types = ['TURNOVER WISE', 'LOT WISE'];
   static const _lotWiseSegments = {'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'COMEX-FUT'};

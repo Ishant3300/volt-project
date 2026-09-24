@@ -15,14 +15,14 @@ const ALIASES = {
   'put': 'PE', 'pe': 'PE',
   'opt': ['CE', 'PE'], 'option': ['CE', 'PE'], 'options': ['CE', 'PE'],
   'eq': 'EQ', 'stock': 'EQ', 'index': 'IDX', 'idx': 'IDX',
-  'nse': 'NSE', 'nfo': 'NFO', 'mcx': 'MCX', 'bse': 'BSE', 'sgx': 'SGX',
+  'nse': 'NSE', 'nfo': 'NFO', 'mcx': 'MCX', 'bse': 'BSE',
   'nifty': 'NIFTY', 'banknifty': 'BANKNIFTY', 'bank': 'BANKNIFTY',
   'sensex': 'SENSEX', 'finnifty': 'FINNIFTY', 'midcpnifty': 'MIDCPNIFTY',
   'gift': 'NIFTY',
 };
 
 const INSTRUMENT_TYPES = new Set(['FUT', 'CE', 'PE', 'EQ', 'IDX']);
-const EXCHANGES = new Set(['NSE', 'NFO', 'MCX', 'BSE', 'SGX', 'CDS']);
+const EXCHANGES = new Set(['NSE', 'NFO', 'MCX', 'BSE', 'CDS']);
 const MONTHS = new Set(['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']);
 
 // ── Category filters ───────────────────────────────────────
@@ -32,7 +32,7 @@ const CATEGORIES = {
   'NFO-OPT': { label: 'NFO Options', match: i => i.segment === 'NFO-OPT' && (i.instrument_type === 'CE' || i.instrument_type === 'PE') },
   'MCX-OPT': { label: 'MCX Options', match: i => i.exchange === 'MCX' && (i.instrument_type === 'CE' || i.instrument_type === 'PE') },
   'COMEX-FUT': { label: 'COMEX Futures', match: i => i.segment === 'COMEX-FUT' && i.instrument_type === 'FUT' },
-  'GLOBAL': { label: 'Global Indices', match: i => i.segment === 'INDICES' || i.exchange === 'SGX' || i.exchange === 'GLOBAL' },
+  'GLOBAL': { label: 'Global Indices', match: i => i.segment === 'INDICES' || i.exchange === 'GLOBAL' },
 };
 
 const LEAN_PROJECTION = {
@@ -142,8 +142,8 @@ const _buildAndSetCache = async () => {
       { instrument_type: { $in: ['FUT', 'CE', 'PE'] }, expiry: { $gte: today } },
       // Indices (no expiry)
       { segment: 'INDICES' },
-      // Global/SGX
-      { exchange: { $in: ['SGX', 'GLOBAL'] } },
+      // Global
+      { exchange: 'GLOBAL' },
     ]
   }, LEAN_PROJECTION).lean();
 
@@ -154,9 +154,9 @@ const _buildAndSetCache = async () => {
 
   const instruments = rawInstruments.filter(inst => {
     if (!inst.expiry || inst.segment === 'INDICES') return true; // Always include non-expiring
-    // Expiry-bearing GLOBAL/SGX contracts (Dow Jones 30, Nasdaq 100, Nikkei
+    // Expiry-bearing GLOBAL contracts (Dow Jones 30, Nasdaq 100, Nikkei
     // 225 etc, seeded by seedGlobalFutures.js) reach here too via the
-    // `exchange: SGX/GLOBAL` branch of the DB query above, which has no
+    // `exchange: GLOBAL` branch of the DB query above, which has no
     // expiry condition — without this lower bound an already-expired
     // contract would stay searchable/tradeable indefinitely.
     const expiryDate = new Date(inst.expiry);

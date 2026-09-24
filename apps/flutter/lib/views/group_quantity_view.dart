@@ -23,8 +23,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
     'MCX-FUT',
     'MCX-OPT',
     'COMEX-FUT',
-    'GLOBAL',
-    'SGX'
+    'GLOBAL'
   ];
   Map<String, int> _lotCounts = {};
   bool _isLoading = false;

@@ -25,8 +25,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
     'MCX-FUT',
     'MCX-OPT',
     'COMEX-FUT',
-    'GLOBAL',
-    'SGX'
+    'GLOBAL'
   ];
   final _types = ['TURNOVER WISE', 'LOT WISE'];
 

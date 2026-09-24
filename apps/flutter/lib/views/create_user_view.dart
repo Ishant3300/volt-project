@@ -203,7 +203,6 @@ class _CreateUserViewState extends State<CreateUserView> {
           'NFO-OPT',
           'MCX-FUT',
           'MCX-OPT',
-          'SGX',
           'GLOBAL',
           'COMEX-FUT'
         ];
@@ -212,7 +211,6 @@ class _CreateUserViewState extends State<CreateUserView> {
           'NFO-OPT',
           'MCX-FUT',
           'MCX-OPT',
-          'SGX',
           'GLOBAL',
           'COMEX-FUT'
         ];
@@ -1505,7 +1503,7 @@ class _CreateUserViewState extends State<CreateUserView> {
     final ex = exchange.toUpperCase();
 
     // NFO-FUT, SGX, GLOBAL → block Lot checkbox (turnover-only exchanges)
-    final bool lotBlocked = ex == 'NFO-FUT' || ex == 'SGX' || ex == 'GLOBAL';
+    final bool lotBlocked = ex == 'NFO-FUT' || ex == 'GLOBAL';
     // NFO-OPT → block T/O checkbox (lot-only exchange)
     final bool toBlocked = ex == 'NFO-OPT';
     // MCX-FUT, MCX-OPT → mutually exclusive (only one can be selected)

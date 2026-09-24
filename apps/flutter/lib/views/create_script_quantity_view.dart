@@ -28,8 +28,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
     'MCX-FUT',
     'MCX-OPT',
     'COMEX-FUT',
-    'GLOBAL',
-    'SGX'
+    'GLOBAL'
   ];
 
   final _searchCtrl = TextEditingController();

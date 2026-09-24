@@ -75,7 +75,6 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     'NFO-OPT': false,
     'MCX-FUT': false,
     'MCX-OPT': false,
-    'SGX': false,
     'GLOBAL': false,
     'COMEX-FUT': false,
   };
@@ -85,7 +84,6 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     'NFO-OPT': false,
     'MCX-FUT': false,
     'MCX-OPT': false,
-    'SGX': false,
     'GLOBAL': false,
     'COMEX-FUT': false,
   };
