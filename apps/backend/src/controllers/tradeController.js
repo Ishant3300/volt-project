@@ -96,22 +96,31 @@ const _computeUserFloatingPnl = async (userId, session) => {
  */
 
 /**
- * Circuit-limit check for a LIMIT order's price. Shared between placeTrade
- * (a fresh order) and modifyTrade (a changed price on a pending order) — a
- * modified price is a new price the caller is choosing right now, so it
- * must pass the exact same check a fresh placement at that price would.
+ * Circuit-limit check for a LIMIT/SL/SL-M order's price. Shared between
+ * placeTrade (a fresh order) and modifyTrade (a changed price on a pending
+ * order) — a modified price is a new price the caller is choosing right
+ * now, so it must pass the exact same check a fresh placement at that
+ * price would.
+ *
+ * Previously LIMIT-only — a stop's trigger price is just as real a price
+ * level as a limit's (the instrument has to actually trade there for
+ * either to fire), so a trigger set outside the circuit band was a price
+ * the instrument could never legitimately reach, same gap the bid-ask
+ * spread check (_validateBidAskSpread, right below) had before it was
+ * extended to cover SL/SL-M too.
  */
 async function _validateCircuitLimit(instrument_token, price, order_type) {
-    if (order_type === 'LIMIT' && price) {
+    if ((order_type === 'LIMIT' || order_type === 'SL' || order_type === 'SL-M') && price) {
         const kiteInst = await KiteInstrument.findOne({ instrument_token });
         if (kiteInst) {
             const upper = kiteInst.upper_circuit_limit;
             const lower = kiteInst.lower_circuit_limit;
+            const priceLabel = order_type === 'LIMIT' ? 'Limit price' : 'Trigger price';
             if (upper && upper > 0 && price > upper) {
-                throw new Error(`Limit price ₹${price} exceeds upper circuit limit ₹${upper}`);
+                throw new Error(`${priceLabel} ₹${price} exceeds upper circuit limit ₹${upper}`);
             }
             if (lower && lower > 0 && price < lower) {
-                throw new Error(`Limit price ₹${price} is below lower circuit limit ₹${lower}`);
+                throw new Error(`${priceLabel} ₹${price} is below lower circuit limit ₹${lower}`);
             }
         }
     }
