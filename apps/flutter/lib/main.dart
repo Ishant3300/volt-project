@@ -41,8 +41,51 @@ void main() async {
   print('✅ runApp called');
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  // The very first transition to `resumed` happens as part of cold start,
+  // before InitialScreen's own _checkForUpdate has necessarily run — skip
+  // it so cold start isn't double-checked, and only react to a REAL
+  // return from background/minimized from here on.
+  bool _skipNextResume = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    if (_skipNextResume) {
+      _skipNextResume = false;
+      return;
+    }
+    // A user who minimizes the app instead of fully closing it previously
+    // never re-ran the force-update check at all — InitialScreen only runs
+    // once per cold start, so a published force update never caught them
+    // until they happened to kill and reopen the app. The global
+    // navigatorKey lets this show on top of whatever screen the user is
+    // actually on, not just the splash screen.
+    final navContext = NavigationService.navigatorKey.currentContext;
+    if (navContext != null) {
+      checkAndShowForceUpdate(navContext);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     print('🔨 Building MyApp widget tree');

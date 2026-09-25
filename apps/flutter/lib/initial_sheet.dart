@@ -19,6 +19,42 @@ import 'pages/force_password_reset_page.dart';
 import 'home_page.dart';
 import 'utils/contants.dart';
 
+/// Update: downloads the APK into the app's own temp storage and hands it
+/// straight to Android's package installer (open_filex) — a plain
+/// browser-launched download only ever produces a "downloaded" notification
+/// the user has to go find in their Downloads folder and open manually,
+/// which is exactly the friction this is meant to remove. Cancel: closes
+/// the app outright, by design — an outdated build simply isn't allowed to
+/// continue past this point.
+///
+/// Shared by InitialScreen (cold start) and main.dart's app-lifecycle
+/// resume observer — a user who backgrounds the app instead of fully
+/// closing it must still be blocked once a force update is published, not
+/// only on the next cold start.
+bool _forceUpdateDialogShowing = false;
+
+Future<void> checkAndShowForceUpdate(BuildContext context) async {
+  // Guards against the cold-start check and a rapid resume/pause cycle
+  // both trying to show the blocking dialog at once.
+  if (_forceUpdateDialogShowing) return;
+  final update = await UpdateCheckService().check();
+  if (update == null || !context.mounted) return;
+
+  _forceUpdateDialogShowing = true;
+  try {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => PopScope(
+        canPop: false,
+        child: _UpdateDialog(apkUrl: update.apkUrl),
+      ),
+    );
+  } finally {
+    _forceUpdateDialogShowing = false;
+  }
+}
+
 class InitialScreen extends StatefulWidget {
   const InitialScreen({super.key});
 
@@ -179,25 +215,12 @@ class _InitialScreenState extends State<InitialScreen> {
 
   /// Checked once per cold start, before the auth flow even runs, so it
   /// applies to every role (client/master/admin) and to a logged-out
-  /// device alike. Update: downloads the APK into the app's own temp
-  /// storage and hands it straight to Android's package installer
-  /// (open_filex) — a plain browser-launched download only ever produces a
-  /// "downloaded" notification the user has to go find in their Downloads
-  /// folder and open manually, which is exactly the friction this is meant
-  /// to remove. Cancel: closes the app outright, by design — an outdated
-  /// build simply isn't allowed to continue past this point.
+  /// device alike. See [checkAndShowForceUpdate] below for the shared
+  /// dialog logic — also invoked on app resume (main.dart) so a user who
+  /// backgrounds the app instead of fully closing it is still caught.
   Future<void> _checkForUpdate() async {
-    final update = await UpdateCheckService().check();
-    if (update == null || !mounted) return;
-
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => PopScope(
-        canPop: false,
-        child: _UpdateDialog(apkUrl: update.apkUrl),
-      ),
-    );
+    if (!mounted) return;
+    await checkAndShowForceUpdate(context);
   }
 
   @override
