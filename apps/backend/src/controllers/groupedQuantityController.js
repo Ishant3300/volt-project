@@ -32,10 +32,21 @@ const getLotNamesByExchange = async (req, res) => {
       });
     }
 
-    const lotNames = await GroupedQuantity.distinct('lot_name', {
+    let lotNames = await GroupedQuantity.distinct('lot_name', {
       exchange_name: exchange_name.toUpperCase(),
       deleted_at: null
     });
+
+    // A master only ever sees the groups admin actually allotted them for
+    // this exchange — same ceiling enforced server-side on create/update,
+    // surfaced here so their own dropdown doesn't even offer the rest.
+    // Admin callers see every group, unrestricted.
+    if (req.master) {
+      const Master = require('../models/Master');
+      const { isGroupAllotted } = require('../services/scriptQuantityCopyService');
+      const master = await Master.findById(req.master.id).select('allotted_script_quantity_groups').lean();
+      lotNames = lotNames.filter(name => isGroupAllotted(master, exchange_name, name));
+    }
 
     res.status(200).json({
       success: true,

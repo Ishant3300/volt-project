@@ -61,6 +61,55 @@ const masterSchema = new mongoose.Schema({
     enum: ['NSE', 'NFO', 'MCX', 'SGX', 'OTHERS', 'NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'BFO-FUT', 'BFO-OPT', 'INDICES', 'GLOBAL', 'COMEX-FUT'],
     default: []
   },
+  // Which GroupedQuantity "group" (lot_name) this master is on, per exchange
+  // — a NEW, separate field from exchanges_allowed above, not a reshape of
+  // it: exchanges_allowed is a plain string array read as such all over
+  // this codebase (e.g. `master.exchanges_allowed.map(e => e.toUpperCase())`
+  // in masterController.js), so changing its shape to match User's
+  // {exchange_name, group_name} objects would break every one of those call
+  // sites. Before this field existed, a new master's ScriptQuantity rows
+  // were seeded from whichever group happened to come back first per script
+  // (scriptQuantityCopyService.js's copyFromGroupedQuantityToMaster,
+  // "take the first/default group's values") — there was no real group
+  // selection or memory of it, unlike a User's exchanges_allowed[].group_name.
+  script_quantity_groups: {
+    type: [{
+      exchange_name: {
+        type: String,
+        required: true,
+        enum: ['NSE', 'NFO', 'MCX', 'SGX', 'OTHERS', 'NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'BFO-FUT', 'BFO-OPT', 'INDICES', 'GLOBAL', 'COMEX-FUT']
+      },
+      group_name: {
+        type: String,
+        required: true,
+        trim: true
+      }
+    }],
+    default: []
+  },
+  // Admin-controlled allow-list: which Group(s) this master may draw from,
+  // per exchange, both for their OWN script_quantity_groups pick above and
+  // for any group_name they hand out to a client/sub-master they create.
+  // Settable ONLY by an Admin (masterController.js's createMaster/
+  // updateMaster deliberately ignore this field on a req.master caller) —
+  // it's a permission grant, not something a master can widen for itself.
+  // An exchange with no entry here (or an empty group_names[]) is
+  // unrestricted — back-compat for every master that existed before this
+  // field did, so nothing broke the day this shipped.
+  allotted_script_quantity_groups: {
+    type: [{
+      exchange_name: {
+        type: String,
+        required: true,
+        enum: ['NSE', 'NFO', 'MCX', 'SGX', 'OTHERS', 'NFO-FUT', 'NFO-OPT', 'MCX-FUT', 'MCX-OPT', 'BFO-FUT', 'BFO-OPT', 'INDICES', 'GLOBAL', 'COMEX-FUT']
+      },
+      group_names: {
+        type: [String],
+        default: []
+      }
+    }],
+    default: []
+  },
   intraday_squareoff: {
     type: [{
       exchange_name: {

@@ -138,6 +138,11 @@ class Master {
   final double brokerageSharing;
   final List<String> exchangesAllowed;
   final List<String> tradeLimit;
+  // Admin-only grant: which GroupedQuantity group(s) this master may draw
+  // from per exchange, e.g. [{"exchange_name": "GLOBAL", "group_names": ["Default"]}].
+  // Kept as raw maps (not a dedicated class) since it's only read back for
+  // pre-filling the edit form's checkboxes.
+  final List<Map<String, dynamic>> allottedScriptQuantityGroups;
   final List<IntradaySquareoffSetting> intradaySquareoff;
   final double? marginSquareOffPercentage;
   final bool addMaster;
@@ -169,6 +174,7 @@ class Master {
     required this.brokerageSharing,
     required this.exchangesAllowed,
     required this.tradeLimit,
+    this.allottedScriptQuantityGroups = const [],
     required this.intradaySquareoff,
     this.marginSquareOffPercentage,
     required this.addMaster,
@@ -252,6 +258,11 @@ class Master {
           : [],
       tradeLimit: json['trade_limit'] != null
           ? List<String>.from(json['trade_limit'] as List)
+          : [],
+      allottedScriptQuantityGroups: json['allotted_script_quantity_groups'] is List
+          ? List<Map<String, dynamic>>.from(
+              (json['allotted_script_quantity_groups'] as List)
+                  .map((e) => Map<String, dynamic>.from(e as Map)))
           : [],
       intradaySquareoff: json['intraday_squareoff'] != null
           ? (json['intraday_squareoff'] as List)

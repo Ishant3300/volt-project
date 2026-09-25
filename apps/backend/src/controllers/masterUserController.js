@@ -264,6 +264,16 @@ const createUser = async (req, res) => {
         throw new Error('Parent master not found');
       }
 
+      // A client can only be handed a group from the set admin allotted
+      // to this parent master — never a group the master themselves isn't
+      // cleared to use (see Master.allotted_script_quantity_groups).
+      const { isGroupAllotted } = require('../services/scriptQuantityCopyService');
+      for (const ex of normalizedExchangesAllowed) {
+        if (!isGroupAllotted(parentMaster, ex.exchange_name, ex.group_name)) {
+          throw new Error(`Group "${ex.group_name}" is not allotted to you for ${ex.exchange_name}`);
+        }
+      }
+
       // Account limit enforcement
       if (parentMaster.account_limit && parentMaster.account_limit.enabled) {
         const usersCreated = await User.countDocuments({ master_id: parentMaster._id, deleted_at: null }).session(session);
@@ -649,6 +659,23 @@ const updateUserDetails = async (req, res) => {
       groupChanges = user.exchanges_allowed.filter(ex =>
         ex.group_name && ex.group_name !== oldGroupByExchange.get(ex.exchange_name)
       );
+
+      // A master caller can only move their client onto a group from their
+      // own admin-set allotment — same ceiling as at creation time. An
+      // admin caller isn't bound by any one master's allotment.
+      if (req.master && groupChanges.length > 0) {
+        const { isGroupAllotted } = require('../services/scriptQuantityCopyService');
+        const owningMaster = await Master.findById(user.master_id);
+        for (const g of groupChanges) {
+          if (!isGroupAllotted(owningMaster, g.exchange_name, g.group_name)) {
+            return res.status(400).json({
+              success: false,
+              message: `Group "${g.group_name}" is not allotted to you for ${g.exchange_name}`,
+              data: null
+            });
+          }
+        }
+      }
     }
 
     // Normalize trade_limit to uppercase and map GLOBAL to INDICES if provided

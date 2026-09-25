@@ -88,6 +88,22 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     'COMEX-FUT': false,
   };
 
+  // Admin-only: which GroupedQuantity group(s) this master may use for their
+  // own script quantity setting AND hand out to their clients. Backend
+  // enforces this as a hard ceiling regardless of what this form sends
+  // (masterController.js/masterChildController.js's isGroupAllotted check)
+  // — this UI is just what the create/edit form offers to check.
+  final Map<String, Set<String>> _allottedGroups = {
+    'NFO-FUT': <String>{},
+    'NFO-OPT': <String>{},
+    'MCX-FUT': <String>{},
+    'MCX-OPT': <String>{},
+    'GLOBAL': <String>{},
+    'COMEX-FUT': <String>{},
+  };
+  final Map<String, List<String>> _availableGroupsByExchange = {};
+  bool _isLoadingAvailableGroups = false;
+
   // Trade Wallet inputs per allowed category (NSE/MCX/GLOBAL)
   final Map<String, TextEditingController> _walletControllers = {};
 
@@ -184,6 +200,14 @@ class _CreateMasterViewState extends State<CreateMasterView> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _generateUsername());
     }
 
+    // Allotted Groups is an admin-only control (see field comment) — only
+    // fetch the group catalog when this form is actually admin-driven.
+    final isAdminCaller =
+        Provider.of<UserProfileProvider>(context, listen: false).isAdmin;
+    if (isAdminCaller) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fetchAvailableGroups());
+    }
+
     _profitLossController.addListener(() => setState(() {}));
     _brkSharingController.addListener(() => setState(() {}));
 
@@ -223,6 +247,17 @@ class _CreateMasterViewState extends State<CreateMasterView> {
         String key = exchange == 'INDICES' ? 'GLOBAL' : exchange;
         if (_highLowBetweenTradeLimit.containsKey(key)) {
           _highLowBetweenTradeLimit[key] = true;
+        }
+      }
+      for (var g in master.allottedScriptQuantityGroups) {
+        final ex = g['exchange_name']?.toString();
+        final key = ex == 'INDICES' ? 'GLOBAL' : ex;
+        if (key != null && _allottedGroups.containsKey(key)) {
+          final names = (g['group_names'] as List?)
+                  ?.map((e) => e.toString())
+                  .toSet() ??
+              <String>{};
+          _allottedGroups[key] = names;
         }
       }
     } else {
@@ -283,6 +318,33 @@ class _CreateMasterViewState extends State<CreateMasterView> {
       }
     } catch (e) {
       log('⚠️ Error fetching own brokerage floor: \$e');
+    }
+  }
+
+  Future<void> _fetchAvailableGroups() async {
+    setState(() => _isLoadingAvailableGroups = true);
+    try {
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      final adminService = AdminService(apiService);
+      for (final exchange in _exchangeAllow.keys) {
+        // Backend stores INDICES, but UI uses GLOBAL — same mapping already
+        // used by create_user_view.dart's own group fetch.
+        final apiExchange = exchange == 'GLOBAL' ? 'INDICES' : exchange;
+        try {
+          final response = await adminService.getLotNamesByExchange(apiExchange);
+          if (response.statusCode == 200) {
+            final data = jsonDecode(response.body);
+            if (data['success'] == true && data['data'] != null) {
+              _availableGroupsByExchange[exchange] =
+                  List<String>.from(data['data']);
+            }
+          }
+        } catch (e) {
+          log('❌ Error fetching groups for $exchange: $e');
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingAvailableGroups = false);
     }
   }
 
@@ -378,6 +440,16 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           .where((e) => e.value)
           .map((e) => e.key)
           .toList();
+      // Only exchanges actually allowed AND with at least one group checked
+      // get sent — an unchecked exchange stays unrestricted server-side.
+      final allottedGroupsPayload = _allottedGroups.entries
+          .where((e) =>
+              _exchangeAllow[e.key] == true && e.value.isNotEmpty)
+          .map((e) => {
+                'exchange_name': e.key == 'GLOBAL' ? 'INDICES' : e.key,
+                'group_names': e.value.toList(),
+              })
+          .toList();
 
       if (widget.master != null) {
         final response = await adminService.updateMaster(
@@ -400,6 +472,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           tradeLimit: selectedTradeLimit,
           addMaster: _addMaster,
           changePassOnFirstLogin: _changePasswordOnFirstLogin,
+          allottedScriptQuantityGroups:
+              allottedGroupsPayload.isEmpty ? null : allottedGroupsPayload,
         );
         if (response.statusCode == 200) {
           if (mounted) {
@@ -514,6 +588,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           changePassOnFirstLogin: _changePasswordOnFirstLogin,
           serverId: serverId,
           wallet: walletMap.isEmpty ? null : walletMap,
+          allottedScriptQuantityGroups:
+              allottedGroupsPayload.isEmpty ? null : allottedGroupsPayload,
         );
 
         if (response.statusCode == 201) {
@@ -952,6 +1028,20 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                     ),
 
                     const SizedBox(height: 24),
+
+                    // Allotted Script Quantity Groups (admin-only)
+                    Consumer<UserProfileProvider>(
+                      builder: (context, profile, _) {
+                        if (!profile.isAdmin) return const SizedBox.shrink();
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildAllottedGroupsSection(),
+                            const SizedBox(height: 24),
+                          ],
+                        );
+                      },
+                    ),
 
                     // Trade Limit
                     _buildCheckboxSection(
@@ -1433,6 +1523,116 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildAllottedGroupsSection() {
+    final activeExchanges =
+        _exchangeAllow.entries.where((e) => e.value).map((e) => e.key).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionLabel('ALLOTTED SCRIPT QUANTITY GROUPS'),
+        const SizedBox(height: 6),
+        const Text(
+          'Which group(s) this master may use for their own script quantity, '
+          'and hand out to their clients. Leave an exchange unchecked to '
+          'leave it unrestricted.',
+          style: TextStyle(
+            color: Color(0xFF94A3B8),
+            fontSize: kFontSizeNavLabel,
+            fontFamily: kFontFamily,
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (activeExchanges.isEmpty)
+          _card(
+            child: Text(
+              'Select an exchange above to allot groups.',
+              style: const TextStyle(
+                color: Color(0xFF94A3B8),
+                fontSize: kFontSizeBodySmall,
+                fontFamily: kFontFamily,
+              ),
+            ),
+          )
+        else if (_isLoadingAvailableGroups)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(
+                child: CircularProgressIndicator(
+                    color: kBrandPrimary, strokeWidth: 2.5)),
+          )
+        else
+          ...activeExchanges.map((exchange) {
+            final available = _availableGroupsByExchange[exchange] ?? [];
+            final selected = _allottedGroups[exchange] ?? <String>{};
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _card(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(exchange,
+                        style: const TextStyle(
+                            color: kBrandPrimary,
+                            fontSize: kFontSizeBodySmall,
+                            fontFamily: kFontFamily,
+                            fontWeight: kFontWeightSemiBold)),
+                    const SizedBox(height: 8),
+                    if (available.isEmpty)
+                      const Text('No groups exist for this exchange yet.',
+                          style: TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: kFontSizeNavLabel,
+                              fontFamily: kFontFamily))
+                    else
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: available.map((groupName) {
+                          final isSelected = selected.contains(groupName);
+                          return GestureDetector(
+                            onTap: () => setState(() {
+                              if (isSelected) {
+                                _allottedGroups[exchange]!.remove(groupName);
+                              } else {
+                                _allottedGroups[exchange]!.add(groupName);
+                              }
+                            }),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? kBrandPrimary
+                                    : const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? kBrandPrimary
+                                      : const Color(0xFFF1F5F9),
+                                ),
+                              ),
+                              child: Text(groupName,
+                                  style: TextStyle(
+                                      color: isSelected
+                                          ? Colors.white
+                                          : const Color(0xFF64748B),
+                                      fontSize: kFontSizeNavLabel,
+                                      fontFamily: kFontFamily,
+                                      fontWeight: kFontWeightSemiBold)),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          }),
+      ],
     );
   }
 

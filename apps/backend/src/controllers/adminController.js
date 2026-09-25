@@ -766,6 +766,20 @@ const createGroupedQuantity = async (req, res) => {
 
     console.log('✅ Grouped quantity upserted:', groupedQty._id);
 
+    // Push the (new-or-updated) value out to every master/user currently
+    // on this group — see cascadeGroupedQuantityUpdate's own comment for
+    // why this didn't happen before.
+    try {
+      const { cascadeGroupedQuantityUpdate } = require('../services/scriptQuantityCopyService');
+      await cascadeGroupedQuantityUpdate(groupedQty.exchange_name, groupedQty.lot_name, groupedQty.raw_name, {
+        max_qty: groupedQty.max_qty,
+        brk_qty: groupedQty.break_qty,
+        lot_size: groupedQty.lot_size,
+      });
+    } catch (e) {
+      console.error('❌ Error cascading grouped quantity to members:', e.message);
+    }
+
     res.status(201).json({
       success: true,
       message: 'Grouped quantity saved successfully',
@@ -868,6 +882,23 @@ const updateGroupedQuantity = async (req, res) => {
     if (lot_size !== undefined) groupedQty.lot_size = lot_size;
 
     await groupedQty.save();
+
+    // Push the new value out to every master/user currently on this group
+    // — see cascadeGroupedQuantityUpdate's own comment for why this didn't
+    // happen before. If exchange_name/lot_name/raw_name themselves changed
+    // in this edit, old members keyed on the group's PREVIOUS identity are
+    // deliberately not touched — they're no longer "on" the (renamed) group
+    // by definition, same as if the group had been deleted and recreated.
+    try {
+      const { cascadeGroupedQuantityUpdate } = require('../services/scriptQuantityCopyService');
+      await cascadeGroupedQuantityUpdate(groupedQty.exchange_name, groupedQty.lot_name, groupedQty.raw_name, {
+        max_qty: groupedQty.max_qty,
+        brk_qty: groupedQty.break_qty,
+        lot_size: groupedQty.lot_size,
+      });
+    } catch (e) {
+      console.error('❌ Error cascading grouped quantity to members:', e.message);
+    }
 
     res.status(200).json({
       success: true,

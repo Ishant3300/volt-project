@@ -54,6 +54,8 @@ class AdminService {
     List<String>? exchanges,
     MasterPermissions? permissions,
     Map<String, double>? wallet,
+    List<Map<String, dynamic>>? scriptQuantityGroups,
+    List<Map<String, dynamic>>? allottedScriptQuantityGroups,
   }) async {
     final data = {
       'name': name,
@@ -76,6 +78,9 @@ class AdminService {
       if (exchanges != null) 'exchanges': exchanges,
       if (permissions != null) 'permissions': permissions.toJson(),
       if (wallet != null && wallet.isNotEmpty) 'wallet': wallet,
+      if (scriptQuantityGroups != null) 'script_quantity_groups': scriptQuantityGroups,
+      if (allottedScriptQuantityGroups != null)
+        'allotted_script_quantity_groups': allottedScriptQuantityGroups,
     };
 
     final token = await _storage.getToken();
@@ -149,6 +154,8 @@ class AdminService {
     List<String>? tradeLimit,
     bool? addMaster,
     bool? changePassOnFirstLogin,
+    List<Map<String, dynamic>>? scriptQuantityGroups,
+    List<Map<String, dynamic>>? allottedScriptQuantityGroups,
   }) async {
     final data = {
       if (name != null) 'name': name,
@@ -164,6 +171,9 @@ class AdminService {
       if (addMaster != null) 'add_master': addMaster,
       if (changePassOnFirstLogin != null)
         'change_pass_on_first_login': changePassOnFirstLogin,
+      if (scriptQuantityGroups != null) 'script_quantity_groups': scriptQuantityGroups,
+      if (allottedScriptQuantityGroups != null)
+        'allotted_script_quantity_groups': allottedScriptQuantityGroups,
     };
 
     final token = await _storage.getToken();

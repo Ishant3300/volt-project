@@ -11,6 +11,15 @@ const Transaction = require('../models/Transaction');
 const { applyWalletFunding } = require('./walletController');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
+// GroupedQuantity/ScriptQuantity store 'INDICES', never 'GLOBAL' (see
+// group_quantity_view.dart's own identical translation) — script_quantity_groups
+// and allotted_script_quantity_groups cross-reference those collections
+// directly, so their exchange_name must be normalized the same way.
+function normalizeGroupExchange(name) {
+  const upper = String(name).toUpperCase();
+  return upper === 'GLOBAL' ? 'INDICES' : upper;
+}
+
 // Create Master
 const createMaster = async (req, res) => {
   const session = await mongoose.startSession();
@@ -34,7 +43,17 @@ const createMaster = async (req, res) => {
       active_status,
       last_due_bill,
       exchanges,
-      permissions
+      permissions,
+      // Which GroupedQuantity group (lot_name) this master is on per
+      // exchange — [{exchange_name, group_name}]. Optional: an exchange
+      // with no explicit pick here falls back to copyFromGroupedQuantityToMaster's
+      // old "first group found" behavior (see that function's own comment).
+      script_quantity_groups,
+      // Which Group(s) admin is allowing this master to draw from per
+      // exchange — [{exchange_name, group_names: [String]}]. createMaster
+      // is admin-only (route-enforced), so no caller-type check is needed
+      // here, unlike updateMaster.
+      allotted_script_quantity_groups
     } = req.body;
 
     if (!name || !username || !password || !server_id || credits === undefined || pnl_sharing === undefined || brokerage_sharing === undefined || !exchanges_allowed || !trade_limit) {
@@ -124,7 +143,17 @@ const createMaster = async (req, res) => {
         active_status: active_status !== undefined ? active_status : true,
         last_due_bill: last_due_bill || null,
         exchanges: exchanges || [],
-        permissions: permissions || {}
+        permissions: permissions || {},
+        script_quantity_groups: Array.isArray(script_quantity_groups)
+          ? script_quantity_groups
+              .filter(g => g && g.exchange_name && g.group_name)
+              .map(g => ({ exchange_name: normalizeGroupExchange(g.exchange_name), group_name: g.group_name }))
+          : [],
+        allotted_script_quantity_groups: Array.isArray(allotted_script_quantity_groups)
+          ? allotted_script_quantity_groups
+              .filter(g => g && g.exchange_name && Array.isArray(g.group_names))
+              .map(g => ({ exchange_name: normalizeGroupExchange(g.exchange_name), group_names: g.group_names.filter(Boolean) }))
+          : []
       });
       await master.save({ session });
 
@@ -174,7 +203,7 @@ const createMaster = async (req, res) => {
 
       // Copy GroupedQuantity data into ScriptQuantity for this new master
       const { copyFromGroupedQuantityToMaster } = require('../services/scriptQuantityCopyService');
-      await copyFromGroupedQuantityToMaster(master._id, session);
+      await copyFromGroupedQuantityToMaster(master._id, session, master.script_quantity_groups);
 
       // Copy global brokerage rates to this new master
       const { copyBrokerageFromGlobal } = require('../services/brokerageCopyService');
@@ -374,7 +403,10 @@ const updateMaster = async (req, res) => {
       status,
       active_status,
       pnl_share_percentage,
-      last_due_bill
+      last_due_bill,
+      script_quantity_groups,
+      // Admin-only grant — see the destructure comment on createMaster.
+      allotted_script_quantity_groups
     } = req.body;
 
     const query = { _id: id, deleted_at: null };
@@ -523,7 +555,62 @@ const updateMaster = async (req, res) => {
 
     if (last_due_bill !== undefined) master.last_due_bill = last_due_bill;
 
+    // Which Group(s) this master may draw from, per exchange — admin-only.
+    // A parent master editing their sub-master via this endpoint must never
+    // be able to widen the sub-master's own allotment, so this block is
+    // skipped entirely for a req.master caller. Applied BEFORE the
+    // script_quantity_groups ceiling check below so an admin can grant a
+    // new allotment and pick a group from it in the same request.
+    if (req.admin && Array.isArray(allotted_script_quantity_groups)) {
+      master.allotted_script_quantity_groups = allotted_script_quantity_groups
+        .filter(g => g && g.exchange_name && Array.isArray(g.group_names))
+        .map(g => ({ exchange_name: normalizeGroupExchange(g.exchange_name), group_names: g.group_names.filter(Boolean) }));
+    }
+
+    // A master's assigned Group per exchange is the ceiling any later
+    // per-script edit for that master must respect — switching to a
+    // different group must re-seed their ScriptQuantity for that exchange
+    // from the new group's values, same as the equivalent User flow
+    // (masterUserController.js's updateUser). Snapshot the CURRENT group
+    // per exchange before overwriting so only a real change triggers
+    // re-seeding.
+    let groupChanges = [];
+    if (Array.isArray(script_quantity_groups)) {
+      const oldGroupByExchange = new Map(
+        (master.script_quantity_groups || []).map(g => [g.exchange_name, g.group_name])
+      );
+      const normalized = script_quantity_groups
+        .filter(g => g && g.exchange_name && g.group_name)
+        .map(g => ({ exchange_name: normalizeGroupExchange(g.exchange_name), group_name: g.group_name }));
+
+      // A master caller (setting a sub-master's group) is capped to that
+      // sub-master's own admin-set allotment — never bypassed. An admin
+      // caller is the source of that allotment and isn't bound by it.
+      if (req.master) {
+        const { isGroupAllotted } = require('../services/scriptQuantityCopyService');
+        for (const g of normalized) {
+          if (!isGroupAllotted(master, g.exchange_name, g.group_name)) {
+            return res.status(400).json({
+              success: false,
+              message: `Group "${g.group_name}" is not allotted to this master for ${g.exchange_name}`,
+              data: null
+            });
+          }
+        }
+      }
+
+      master.script_quantity_groups = normalized;
+      groupChanges = normalized.filter(g => g.group_name !== oldGroupByExchange.get(g.exchange_name));
+    }
+
     await master.save();
+
+    if (groupChanges.length > 0) {
+      const { reseedMasterScriptQuantityForExchange } = require('../services/scriptQuantityCopyService');
+      for (const g of groupChanges) {
+        await reseedMasterScriptQuantityForExchange(master._id.toString(), g.exchange_name, g.group_name);
+      }
+    }
 
     res.status(200).json({
       success: true,

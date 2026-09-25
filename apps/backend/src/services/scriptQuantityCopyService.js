@@ -26,36 +26,60 @@ const Master = require('../models/Master');
  * Called when admin creates the first-level master.
  * @param {string} masterId - The new master's _id
  * @param {object} [session] - Optional mongoose session
+ * @param {Array<{exchange_name:string, group_name:string}>} [scriptQuantityGroups] -
+ *   explicit group picked per exchange (Master.script_quantity_groups). For any
+ *   exchange with an explicit pick, only that group's rows are copied — this is
+ *   what makes the master's own group membership trackable, so a later
+ *   GroupedQuantity edit can find and cascade to them. Exchanges with no
+ *   explicit pick fall back to the old "first group found" behavior, for
+ *   backward compatibility with callers that don't pass this yet.
  */
-async function copyFromGroupedQuantityToMaster(masterId, session) {
+async function copyFromGroupedQuantityToMaster(masterId, session, scriptQuantityGroups) {
   try {
-    // Get all active GroupedQuantity entries
-    const groupedData = await GroupedQuantity.find({ deleted_at: null })
-      .select('exchange_name raw_name max_qty break_qty lot_size')
-      .lean();
+    const picks = new Map((scriptQuantityGroups || []).map(g => [g.exchange_name.toUpperCase(), g.group_name]));
 
-    if (groupedData.length === 0) return;
+    const docs = [];
 
-    // Deduplicate by exchange_name + raw_name (take the first/default group's values)
-    const seen = new Set();
-    const uniqueEntries = [];
-    for (const gq of groupedData) {
-      const key = `${gq.exchange_name}|${gq.raw_name}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        uniqueEntries.push(gq);
+    // Explicit per-exchange picks first — only that exchange's chosen group.
+    for (const [exchangeName, groupName] of picks) {
+      const groupRows = await (session
+        ? GroupedQuantity.find({ exchange_name: exchangeName, lot_name: groupName, deleted_at: null }).session(session)
+        : GroupedQuantity.find({ exchange_name: exchangeName, lot_name: groupName, deleted_at: null })
+      ).lean();
+      for (const gq of groupRows) {
+        docs.push({
+          owner_id: masterId,
+          owner_type: 'Master',
+          exchange_name: exchangeName,
+          script_name: gq.raw_name,
+          lot_size: gq.lot_size || 1,
+          max_qty: gq.max_qty || 0,
+          brk_qty: gq.break_qty || 0,
+        });
       }
     }
 
-    const docs = uniqueEntries.map(gq => ({
-      owner_id: masterId,
-      owner_type: 'Master',
-      exchange_name: gq.exchange_name,
-      script_name: gq.raw_name,
-      lot_size: gq.lot_size || 1,
-      max_qty: gq.max_qty || 0,
-      brk_qty: gq.break_qty || 0,
-    }));
+    // Fallback for exchanges with no explicit pick: old "first group found" behavior.
+    const groupedData = await (session
+      ? GroupedQuantity.find({ deleted_at: null }).select('exchange_name raw_name max_qty break_qty lot_size').session(session)
+      : GroupedQuantity.find({ deleted_at: null }).select('exchange_name raw_name max_qty break_qty lot_size')
+    ).lean();
+    const seen = new Set();
+    for (const gq of groupedData) {
+      if (picks.has(gq.exchange_name)) continue; // already handled explicitly above
+      const key = `${gq.exchange_name}|${gq.raw_name}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      docs.push({
+        owner_id: masterId,
+        owner_type: 'Master',
+        exchange_name: gq.exchange_name,
+        script_name: gq.raw_name,
+        lot_size: gq.lot_size || 1,
+        max_qty: gq.max_qty || 0,
+        brk_qty: gq.break_qty || 0,
+      });
+    }
 
     if (docs.length > 0) {
       if (session) {
@@ -234,6 +258,72 @@ async function reseedUserScriptQuantityForExchange(userId, exchangeName, groupNa
     console.log(`📋 [ScriptQtyCopy] Re-seeded ${docs.length} entries for User ${userId} on ${normalizedExchange} from group "${groupName}"`);
   } catch (e) {
     console.error(`❌ [ScriptQtyCopy] Error re-seeding user ${userId} for ${exchangeName}:`, e.message);
+  }
+}
+
+/**
+ * Re-seeds a MASTER's ScriptQuantity for ONE exchange when their assigned
+ * Group for that exchange is changed after creation — the Master-side
+ * mirror of reseedUserScriptQuantityForExchange above. Also updates
+ * Master.script_quantity_groups itself so the new membership is recorded
+ * (without this, a later GroupedQuantity edit wouldn't find this master).
+ * @param {string} masterId
+ * @param {string} exchangeName
+ * @param {string} groupName
+ * @param {object} [session]
+ */
+async function reseedMasterScriptQuantityForExchange(masterId, exchangeName, groupName, session) {
+  try {
+    const normalizedExchange = exchangeName.toUpperCase();
+
+    const groupRows = await (session
+      ? GroupedQuantity.find({ exchange_name: normalizedExchange, lot_name: groupName, deleted_at: null }).session(session)
+      : GroupedQuantity.find({ exchange_name: normalizedExchange, lot_name: groupName, deleted_at: null })
+    ).lean();
+
+    const deleteQuery = { owner_id: masterId, owner_type: 'Master', exchange_name: normalizedExchange, deleted_at: null };
+    if (session) {
+      await ScriptQuantity.updateMany(deleteQuery, { $set: { deleted_at: new Date() } }, { session });
+    } else {
+      await ScriptQuantity.updateMany(deleteQuery, { $set: { deleted_at: new Date() } });
+    }
+
+    // Record the new group membership on the master itself, replacing any
+    // existing pick for this exchange.
+    const masterUpdate = {
+      $pull: { script_quantity_groups: { exchange_name: normalizedExchange } },
+    };
+    if (session) {
+      await Master.updateOne({ _id: masterId }, masterUpdate, { session });
+      await Master.updateOne({ _id: masterId }, { $push: { script_quantity_groups: { exchange_name: normalizedExchange, group_name: groupName } } }, { session });
+    } else {
+      await Master.updateOne({ _id: masterId }, masterUpdate);
+      await Master.updateOne({ _id: masterId }, { $push: { script_quantity_groups: { exchange_name: normalizedExchange, group_name: groupName } } });
+    }
+
+    if (groupRows.length === 0) {
+      console.log(`📋 [ScriptQtyCopy] Master ${masterId} switched to group "${groupName}" on ${normalizedExchange}, but that group has no data — exchange now has no script limits`);
+      return;
+    }
+
+    const docs = groupRows.map(gq => ({
+      owner_id: masterId,
+      owner_type: 'Master',
+      exchange_name: normalizedExchange,
+      script_name: gq.raw_name,
+      lot_size: gq.lot_size || 1,
+      max_qty: gq.max_qty || 0,
+      brk_qty: gq.break_qty || 0,
+    }));
+
+    if (session) {
+      await ScriptQuantity.insertMany(docs, { session });
+    } else {
+      await ScriptQuantity.insertMany(docs);
+    }
+    console.log(`📋 [ScriptQtyCopy] Re-seeded ${docs.length} entries for Master ${masterId} on ${normalizedExchange} from group "${groupName}"`);
+  } catch (e) {
+    console.error(`❌ [ScriptQtyCopy] Error re-seeding master ${masterId} for ${exchangeName}:`, e.message);
   }
 }
 
@@ -586,15 +676,106 @@ async function bulkCascadeNewScriptsToUsers(masterId, exchangeName, scripts) {
   }
 }
 
+/**
+ * Cascade a GroupedQuantity (a "Group" itself, e.g. NFO-FUT "Lot 1") create/
+ * update to every Master and User currently on that group for that
+ * exchange — the piece that was previously missing entirely. Editing a
+ * Group in the admin catalog only ever touched that one catalog document;
+ * nothing pushed the new value out to whoever was actually using it. This
+ * finds every account whose group membership (User.exchanges_allowed[]
+ * .group_name, or Master.script_quantity_groups[].group_name) matches the
+ * edited group, and overwrites their ScriptQuantity row for that script to
+ * the group's new values — the same $set+upsert pattern the direct
+ * Script-Quantity cascades above already use, just keyed by group
+ * membership instead of parent/child relationship. Because the ceiling
+ * check in adminController.js's create/updateScriptQuantity already reads
+ * the group live, this is also what makes the group a real, enforced
+ * ceiling: after this runs, nobody's stored value can be above it (a
+ * lower-value push here can only ever bring an existing row down to match,
+ * never leave it stranded above the new ceiling).
+ * @param {string} exchangeName
+ * @param {string} lotName - the Group's lot_name
+ * @param {string} rawName - the Group's raw_name (== ScriptQuantity.script_name)
+ * @param {{max_qty:number, brk_qty:number, lot_size?:number}} newValues
+ */
+async function cascadeGroupedQuantityUpdate(exchangeName, lotName, rawName, newValues) {
+  try {
+    const normalizedExchange = exchangeName.toUpperCase();
+    const now = new Date();
+
+    const [users, masters] = await Promise.all([
+      User.find({
+        deleted_at: null,
+        exchanges_allowed: { $elemMatch: { exchange_name: normalizedExchange, group_name: lotName } },
+      }).select('_id').lean(),
+      Master.find({
+        deleted_at: null,
+        script_quantity_groups: { $elemMatch: { exchange_name: normalizedExchange, group_name: lotName } },
+      }).select('_id').lean(),
+    ]);
+
+    const bulkOps = [];
+    for (const u of users) {
+      bulkOps.push({
+        updateOne: {
+          filter: { owner_id: u._id, owner_type: 'User', exchange_name: normalizedExchange, script_name: rawName, deleted_at: null },
+          update: {
+            $set: { max_qty: newValues.max_qty, brk_qty: newValues.brk_qty, ...(newValues.lot_size !== undefined ? { lot_size: newValues.lot_size } : {}), updated_at: now },
+            $setOnInsert: { owner_id: u._id, owner_type: 'User', exchange_name: normalizedExchange, script_name: rawName, created_at: now },
+          },
+          upsert: true,
+        },
+      });
+    }
+    for (const m of masters) {
+      bulkOps.push({
+        updateOne: {
+          filter: { owner_id: m._id, owner_type: 'Master', exchange_name: normalizedExchange, script_name: rawName, deleted_at: null },
+          update: {
+            $set: { max_qty: newValues.max_qty, brk_qty: newValues.brk_qty, ...(newValues.lot_size !== undefined ? { lot_size: newValues.lot_size } : {}), updated_at: now },
+            $setOnInsert: { owner_id: m._id, owner_type: 'Master', exchange_name: normalizedExchange, script_name: rawName, created_at: now },
+          },
+          upsert: true,
+        },
+      });
+    }
+
+    if (bulkOps.length > 0) {
+      const result = await ScriptQuantity.bulkWrite(bulkOps);
+      console.log(`📋 [ScriptQtyCopy] Cascaded group "${lotName}"/${normalizedExchange}/${rawName} update to ${users.length} user(s) + ${masters.length} master(s) (upserted: ${result.upsertedCount}, modified: ${result.modifiedCount})`);
+    }
+  } catch (e) {
+    console.error(`❌ [ScriptQtyCopy] Error cascading group update:`, e.message);
+  }
+}
+
+// Is `groupName` one this master is allowed to draw from for `exchangeName`
+// — either for their own script_quantity_groups pick, or for a group_name
+// they hand a client/sub-master? An exchange with no entry (or an empty
+// group_names[]) in allotted_script_quantity_groups is unrestricted, so
+// every master that existed before this field shipped keeps working as-is.
+function isGroupAllotted(master, exchangeName, groupName) {
+  const normalizedExchange = String(exchangeName).toUpperCase();
+  const allotted = (master && master.allotted_script_quantity_groups) || [];
+  const forExchange = allotted.find(a => a.exchange_name === normalizedExchange);
+  if (!forExchange || !Array.isArray(forExchange.group_names) || forExchange.group_names.length === 0) {
+    return true;
+  }
+  return forExchange.group_names.includes(groupName);
+}
+
 module.exports = {
   copyFromGroupedQuantityToMaster,
   copyFromMasterToSubMaster,
   seedUserScriptQuantityFromGroups,
   reseedUserScriptQuantityForExchange,
+  reseedMasterScriptQuantityForExchange,
   cascadeToDirectUsers,
   cascadeNewScriptToUsers,
   cascadeDeleteScriptToUsers,
   cascadeNewScriptGlobally,
   cascadeDeleteScriptGlobally,
   bulkCascadeNewScriptsToUsers,
+  cascadeGroupedQuantityUpdate,
+  isGroupAllotted,
 };

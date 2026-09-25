@@ -10,6 +10,13 @@ const { applyWalletFunding } = require('./walletController');
 const { getAllSubMasterIds } = require('../services/masterHierarchyService');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
+// See masterController.js's identical helper — GroupedQuantity/ScriptQuantity
+// store 'INDICES', never 'GLOBAL'.
+function normalizeGroupExchange(name) {
+  const upper = String(name).toUpperCase();
+  return upper === 'GLOBAL' ? 'INDICES' : upper;
+}
+
 // Create Child Master
 const createChildMaster = async (req, res) => {
   const session = await mongoose.startSession();
@@ -33,7 +40,17 @@ const createChildMaster = async (req, res) => {
       active_status,
       last_due_bill,
       exchanges,
-      permissions
+      permissions,
+      // Which GroupedQuantity group (lot_name) this master is on per
+      // exchange, and which group(s) admin allots them to hand out to
+      // clients — only meaningful when an Admin is creating a top-level
+      // master directly (no parentMaster). A master creating a sub-master
+      // still gets copyFromMasterToSubMaster's plain VALUE-copy, same as
+      // before — no group tracking for sub-masters (deliberately out of
+      // scope, see scriptQuantityCopyService.js's own comment on that
+      // function).
+      script_quantity_groups,
+      allotted_script_quantity_groups
     } = req.body;
 
     // Validate required fields
@@ -158,7 +175,17 @@ const createChildMaster = async (req, res) => {
         active_status: active_status !== undefined ? active_status : true,
         last_due_bill: last_due_bill || null,
         exchanges: exchanges || [],
-        permissions: permissions || {}
+        permissions: permissions || {},
+        script_quantity_groups: (!parentMaster && Array.isArray(script_quantity_groups))
+          ? script_quantity_groups
+              .filter(g => g && g.exchange_name && g.group_name)
+              .map(g => ({ exchange_name: normalizeGroupExchange(g.exchange_name), group_name: g.group_name }))
+          : [],
+        allotted_script_quantity_groups: (!parentMaster && Array.isArray(allotted_script_quantity_groups))
+          ? allotted_script_quantity_groups
+              .filter(g => g && g.exchange_name && Array.isArray(g.group_names))
+              .map(g => ({ exchange_name: normalizeGroupExchange(g.exchange_name), group_names: g.group_names.filter(Boolean) }))
+          : []
       });
       await childMaster.save({ session });
 
@@ -212,7 +239,7 @@ const createChildMaster = async (req, res) => {
         await copyFromMasterToSubMaster(parentMaster._id.toString(), childMaster._id.toString(), session);
       } else {
         // Admin creating master directly (no parent) — copy from GroupedQuantity
-        await copyFromGroupedQuantityToMaster(childMaster._id, session);
+        await copyFromGroupedQuantityToMaster(childMaster._id, session, childMaster.script_quantity_groups);
       }
 
       // Copy parent's brokerage rates to the new child master
@@ -545,7 +572,10 @@ const updateChildMasterDetails = async (req, res) => {
       credits,
       note,
       exchanges_allowed,
-      trade_limit
+      trade_limit,
+      script_quantity_groups,
+      // Admin-only grant — see the destructure comment on createChildMaster.
+      allotted_script_quantity_groups
     } = req.body;
 
     // Admin can update any master; master can only update their children in the hierarchy
@@ -595,7 +625,48 @@ const updateChildMasterDetails = async (req, res) => {
     if (exchanges_allowed) childMaster.exchanges_allowed = exchanges_allowed;
     if (trade_limit) childMaster.trade_limit = trade_limit;
 
+    // Admin-only grant — never settable by a master, even editing themselves.
+    if (req.admin && Array.isArray(allotted_script_quantity_groups)) {
+      childMaster.allotted_script_quantity_groups = allotted_script_quantity_groups
+        .filter(g => g && g.exchange_name && Array.isArray(g.group_names))
+        .map(g => ({ exchange_name: normalizeGroupExchange(g.exchange_name), group_names: g.group_names.filter(Boolean) }));
+    }
+
+    // Same ceiling + re-seed pattern as masterController.js's updateMaster.
+    let groupChanges = [];
+    if (Array.isArray(script_quantity_groups)) {
+      const oldGroupByExchange = new Map(
+        (childMaster.script_quantity_groups || []).map(g => [g.exchange_name, g.group_name])
+      );
+      const normalized = script_quantity_groups
+        .filter(g => g && g.exchange_name && g.group_name)
+        .map(g => ({ exchange_name: normalizeGroupExchange(g.exchange_name), group_name: g.group_name }));
+
+      if (req.master) {
+        const { isGroupAllotted } = require('../services/scriptQuantityCopyService');
+        for (const g of normalized) {
+          if (!isGroupAllotted(childMaster, g.exchange_name, g.group_name)) {
+            return res.status(400).json({
+              success: false,
+              message: `Group "${g.group_name}" is not allotted to this master for ${g.exchange_name}`,
+              data: null
+            });
+          }
+        }
+      }
+
+      childMaster.script_quantity_groups = normalized;
+      groupChanges = normalized.filter(g => g.group_name !== oldGroupByExchange.get(g.exchange_name));
+    }
+
     await childMaster.save();
+
+    if (groupChanges.length > 0) {
+      const { reseedMasterScriptQuantityForExchange } = require('../services/scriptQuantityCopyService');
+      for (const g of groupChanges) {
+        await reseedMasterScriptQuantityForExchange(childMaster._id.toString(), g.exchange_name, g.group_name);
+      }
+    }
 
     // Task 13 / design §13.3: inline wallet on EDIT is an ADDITIVE top-up applied
     // via walletService.assign (master transfer / admin grant). REDUCTIONS use the
