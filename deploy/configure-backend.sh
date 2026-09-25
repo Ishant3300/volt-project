@@ -207,6 +207,17 @@ server {
         proxy_buffering off;
     }
 
+    # Static APK downloads + per-brand version.json for the in-app
+    # force-update check (apps/flutter UpdateCheckService, see
+    # deploy/flutter-build-*.sh). Must come BEFORE location / so it is
+    # served directly by nginx, not proxied to the Node app. Missing this
+    # block once caused the force-update check to silently 404 after a
+    # server migration until someone noticed in production — now part of
+    # the scripted, idempotent provisioning instead of a manual step.
+    location /downloads/ {
+        alias /var/www/downloads/;
+    }
+
     location / {
         proxy_pass http://127.0.0.1:\${APP_PORT};
         proxy_http_version 1.1;
@@ -218,6 +229,9 @@ server {
     }
 }
 NGINX
+sudo mkdir -p /var/www/downloads
+sudo chown -R nginx:nginx /var/www/downloads
+sudo chmod 755 /var/www/downloads
 sudo nginx -t
 sudo systemctl enable nginx >/dev/null 2>&1 || true
 sudo systemctl restart nginx
