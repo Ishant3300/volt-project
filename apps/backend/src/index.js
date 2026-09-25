@@ -54,7 +54,15 @@ app.use(skipForWs(helmet({
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
   : [
-      'https://apex-web-portal.vercel.app',
+      // The bare `apex-web-portal.vercel.app` alias 404s (confirmed live,
+      // 2026-09-25) — `-demo` is the actual deployed Apex project. Listing
+      // the stale bare domain here (as this fallback previously did, with
+      // no `-demo` entry at all) silently CORS-blocked every request from
+      // the real Apex client web app while Volt kept working, since its
+      // domain happened to already be in this list — confirmed via a live
+      // CORS preflight returning no Access-Control-Allow-Origin at all for
+      // the real domain.
+      'https://apex-web-portal-demo.vercel.app',
       // Volt-branded deploys — both domains, since volt-web-portal.vercel.app
       // (bare) turned out to belong to a Vercel account this project doesn't
       // control, and volt-web-portal-eta.vercel.app is the one actually
