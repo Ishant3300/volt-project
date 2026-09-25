@@ -444,24 +444,40 @@ class CronService {
 
         console.log(`   Found ${users.length} user(s) with intraday square-off enabled.`);
 
+        // At EOD, real deployments can have thousands of users squaring off
+        // simultaneously — this previously ran one full user (its own
+        // transaction(s) inside _squareOffUserSegments) at a time, so the
+        // job could run long past market close, and a user squared off late
+        // reads a staler bid/ask than one squared off early. Each user's
+        // square-off already acquires its own independent lease (see
+        // masterUserController.js's _squareOffUserSegments), so running
+        // several users concurrently doesn't introduce new lock contention
+        // beyond what already happens if two crons ever overlapped.
+        const INTRADAY_SQUAREOFF_CONCURRENCY = 10;
         let totalSquaredOff = 0;
-        for (const u of users) {
-            // Get only the segments that are enabled for this user AND match the closing segments
-            const userEnabledSegments = (u.intraday_squareoff || [])
-                .filter(s => s.enabled && segments.map(seg => seg.toUpperCase()).includes(s.exchange_name.toUpperCase()))
-                .map(s => s.exchange_name);
 
-            if (userEnabledSegments.length === 0) continue;
+        const eligibleUsers = users
+            .map(u => ({
+                user: u,
+                userEnabledSegments: (u.intraday_squareoff || [])
+                    .filter(s => s.enabled && segments.map(seg => seg.toUpperCase()).includes(s.exchange_name.toUpperCase()))
+                    .map(s => s.exchange_name),
+            }))
+            .filter(e => e.userEnabledSegments.length > 0);
 
-            try {
-                const count = await _squareOffUserSegments(u._id.toString(), userEnabledSegments);
-                if (count > 0) {
-                    totalSquaredOff += count;
-                    console.log(`   ✅ ${u.username}: squared off ${count} position(s) in ${userEnabledSegments.join(', ')}`);
+        for (let i = 0; i < eligibleUsers.length; i += INTRADAY_SQUAREOFF_CONCURRENCY) {
+            const chunk = eligibleUsers.slice(i, i + INTRADAY_SQUAREOFF_CONCURRENCY);
+            await Promise.all(chunk.map(async ({ user: u, userEnabledSegments }) => {
+                try {
+                    const count = await _squareOffUserSegments(u._id.toString(), userEnabledSegments);
+                    if (count > 0) {
+                        totalSquaredOff += count;
+                        console.log(`   ✅ ${u.username}: squared off ${count} position(s) in ${userEnabledSegments.join(', ')}`);
+                    }
+                } catch (e) {
+                    console.error(`   ❌ ${u.username}: square-off error: ${e.message}`);
                 }
-            } catch (e) {
-                console.error(`   ❌ ${u.username}: square-off error: ${e.message}`);
-            }
+            }));
         }
 
         console.log(`   ✅ Total: ${totalSquaredOff} position(s) squared off for ${users.length} user(s).`);
@@ -504,18 +520,25 @@ class CronService {
             { $set: { status: 'cancelled', remarks: 'Auto-cancelled: market closed' } }
         );
 
-        // Remove from Redis order book if available
+        // Remove from Redis order book if available. Each removal is
+        // independent (different order ids, no shared session/lease) —
+        // previously ran fully sequentially, one Redis round trip at a time,
+        // for however many thousand pending orders exist at market close.
         if (redisService.isAvailable()) {
-            for (const order of pendingOrders) {
-                try {
-                    await orderBookService.removeOrder(
-                        order._id.toString(),
-                        order.instrument_token.toString(),
-                        order.transaction_type,
-                        order.order_type,
-                        order.trigger_direction
-                    );
-                } catch (_) {}
+            const REDIS_CLEANUP_CONCURRENCY = 20;
+            for (let i = 0; i < pendingOrders.length; i += REDIS_CLEANUP_CONCURRENCY) {
+                const chunk = pendingOrders.slice(i, i + REDIS_CLEANUP_CONCURRENCY);
+                await Promise.all(chunk.map(async (order) => {
+                    try {
+                        await orderBookService.removeOrder(
+                            order._id.toString(),
+                            order.instrument_token.toString(),
+                            order.transaction_type,
+                            order.order_type,
+                            order.trigger_direction
+                        );
+                    } catch (_) {}
+                }));
             }
         }
 
@@ -548,12 +571,10 @@ class CronService {
         const KiteInstrument = require('../models/KiteInstrument');
         const metricsEngine = require('./metricsEngine');
         let lease = null;
-        let session = null;
         let squared = 0;
 
         try {
             lease = await beginTradeWrite('expiry_square_off');
-            session = await mongoose.startSession();
             const today = options.now ? new Date(options.now) : new Date();
             today.setHours(0, 0, 0, 0);
             const tomorrow = new Date(today);
@@ -592,12 +613,27 @@ class CronService {
             }
 
             console.log(`   Found ${openPositions.length} open position(s) on ${expiredInstruments.length} expiring instrument(s).`);
-            for (const candidate of openPositions) {
+
+            // Same reasoning as tradeController.js's rolloverPositions: this
+            // previously ran fully sequentially, one MongoDB transaction per
+            // position, under one shared session, holding the SAME
+            // platform-wide 'expiry_square_off' lease for the entire
+            // duration — a real risk when many instruments expire
+            // simultaneously with many open positions. Bounded-concurrency
+            // chunks instead; each task gets its OWN session (a ClientSession
+            // cannot be used by concurrent transactions) and always returns
+            // rather than throws, so a lease-lost error is only acted on
+            // after every transaction in the current chunk has fully
+            // committed/aborted/errored and closed its own session.
+            const EXPIRY_SQUAREOFF_CONCURRENCY = 5;
+
+            const processExpiryCandidate = async (candidate) => {
                 const token = candidate._id.instrument_token.toString();
                 const userId = candidate._id.user_id;
                 const instData = priceMap[token];
-                if (!instData?.price || instData.price <= 0) continue;
+                if (!instData?.price || instData.price <= 0) return { skipped: true };
 
+                const session = await mongoose.startSession();
                 let committed = null;
                 try {
                     await session.withTransaction(async () => {
@@ -724,23 +760,35 @@ class CronService {
                         committed = { absQty, closeSide, pnl };
                     });
 
-                    if (!committed) continue;
-                    await metricsEngine.onTradeExecuted(userId.toString());
-                    squared++;
-                    console.log(`   ✅ Squared off ${instData.symbol}: ${committed.closeSide} ${committed.absQty} @ ${instData.price} for user ${userId}, P&L: ₹${committed.pnl.toFixed(2)}`);
+                    return { committed, userId, instData, error: null, leaseLost: false };
                 } catch (error) {
-                    if (error.code === 'TRADE_WRITE_LEASE_LOST') throw error;
-                    console.error(`   ❌ Failed to square off ${instData.symbol} for user ${userId}: ${error.message}`);
+                    return { committed: null, userId, instData, error, leaseLost: error.code === 'TRADE_WRITE_LEASE_LOST' };
+                } finally {
+                    await session.endSession();
+                }
+            };
+
+            for (let i = 0; i < openPositions.length; i += EXPIRY_SQUAREOFF_CONCURRENCY) {
+                const chunk = openPositions.slice(i, i + EXPIRY_SQUAREOFF_CONCURRENCY);
+                const outcomes = await Promise.all(chunk.map(processExpiryCandidate));
+
+                for (const outcome of outcomes) {
+                    if (outcome.skipped) continue;
+                    if (outcome.committed) {
+                        await metricsEngine.onTradeExecuted(outcome.userId.toString());
+                        squared++;
+                        console.log(`   ✅ Squared off ${outcome.instData.symbol}: ${outcome.committed.closeSide} ${outcome.committed.absQty} @ ${outcome.instData.price} for user ${outcome.userId}, P&L: ₹${outcome.committed.pnl.toFixed(2)}`);
+                    } else if (outcome.leaseLost) {
+                        throw outcome.error;
+                    } else if (outcome.error) {
+                        console.error(`   ❌ Failed to square off ${outcome.instData.symbol} for user ${outcome.userId}: ${outcome.error.message}`);
+                    }
                 }
             }
 
             console.log(`   ✅ Auto squared off ${squared} position(s).`);
         } finally {
-            try {
-                if (session) await session.endSession();
-            } finally {
-                await lease?.release();
-            }
+            await lease?.release();
         }
     }
 }

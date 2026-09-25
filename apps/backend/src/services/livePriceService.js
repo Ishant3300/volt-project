@@ -21,7 +21,28 @@ class LivePriceService {
       this.kiteTicker = null;    // Kite WebSocket connection
       this.subscribedTokens = new Set();
       this.clients = new Set();
+      // userId -> Set<ws> — O(1) lookup for broadcastToUser instead of a
+      // linear scan of every connected client on every call (that scan ran
+      // once per affected user per ~50ms metricsEngine debounce cycle).
+      this.userClients = new Map();
       this.latestPrices = new Map();
+
+      // Client-facing tick broadcast coalescing/throttle. metricsEngine.onTick
+      // and priceQueueService (order matching) still run per-tick, unthrottled
+      // — only the WS fan-out to Flutter clients is batched, same reasoning as
+      // massiveFuturesFeedService's BROADCAST_THROTTLE_MS. Ticks arrive as
+      // Kite message batches (not one-by-one), often faster than clients can
+      // usefully render; this caps client-facing broadcast frequency instead
+      // of firing a synchronous fan-out to every connected client on every
+      // single incoming Kite message.
+      this._pendingBroadcastTicks = new Map(); // instrument_token -> latest tick
+      this._broadcastFlushTimer = null;
+      this.BROADCAST_THROTTLE_MS = 300;
+      // Backpressure: a client whose outgoing buffer has grown past this
+      // (slow/stalled connection, e.g. a bad mobile network) gets its send
+      // skipped for that flush rather than piling more data into an
+      // already-unconsumed buffer — bounds per-connection memory growth.
+      this.MAX_CLIENT_BUFFERED_BYTES = 2 * 1024 * 1024; // 2MB
       this.reconnectTimer = null;
       this.isKiteConnected = false;
       this.autoLoginAttempted = false;
@@ -67,6 +88,7 @@ class LivePriceService {
       ws.on('close', () => {
         console.log('🔌 Flutter client disconnected');
         this.clients.delete(ws);
+        this._unregisterClientUserId(ws);
         console.log(`   Remaining clients: ${this.wss.clients.size}`);
         this._cleanupUnusedTokens();
       });
@@ -187,20 +209,40 @@ class LivePriceService {
     if (target && target !== callerId) {
       const allowed = await this._canView(callerId, callerRole, target);
       if (allowed) {
-        ws.userId = target;
+        this._setClientUserId(ws, target);
         console.log(`✅ [WS] ${callerRole} ${callerId} authenticated, viewing downstream account ${target}`);
       } else {
         // Refuse the impersonation but keep them authenticated as themselves.
-        ws.userId = callerId;
+        this._setClientUserId(ws, callerId);
         console.log(`🚫 [WS] ${callerRole} ${callerId} DENIED view of ${target} (outside hierarchy) — defaulting to self`);
         try { ws.send(JSON.stringify({ type: 'auth_error', message: 'Not authorized to view that account' })); } catch (_) {}
       }
     } else {
-      ws.userId = callerId;
+      this._setClientUserId(ws, callerId);
     }
 
     console.log(`✅ [WS] Authenticated: ${callerId} (${callerRole})${ws.isAdmin ? ' [admin]' : ''} → stream userId=${ws.userId}`);
     try { ws.send(JSON.stringify({ type: 'auth_ok', userId: ws.userId })); } catch (_) {}
+  }
+
+  /**
+   * Keep this.userClients (userId -> Set<ws>) in sync with a client's
+   * current stream identity — a client can re-authenticate or switch
+   * `viewAsUserId` mid-connection, so the old mapping must be removed
+   * before the new one is added, not just overwritten on the ws object.
+   */
+  _setClientUserId(ws, userId) {
+    this._unregisterClientUserId(ws);
+    ws.userId = userId;
+    if (!this.userClients.has(userId)) this.userClients.set(userId, new Set());
+    this.userClients.get(userId).add(ws);
+  }
+
+  _unregisterClientUserId(ws) {
+    if (!ws.userId || !this.userClients.has(ws.userId)) return;
+    const set = this.userClients.get(ws.userId);
+    set.delete(ws);
+    if (set.size === 0) this.userClients.delete(ws.userId);
   }
 
   /**
@@ -616,10 +658,7 @@ class LivePriceService {
         }
 
         if (liveTicks.length > 0) {
-          this._broadcastToClients({
-            type: 'ticks',
-            data: liveTicks,
-          });
+          this._queueTickBroadcast(liveTicks);
         }
       }
     } catch (error) {
@@ -768,7 +807,10 @@ class LivePriceService {
   }
 
   /**
-   * Broadcast data to all connected Flutter clients
+   * Broadcast data to all connected Flutter clients.
+   * Callers wanting throttled tick broadcast should use _queueTickBroadcast
+   * instead — this still sends immediately (used for non-tick events like
+   * connection status, where coalescing wouldn't make sense).
    */
   _broadcastToClients(data) {
     const message = JSON.stringify(data);
@@ -776,16 +818,41 @@ class LivePriceService {
 
     if (this.wss) {
       this.wss.clients.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(message);
-          sentCount++;
-        }
+        if (client.readyState !== WebSocket.OPEN) return;
+        // Backpressure: skip a client whose outgoing buffer is already
+        // backed up rather than piling more unconsumed data onto it —
+        // unbounded here meant one slow/stalled connection's memory could
+        // grow forever under sustained tick volume.
+        if (client.bufferedAmount > this.MAX_CLIENT_BUFFERED_BYTES) return;
+        client.send(message);
+        sentCount++;
       });
     }
 
     if (data.type === 'ticks' && LOG_LIVE_TICKS) {
       console.log(`   📤 Broadcasted to ${sentCount} client(s)`);
     }
+  }
+
+  /**
+   * Merge incoming ticks into the pending batch (last tick per instrument
+   * wins) and schedule a single coalesced flush at most every
+   * BROADCAST_THROTTLE_MS — caps client-facing broadcast frequency without
+   * delaying metricsEngine/priceQueueService, which read each tick directly
+   * in _processKiteTick before this is ever called.
+   */
+  _queueTickBroadcast(ticks) {
+    for (const t of ticks) {
+      this._pendingBroadcastTicks.set(t.instrument_token, t);
+    }
+    if (this._broadcastFlushTimer) return;
+    this._broadcastFlushTimer = setTimeout(() => {
+      this._broadcastFlushTimer = null;
+      if (this._pendingBroadcastTicks.size === 0) return;
+      const data = Array.from(this._pendingBroadcastTicks.values());
+      this._pendingBroadcastTicks.clear();
+      this._broadcastToClients({ type: 'ticks', data });
+    }, this.BROADCAST_THROTTLE_MS);
   }
 
   /**
@@ -798,25 +865,21 @@ class LivePriceService {
   broadcastToUser(userId, data) {
     if (!this.wss) return;
 
+    const clients = this.userClients.get(userId);
+    if (!clients || clients.size === 0) return;
+
     const message = JSON.stringify(data);
     let sentCount = 0;
 
-    // Count authenticated clients for debugging
-    const authenticatedClients = [];
-    this.wss.clients.forEach((client) => {
-      if (client.userId) authenticatedClients.push(client.userId);
-    });
-    if (LOG_WS_BROADCAST) console.log(`🔔 [WS] broadcastToUser → target userId: "${userId}" | event: ${data.type} | authenticated clients: [${authenticatedClients.join(', ')}]`);
+    for (const client of clients) {
+      if (client.readyState !== WebSocket.OPEN) continue;
+      if (client.bufferedAmount > this.MAX_CLIENT_BUFFERED_BYTES) continue;
+      client.send(message);
+      sentCount++;
+    }
 
-    this.wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN && client.userId === userId) {
-        client.send(message);
-        sentCount++;
-      }
-    });
-
-    if (sentCount > 0) {
-      if (LOG_WS_BROADCAST) console.log(`📤 [WS] Sent '${data.type}' to user ${userId} (${sentCount} connection(s))`);
+    if (sentCount > 0 && LOG_WS_BROADCAST) {
+      console.log(`📤 [WS] Sent '${data.type}' to user ${userId} (${sentCount} connection(s))`);
     }
   }
 

@@ -501,7 +501,7 @@ class MetricsEngine {
       }
     }
 
-    this._broadcastMasterMetrics();
+    this._broadcastMasterMetrics(affectedUsers);
   }
 
   /**
@@ -646,7 +646,7 @@ class MetricsEngine {
    * Aggregate per-user metrics into per-master totals and broadcast to masters/admins.
    * Each master receives data for ALL users in their hierarchy (direct + sub-masters' users).
    */
-  async _broadcastMasterMetrics() {
+  async _broadcastMasterMetrics(affectedUsers) {
     if (!this.livePriceService) return;
 
     // Step 1: Build direct master → users mapping
@@ -677,14 +677,37 @@ class MetricsEngine {
     // Use _masterParentMap built during cache init
     if (!this._masterParentMap) this._masterParentMap = {};
 
-    // Step 3: For each master, collect all descendant users
-    const allMasterIds = new Set(Object.keys(directMasterUsers));
-    // Also add masters that are parents of other masters
-    for (const mid of Object.values(this._masterParentMap)) {
-      if (mid) allMasterIds.add(mid);
+    // Step 3: For each master whose subtree could actually have changed this
+    // cycle, collect all descendant users and re-broadcast. Every master's
+    // own aggregate here still sums their FULL subtree from cache (step 1
+    // already scanned everyone), so this is purely "which masters do we
+    // recompute+resend to" — a master whose subtree contains none of this
+    // tick's affected users has an aggregate identical to what was already
+    // sent last cycle, so skipping them changes nothing but wasted work.
+    // Previously this iterated EVERY master on the platform on EVERY tick
+    // batch (a ~50ms debounce), i.e. O(total platform size) continuously
+    // regardless of how small the actual tick was.
+    const dirtyMasterIds = new Set();
+    if (affectedUsers) {
+      for (const userId of affectedUsers) {
+        let currentMasterId = this._userCache.get(userId)?.masterId;
+        const visited = new Set();
+        while (currentMasterId && !visited.has(currentMasterId)) {
+          visited.add(currentMasterId);
+          dirtyMasterIds.add(currentMasterId);
+          currentMasterId = this._masterParentMap[currentMasterId] || null;
+        }
+      }
+    } else {
+      // No affected-user set passed (e.g. called from a non-tick path) —
+      // fall back to the previous full-rebuild behavior.
+      for (const mid of Object.keys(directMasterUsers)) dirtyMasterIds.add(mid);
+      for (const mid of Object.values(this._masterParentMap)) {
+        if (mid) dirtyMasterIds.add(mid);
+      }
     }
 
-    for (const masterId of allMasterIds) {
+    for (const masterId of dirtyMasterIds) {
       // Get all sub-master IDs under this master (from cached hierarchy)
       const descendantMasterIds = this._getDescendantMasterIds(masterId);
       const allMasterIdsForThis = [masterId, ...descendantMasterIds];

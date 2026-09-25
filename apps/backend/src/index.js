@@ -89,13 +89,18 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 const { sanitizeBody } = require('./middlewares/validate');
 app.use(sanitizeBody);
 
-// Request logger (temporary debug)
-app.use((req, res, next) => {
-  if (req.path.startsWith('/api/')) {
-    console.log(`📨 ${req.method} ${req.path}`);
-  }
-  next();
-});
+// Request logger (temporary debug) — was unconditional sync console.log on
+// EVERY /api/* request, real overhead at high request volume. Gated behind
+// an explicit opt-in env var so it's still available for local debugging
+// without paying for it in production.
+if (process.env.LOG_ALL_REQUESTS === 'true') {
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api/')) {
+      console.log(`📨 ${req.method} ${req.path}`);
+    }
+    next();
+  });
+}
 
 // Global rate limiter — 200 requests per minute per IP
 const globalLimiter = rateLimit({
@@ -394,4 +399,20 @@ const startServer = async () => {
 startServer().catch(error => {
   console.error(`Server startup failed: ${error.message}`);
   process.exit(1);
+});
+
+// Process-level crash guards. Without these, one unhandled error/rejection
+// ANYWHERE outside Express's own request/response cycle — a cron job, a
+// WebSocket callback, a fire-and-forget promise in a service — takes down
+// this entire process, disconnecting every concurrently connected user, not
+// just whoever triggered it. Logged and swallowed rather than exiting: on a
+// live trading system, killing the process on every stray error is itself a
+// bigger availability risk than surviving with one bad code path logged for
+// follow-up. PM2 would restart a crashed process anyway, but that still
+// drops every open WebSocket connection and in-flight request.
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ [unhandledRejection]', reason instanceof Error ? reason.stack : reason);
+});
+process.on('uncaughtException', (error) => {
+  console.error('❌ [uncaughtException]', error.stack || error.message);
 });

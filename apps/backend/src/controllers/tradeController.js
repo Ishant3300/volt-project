@@ -2416,7 +2416,26 @@ const rolloverPositions = async (req, res) => {
         const results = [];
         const errors = [];
 
-        for (const rawToken of instrument_tokens) {
+        // Bulk rollover (real deployments see 10K-20K positions in one
+        // batch) previously ran fully sequentially — one MongoDB session/
+        // transaction per position, strictly one after another, all under
+        // this same tradeWriteLease. At real volume that's not "slow", it's
+        // a request that holds a PLATFORM-WIDE write lease (blocking every
+        // other rollover/square-off) for the entire multi-hour duration.
+        // Processing runs in bounded-concurrency chunks instead — enough
+        // parallelism to overlap the per-token DB round trips (each token
+        // touches its own KiteInstrument/ScriptQuantity/Trade rows), while
+        // staying small enough that the one document every position in a
+        // single rollover request actually shares (targetUserId's own User
+        // doc, written once per position for the equity delta) doesn't
+        // thrash under heavy write-conflict retries. A lease-lost error is
+        // never allowed to abort mid-chunk — every task in the function
+        // below CATCHES rather than throws, so Promise.all always resolves
+        // the whole chunk (every transaction fully committed/aborted and
+        // its session closed) before this loop decides whether to stop.
+        const ROLLOVER_CONCURRENCY = 5;
+
+        const processRolloverToken = async (rawToken) => {
             const token = rawToken.toString();
             const session = await mongoose.startSession();
             let committed = null;
@@ -2707,24 +2726,44 @@ const rolloverPositions = async (req, res) => {
                     };
                 });
 
-                if (committed) {
+                return { token, committed, error: null, leaseLost: false };
+            } catch (error) {
+                return { token, committed: null, error, leaseLost: error.code === 'TRADE_WRITE_LEASE_LOST' };
+            } finally {
+                await session.endSession();
+            }
+        };
+
+        for (let i = 0; i < instrument_tokens.length; i += ROLLOVER_CONCURRENCY) {
+            const chunk = instrument_tokens.slice(i, i + ROLLOVER_CONCURRENCY);
+            // Every task above returns rather than throws, so this never
+            // rejects early — by the time we get here, every transaction in
+            // the chunk has fully committed, aborted, or errored, and its
+            // session is already closed. Only now is it safe to decide
+            // whether to stop (and let the outer finally release the lease).
+            const outcomes = await Promise.all(chunk.map(processRolloverToken));
+
+            for (const outcome of outcomes) {
+                if (outcome.committed) {
                     const metricsEngineNotify = require('../services/metricsEngine');
                     await metricsEngineNotify.onTradeExecuted(targetUserId);
                     livePriceService.broadcastToUser(targetUserId.toString(), {
                         type: 'rollover_executed',
-                        rollover_group_id: committed.rollover_group_id,
-                        old_instrument_token: committed.old.token,
-                        new_instrument_token: committed.new.token,
-                        new_tradingsymbol: committed.new.tradingsymbol,
-                        quantity: committed.qty,
+                        rollover_group_id: outcome.committed.rollover_group_id,
+                        old_instrument_token: outcome.committed.old.token,
+                        new_instrument_token: outcome.committed.new.token,
+                        new_tradingsymbol: outcome.committed.new.tradingsymbol,
+                        quantity: outcome.committed.qty,
                     });
-                    results.push(committed);
+                    results.push(outcome.committed);
+                } else if (outcome.leaseLost) {
+                    // Matches the original behavior of propagating this out
+                    // to the outer catch (500 response) rather than treating
+                    // it as a per-token failure.
+                    throw outcome.error;
+                } else if (outcome.error) {
+                    errors.push({ token: outcome.token, message: sanitizeErrorMessage(outcome.error) });
                 }
-            } catch (error) {
-                if (error.code === 'TRADE_WRITE_LEASE_LOST') throw error;
-                errors.push({ token, message: sanitizeErrorMessage(error) });
-            } finally {
-                await session.endSession();
             }
         }
 
