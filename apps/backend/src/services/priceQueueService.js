@@ -36,26 +36,59 @@ const STALE_TICK_MS = 10000;
 
 const _ts = () => new Date().toISOString();
 
+// ── Tick coalescing ──────────────────────────────────────────────────────
+// Every raw Kite tick used to become its own queue job — with ~90+
+// subscribed instruments ticking multiple times/sec each, that routinely
+// outran the (arbitrarily set) 100 jobs/sec worker limiter below, and the
+// backlog just grew: 48,000+ jobs waiting at one point, every one of them
+// stale (>10s old) by the time it was finally processed, so pending LIMIT/
+// SL orders silently never got evaluated against a real current price at
+// all. This is the actual fix, not a bigger limiter: collapse however many
+// raw ticks arrive per instrument into ONE job per instrument per flush
+// window, holding only the latest price. Queue production is then bounded
+// by (subscribed instrument count / PUBLISH_THROTTLE_MS) — a number that
+// does NOT grow with how many pending orders exist on the platform (10 or
+// 2-3 lakh), only with how many distinct instruments are actively ticking,
+// which is small and fixed. Order-book lookups themselves (orderBookService,
+// Redis ZRANGEBYSCORE per instrument) already scale independently of total
+// pending-order count — this was never actually a lookup-speed problem.
+const _pendingPricePublish = new Map(); // instrumentToken -> latest livePrice
+let _publishFlushTimer = null;
+const PUBLISH_THROTTLE_MS = 150;
+
 const publishPriceUpdate = async (instrumentToken, livePrice) => {
   if (!queue) return;
-  try {
-    const jobId = `price_${instrumentToken}_${Date.now()}`;
-    await queue.add('PRICE_UPDATE', {
-      instrument_token: instrumentToken,
-      live_price: livePrice,
-      timestamp: Date.now(),
-    }, {
-      jobId,
-      removeOnComplete: 100,
-      removeOnFail: 200,
-      attempts: 3,
-      backoff: { type: 'exponential', delay: 1000 },
-    });
-    if (LOG_PRICE_QUEUE) console.log(`📤 [PriceQueue] Published: Token ${instrumentToken} @ ${livePrice} (Job: ${jobId})`);
-  } catch (error) {
-    console.error(`❌ [PriceQueue] publishPriceUpdate error: ${error.message}`);
-  }
+  _pendingPricePublish.set(instrumentToken, livePrice);
+  if (_publishFlushTimer) return;
+  _publishFlushTimer = setTimeout(_flushPendingPricePublishes, PUBLISH_THROTTLE_MS);
 };
+
+async function _flushPendingPricePublishes() {
+  _publishFlushTimer = null;
+  if (!queue || _pendingPricePublish.size === 0) return;
+  const entries = Array.from(_pendingPricePublish.entries());
+  _pendingPricePublish.clear();
+
+  await Promise.all(entries.map(async ([instrumentToken, livePrice]) => {
+    try {
+      const jobId = `price_${instrumentToken}_${Date.now()}`;
+      await queue.add('PRICE_UPDATE', {
+        instrument_token: instrumentToken,
+        live_price: livePrice,
+        timestamp: Date.now(),
+      }, {
+        jobId,
+        removeOnComplete: 100,
+        removeOnFail: 200,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 1000 },
+      });
+      if (LOG_PRICE_QUEUE) console.log(`📤 [PriceQueue] Published: Token ${instrumentToken} @ ${livePrice} (Job: ${jobId})`);
+    } catch (error) {
+      console.error(`❌ [PriceQueue] publishPriceUpdate error: ${error.message}`);
+    }
+  }));
+}
 
 /**
  * Average buy/sell state for the CURRENTLY open position only — resets
@@ -639,38 +672,50 @@ const _processJob = async job => {
   const executedStopRise = [];
   const executedStopFall = [];
   let failedCount = 0;
-  for (const match of matches) {
-    // Each match gets its own try/catch that does NOT re-throw. Previously
-    // one order's failure (insufficient funds, a data issue, anything)
-    // threw out of the whole loop — aborting every OTHER match in this same
-    // batch too, including ones that had already executed successfully a
-    // few lines above. Since the throw happened before reaching the
-    // removeMany() cleanup below, those already-executed orders never got
-    // removed from the Redis order book either, leaving them "stuck" —
-    // every later price tick would re-match and re-attempt them
-    // (harmlessly no-op via the idempotency check, since their trade is no
-    // longer 'pending', but never actually cleaned up) until the next
-    // market-close sweep. A failure now only affects the ONE order that
-    // failed — it's simply left out of the cleanup list, so it stays in
-    // the order book and gets a fair retry on the next price tick, same as
-    // the existing per-order retry behavior already documented elsewhere.
-    try {
-      const outcome = await executeMatchedOrder(match, live_price);
-      if (['unchanged', 'cancelled', 'rejected', 'completed'].includes(outcome.kind)) {
-        addCleanupId(match, executedBuys, executedSells, executedStopRise, executedStopFall);
+
+  // Each match gets its own try/catch that does NOT re-throw. Previously
+  // one order's failure (insufficient funds, a data issue, anything)
+  // threw out of the whole loop — aborting every OTHER match in this same
+  // batch too, including ones that had already executed successfully a
+  // few lines above. Since the throw happened before reaching the
+  // removeMany() cleanup below, those already-executed orders never got
+  // removed from the Redis order book either, leaving them "stuck" —
+  // every later price tick would re-match and re-attempt them
+  // (harmlessly no-op via the idempotency check, since their trade is no
+  // longer 'pending', but never actually cleaned up) until the next
+  // market-close sweep. A failure now only affects the ONE order that
+  // failed — it's simply left out of the cleanup list, so it stays in
+  // the order book and gets a fair retry on the next price tick, same as
+  // the existing per-order retry behavior already documented elsewhere.
+  //
+  // Matches for ONE tick run in bounded-concurrency chunks rather than
+  // one at a time — at real scale (2-3 lakh pending orders platform-wide)
+  // a single sharp move can cross hundreds of resting orders on one
+  // instrument in the same tick; each match is its own independent Mongo
+  // transaction/session (executeMatchedOrder), so this is the same safe
+  // pattern already used for bulk rollover/square-off.
+  const MATCH_EXECUTION_CONCURRENCY = 15;
+  for (let i = 0; i < matches.length; i += MATCH_EXECUTION_CONCURRENCY) {
+    const chunk = matches.slice(i, i + MATCH_EXECUTION_CONCURRENCY);
+    await Promise.all(chunk.map(async (match) => {
+      try {
+        const outcome = await executeMatchedOrder(match, live_price);
+        if (['unchanged', 'cancelled', 'rejected', 'completed'].includes(outcome.kind)) {
+          addCleanupId(match, executedBuys, executedSells, executedStopRise, executedStopFall);
+        }
+        if (LOG_REDIS_ORDERS && outcome.kind === 'unchanged') {
+          console.log(`   ↳ [PriceQueue] [${_ts()}] tradeId=${match.id} outcome=unchanged (already not pending or deleted)`);
+        }
+        await notifyOutcome(outcome, live_price);
+      } catch (error) {
+        failedCount++;
+        if (error.code !== 'SETTLEMENT_IN_PROGRESS') {
+          console.error(`❌ [PriceQueue] [${_ts()}] Execution error for trade ${match.id} (${match.orderType} ${match.side || match.direction}): ${error.message}`);
+        } else if (LOG_REDIS_ORDERS) {
+          console.log(`⏸️  [PriceQueue] [${_ts()}] tradeId=${match.id} skipped — settlement in progress`);
+        }
       }
-      if (LOG_REDIS_ORDERS && outcome.kind === 'unchanged') {
-        console.log(`   ↳ [PriceQueue] [${_ts()}] tradeId=${match.id} outcome=unchanged (already not pending or deleted)`);
-      }
-      await notifyOutcome(outcome, live_price);
-    } catch (error) {
-      failedCount++;
-      if (error.code !== 'SETTLEMENT_IN_PROGRESS') {
-        console.error(`❌ [PriceQueue] [${_ts()}] Execution error for trade ${match.id} (${match.orderType} ${match.side || match.direction}): ${error.message}`);
-      } else if (LOG_REDIS_ORDERS) {
-        console.log(`⏸️  [PriceQueue] [${_ts()}] tradeId=${match.id} skipped — settlement in progress`);
-      }
-    }
+    }));
   }
   if (failedCount > 0) {
     console.log(`⚠️  [PriceQueue] Token ${instrument_token} @ ${live_price} → ${failedCount}/${matches.length} order(s) failed this tick, left pending for retry`);
@@ -697,8 +742,16 @@ const init = () => {
   queue = new Queue(QUEUE_NAME, { connection });
   worker = new Worker(QUEUE_NAME, _processJob, {
     connection,
-    concurrency: 5,
-    limiter: { max: 100, duration: 1000 },
+    // With tick coalescing (above), job production is bounded by
+    // (subscribed instruments / PUBLISH_THROTTLE_MS) — at most a few
+    // hundred/sec even in a worst-case all-instruments-tick-every-window
+    // burst, not the old raw-tick rate. concurrency/limiter raised well
+    // past that ceiling so they're a genuine safety net (protects Redis/
+    // Mongo from a real runaway) rather than the routine bottleneck the
+    // old concurrency:5 + 100/s pairing had become — that combination is
+    // what produced the 48K-job backlog this replaces.
+    concurrency: 20,
+    limiter: { max: 1000, duration: 1000 },
   });
   worker.on('failed', (job, error) => {
     console.error(`❌ [PriceQueue] [${_ts()}] Job ${job?.id} failed: ${error.message}`);
