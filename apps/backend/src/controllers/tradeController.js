@@ -118,6 +118,32 @@ async function _validateCircuitLimit(instrument_token, price, order_type) {
 }
 
 /**
+ * Bid-ask spread check for LIMIT/SL/SL-M orders — a price STRICTLY between
+ * the current best bid and ask isn't a genuine resting price at all, it's
+ * already inside the live tradable range, so it would just execute on the
+ * very next tick as a disguised MARKET order (see placeTrade's own
+ * shouldExecuteNow: a LIMIT BUY fires the moment livePrice <= price, and a
+ * price inside the spread is already <= the current ask). Only a price at
+ * or outside the current quote (<=bid or >=ask) is a real limit/stop
+ * level. Shared between placeTrade (a fresh order) and modifyTrade (a
+ * changed price on a pending order), same reasoning as
+ * `_validateCircuitLimit` above. Skipped when bid/ask data isn't available
+ * yet, or looks inverted (bid >= ask, a bad/stale tick) — same
+ * fail-open-on-missing-data posture as the circuit-limit check.
+ */
+async function _validateBidAskSpread(instrument_token, price, order_type) {
+    if (!price || (order_type !== 'LIMIT' && order_type !== 'SL' && order_type !== 'SL-M')) return;
+    const metricsEngine = require('../services/metricsEngine');
+    const tokenStr = instrument_token.toString();
+    const bid = metricsEngine._bidMap?.get(tokenStr);
+    const ask = metricsEngine._askMap?.get(tokenStr);
+    if (!bid || !ask || bid <= 0 || ask <= 0 || bid >= ask) return;
+    if (price > bid && price < ask) {
+        throw new Error(`Cannot place order between the current quotation. Bid ₹${bid} / Ask ₹${ask} — set your price at or outside this range.`);
+    }
+}
+
+/**
  * Script-quantity break_qty/max_qty limit check (turnover-mode in raw
  * quantity, lot-mode in lots). Shared between placeTrade and modifyTrade —
  * a modified quantity must clear the same per-order and position-size caps
@@ -574,6 +600,7 @@ const placeTrade = async (req, res) => {
         // #1 FIX: Circuit limit check for LIMIT orders (before DB transaction to fail fast)
         try {
             await _validateCircuitLimit(instrument_token, price, order_type);
+            await _validateBidAskSpread(instrument_token, price, order_type);
         } catch (circuitErr) {
             return res.status(400).json({ success: false, message: circuitErr.message });
         }
@@ -1863,6 +1890,7 @@ const modifyTrade = async (req, res) => {
         // for why account-level gates are deliberately NOT repeated here.
         try {
             await _validateCircuitLimit(trade.instrument_token, newPrice, trade.order_type);
+            await _validateBidAskSpread(trade.instrument_token, newPrice, trade.order_type);
             const { instrumentRawName } = await _validateScriptQuantityLimit(
                 user, trade.instrument_token, trade.transaction_type, newQuantity, trade.segment, trade.exchange, trade.tradingsymbol, null
             );
