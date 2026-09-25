@@ -110,15 +110,29 @@ router.put('/brokerage-settings/bulk-update', authenticateAdminOrMaster, rejectI
     }
     const BrokerageSettings = require('../models/BrokerageSettings');
 
+    // Full records for every id, fetched once — used for the ownership
+    // check below AND the floor check further down. A batch can mix
+    // several different scripts that happen to share the same target
+    // brk_value (the create-master/create-user screens group their
+    // per-script overrides by value, not by script), so both checks must
+    // walk every record instead of trusting one "sample" to represent the
+    // whole batch — a sample-only check let a stricter script's floor slip
+    // through unchecked whenever it shared a batch with a looser one.
+    const records = await BrokerageSettings.find({ _id: { $in: ids }, deleted_at: null })
+      .select('user_id exchange_name script_name type')
+      .lean();
+    if (records.length === 0) {
+      return res.status(404).json({ success: false, message: 'No matching brokerage settings found', data: null });
+    }
+
     // Ownership check: every id in the batch must belong to the caller's own
-    // subtree, not just the sample record used for the floor check below —
-    // without this, a master could smuggle in ids belonging to unrelated
-    // accounts platform-wide via this one bulk endpoint. Admin unrestricted.
+    // subtree — without this, a master could smuggle in ids belonging to
+    // unrelated accounts platform-wide via this one bulk endpoint. Admin
+    // unrestricted.
     if (req.master) {
       const { getAllSubMasterIds } = require('../services/masterHierarchyService');
       const { resolveBrokerageOwnerMasterId } = require('../controllers/adminController');
       const allowedMasterIds = await getAllSubMasterIds(req.master.id);
-      const records = await BrokerageSettings.find({ _id: { $in: ids }, deleted_at: null }).select('user_id').lean();
       for (const record of records) {
         const ownerMasterId = record.user_id ? await resolveBrokerageOwnerMasterId(record.user_id) : null;
         if (!ownerMasterId || !allowedMasterIds.includes(ownerMasterId)) {
@@ -127,42 +141,53 @@ router.put('/brokerage-settings/bulk-update', authenticateAdminOrMaster, rejectI
       }
     }
 
-    // Floor validation: check the first record to determine owner, then validate
-    // Admin bypasses this — admin can set any rate on their children
-    const sampleRecord = await BrokerageSettings.findOne({ _id: { $in: ids }, deleted_at: null }).lean();
-    if (sampleRecord && sampleRecord.user_id && !req.admin) {
+    // Floor validation, per record — admin bypasses (can set any rate on
+    // their children). A record with no user_id is a global/admin-owned
+    // row with no floor to check against.
+    if (!req.admin) {
       const { validateBrokerageFloor } = require('../services/brokerageCopyService');
       const User = require('../models/User');
-      const ownerUser = await User.findById(sampleRecord.user_id).select('_id').lean();
-      const ownerType = ownerUser ? 'User' : 'Master';
-      const effectiveType = type || sampleRecord.type;
+      const callerRuleCache = new Map();
 
-      // Also check against the CALLER's own rate (the logged-in master)
-      // The child's rate must be >= the caller master's rate
-      const callerId = req.master.id;
-      const callerRule = await BrokerageSettings.findOne({
-        user_id: callerId,
-        exchange_name: sampleRecord.exchange_name,
-        script_name: sampleRecord.script_name,
-        type: effectiveType,
-        deleted_at: null,
-      }).lean();
+      for (const record of records) {
+        if (!record.user_id) continue;
+        const effectiveType = type || record.type;
+        const ownerUser = await User.findById(record.user_id).select('_id').lean();
+        const ownerType = ownerUser ? 'User' : 'Master';
 
-      if (callerRule && brk_value < callerRule.brk_value) {
-        return res.status(422).json({
-          success: false,
-          message: `Brokerage cannot be less than the parent limit (${callerRule.brk_value})`,
-          data: null
-        });
-      }
+        // Also check against the CALLER's own rate (the logged-in master) —
+        // the child's rate must be >= the caller master's rate for this
+        // exact script. Cached since the same (exchange, script, type)
+        // combo often repeats across records in one call.
+        const cacheKey = `${record.exchange_name}|${record.script_name}|${effectiveType}`;
+        let callerRule = callerRuleCache.get(cacheKey);
+        if (callerRule === undefined) {
+          callerRule = await BrokerageSettings.findOne({
+            user_id: req.master.id,
+            exchange_name: record.exchange_name,
+            script_name: record.script_name,
+            type: effectiveType,
+            deleted_at: null,
+          }).lean();
+          callerRuleCache.set(cacheKey, callerRule);
+        }
 
-      // Fallback: also run the hierarchy-based validation
-      const floorError = await validateBrokerageFloor(
-        sampleRecord.user_id.toString(), ownerType,
-        sampleRecord.exchange_name, sampleRecord.script_name, effectiveType, brk_value
-      );
-      if (floorError) {
-        return res.status(422).json({ success: false, message: floorError, data: null });
+        if (callerRule && brk_value < callerRule.brk_value) {
+          return res.status(422).json({
+            success: false,
+            message: `Brokerage cannot be less than the parent limit (${callerRule.brk_value}) for ${record.script_name}`,
+            data: null
+          });
+        }
+
+        // Fallback: also run the hierarchy-based validation
+        const floorError = await validateBrokerageFloor(
+          record.user_id.toString(), ownerType,
+          record.exchange_name, record.script_name, effectiveType, brk_value
+        );
+        if (floorError) {
+          return res.status(422).json({ success: false, message: floorError, data: null });
+        }
       }
     }
 
