@@ -544,15 +544,20 @@ class _TradeCardPageState extends State<TradeCardPage> {
     // blocked on every retry until WatchlistProvider actually applies a
     // fresh tick (lastUpdated only advances on a genuine tick, so the
     // computed age here keeps growing — and keeps blocking — on its own
-    // with no extra state to track).
+    // with no extra state to track). `currentItem` itself is still needed
+    // below regardless of role — only the rejection is gated. Admin (only
+    // — Master still gets this guard) bypasses the rejection, per explicit
+    // instruction: unlike the market-hours check above, this one isn't
+    // meant to exempt Master too.
     const staleQuoteThreshold = Duration(seconds: 25);
     final currentItem =
         Provider.of<WatchlistProvider>(context, listen: false)
                 .getByToken(widget.item.instrument.instrumentToken) ??
             widget.item;
     final lastTick = currentItem.lastUpdated;
-    if (lastTick == null ||
-        DateTime.now().difference(lastTick) > staleQuoteThreshold) {
+    if (!profile.isAdmin &&
+        (lastTick == null ||
+            DateTime.now().difference(lastTick) > staleQuoteThreshold)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
