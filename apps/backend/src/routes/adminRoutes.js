@@ -254,11 +254,15 @@ router.put('/fresh-stoploss-limits/:id', authenticateAdmin, rejectIfAdminWatchOn
 router.delete('/fresh-stoploss-limits/:id', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('FRESH_STOPLOSS_MANAGE'), deleteFreshStoplossLimit);
 
 // ==================== TOTP ROUTES ====================
-const totpService = require('../services/adminOtpService');
+// Generalized totpService (was admin-only adminOtpService) — see that
+// file's own header. Master's equivalent routes are in masterFlowRoutes.js,
+// same service, Master model instead of Admin.
+const totpService = require('../services/totpService');
+const Admin = require('../models/Admin');
 
 router.get('/totp/status', authenticateAdmin, async (req, res) => {
   try {
-    const status = await totpService.getTotpStatus(req.admin.id);
+    const status = await totpService.getTotpStatus(Admin, req.admin.id);
     if (!status) return res.status(404).json({ success: false, message: 'Admin not found', data: null });
     res.json({ success: true, data: status });
   } catch (e) {
@@ -268,7 +272,7 @@ router.get('/totp/status', authenticateAdmin, async (req, res) => {
 
 router.post('/totp/generate', authenticateAdmin, async (req, res) => {
   try {
-    const result = await totpService.generateSecret(req.admin.id);
+    const result = await totpService.generateSecret(Admin, req.admin.id);
     res.json({ success: true, data: { qr_data_url: result.qrDataUrl, secret: result.secret } });
   } catch (e) {
     res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
@@ -279,7 +283,7 @@ router.post('/totp/verify-setup', authenticateAdmin, async (req, res) => {
   try {
     const { token } = req.body;
     if (!token) return res.status(400).json({ success: false, message: 'TOTP code required', data: null });
-    const verified = await totpService.verifySetup(req.admin.id, token);
+    const verified = await totpService.verifySetup(Admin, req.admin.id, token);
     if (!verified) return res.status(400).json({ success: false, message: 'Invalid TOTP code', data: null });
     res.json({ success: true, message: 'TOTP activated successfully' });
   } catch (e) {
@@ -291,7 +295,7 @@ router.post('/totp/toggle', authenticateAdmin, async (req, res) => {
   try {
     const { enabled } = req.body;
     if (enabled === undefined) return res.status(400).json({ success: false, message: 'enabled field required', data: null });
-    await totpService.toggleTotp(req.admin.id, enabled);
+    await totpService.toggleTotp(Admin, req.admin.id, enabled);
     res.json({ success: true, message: `TOTP ${enabled ? 'enabled' : 'disabled'}` });
   } catch (e) {
     res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
@@ -300,7 +304,7 @@ router.post('/totp/toggle', authenticateAdmin, async (req, res) => {
 
 router.post('/totp/reset', authenticateAdmin, async (req, res) => {
   try {
-    await totpService.resetTotp(req.admin.id);
+    await totpService.resetTotp(Admin, req.admin.id);
     res.json({ success: true, message: 'TOTP reset successfully' });
   } catch (e) {
     res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });

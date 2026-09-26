@@ -180,8 +180,8 @@ const adminLogin = async (req, res) => {
       }
 
       // Verify TOTP code
-      const totpService = require('../services/adminOtpService');
-      const verified = await totpService.verifyLogin(admin._id.toString(), totp_code);
+      const totpService = require('../services/totpService');
+      const verified = await totpService.verifyLogin(Admin, admin._id.toString(), totp_code);
       if (!verified) {
         return res.status(401).json({
           success: false,
@@ -512,8 +512,12 @@ const universalLogin = async (req, res) => {
       });
     }
 
-    // Admin TOTP flow: if admin and TOTP enabled, require verification
-    if (roleType === 'admin' && userAccount.totp_enabled) {
+    // TOTP flow: Admin and Master can each opt into their own TOTP (see
+    // totpService.js — a Master's own Security settings page sets this the
+    // same way Admin's already does). Investor-password logins skip this —
+    // an investor session is already read-only, the same reduced-trust
+    // tier TOTP exists to raise the bar for.
+    if ((roleType === 'admin' || roleType === 'master') && !isInvestorLogin && userAccount.totp_enabled) {
       const { totp_code } = req.body;
 
       if (!totp_code) {
@@ -523,13 +527,14 @@ const universalLogin = async (req, res) => {
           data: {
             requires_totp: true,
             totp_configured: !!userAccount.totp_secret,
-            role: 'ADMIN',
+            role: roleType.toUpperCase(),
           }
         });
       }
 
-      const totpService = require('../services/adminOtpService');
-      const verified = await totpService.verifyLogin(userAccount._id.toString(), totp_code);
+      const totpService = require('../services/totpService');
+      const Model = roleType === 'admin' ? Admin : Master;
+      const verified = await totpService.verifyLogin(Model, userAccount._id.toString(), totp_code);
       if (!verified) {
         return res.status(401).json({ success: false, message: 'Invalid or expired TOTP code', data: null });
       }

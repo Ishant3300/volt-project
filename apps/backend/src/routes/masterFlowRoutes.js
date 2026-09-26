@@ -370,4 +370,71 @@ router.get('/login-history', async (req, res) => {
   }
 });
 
+// ==================== TOTP ROUTES (master's own two-factor auth) ====================
+// Same totpService adminRoutes.js uses for Admin — see that file's own
+// header. Self-service only, same as Admin's equivalent routes: a master
+// manages their OWN TOTP here, an admin caller is rejected rather than
+// silently operating on nothing (this router mounts under
+// authenticateAdminOrMaster, which admin routes also share, so req.admin
+// can be set here without req.master).
+const totpService = require('../services/totpService');
+
+function requireMasterSelf(req, res, next) {
+  if (!req.master || !req.master.id) {
+    return res.status(403).json({ success: false, message: 'Only a master account can manage its own TOTP', data: null });
+  }
+  next();
+}
+
+router.get('/totp/status', requireMasterSelf, async (req, res) => {
+  try {
+    const status = await totpService.getTotpStatus(Master, req.master.id);
+    if (!status) return res.status(404).json({ success: false, message: 'Master not found', data: null });
+    res.json({ success: true, data: status });
+  } catch (e) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
+  }
+});
+
+router.post('/totp/generate', requireMasterSelf, async (req, res) => {
+  try {
+    const result = await totpService.generateSecret(Master, req.master.id);
+    res.json({ success: true, data: { qr_data_url: result.qrDataUrl, secret: result.secret } });
+  } catch (e) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
+  }
+});
+
+router.post('/totp/verify-setup', requireMasterSelf, async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ success: false, message: 'TOTP code required', data: null });
+    const verified = await totpService.verifySetup(Master, req.master.id, token);
+    if (!verified) return res.status(400).json({ success: false, message: 'Invalid TOTP code', data: null });
+    res.json({ success: true, message: 'TOTP activated successfully' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
+  }
+});
+
+router.post('/totp/toggle', requireMasterSelf, async (req, res) => {
+  try {
+    const { enabled } = req.body;
+    if (enabled === undefined) return res.status(400).json({ success: false, message: 'enabled field required', data: null });
+    await totpService.toggleTotp(Master, req.master.id, enabled);
+    res.json({ success: true, message: `TOTP ${enabled ? 'enabled' : 'disabled'}` });
+  } catch (e) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
+  }
+});
+
+router.post('/totp/reset', requireMasterSelf, async (req, res) => {
+  try {
+    await totpService.resetTotp(Master, req.master.id);
+    res.json({ success: true, message: 'TOTP reset successfully' });
+  } catch (e) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
+  }
+});
+
 module.exports = router;

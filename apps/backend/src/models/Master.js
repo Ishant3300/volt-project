@@ -280,6 +280,20 @@ const masterSchema = new mongoose.Schema({
   free_margin: {
     type: Number,
     default: 0
+  },
+  // Google Authenticator / TOTP — same shape as Admin.js's own fields
+  // (see totpService.js, generalized from what was originally
+  // adminOtpService.js so both models share one implementation).
+  totp_enabled: {
+    type: Boolean,
+    default: false
+  },
+  totp_secret: {
+    type: String,
+    default: null,
+    // Never returned by a plain query — see Admin.js's identical field for
+    // the full reasoning. toJSON below also strips it defensively.
+    select: false
   }
 }, {
   timestamps: true
@@ -296,6 +310,7 @@ masterSchema.set('toJSON', {
     // The live session JWT — never belongs in a serialized response (see
     // the identical fix on User.js's toJSON for the full reasoning).
     delete ret.active_token;
+    delete ret.totp_secret;
     ret.created_at = ret.createdAt;
     ret.updated_at = ret.updatedAt;
     delete ret.createdAt;
