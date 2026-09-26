@@ -33,6 +33,10 @@ class GiftNiftyFeedService {
     this.instrumentToken = null;
     this._timer = null;
     this._initialized = false;
+    // Last EXPIRYDATE written to KiteInstrument — lets _poll() skip the
+    // write on every single 2s tick and only touch the DB when NSEIX's own
+    // near-month contract actually rolls to the next expiry.
+    this._lastWrittenExpiryIso = null;
   }
 
   async init(livePriceService) {
@@ -49,6 +53,7 @@ class GiftNiftyFeedService {
     }
 
     this.instrumentToken = inst.instrument_token.toString();
+    this._lastWrittenExpiryIso = inst.expiry ? new Date(inst.expiry).toISOString() : null;
     this._initialized = true;
     console.log(`📡 [GiftNiftyFeed] "GIFT NIFTY" → token ${this.instrumentToken}, polling NSEIX every ${POLL_INTERVAL_MS / 1000}s`);
 
@@ -93,6 +98,29 @@ class GiftNiftyFeedService {
         if (Number.isFinite(tickAge) && tickAge > STALE_THRESHOLD_MS) {
           console.warn(`⚠️  [GiftNiftyFeed] NSEIX tick stale (${Math.round(tickAge / 1000)}s old) — skipping.`);
           return;
+        }
+      }
+
+      // NSEIX's own row already carries the near-month contract's real
+      // expiry (EXPIRYDATE) — confirmed real, just never persisted before,
+      // which left GIFT NIFTY's own KiteInstrument record stuck at
+      // expiry: null forever (only ever seeded that way, never updated).
+      // Written only when the near-month contract actually rolls (not every
+      // 2s poll) — `_pickNearMonthFuture` always returns NSEIX's own current
+      // near-month row, so this stays >= today for as long as the poll
+      // keeps running, same invariant browseInstruments' GLOBAL-category
+      // expiry filter (`expiry: null OR expiry >= today`) already relies on.
+      if (row.EXPIRYDATE) {
+        const expiryDate = new Date(row.EXPIRYDATE);
+        if (!Number.isNaN(expiryDate.getTime())) {
+          const expiryIso = expiryDate.toISOString();
+          if (expiryIso !== this._lastWrittenExpiryIso) {
+            this._lastWrittenExpiryIso = expiryIso;
+            KiteInstrument.updateOne(
+              { instrument_token: this.instrumentToken },
+              { $set: { expiry: expiryDate } },
+            ).catch((err) => console.warn(`⚠️  [GiftNiftyFeed] Failed to persist expiry: ${err.message}`));
+          }
         }
       }
 
