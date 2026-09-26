@@ -271,10 +271,29 @@ const smartSearchInstruments = async (req, res) => {
       page ? parseInt(page) : 1
     );
 
+    // Exchange permission filter — same gate placeTrade/addToWatchlist
+    // enforce; previously search returned every instrument regardless of
+    // the caller's own exchanges_allowed, so a restricted account could
+    // still find (and from there, watchlist or attempt to trade) a
+    // segment it was never granted. Admin bypasses (see getAllowedExchangeSet).
+    const { getAllowedExchangeSet, isExchangeAllowed } = require('../utils/exchangeAccess');
+    const allowedExchanges = await getAllowedExchangeSet(req);
+    let filteredResult = result;
+    if (allowedExchanges !== null) {
+      const groups = (result.groups || [])
+        .map((group) => ({
+          ...group,
+          items: (group.items || []).filter((item) => isExchangeAllowed(allowedExchanges, item.segment || item.exchange)),
+        }))
+        .filter((group) => group.items.length > 0);
+      const total = groups.reduce((sum, g) => sum + g.items.length, 0);
+      filteredResult = { ...result, groups, total };
+    }
+
     res.status(200).json({
       success: true,
-      message: `Found ${result.total} instruments`,
-      data: result
+      message: `Found ${filteredResult.total} instruments`,
+      data: filteredResult
     });
   } catch (error) {
     console.error('❌ Smart search error:', error);

@@ -96,10 +96,38 @@ const getWatchlist = async (req, res) => {
       console.log(`   🗑️ Removed ${expiredWatchlistIds.size} expired watchlist entries`);
     }
 
-    // Build response items — skip any where we couldn't find the instrument
-    // or it's since expired.
+    // Same self-healing removal for an exchange the account is no longer
+    // (or was never) allowed to trade — previously nothing checked this at
+    // all here, so a client could keep watching (and get live prices for)
+    // a segment addToWatchlist should have rejected, or one their account
+    // was later restricted from. Admin bypasses (see getAllowedExchangeSet).
+    const { getAllowedExchangeSet, isExchangeAllowed } = require('../utils/exchangeAccess');
+    const allowedExchanges = await getAllowedExchangeSet(req);
+    const disallowedWatchlistIds = new Set();
+    if (allowedExchanges !== null) {
+      for (const w of watchlist) {
+        const inst = instrumentMap[w.instrument_token];
+        if (inst && !isExchangeAllowed(allowedExchanges, inst.segment || inst.exchange)) {
+          disallowedWatchlistIds.add(w._id.toString());
+        }
+      }
+      if (disallowedWatchlistIds.size > 0) {
+        await Watchlist.updateMany(
+          { _id: { $in: [...disallowedWatchlistIds] } },
+          { deleted_at: new Date() },
+        );
+        console.log(`   🚫 Removed ${disallowedWatchlistIds.size} watchlist entries for a now-disallowed exchange`);
+      }
+    }
+
+    // Build response items — skip any where we couldn't find the instrument,
+    // it's since expired, or its exchange is no longer allowed.
     const items = watchlist
-      .filter(w => instrumentMap[w.instrument_token] && !expiredWatchlistIds.has(w._id.toString()))
+      .filter(w =>
+        instrumentMap[w.instrument_token] &&
+        !expiredWatchlistIds.has(w._id.toString()) &&
+        !disallowedWatchlistIds.has(w._id.toString()),
+      )
       .map(w => ({
         id: w._id,
         instrument_token: w.instrument_token,
@@ -155,6 +183,19 @@ const addToWatchlist = async (req, res) => {
     }
 
     const resolvedInstrumentId = instrument._id;
+
+    // Exchange permission check — same gate placeTrade already enforces at
+    // order time; previously nothing here rejected adding an instrument
+    // from an exchange the account was never granted at all.
+    const { getAllowedExchangeSet, isExchangeAllowed } = require('../utils/exchangeAccess');
+    const allowedExchanges = await getAllowedExchangeSet(req);
+    if (!isExchangeAllowed(allowedExchanges, instrument.segment || instrument.exchange)) {
+      return res.status(403).json({
+        success: false,
+        message: `Your account is not permitted to trade ${instrument.segment || instrument.exchange || 'this exchange'}. Contact your master/admin.`,
+        data: null,
+      });
+    }
 
     // Check if already in watchlist (by instrument_token to handle stale refs)
     const existing = await Watchlist.findOne({
