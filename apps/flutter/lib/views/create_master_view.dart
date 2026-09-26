@@ -104,6 +104,22 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   final Map<String, List<String>> _availableGroupsByExchange = {};
   bool _isLoadingAvailableGroups = false;
 
+  // This master's OWN single group per exchange (script_quantity_groups) —
+  // a DIFFERENT field from _allottedGroups above (which group(s) this
+  // master may hand OUT to clients). Same role as create_user_view.dart's
+  // per-exchange 'group' dropdown, and shares the same _availableGroupsByExchange
+  // catalog fetched by _fetchAvailableGroups. Not admin-only, unlike
+  // _allottedGroups — every caller (admin creating a master, or a master
+  // creating a sub-master) can set this.
+  final Map<String, String?> _scriptQuantityGroup = {
+    'NFO-FUT': null,
+    'NFO-OPT': null,
+    'MCX-FUT': null,
+    'MCX-OPT': null,
+    'GLOBAL': null,
+    'COMEX-FUT': null,
+  };
+
   // Trade Wallet inputs per allowed category (NSE/MCX/GLOBAL)
   final Map<String, TextEditingController> _walletControllers = {};
 
@@ -200,13 +216,12 @@ class _CreateMasterViewState extends State<CreateMasterView> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _generateUsername());
     }
 
-    // Allotted Groups is an admin-only control (see field comment) — only
-    // fetch the group catalog when this form is actually admin-driven.
-    final isAdminCaller =
-        Provider.of<UserProfileProvider>(context, listen: false).isAdmin;
-    if (isAdminCaller) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _fetchAvailableGroups());
-    }
+    // The group catalog backs BOTH the "Allotted Groups" admin-only chips
+    // AND the per-exchange Group dropdown next to Exchange Allow below,
+    // which every caller (admin or master) can use — so this fetch always
+    // runs now, not just for an admin caller. The Allotted Groups SECTION
+    // itself stays admin-gated separately, via its own Consumer check.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fetchAvailableGroups());
 
     _profitLossController.addListener(() => setState(() {}));
     _brkSharingController.addListener(() => setState(() {}));
@@ -258,6 +273,16 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                   .toSet() ??
               <String>{};
           _allottedGroups[key] = names;
+        }
+      }
+      for (var g in master.scriptQuantityGroups) {
+        final ex = g['exchange_name']?.toString();
+        final key = ex == 'INDICES' ? 'GLOBAL' : ex;
+        final groupName = g['group_name']?.toString();
+        if (key != null &&
+            groupName != null &&
+            _scriptQuantityGroup.containsKey(key)) {
+          _scriptQuantityGroup[key] = groupName;
         }
       }
     } else {
@@ -335,8 +360,15 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           if (response.statusCode == 200) {
             final data = jsonDecode(response.body);
             if (data['success'] == true && data['data'] != null) {
-              _availableGroupsByExchange[exchange] =
-                  List<String>.from(data['data']);
+              final names = List<String>.from(data['data']);
+              _availableGroupsByExchange[exchange] = names;
+              // Auto-select 'Default' when creating a new master (not
+              // editing) — same as create_user_view.dart's own group fetch.
+              if (widget.master == null &&
+                  _scriptQuantityGroup[exchange] == null &&
+                  names.contains('Default')) {
+                _scriptQuantityGroup[exchange] = 'Default';
+              }
             }
           }
         } catch (e) {
@@ -450,6 +482,15 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 'group_names': e.value.toList(),
               })
           .toList();
+      // Same "only allowed exchanges get sent" rule as allottedGroupsPayload
+      // above, for this master's OWN per-exchange group.
+      final scriptQuantityGroupsPayload = _scriptQuantityGroup.entries
+          .where((e) => _exchangeAllow[e.key] == true && e.value != null)
+          .map((e) => {
+                'exchange_name': e.key == 'GLOBAL' ? 'INDICES' : e.key,
+                'group_name': e.value,
+              })
+          .toList();
 
       if (widget.master != null) {
         final response = await adminService.updateMaster(
@@ -474,6 +515,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           changePassOnFirstLogin: _changePasswordOnFirstLogin,
           allottedScriptQuantityGroups:
               allottedGroupsPayload.isEmpty ? null : allottedGroupsPayload,
+          scriptQuantityGroups: scriptQuantityGroupsPayload.isEmpty
+              ? null
+              : scriptQuantityGroupsPayload,
         );
         if (response.statusCode == 200) {
           if (mounted) {
@@ -590,6 +634,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           wallet: walletMap.isEmpty ? null : walletMap,
           allottedScriptQuantityGroups:
               allottedGroupsPayload.isEmpty ? null : allottedGroupsPayload,
+          scriptQuantityGroups: scriptQuantityGroupsPayload.isEmpty
+              ? null
+              : scriptQuantityGroupsPayload,
         );
 
         if (response.statusCode == 201) {
@@ -1015,17 +1062,10 @@ class _CreateMasterViewState extends State<CreateMasterView> {
 
                     const SizedBox(height: 24),
 
-                    // Exchange Allow
-                    _buildCheckboxSection(
-                      label: 'EXCHANGE ALLOW',
-                      values: _exchangeAllow,
-                      onToggleAll: () {
-                        setState(() {
-                          final all = _exchangeAllow.values.every((v) => v);
-                          _exchangeAllow.updateAll((k, v) => !all);
-                        });
-                      },
-                    ),
+                    // Exchange Allow — real Exchange+Group table, matching
+                    // create_user_view.dart's own table (minus T/O/Lot,
+                    // which Master.exchanges_allowed has no split for).
+                    _buildExchangeAllowTable(),
 
                     const SizedBox(height: 24),
 
@@ -1632,6 +1672,193 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               ),
             );
           }),
+      ],
+    );
+  }
+
+  /// Exchange Allow table for a Master — Exchange checkbox + Group dropdown
+  /// per row, same shell as create_user_view.dart's own Exchange Allow
+  /// table, minus the T/O/Lot columns (Master.exchanges_allowed has no such
+  /// split, unlike User.exchanges_allowed[]). The Group column writes to
+  /// _scriptQuantityGroup, sent as script_quantity_groups on submit — this
+  /// master's OWN single group per exchange (different from
+  /// _allottedGroups/allotted_script_quantity_groups, which group(s) this
+  /// master may hand OUT to clients).
+  Widget _buildExchangeAllowTable() {
+    final keys = _exchangeAllow.keys.toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _sectionLabel('EXCHANGE ALLOW'),
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  final all = _exchangeAllow.values.every((v) => v);
+                  _exchangeAllow.updateAll((k, v) => !all);
+                });
+              },
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: kBrandPrimary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _exchangeAllow.values.every((v) => v)
+                      ? 'Deselect All'
+                      : 'Select All',
+                  style: const TextStyle(
+                    color: kBrandPrimary,
+                    fontSize: kFontSizeNavLabel,
+                    fontFamily: kFontFamily,
+                    fontWeight: kFontWeightSemiBold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _card(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  children: const [
+                    Expanded(
+                      flex: 2,
+                      child: Padding(
+                        padding: EdgeInsets.only(left: 8),
+                        child: Text('Exchange',
+                            style: TextStyle(
+                                color: Color(0xFF94A3B8),
+                                fontSize: kFontSizeNavLabel,
+                                fontFamily: kFontFamily,
+                                fontWeight: kFontWeightSemiBold,
+                                letterSpacing: 0.5)),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 130,
+                      child: Center(
+                        child: Text('Group',
+                            style: TextStyle(
+                                color: Color(0xFF94A3B8),
+                                fontSize: kFontSizeNavLabel,
+                                fontFamily: kFontFamily,
+                                fontWeight: kFontWeightSemiBold,
+                                letterSpacing: 0.5)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ...keys.map((exchange) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _buildMasterExchangeRow(exchange),
+                  )),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMasterExchangeRow(String exchange) {
+    final enabled = _exchangeAllow[exchange] ?? false;
+    final groupOptions = _availableGroupsByExchange[exchange] ?? [];
+    final currentGroup = _scriptQuantityGroup[exchange];
+
+    return Row(
+      children: [
+        Expanded(
+          flex: 2,
+          child: GestureDetector(
+            onTap: () =>
+                setState(() => _exchangeAllow[exchange] = !enabled),
+            child: Row(
+              children: [
+                Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: enabled ? kBrandPrimary : Colors.transparent,
+                    border: Border.all(
+                        color: enabled
+                            ? kBrandPrimary
+                            : const Color(0xFFCBD5E1),
+                        width: 2),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: enabled
+                      ? const Icon(Icons.check,
+                          color: Colors.white, size: kIconSizeSmall)
+                      : null,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(exchange,
+                      style: const TextStyle(
+                          color: Colors.black,
+                          fontSize: kFontSizeBodySmall,
+                          fontFamily: kFontFamily,
+                          fontWeight: kFontWeightMedium),
+                      overflow: TextOverflow.ellipsis),
+                ),
+              ],
+            ),
+          ),
+        ),
+        SizedBox(
+          width: 130,
+          height: 40,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFF1F5F9)),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: groupOptions.contains(currentGroup)
+                    ? currentGroup
+                    : null,
+                hint: Text(
+                  groupOptions.isEmpty ? 'None' : 'Select',
+                  style: const TextStyle(
+                      color: Color(0xFFCBD5E1),
+                      fontSize: kFontSizeSubtitle,
+                      fontFamily: kFontFamily),
+                ),
+                isExpanded: true,
+                icon: const Icon(Icons.keyboard_arrow_down,
+                    size: kIconSizeDefault, color: Color(0xFF94A3B8)),
+                style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: kFontSizeSubtitle,
+                    fontFamily: kFontFamily,
+                    fontWeight: kFontWeightMedium),
+                dropdownColor: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                onChanged: groupOptions.isEmpty
+                    ? null
+                    : (value) =>
+                        setState(() => _scriptQuantityGroup[exchange] = value),
+                items: groupOptions.map((name) {
+                  return DropdownMenuItem<String>(
+                      value: name,
+                      child: Text(name, overflow: TextOverflow.ellipsis));
+                }).toList(),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
