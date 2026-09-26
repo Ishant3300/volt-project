@@ -861,9 +861,22 @@ const placeTrade = async (req, res) => {
             // 1.5 Limit validation — break_qty applies to BUY & SELL; max_qty + balance only for BUY
             // turnover:true  → max_qty/break_qty are in raw QUANTITY, compare directly
             // lot:true       → max_qty/break_qty are in LOTS, convert quantity→lots first
-            const { instrumentRawName } = await _validateScriptQuantityLimit(
-                user, instrument_token, transaction_type, quantity, segment, exchange, tradingsymbol, session
-            );
+            // Admin-placed trades (Custom price ticket, and bulk trade import —
+            // both admin-only) bypass this entirely, same as the Fresh
+            // Stoploss check just below — these are deliberate back-office
+            // actions (position migration, correction), not a client's own
+            // order flow the per-script cap exists to police. instrumentRawName
+            // is still needed by the checks below regardless, so it's looked
+            // up either way.
+            let instrumentRawName;
+            if (req.admin) {
+                const kiteInstForName = await KiteInstrument.findOne({ instrument_token }).select('raw_name name').lean();
+                instrumentRawName = kiteInstForName?.raw_name || kiteInstForName?.name || null;
+            } else {
+                ({ instrumentRawName } = await _validateScriptQuantityLimit(
+                    user, instrument_token, transaction_type, quantity, segment, exchange, tradingsymbol, session
+                ));
+            }
 
             // ── Fresh Stop-Loss: MARKET-order time restriction ──────────────
             // Stays inline (not extracted) — modify never applies to MARKET
@@ -1900,9 +1913,17 @@ const modifyTrade = async (req, res) => {
         try {
             await _validateCircuitLimit(trade.instrument_token, newPrice, trade.order_type);
             await _validateBidAskSpread(trade.instrument_token, newPrice, trade.order_type);
-            const { instrumentRawName } = await _validateScriptQuantityLimit(
-                user, trade.instrument_token, trade.transaction_type, newQuantity, trade.segment, trade.exchange, trade.tradingsymbol, null
-            );
+            // Same admin bypass as placeTrade — see that function's own
+            // comment on this check.
+            let instrumentRawName;
+            if (isAdmin) {
+                const kiteInstForName = await KiteInstrument.findOne({ instrument_token: trade.instrument_token }).select('raw_name name').lean();
+                instrumentRawName = kiteInstForName?.raw_name || kiteInstForName?.name || null;
+            } else {
+                ({ instrumentRawName } = await _validateScriptQuantityLimit(
+                    user, trade.instrument_token, trade.transaction_type, newQuantity, trade.segment, trade.exchange, trade.tradingsymbol, null
+                ));
+            }
             await _validateFreshStoplossPriceOffset(isAdmin, user, trade.instrument_token, trade.order_type, trade.transaction_type, newPrice, trade.segment, trade.exchange, instrumentRawName);
             await _validateFreshStoplossOpenPosition(isAdmin, user, trade.instrument_token, trade.order_type, trade.transaction_type, null);
             const adminCanCustomPrice = isAdmin && (req.admin.isSuperAdmin || (req.admin.permissions || []).includes('TRADE_CUSTOM'));
