@@ -814,6 +814,15 @@ function _topmostMasterId(masterId, masterMap) {
 function _groupTradesByInstrument(trades, kiteMap) {
   const byInstrument = {};
   for (const t of trades) {
+    // Same exclusion as _getUserBrokerageAndTurnoverBatched — an exempted
+    // trade bills no brokerage, so it must not feed the rate-gap clearance
+    // calc either. Without this, an account with 0 billed brokerage (all
+    // trades exempt) still showed a nonzero Self/Upline MTM, because
+    // callerClearance was computed off the exempt trades' real turnover
+    // while totalBrokerage correctly excluded them — confirmed against a
+    // real account: 3 brokerage_exempt trades, turnover ~2.2cr, billed
+    // brokerage 0, yet caller_brk was -131.80 before this fix.
+    if (t.brokerage_exempt) continue;
     const token = t.instrument_token;
     if (!byInstrument[token]) byInstrument[token] = { turnover: 0, lots: 0 };
     const ki = kiteMap[token];
