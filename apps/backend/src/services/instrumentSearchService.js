@@ -18,7 +18,16 @@ const ALIASES = {
   'nse': 'NSE', 'nfo': 'NFO', 'mcx': 'MCX', 'bse': 'BSE',
   'nifty': 'NIFTY', 'banknifty': 'BANKNIFTY', 'bank': 'BANKNIFTY',
   'sensex': 'SENSEX', 'finnifty': 'FINNIFTY', 'midcpnifty': 'MIDCPNIFTY',
-  'gift': 'NIFTY',
+  // No 'gift': 'NIFTY' entry — a real instrument is registered with
+  // name/raw_name "GIFT NIFTY" (segment INDICES), and this alias rewrote
+  // the "GIFT" token to "NIFTY" before matching, so searching "GIFT NIFTY"
+  // actually searched for "NIFTY NIFTY" — its own underlying key ("GIFT
+  // NIFTY") never matched "NIFTY", so the instrument was UNFINDABLE by its
+  // own name (confirmed real: Bulk Trade Import rejected a real GIFT NIFTY
+  // row as "no matching contract" even though the instrument existed and
+  // was active). Removing the alias lets "GIFT" fall through as a plain
+  // token instead, which the underlying/prefix lookup in gatherCandidates
+  // already matches correctly on its own — no alias needed for this.
 };
 
 const INSTRUMENT_TYPES = new Set(['FUT', 'CE', 'PE', 'EQ', 'IDX']);
