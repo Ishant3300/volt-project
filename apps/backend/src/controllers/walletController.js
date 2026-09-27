@@ -189,7 +189,20 @@ async function assertAuthorizedTarget(actor, targetModel, targetId) {
 
   if (actor.type === 'Admin') return target;
 
-  // Master actor: only a direct child they own may be funded/withdrawn.
+  // Master actor funding a CLIENT: any client in their downline (their own
+  // clients or their sub-masters' clients). The money itself still moves
+  // against the client's own direct parent, never the acting master's pool
+  // — see walletService.payingMasterFor.
+  if (targetModel === 'User') {
+    const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+    const downline = await getAllSubMasterIds(actor.id);
+    if (!downline.includes(String(target.master_id))) {
+      throw httpError(403, 'Not authorized: client is not in your downline');
+    }
+    return target;
+  }
+
+  // Master actor funding a sub-MASTER: only a direct child they own.
   if (String(target.master_id) !== String(actor.id)) {
     throw httpError(403, 'Not authorized: target is not a direct child you own');
   }
@@ -366,7 +379,7 @@ async function getWallet(req, res) {
     if (actor.type === 'Master') {
       const isSelf = owner_type === 'Master' && String(owner_id) === String(actor.id);
       if (!isSelf) {
-        // Non-self reads are only allowed for a direct child (throws 403/404).
+        // Non-self reads: a downline client, or a direct sub-master (throws 403/404).
         await assertAuthorizedTarget(actor, owner_type, owner_id);
       }
     }

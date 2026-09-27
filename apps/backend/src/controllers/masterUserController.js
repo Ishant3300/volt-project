@@ -16,6 +16,25 @@ const { applyWalletFunding } = require('./walletController');
 const { calculateBrokerage } = require('../services/brokerageService');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
+// A master may view/edit/credit/debit any user inside their own downline
+// (their direct clients AND their sub-masters' clients), not just direct
+// clients — the app already lists a sub-master's users from the parent
+// master's side (GET /admin/users?master_id=), so a direct-only lookup here
+// made every such user open fine and then fail with "User not found".
+// Money still moves against the client's OWN direct parent, never the
+// acting master's pool (see creditUser/debitUser, walletService.payingMasterFor).
+// Delete deliberately stays direct-only.
+async function downlineMasterIds(req) {
+  const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+  return getAllSubMasterIds(req.master.id);
+}
+
+/** Records who acted when that isn't the master whose equity moved. */
+function actedByMeta(req, owningMaster) {
+  if (!req.master || String(req.master.id) === String(owningMaster._id)) return {};
+  return { acted_by: { type: 'Master', id: req.master.id } };
+}
+
 /**
  * Square off all open positions for a user in the given segments.
  * Uses bid/ask from metricsEngine (same as orders page CMP).
@@ -486,7 +505,7 @@ const getUserById = async (req, res) => {
 
     // Don't filter by deleted_at — master/admin should see deleted users' data
     const query = { _id: id };
-    if (req.master) query.master_id = req.master.id;
+    if (req.master) query.master_id = { $in: await downlineMasterIds(req) };
 
     const user = await User.findOne(query)
       .populate('server_id', 'name')
@@ -537,7 +556,7 @@ const updateUserDetails = async (req, res) => {
     } = req.body;
 
     const query = { _id: id };
-    if (req.master) query.master_id = req.master.id;
+    if (req.master) query.master_id = { $in: await downlineMasterIds(req) };
 
     const user = await User.findOne(query);
 
@@ -810,17 +829,22 @@ const creditUser = async (req, res) => {
     }
 
     let resultData;
+    // Any client in the acting master's downline may be credited, but the
+    // equity always comes from the client's OWN direct parent master (e.g.
+    // harry crediting a sub-master's client draws from that sub-master, not
+    // from harry) — money moves one hierarchy level at a time.
+    const scopeIds = await downlineMasterIds(req);
 
     await session.withTransaction(async () => {
       const user = await User.findOne({
         _id: id,
-        master_id: req.master.id,
+        master_id: { $in: scopeIds },
         deleted_at: null
       }).session(session);
 
       if (!user) throw new Error('User not found');
 
-      const master = await Master.findById(req.master.id).session(session);
+      const master = await Master.findById(user.master_id).session(session);
 
       if (!master) throw new Error('Master not found');
 
@@ -862,7 +886,7 @@ const creditUser = async (req, res) => {
         referenceModel: 'User',
         balanceBefore: previousMasterBalance,
         balanceAfter: master.equity,
-        metadata: { note: note || 'Credit to user' }
+        metadata: { note: note || 'Credit to user', ...actedByMeta(req, master) }
       });
       await masterTx.save({ session });
 
@@ -975,11 +999,16 @@ const debitUser = async (req, res) => {
     }
 
     let resultData;
+    // Mirror of creditUser: any downline client may be debited, but the
+    // amount returns to the client's OWN direct parent master, not to the
+    // acting master.
+    const scopeIds = await downlineMasterIds(req);
+    let owningMasterId = null;
 
     await session.withTransaction(async () => {
       const user = await User.findOne({
         _id: id,
-        master_id: req.master.id,
+        master_id: { $in: scopeIds },
         deleted_at: null
       }).session(session);
 
@@ -990,7 +1019,8 @@ const debitUser = async (req, res) => {
         throw new Error('Insufficient credits on user account');
       }
 
-      const master = await Master.findById(req.master.id).session(session);
+      const master = await Master.findById(user.master_id).session(session);
+      owningMasterId = user.master_id;
 
       if (!master) throw new Error('Master not found');
 
@@ -1019,7 +1049,7 @@ const debitUser = async (req, res) => {
         referenceModel: 'User',
         balanceBefore: previousMasterBalance,
         balanceAfter: master.equity,
-        metadata: { note: note || 'Debit from user' }
+        metadata: { note: note || 'Debit from user', ...actedByMeta(req, master) }
       });
       await masterTx.save({ session });
 
@@ -1088,7 +1118,7 @@ const debitUser = async (req, res) => {
     try {
       const metricsEngine = require('../services/metricsEngine');
       metricsEngine.onTradeExecuted(id);
-      metricsEngine.onMasterConfigChanged(req.master.id);
+      metricsEngine.onMasterConfigChanged(owningMasterId || req.master.id);
       const userId = id;
       metricsEngine.onTradeExecuted(userId);
     } catch (_) {}
@@ -1119,7 +1149,7 @@ const getUserPosition = async (req, res) => {
     const { id } = req.params;
 
     const filterPos = { _id: id, deleted_at: null };
-    if (req.master) filterPos.master_id = req.master.id;
+    if (req.master) filterPos.master_id = { $in: await downlineMasterIds(req) };
 
     const user = await User.findOne(filterPos);
 
@@ -1192,7 +1222,7 @@ const sendMessageToUser = async (req, res) => {
     }
 
     const filterMsg = { _id: id, deleted_at: null };
-    if (req.master) filterMsg.master_id = req.master.id;
+    if (req.master) filterMsg.master_id = { $in: await downlineMasterIds(req) };
 
     const user = await User.findOne(filterMsg);
 
@@ -1273,7 +1303,7 @@ const updateUserIntradaySquareoff = async (req, res) => {
     const { intraday_squareoff } = req.body;
 
     const filter = { _id: id, deleted_at: null };
-    if (req.master) filter.master_id = req.master.id;
+    if (req.master) filter.master_id = { $in: await downlineMasterIds(req) };
 
     const user = await User.findOne(filter);
     if (!user) {
@@ -1329,7 +1359,7 @@ const updateUserMarginSquareoffPercentage = async (req, res) => {
     }
 
     const filterMSO = { _id: id, deleted_at: null };
-    if (req.master) filterMSO.master_id = req.master.id;
+    if (req.master) filterMSO.master_id = { $in: await downlineMasterIds(req) };
 
     const user = await User.findOne(filterMSO);
 
@@ -1400,15 +1430,18 @@ const updateUserReportPermissions = async (req, res) => {
     // Determine caller and validate ownership
     let parentMaster = null;
     if (req.master) {
-      // Master/SubMaster can only update their DIRECT users
-      if (user.master_id.toString() !== req.master.id) {
+      // Any client in the calling master's downline — capped against the
+      // client's OWN direct parent's permissions (same as the admin branch
+      // below), since that's the master the client actually sits under.
+      const scopeIds = await downlineMasterIds(req);
+      if (!scopeIds.includes(user.master_id.toString())) {
         return res.status(403).json({
           success: false,
-          message: 'Not authorized to update this user. You can only manage your direct users.',
+          message: 'Not authorized to update this user. You can only manage users in your downline.',
           data: null
         });
       }
-      parentMaster = await Master.findById(req.master.id).select('permissions').lean();
+      parentMaster = await Master.findById(user.master_id).select('permissions').lean();
     } else if (req.admin) {
       parentMaster = await Master.findById(user.master_id).select('permissions').lean();
     } else {

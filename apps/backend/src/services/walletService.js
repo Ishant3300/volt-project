@@ -267,10 +267,29 @@ async function checkIdempotentReplay(idempotencyKey, session) {
  * @param {import('mongoose').ClientSession|null} params.session
  * @param {string|null} [params.idempotencyKey]
  */
+/**
+ * The Master whose pool actually pays for (or receives back) a Master
+ * actor's assign/withdraw: the target client's DIRECT parent. For a master's
+ * own client that's the actor itself (unchanged behaviour); for a client in
+ * the actor's downline (a sub-master's client) it's that sub-master, so funds
+ * always move one hierarchy level at a time instead of skipping a level.
+ * Sub-master targets keep paying from the actor (they're direct-child-only
+ * — see walletController.assertAuthorizedTarget).
+ */
+async function payingMasterFor(actor, targetModel, targetId, s) {
+  if (targetModel !== 'User') return actor.id;
+  const clientUser = await User.findById(targetId).select('master_id').session(s);
+  if (!clientUser || !clientUser.master_id) {
+    throw new Error('Client has no parent master');
+  }
+  return clientUser.master_id;
+}
+
 async function writeFundingAudit(params) {
   const {
     type, direction, actor, targetModel, targetId, category, amount,
     targetBefore, targetAfter, actorBefore, actorAfter, session, idempotencyKey,
+    payerMasterId = null,
   } = params;
 
   const transactionId = `TXN_${Date.now()}_${Math.random().toString(36).substr(2, 6)}_W`;
@@ -296,6 +315,12 @@ async function writeFundingAudit(params) {
       targetBalanceAfter: roundMoney(targetAfter),
       actorBalanceBefore: actorBefore == null ? null : roundMoney(actorBefore),
       actorBalanceAfter: actorAfter == null ? null : roundMoney(actorAfter),
+      // Set when a master's action was paid by a different master (the
+      // client's own parent — see payingMasterFor); the actorBalance fields
+      // above are then that payer's balances, not the actor's.
+      ...(payerMasterId && String(payerMasterId) !== String(actor && actor.id)
+        ? { payer: { type: 'Master', id: payerMasterId } }
+        : {}),
     },
   };
 
@@ -348,12 +373,18 @@ async function assign(actor, targetModel, targetId, category, amount, session = 
 
     let actorBefore = null;
     let actorAfter = null;
+    let payerMasterId = null;
 
     if (actor.type === 'Master') {
-      actorBefore = (await readWallet(Master, actor.id, s))[category];
-      // Debit the master first — throws INSUFFICIENT_WALLET (and aborts the
+      // The paying pool is the target's DIRECT parent — for a master's own
+      // client that's the master itself (unchanged), but a master acting on
+      // a sub-master's client (downline) funds it from that sub-master, not
+      // from their own pool, so money always moves one level at a time.
+      payerMasterId = await payingMasterFor(actor, targetModel, targetId, s);
+      actorBefore = (await readWallet(Master, payerMasterId, s))[category];
+      // Debit the payer first — throws INSUFFICIENT_WALLET (and aborts the
       // transaction) before the target is ever credited.
-      await block('Master', actor.id, category, rounded, s);
+      await block('Master', payerMasterId, category, rounded, s);
       actorAfter = roundMoney(actorBefore - rounded);
     } else if (actor.type === 'Admin' && targetModel === 'User') {
       // Admin funding a CLIENT's wallet: debit the client's own DIRECT
@@ -388,6 +419,7 @@ async function assign(actor, targetModel, targetId, category, amount, session = 
       targetAfter,
       actorBefore,
       actorAfter,
+      payerMasterId,
       session: s,
       idempotencyKey,
     });
@@ -441,9 +473,14 @@ async function withdraw(actor, targetModel, targetId, category, amount, session 
 
     let actorBefore = null;
     let actorAfter = null;
+    let payerMasterId = null;
     if (actor.type === 'Master') {
-      actorBefore = (await readWallet(Master, actor.id, s))[category];
-      await release('Master', actor.id, category, rounded, s);
+      // Mirror of assign(): withdrawn funds go back to the target's DIRECT
+      // parent — the master itself for their own client, or the sub-master
+      // for a downline client, never skipping a level.
+      payerMasterId = await payingMasterFor(actor, targetModel, targetId, s);
+      actorBefore = (await readWallet(Master, payerMasterId, s))[category];
+      await release('Master', payerMasterId, category, rounded, s);
       actorAfter = roundMoney(actorBefore + rounded);
     } else if (actor.type === 'Admin' && targetModel === 'User') {
       // Mirror of assign()'s admin-funds-client branch above: withdrawing
@@ -470,6 +507,7 @@ async function withdraw(actor, targetModel, targetId, category, amount, session 
       targetAfter,
       actorBefore,
       actorAfter,
+      payerMasterId,
       session: s,
       idempotencyKey,
     });
