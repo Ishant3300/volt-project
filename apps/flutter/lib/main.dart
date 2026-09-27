@@ -17,6 +17,7 @@ import 'package:stocker/firebase_options.dart';
 import 'package:stocker/utils/contants.dart';
 import 'package:stocker/pages/login_page.dart';
 import 'initial_sheet.dart';
+import 'dart:async';
 import 'dart:developer';
 
 void main() async {
@@ -33,12 +34,20 @@ void main() async {
   print('✅ Firebase initialized');
 
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-  await FirebaseService().init();
-  print('✅ FirebaseService initialized');
 
   print('🚀 Starting $kAppName App');
   runApp(const MyApp());
   print('✅ runApp called');
+
+  // FirebaseService().init() requests notification permissions — a real OS
+  // dialog that can sit waiting on the user — and sets up channels, neither
+  // of which the first frame needs. It used to block runApp() itself, so
+  // every cold start paid for it before the user saw anything at all. Fired
+  // here instead, after the splash is already on screen; the permission
+  // prompt now appears a moment after launch rather than delaying launch.
+  unawaited(FirebaseService().init().then((_) {
+    print('✅ FirebaseService initialized');
+  }));
 }
 
 class MyApp extends StatefulWidget {

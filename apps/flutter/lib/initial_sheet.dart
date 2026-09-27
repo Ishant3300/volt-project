@@ -76,8 +76,10 @@ class _InitialScreenState extends State<InitialScreen> {
   Future<void> _checkAuthStatus() async {
     print('🔐 Checking authentication status...');
 
-    await Future.delayed(const Duration(seconds: 2));
-
+    // A flat 2s artificial delay used to sit here before any real work
+    // started — pure splash-screen padding with no functional purpose,
+    // and directly at odds with wanting a fast cold start. Removed; the
+    // splash now shows for only as long as the real checks below take.
     if (!mounted) return;
     await _checkForUpdate();
     if (!mounted) return;
@@ -118,25 +120,32 @@ class _InitialScreenState extends State<InitialScreen> {
         try {
           final profileProvider =
               Provider.of<UserProfileProvider>(context, listen: false);
-          await profileProvider.fetchProfile().timeout(
-            const Duration(seconds: 15),
-            onTimeout: () {
-              log('⏰ Profile fetch timed out');
-              throw Exception('Profile fetch timed out');
-            },
-          );
-
-          if (!mounted) return;
           final tradeMetricsProvider =
               Provider.of<TradeMetricsProvider>(context, listen: false);
-          await tradeMetricsProvider.fetchBaseData().timeout(
-            const Duration(seconds: 15),
-            onTimeout: () {
-              log('⏰ Base data fetch timed out');
-              throw Exception('Base data fetch timed out');
-            },
-          );
+          // Independent fetches (fetchBaseData never reads from
+          // profileProvider — confirmed, it re-reads its own token from
+          // storage) — running them one after another was paying for two
+          // full network round-trips back to back for no reason. In
+          // parallel via Future.wait, cold start only waits as long as the
+          // SLOWER of the two, not their sum.
+          await Future.wait([
+            profileProvider.fetchProfile().timeout(
+              const Duration(seconds: 15),
+              onTimeout: () {
+                log('⏰ Profile fetch timed out');
+                throw Exception('Profile fetch timed out');
+              },
+            ),
+            tradeMetricsProvider.fetchBaseData().timeout(
+              const Duration(seconds: 15),
+              onTimeout: () {
+                log('⏰ Base data fetch timed out');
+                throw Exception('Base data fetch timed out');
+              },
+            ),
+          ]);
 
+          if (!mounted) return;
           apiService.setInitializing(false);
 
           if (!mounted) return;

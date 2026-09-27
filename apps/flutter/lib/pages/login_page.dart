@@ -373,17 +373,31 @@ class _LoginPageState extends State<LoginPage> {
 
                                 final token = body['data']?['token'];
                                 if (token != null) {
+                                  // This dialog used to be admin-only, so it
+                                  // hardcoded 'ADMIN' here — now that a
+                                  // master can have TOTP enabled too (see
+                                  // totpService.js), that hardcoding mislabels
+                                  // every TOTP-enabled master as an admin in
+                                  // local storage and the account switcher,
+                                  // even though the token itself is a real
+                                  // master token. universalLogin's response
+                                  // already carries the true role — use it.
+                                  final role =
+                                      (body['data']?['role'] as String?) ??
+                                          'ADMIN';
+                                  final accountData =
+                                      body['data']?[role.toLowerCase()];
+
                                   final secStorage = SecureStorageService();
                                   await secStorage.saveToken(token: token);
-                                  await secStorage.saveRole(role: 'ADMIN');
+                                  await secStorage.saveRole(role: role);
 
                                   final multiAccount = MultiAccountService();
-                                  final adminData = body['data']?['admin'];
                                   final savedAccount = SavedAccount(
                                     username: _usernameController.text.trim(),
-                                    role: 'ADMIN',
+                                    role: role,
                                     token: token,
-                                    name: adminData?['username'] ??
+                                    name: accountData?['username'] ??
                                         _usernameController.text.trim(),
                                   );
                                   await multiAccount.saveAccount(savedAccount);
