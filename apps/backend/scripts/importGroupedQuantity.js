@@ -2,9 +2,14 @@
  * Import a Group Quantity sheet (CSV) straight into GroupedQuantity, instead
  * of building the group by hand in Admin one script at a time.
  *
- * Input format — one row per script, no header:
- *   GROUP, EXCHANGE, SCRIPT, MAX_QTY, BREAK_QTY
+ * Input format — one row per script, either:
+ *   GROUP, EXCHANGE, SCRIPT, MAX_QTY, BREAK_QTY            (no header)
  *   GOLDMIN,NSEFUT,ABCAPITAL,"2,700.00","1,000.00"
+ * or the 6-column export with a header row:
+ *   User Type,Market Name,Script Name,Position,Min Order,Max Order
+ *   HRY 3 LOT,NSEFUT,360ONE,1500,1,1500
+ *   (Position -> max_qty, Max Order -> break_qty, Min Order ignored)
+ * A script listed twice for the same exchange: the LAST row wins (reported).
  * EXCHANGE codes: NSEFUT, NSEOPT, MCXFUT, MCXOPT, COMEXFUT, GLOBAL FUTURES.
  * Numbers may carry thousands separators. The GROUP column is informational
  * only — the group name comes from --group (sheets sometimes carry typos).
@@ -97,7 +102,10 @@ async function main() {
   const badRows = [];
   const groupCol = new Map();
   lines.forEach((line, idx) => {
-    const [grp, exCode, script, maxRaw, breakRaw] = parseCsvLine(line);
+    const cols = parseCsvLine(line);
+    if (idx === 0 && /^user type$/i.test(cols[0] || '')) return; // header row
+    const [grp, exCode, script, maxRaw, breakRaw] =
+      cols.length >= 6 ? [cols[0], cols[1], cols[2], cols[3], cols[5]] : cols;
     groupCol.set(grp, (groupCol.get(grp) || 0) + 1);
     const exchange = EXCHANGE_MAP[String(exCode || '').toUpperCase()];
     const max = toNumber(maxRaw);
@@ -127,8 +135,15 @@ async function main() {
     const planned = new Map(); // raw_name -> { max, brk, lot_size, source }
     const unmatched = [];
     const aliased = [];
+    const seen = new Map();
+    const dupes = [];
+    const breakOverMax = [];
     for (const r of rows) {
       const key = r.script.toUpperCase();
+      const prev = seen.get(key);
+      if (prev && (prev.max !== r.max || prev.brk !== r.brk)) dupes.push(`${r.script} ${prev.max}/${prev.brk}→${r.max}/${r.brk}`);
+      seen.set(key, r);
+      if (r.brk > r.max) breakOverMax.push(`${r.script} ${r.max}/${r.brk}`);
       const aliasTarget = ALIASES[key];
       const inst = liveByUpper.get(key) || (aliasTarget && liveByUpper.get(aliasTarget.toUpperCase()));
       if (!inst) { unmatched.push(r.script); continue; }
@@ -155,6 +170,8 @@ async function main() {
 
     console.log(`\n== ${exchange}: from file ${rows.length - unmatched.length}/${rows.length}, filled from ${args.fillFrom || '-'} ${filled.length}, total to write ${planned.size} (live scripts ${instruments.length})`);
     if (aliased.length) console.log(`  renamed: ${aliased.join(', ')}`);
+    if (dupes.length) console.log(`  DUPLICATE rows, last one used (${dupes.length}): ${dupes.join(', ')}`);
+    if (breakOverMax.length) console.log(`  per-order qty > max qty (${breakOverMax.length}): ${breakOverMax.join(', ')}`);
     if (unmatched.length) console.log(`  SKIPPED — not a live script (${unmatched.length}): ${unmatched.join(', ')}`);
     if (stillUnlimited.length) console.log(`  NO LIMIT — live but not in file${args.fillFrom ? ` or ${args.fillFrom}` : ''} (${stillUnlimited.length}): ${stillUnlimited.join(', ')}`);
 

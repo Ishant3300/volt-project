@@ -112,7 +112,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   /// The master's own group (Exchange Allow dropdown). Picking one also
   /// ticks it in Allotted Groups (admin only — that section is admin-only),
   /// so the common case is a single selection instead of the same group
-  /// twice. Only a real pick does this — the automatic 'Default' pre-fill
+  /// twice. Only a real pick does this — the automatic 'GOLDMIN' pre-fill
   /// on a new master does NOT, since an exchange with no allotted groups
   /// means "unrestricted" and must stay that way unless chosen.
   void _setOwnGroup(String exchange, String? value) {
@@ -463,12 +463,12 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             if (data['success'] == true && data['data'] != null) {
               final names = List<String>.from(data['data']);
               _availableGroupsByExchange[exchange] = names;
-              // Auto-select 'Default' when creating a new master (not
+              // Auto-select 'GOLDMIN' when creating a new master (not
               // editing) — same as create_user_view.dart's own group fetch.
               if (widget.master == null &&
                   _scriptQuantityGroup[exchange] == null &&
-                  names.contains('Default')) {
-                _scriptQuantityGroup[exchange] = 'Default';
+                  names.contains('GOLDMIN')) {
+                _scriptQuantityGroup[exchange] = 'GOLDMIN';
               }
             }
           }

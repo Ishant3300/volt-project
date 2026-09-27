@@ -372,12 +372,12 @@ class _CreateUserViewState extends State<CreateUserView> {
           final names = List<String>.from(data['data']);
           setState(() {
             _exchangeLotNames[exchange] = names;
-            // Auto-select 'Default' group when creating a new user (not editing)
+            // Auto-select 'GOLDMIN' group when creating a new user (not editing)
             if (widget.user == null &&
                 _exchangeSettings[exchange] != null &&
                 _exchangeSettings[exchange]!['group'] == null &&
-                names.contains('Default')) {
-              _exchangeSettings[exchange]!['group'] = 'Default';
+                names.contains('GOLDMIN')) {
+              _exchangeSettings[exchange]!['group'] = 'GOLDMIN';
             }
           });
         }
