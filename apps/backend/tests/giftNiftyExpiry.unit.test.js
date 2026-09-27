@@ -40,4 +40,14 @@ describe('GIFT NIFTY expiries from NSEIX', () => {
     expect(feed._pickNearMonthFuture(ROWS, ist('2026-09-29T16:05:00')).LASTPRICE).toBe(23284);
     expect(feed._pickNearMonthFuture([], ist('2026-09-29T16:35:00'))).toBeNull();
   });
+
+  test('expiry day 3:30–4:00 PM is closing-only for GIFT NIFTY', () => {
+    const gift = { tradingsymbol: 'GIFT NIFTY', expiry: d('2026-09-29') };
+    expect(feed.isGiftExpiryHalt(gift, ist('2026-09-29T15:29:00'))).toBe(false);
+    expect(feed.isGiftExpiryHalt(gift, ist('2026-09-29T15:30:00'))).toBe(true);
+    expect(feed.isGiftExpiryHalt(gift, ist('2026-09-29T15:39:00'))).toBe(true);
+    expect(feed.isGiftExpiryHalt(gift, ist('2026-09-29T16:00:00'))).toBe(false); // next month, session 2
+    expect(feed.isGiftExpiryHalt(gift, ist('2026-09-28T15:35:00'))).toBe(false); // not expiry day
+    expect(feed.isGiftExpiryHalt({ tradingsymbol: 'NIFTY26SEPFUT', expiry: d('2026-09-29') }, ist('2026-09-29T15:35:00'))).toBe(false);
+  });
 });

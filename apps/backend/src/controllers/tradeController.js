@@ -700,7 +700,7 @@ const placeTrade = async (req, res) => {
             // ever checked expiry at all. Date-only comparison (matches
             // fetchInstruments.js's own "expired" boundary) so trading is
             // still allowed through the end of the expiry day itself.
-            const instCheckExpiry = await KiteInstrument.findOne({ instrument_token }).select('enabled deleted_at expiry nse_banned ban_reason').lean().session(session);
+            const instCheckExpiry = await KiteInstrument.findOne({ instrument_token }).select('enabled deleted_at expiry nse_banned ban_reason tradingsymbol').lean().session(session);
             if (instCheckExpiry?.expiry) {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
@@ -722,7 +722,10 @@ const placeTrade = async (req, res) => {
                 }
                 const isDisabled = instCheck && instCheck.enabled === false;
                 const isNseBanned = instCheck && instCheck.nse_banned === true;
-                if (isDisabled || isNseBanned) {
+                // GIFT NIFTY expiry day, 3:30–4:00 PM: NSE IX has stopped the
+                // expiring contract and its price is frozen — closing only.
+                const isGiftExpiryHalt = require('../services/giftNiftyFeedService').isGiftExpiryHalt(instCheck);
+                if (isDisabled || isNseBanned || isGiftExpiryHalt) {
                     // Check if this trade is closing an existing position
                     const posAggEnabled = await Trade.aggregate([
                         { $match: { user_id: user._id, instrument_token, status: 'completed', deleted_at: null } },
@@ -742,7 +745,9 @@ const placeTrade = async (req, res) => {
 
                     const blockedReason = isNseBanned
                         ? 'This script is under NSE F&O ban (MWPL limit exceeded).'
-                        : (instCheck.ban_reason || 'This instrument has been disabled by admin.');
+                        : isGiftExpiryHalt && !isDisabled
+                            ? "GIFT NIFTY's expiring contract stopped trading at 3:30 PM today."
+                            : (instCheck.ban_reason || 'This instrument has been disabled by admin.');
 
                     // Allow closing up to the net position qty, block anything beyond
                     if (!isClosingEnabled) {

@@ -29,6 +29,7 @@ const MONTHS = { JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5, JUL: 6, AUG: 7,
 // before session 2 opens. (The GIFT NIFTY expiry cut runs at 15:41, the
 // same time as NSE futures — config/expiryRules.js.)
 const EXPIRY_DAY_CUTOFF_MINUTE = 16 * 60;
+const EXPIRING_TRADING_END_MINUTE = (15 * 60) + 30;
 // Re-assert the stored near-month expiry at most this often — the daily
 // Kite instrument sync (fetchInstruments.js) rewrites GIFT NIFTY with
 // Kite's own, expiry-less record.
@@ -47,6 +48,20 @@ function isPastExpiry(expiry, now = new Date()) {
   const todayKey = `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
   const key = dateKey(expiry);
   return key < todayKey || (key === todayKey && (p.hour * 60 + p.minute) >= EXPIRY_DAY_CUTOFF_MINUTE);
+}
+
+/**
+ * GIFT NIFTY on its expiry day between 3:30 PM (NSE IX stops the expiring
+ * contract) and 4:00 PM (quotes roll to next month): the platform still
+ * allows trading until 3:40 PM, but prices are frozen at the 3:30 last
+ * quote — so only closing orders are accepted then (tradeController).
+ */
+function isGiftExpiryHalt(instrument, now = new Date()) {
+  if (!instrument || String(instrument.tradingsymbol || '').toUpperCase() !== 'GIFT NIFTY' || !instrument.expiry) return false;
+  const p = getIndiaDateTimeParts(now);
+  const todayKey = `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
+  const mins = p.hour * 60 + p.minute;
+  return dateKey(instrument.expiry) === todayKey && mins >= EXPIRING_TRADING_END_MINUTE && mins < EXPIRY_DAY_CUTOFF_MINUTE;
 }
 
 /** NIFTY FUTIDX rows → sorted distinct expiries still trading as of `now`. */
@@ -214,4 +229,5 @@ class GiftNiftyFeedService {
 }
 
 module.exports = new GiftNiftyFeedService();
+module.exports.isGiftExpiryHalt = isGiftExpiryHalt;
 module.exports._private = { parseNseixDate, isPastExpiry, listedExpiries };
