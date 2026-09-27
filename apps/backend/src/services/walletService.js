@@ -269,20 +269,22 @@ async function checkIdempotentReplay(idempotencyKey, session) {
  */
 /**
  * The Master whose pool actually pays for (or receives back) a Master
- * actor's assign/withdraw: the target client's DIRECT parent. For a master's
- * own client that's the actor itself (unchanged behaviour); for a client in
- * the actor's downline (a sub-master's client) it's that sub-master, so funds
- * always move one hierarchy level at a time instead of skipping a level.
- * Sub-master targets keep paying from the actor (they're direct-child-only
- * — see walletController.assertAuthorizedTarget).
+ * actor's assign/withdraw: the target's DIRECT parent. For the actor's own
+ * client or sub-master that's the actor itself (unchanged behaviour); for an
+ * account further down the actor's downline (e.g. a client or sub-master
+ * belonging to the actor's sub-master) it's that account's own parent, so
+ * funds always move one hierarchy level at a time instead of skipping one.
  */
 async function payingMasterFor(actor, targetModel, targetId, s) {
-  if (targetModel !== 'User') return actor.id;
-  const clientUser = await User.findById(targetId).select('master_id').session(s);
-  if (!clientUser || !clientUser.master_id) {
-    throw new Error('Client has no parent master');
+  const Model = targetModel === 'User' ? User : Master;
+  const target = await Model.findById(targetId).select('master_id').session(s);
+  if (!target || !target.master_id) {
+    if (targetModel === 'User') throw new Error('Client has no parent master');
+    // A top-level master has no parent master — only reachable by an
+    // admin, never by a master actor; keep the actor as payer defensively.
+    return actor.id;
   }
-  return clientUser.master_id;
+  return target.master_id;
 }
 
 async function writeFundingAudit(params) {

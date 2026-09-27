@@ -163,10 +163,10 @@ async function applyWalletFunding({ req, targetType, targetId, walletMap, sessio
  * target doc (Requirement 5.6).
  *
  * - **Admin** → allowed for anyone; 404 if the target does not exist.
- * - **Master** → the target must be a DIRECT CHILD the master owns:
- *     - a `User` target's owning master is `User.master_id`;
- *     - a sub-`Master` target's parent is `Master.master_id`.
- *   Both are compared against `actor.id`. 404 if missing, 403 if not a direct child.
+ * - **Master** → the target must be in the master's downline: its parent
+ *   (`User.master_id` / `Master.master_id`) is the master or one of their
+ *   sub-masters. 404 if missing, 403 otherwise. The paying pool is the
+ *   target's own parent (walletService.payingMasterFor).
  *
  * @param {{type:'Master'|'Admin', id:string}} actor
  * @param {'User'|'Master'} targetModel
@@ -189,22 +189,14 @@ async function assertAuthorizedTarget(actor, targetModel, targetId) {
 
   if (actor.type === 'Admin') return target;
 
-  // Master actor funding a CLIENT: any client in their downline (their own
-  // clients or their sub-masters' clients). The money itself still moves
-  // against the client's own direct parent, never the acting master's pool
+  // Master actor: any client or sub-master in their downline (their own
+  // children, or their sub-masters' children). The money itself always
+  // moves against the target's OWN direct parent, never skipping a level
   // — see walletService.payingMasterFor.
-  if (targetModel === 'User') {
-    const { getAllSubMasterIds } = require('../services/masterHierarchyService');
-    const downline = await getAllSubMasterIds(actor.id);
-    if (!downline.includes(String(target.master_id))) {
-      throw httpError(403, 'Not authorized: client is not in your downline');
-    }
-    return target;
-  }
-
-  // Master actor funding a sub-MASTER: only a direct child they own.
-  if (String(target.master_id) !== String(actor.id)) {
-    throw httpError(403, 'Not authorized: target is not a direct child you own');
+  const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+  const downline = await getAllSubMasterIds(actor.id);
+  if (!downline.includes(String(target.master_id))) {
+    throw httpError(403, 'Not authorized: target is not in your downline');
   }
   return target;
 }
@@ -379,7 +371,7 @@ async function getWallet(req, res) {
     if (actor.type === 'Master') {
       const isSelf = owner_type === 'Master' && String(owner_id) === String(actor.id);
       if (!isSelf) {
-        // Non-self reads: a downline client, or a direct sub-master (throws 403/404).
+        // Non-self reads: any client or sub-master in the downline (throws 403/404).
         await assertAuthorizedTarget(actor, owner_type, owner_id);
       }
     }

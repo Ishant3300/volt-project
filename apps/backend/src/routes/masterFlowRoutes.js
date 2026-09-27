@@ -13,6 +13,7 @@ const LoginHistory = require('../models/LoginHistory');
 const {
   createChildMaster,
   getAllChildMasters,
+  getDownlineMasters,
   getChildMasterById,
   updateChildMasterPermissions,
   updateChildMasterDetails,
@@ -113,6 +114,7 @@ router.post('/masters', rejectIfInvestor, createChildMaster);
 
 // Get all child masters
 router.get('/masters', getAllChildMasters);
+router.get('/downline-masters', getDownlineMasters);
 
 // Get child master by ID
 router.get('/masters/:id', getChildMasterById);

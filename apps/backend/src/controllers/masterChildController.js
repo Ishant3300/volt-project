@@ -77,6 +77,16 @@ const createChildMaster = async (req, res) => {
 
     let resultData;
     let responseMessage;
+    // "Create account for": when a master creates a sub-master on behalf of
+    // a master in their downline, that master becomes the parent and owns it
+    // end to end (its balance, add_master permission, account limit, sharing
+    // and permission caps, and brokerage/script-quantity baseline).
+    let parentId = null;
+    if (isMaster) {
+      const { resolveCreateParentId } = require('../services/masterHierarchyService');
+      parentId = await resolveCreateParentId(req);
+    }
+    const actedByOther = isMaster && parentId !== String(req.master.id);
 
     await session.withTransaction(async () => {
       let parentMaster = null;
@@ -85,7 +95,7 @@ const createChildMaster = async (req, res) => {
         adminId = req.admin.id;
         console.log('👑 Admin creating master, adminId:', adminId);
       } else if (isMaster) {
-        parentMaster = await Master.findById(req.master.id).session(session);
+        parentMaster = await Master.findById(parentId).session(session);
 
         if (!parentMaster) throw new Error('Parent master not found');
         if (!parentMaster.add_master) throw new Error('No permission to create child masters');
@@ -102,7 +112,7 @@ const createChildMaster = async (req, res) => {
         }
 
         adminId = parentMaster.admin_id;
-        console.log('👨‍💼 Master creating child master, parentId:', req.master.id, 'adminId:', adminId);
+        console.log('👨‍💼 Master creating child master, parentId:', parentId, actedByOther ? `(on behalf, by ${req.master.id})` : '', 'adminId:', adminId);
       } else {
         throw new Error('Unauthorized');
       }
@@ -213,7 +223,7 @@ const createChildMaster = async (req, res) => {
           referenceModel: 'Master',
           balanceBefore: prevMasterBalance,
           balanceAfter: parentMaster.equity,
-          metadata: { note: note || 'Deducted balance for new child master creation' }
+          metadata: { note: note || 'Deducted balance for new child master creation', ...(actedByOther ? { acted_by: { type: 'Master', id: req.master.id } } : {}) }
         });
         await masterTx.save({ session });
       }
@@ -331,7 +341,7 @@ const createChildMaster = async (req, res) => {
   } catch (error) {
     session.endSession();
 
-    let statusCode = 500;
+    let statusCode = error.status || 500;
     if (error.message.includes('not found')) statusCode = 404;
     else if (error.message === 'Unauthorized' || error.message.includes('No permission')) statusCode = 403;
     else if (error.message.includes('Insufficient') || error.message.includes('exists') || error.message.includes('between 0 and 100') || error.message.includes('grant permission') || error.message.includes('Account limit reached') || error.message.includes('cannot be less than your own rate')) statusCode = 400;
@@ -347,6 +357,51 @@ const createChildMaster = async (req, res) => {
       message: sanitizeErrorMessage(error),
       data: null
     });
+  }
+};
+
+/**
+ * GET /api/master/downline-masters — every master in the caller's downline
+ * (children, grandchildren, ...), excluding the caller, in hierarchy order.
+ * Powers the "Create account for" picker on the create client / create
+ * sub-master screens; each entry carries what those forms need to show the
+ * TARGET master's own limits (balance, sharing caps, add_master, server).
+ */
+const getDownlineMasters = async (req, res) => {
+  try {
+    if (!req.master) {
+      return res.status(403).json({ success: false, message: 'Only a master can list their downline', data: null });
+    }
+    const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+    const ids = (await getAllSubMasterIds(req.master.id)).filter((id) => id !== String(req.master.id));
+    if (ids.length === 0) {
+      return res.status(200).json({ success: true, message: 'No downline masters', data: [] });
+    }
+    const masters = await Master.find({ _id: { $in: ids }, deleted_at: null })
+      .select('name username master_id add_master equity pnl_sharing brokerage_sharing server_id status active_status')
+      .populate('master_id', 'name username')
+      .lean();
+    const order = new Map(ids.map((id, i) => [id, i]));
+    masters.sort((a, b) => order.get(String(a._id)) - order.get(String(b._id)));
+    res.status(200).json({
+      success: true,
+      message: 'Downline masters retrieved successfully',
+      data: masters.map((m) => ({
+        id: m._id,
+        name: m.name,
+        username: m.username,
+        parent: m.master_id ? { id: m.master_id._id, name: m.master_id.name, username: m.master_id.username } : null,
+        add_master: !!m.add_master,
+        equity: m.equity,
+        pnl_sharing: m.pnl_sharing,
+        brokerage_sharing: m.brokerage_sharing,
+        server_id: m.server_id,
+        status: m.status,
+        active_status: m.active_status,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
   }
 };
 
@@ -1148,6 +1203,7 @@ const deleteChildMaster = async (req, res) => {
 module.exports = {
   createChildMaster,
   getAllChildMasters,
+  getDownlineMasters,
   getChildMasterById,
   updateChildMasterPermissions,
   updateChildMasterDetails,

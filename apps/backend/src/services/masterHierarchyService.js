@@ -54,4 +54,28 @@ const getAdminHiddenMasterIds = async (admin) => {
   return result;
 };
 
-module.exports = { getAllSubMasterIds, getAdminHiddenMasterIds };
+/**
+ * "Create account for" — a master creating a client or sub-master ON BEHALF
+ * of a master in their own downline (e.g. harry creating a client that
+ * belongs to his sub-master vijay). Resolves which master becomes the new
+ * account's parent: `req.body.for_master_id` when given, else the caller.
+ * Everything downstream (balance debit, account limit, brokerage copy/floor,
+ * group allotment, sharing caps) then keys off this id, so the account is
+ * owned by — and funded by — that master, not the one who pressed Create.
+ * Throws an Error with `status: 403` if the target isn't in the caller's
+ * downline.
+ */
+async function resolveCreateParentId(req) {
+  const selfId = String(req.master.id);
+  const forId = req.body && req.body.for_master_id ? String(req.body.for_master_id) : null;
+  if (!forId || forId === selfId) return selfId;
+  const downline = await getAllSubMasterIds(selfId);
+  if (!downline.includes(forId)) {
+    const err = new Error('Not authorized to create accounts for this master');
+    err.status = 403;
+    throw err;
+  }
+  return forId;
+}
+
+module.exports = { getAllSubMasterIds, getAdminHiddenMasterIds, resolveCreateParentId };

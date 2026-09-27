@@ -11,8 +11,10 @@ import '../services/master_service.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../models/user.dart';
+import '../models/master.dart';
 import '../utils/contants.dart';
 import '../utils/wallet_category.dart';
+import '../widgets/create_for_master_picker.dart';
 
 class CreateUserView extends StatefulWidget {
   final User? user;
@@ -86,6 +88,78 @@ class _CreateUserViewState extends State<CreateUserView> {
   // shows (which the master then edits).
   final Map<String, double> _brokerageFloor = {};
 
+  // "Create account for" (create mode, master login): a master in the
+  // logged-in master's downline who will own AND fund the new client — e.g.
+  // harry creating a client for his sub-master vijay. Every owner-dependent
+  // value (offered exchanges, trade limits, balance/wallet checks, P&L and
+  // brokerage sharing, server, brokerage rates/floor) reads _ownerMaster,
+  // never profileProvider.master directly. The backend (`for_master_id`)
+  // enforces the same ownership.
+  List<Map<String, dynamic>> _downlineMasters = [];
+  bool _createForOther = false;
+  Master? _forMaster;
+  bool _loadingForMaster = false;
+
+  Master? get _ownerMaster =>
+      _forMaster ??
+      Provider.of<UserProfileProvider>(context, listen: false).master;
+
+  Future<void> _loadDownlineMasters() async {
+    try {
+      final token = await SecureStorageService().getToken();
+      final res = await ApiService(backendUrl)
+          .get('/master/downline-masters', token: token);
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['success'] == true && mounted) {
+          setState(() => _downlineMasters =
+              List<Map<String, dynamic>>.from(body['data'] ?? []));
+        }
+      }
+    } catch (e) {
+      log('⚠️ Error loading downline masters: $e');
+    }
+  }
+
+  /// null = back to the logged-in master. Otherwise loads that master's full
+  /// record (balance, wallet, sharing, server, exchanges) and re-derives the
+  /// whole form from it.
+  Future<void> _selectForMaster(String? masterId) async {
+    if (masterId == null) {
+      setState(() => _forMaster = null);
+      _reloadForOwner();
+      return;
+    }
+    setState(() => _loadingForMaster = true);
+    try {
+      final token = await SecureStorageService().getToken();
+      final res = await ApiService(backendUrl)
+          .get('/master/masters/$masterId', token: token);
+      final body = jsonDecode(res.body);
+      if (res.statusCode == 200 && body['success'] == true && mounted) {
+        setState(() => _forMaster = Master.fromJson(body['data']));
+        _reloadForOwner();
+      } else if (mounted) {
+        _showSnack(body['message'] ?? 'Could not load that master',
+            isError: true);
+      }
+    } catch (e) {
+      if (mounted) _showSnack('Could not load that master', isError: true);
+    } finally {
+      if (mounted) setState(() => _loadingForMaster = false);
+    }
+  }
+
+  /// Everything owner-dependent is re-derived for the new owner: allowed
+  /// exchanges/trade limits, brokerage rows and their floor.
+  void _reloadForOwner() {
+    setState(() {
+      _brokerageFloor.clear();
+      _brokerageCustomized.clear();
+    });
+    _loadMasterPermissions();
+  }
+
   // Trade Wallet inputs per allowed category (NSE/MCX/GLOBAL)
   final Map<String, TextEditingController> _walletControllers = {};
 
@@ -141,6 +215,9 @@ class _CreateUserViewState extends State<CreateUserView> {
       _changePasswordOnFirstLogin = widget.user!.changePassOnFirstLogin;
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) => _generateUsername());
+      if (Provider.of<UserProfileProvider>(context, listen: false).isMaster) {
+        _loadDownlineMasters();
+      }
     }
   }
 
@@ -155,11 +232,12 @@ class _CreateUserViewState extends State<CreateUserView> {
     List<String>? masterExchanges;
     List<String>? masterTradeLimit;
 
-    if (profileProvider.master != null) {
-      masterExchanges = profileProvider.master!.exchangesAllowed
+    final owner = _ownerMaster;
+    if (owner != null) {
+      masterExchanges = owner.exchangesAllowed
           .map((ex) => ex == 'INDICES' ? 'GLOBAL' : ex)
           .toList();
-      masterTradeLimit = profileProvider.master!.tradeLimit
+      masterTradeLimit = owner.tradeLimit
           .map((ex) => ex == 'INDICES' ? 'GLOBAL' : ex)
           .toList();
     } else if (profileProvider.isAdmin && widget.user != null) {
@@ -322,11 +400,7 @@ class _CreateUserViewState extends State<CreateUserView> {
     // Read BEFORE the first await below — Provider.of needs a still-valid
     // context, and this method has no mounted guard until its own setState
     // calls further down.
-    final ownMasterId = widget.user == null
-        ? Provider.of<UserProfileProvider>(context, listen: false)
-            .master
-            ?.id
-        : null;
+    final ownMasterId = widget.user == null ? _ownerMaster?.id : null;
     try {
       final token = await SecureStorageService().getToken();
       final apiService = ApiService(backendUrl);
@@ -730,11 +804,14 @@ class _CreateUserViewState extends State<CreateUserView> {
     // they themselves currently have — same checks the backend itself
     // enforces (parentMaster.equity < credits / walletService.block), just
     // surfaced here before the request instead of after a rejection.
-    final ownMaster = profileProvider.master;
+    final ownMaster =
+        widget.user == null ? _ownerMaster : profileProvider.master;
+    final whose =
+        _forMaster != null ? "${_forMaster!.username}'s" : 'your own';
     if (ownMaster != null) {
       if (credit > ownMaster.equity) {
         _showSnack(
-            'Opening credit exceeds your own available balance (${ownMaster.equity.toStringAsFixed(2)}).',
+            'Opening credit exceeds $whose available balance (${ownMaster.equity.toStringAsFixed(2)}).',
             isError: true);
         return;
       }
@@ -744,7 +821,7 @@ class _CreateUserViewState extends State<CreateUserView> {
         final available = ownMaster.wallet[category] ?? 0;
         if (entered > available) {
           _showSnack(
-              '$category wallet amount exceeds your own available balance (${available.toStringAsFixed(2)}).',
+              '$category wallet amount exceeds $whose available balance (${available.toStringAsFixed(2)}).',
               isError: true);
           return;
         }
@@ -855,13 +932,14 @@ class _CreateUserViewState extends State<CreateUserView> {
           note: _noteController.text.trim().isEmpty
               ? ''
               : _noteController.text.trim(),
-          pnlSharing: profileProvider.master!.pnlSharing,
-          brokerageSharing: profileProvider.master!.brokerageSharing,
+          pnlSharing: _ownerMaster!.pnlSharing,
+          brokerageSharing: _ownerMaster!.brokerageSharing,
           exchangesAllowed: exchangesAllowed,
           tradeLimit: tradeLimitList,
           marginSquareOff: _marginSquareOff,
           changePassOnFirstLogin: _changePasswordOnFirstLogin,
-          serverId: profileProvider.master!.serverId,
+          serverId: _ownerMaster!.serverId,
+          forMasterId: _forMaster?.id,
           wallet: walletMap.isEmpty ? null : walletMap,
         );
       }
@@ -948,6 +1026,12 @@ class _CreateUserViewState extends State<CreateUserView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (widget.user == null && _downlineMasters.isNotEmpty) ...[
+                      _sectionLabel('CREATE ACCOUNT FOR'),
+                      const SizedBox(height: 12),
+                      _card(child: _buildCreateForPicker()),
+                      const SizedBox(height: 20),
+                    ],
                     _sectionLabel('PERSONAL DETAILS'),
                     const SizedBox(height: 12),
                     _card(
@@ -987,11 +1071,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                               controller: _creditController,
                               keyboardType: TextInputType.number,
                               showWordsInIndian: true,
-                              remainingAvailable: Provider.of<
-                                          UserProfileProvider>(context,
-                                      listen: false)
-                                  .master
-                                  ?.equity),
+                              remainingAvailable: _ownerMaster?.equity),
                           _divider(),
                           _buildTextField(
                               label: 'Note', controller: _noteController),
@@ -1358,6 +1438,24 @@ class _CreateUserViewState extends State<CreateUserView> {
         fontWeight: kFontWeightSemiBold,
         letterSpacing: 0.5,
       ),
+    );
+  }
+
+  Widget _buildCreateForPicker() {
+    return CreateForMasterPicker(
+      masters: _downlineMasters,
+      enabled: _createForOther,
+      selectedId: _forMaster?.id,
+      loading: _loadingForMaster,
+      ownerLabel: _forMaster == null
+          ? null
+          : '${_forMaster!.name} (${_forMaster!.username})',
+      onToggle: (checked) {
+        setState(() => _createForOther = checked);
+        _selectForMaster(
+            checked ? _downlineMasters.first['id']?.toString() : null);
+      },
+      onSelect: _selectForMaster,
     );
   }
 
@@ -1816,10 +1914,7 @@ class _CreateUserViewState extends State<CreateUserView> {
             );
           }),
           Builder(builder: (_) {
-            final master = Provider.of<UserProfileProvider>(context,
-                    listen: false)
-                .master;
-            final available = master?.wallet[category];
+            final available = _ownerMaster?.wallet[category];
             if (available == null) return const SizedBox.shrink();
             return _remainingBalanceHint(available, controller.text);
           }),

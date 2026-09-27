@@ -274,10 +274,17 @@ const createUser = async (req, res) => {
     });
 
     let resultData;
+    // "Create account for": the new client's parent is `for_master_id` (a
+    // master in the caller's downline) when given, else the caller. That
+    // master owns it end to end — its balance is debited, its account limit
+    // and allotted groups apply, and its brokerage rates are copied/floored.
+    const { resolveCreateParentId } = require('../services/masterHierarchyService');
+    const parentId = await resolveCreateParentId(req);
+    const actedByOther = parentId !== String(req.master.id);
 
     await session.withTransaction(async () => {
       // Get parent master
-      const parentMaster = await Master.findById(req.master.id).session(session);
+      const parentMaster = await Master.findById(parentId).session(session);
 
       if (!parentMaster) {
         throw new Error('Parent master not found');
@@ -370,7 +377,7 @@ const createUser = async (req, res) => {
         referenceModel: 'User',
         balanceBefore: prevMasterBalance,
         balanceAfter: parentMaster.equity,
-        metadata: { note: note || 'Deducted balance for new user creation' }
+        metadata: { note: note || 'Deducted balance for new user creation', ...(actedByOther ? { acted_by: { type: 'Master', id: req.master.id } } : {}) }
       });
       await masterTx.save({ session });
 
@@ -429,7 +436,7 @@ const createUser = async (req, res) => {
   } catch (error) {
     session.endSession();
 
-    let statusCode = 500;
+    let statusCode = error.status || 500;
     if (error.message === 'Parent master not found' || error.message === 'Server not found') statusCode = 404;
     else if (error.message.includes('Insufficient balance') || error.message.includes('Username already exists') || error.message.includes('Account limit reached')) statusCode = 400;
     // Task 13: an inline wallet transfer that the master's pool can't cover

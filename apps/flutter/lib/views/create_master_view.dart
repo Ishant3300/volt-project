@@ -11,6 +11,7 @@ import '../services/sercure_storage_service.dart';
 import '../providers/user_profile_provider.dart';
 import '../utils/contants.dart';
 import '../utils/wallet_category.dart';
+import '../widgets/create_for_master_picker.dart';
 
 class CreateMasterView extends StatefulWidget {
   final Master? master;
@@ -134,6 +135,73 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   // "no parent to violate against" case the backend itself skips.
   final Map<String, double> _brokerageFloor = {};
 
+  // "Create account for" (create mode, master login): a master in the
+  // logged-in master's downline (with add_master) who will own AND fund the
+  // new sub-broker — e.g. harry creating a sub-broker under vijay. Balance/
+  // wallet checks, P&L and brokerage sharing caps, server, and the base-rate
+  // prefill/floor all read _ownerMaster, never profileProvider.master
+  // directly. The backend (`for_master_id`) enforces the same ownership.
+  List<Map<String, dynamic>> _downlineMasters = [];
+  bool _createForOther = false;
+  Master? _forMaster;
+  bool _loadingForMaster = false;
+
+  Master? get _ownerMaster =>
+      _forMaster ??
+      Provider.of<UserProfileProvider>(context, listen: false).master;
+
+  Future<void> _loadDownlineMasters() async {
+    try {
+      final token = await SecureStorageService().getToken();
+      final res = await ApiService(backendUrl)
+          .get('/master/downline-masters', token: token);
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['success'] == true && mounted) {
+          setState(() => _downlineMasters =
+              List<Map<String, dynamic>>.from(body['data'] ?? [])
+                  // Only masters allowed to have sub-masters can own one.
+                  .where((m) => m['add_master'] == true)
+                  .toList());
+        }
+      }
+    } catch (e) {
+      log('⚠️ Error loading downline masters: $e');
+    }
+  }
+
+  Future<void> _selectForMaster(String? masterId) async {
+    if (masterId == null) {
+      setState(() => _forMaster = null);
+      _reloadForOwner();
+      return;
+    }
+    setState(() => _loadingForMaster = true);
+    try {
+      final token = await SecureStorageService().getToken();
+      final res = await ApiService(backendUrl)
+          .get('/master/masters/$masterId', token: token);
+      final body = jsonDecode(res.body);
+      if (res.statusCode == 200 && body['success'] == true && mounted) {
+        setState(() => _forMaster = Master.fromJson(body['data']));
+        _reloadForOwner();
+      } else if (mounted) {
+        _showSnack(body['message'] ?? 'Could not load that master',
+            isError: true);
+      }
+    } catch (e) {
+      if (mounted) _showSnack('Could not load that master', isError: true);
+    } finally {
+      if (mounted) setState(() => _loadingForMaster = false);
+    }
+  }
+
+  /// Base rates and their floor are the owner's — re-fetch for the new one.
+  void _reloadForOwner() {
+    setState(() => _brokerageFloor.clear());
+    _fetchOwnBrokerageFloor();
+  }
+
   @override
   void dispose() {
     if (!_isSuccess) _releaseUsername();
@@ -214,6 +282,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     _fetchServers();
     if (widget.master == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _generateUsername());
+      if (Provider.of<UserProfileProvider>(context, listen: false).isMaster) {
+        _loadDownlineMasters();
+      }
     }
 
     // The group catalog backs BOTH the "Allotted Groups" admin-only chips
@@ -304,8 +375,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   Future<void> _fetchOwnBrokerageFloor() async {
     // Read BEFORE the first await below — same reasoning as
     // create_user_view.dart's _fetchCurrentBrokerage.
-    final ownMasterId =
-        Provider.of<UserProfileProvider>(context, listen: false).master?.id;
+    final ownMasterId = _ownerMaster?.id;
     if (ownMasterId == null) return;
     try {
       final token = await SecureStorageService().getToken();
@@ -546,7 +616,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             return;
           }
         } else {
-          serverId = profileProvider.master?.serverId;
+          serverId = _ownerMaster?.serverId;
           if (serverId == null || serverId.isEmpty) {
             _showSnack('Server ID not found. Please logout and login again.',
                 isError: true);
@@ -559,12 +629,15 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               double.tryParse(_profitLossController.text.trim()) ?? 0;
           final brkSharing =
               double.tryParse(_brkSharingController.text.trim()) ?? 0;
-          final parentPnl = profileProvider.master?.pnlSharing ?? 100;
-          final parentBrk = profileProvider.master?.brokerageSharing ?? 100;
+          final parentPnl = _ownerMaster?.pnlSharing ?? 100;
+          final parentBrk = _ownerMaster?.brokerageSharing ?? 100;
+          final whose = _forMaster != null
+              ? "${_forMaster!.username}'s"
+              : 'your';
 
           if (pnlSharing > parentPnl) {
             _showSnack(
-                'P&L sharing cannot exceed your available share of ${parentPnl.toStringAsFixed(1)}%',
+                'P&L sharing cannot exceed $whose available share of ${parentPnl.toStringAsFixed(1)}%',
                 isError: true);
             setState(() => _isSubmitting = false);
             return;
@@ -572,7 +645,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
 
           if (brkSharing > parentBrk) {
             _showSnack(
-                'Brokerage sharing cannot exceed your available share of ${parentBrk.toStringAsFixed(1)}%',
+                'Brokerage sharing cannot exceed $whose available share of ${parentBrk.toStringAsFixed(1)}%',
                 isError: true);
             setState(() => _isSubmitting = false);
             return;
@@ -582,13 +655,13 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           // than they themselves currently have — same checks the backend
           // itself enforces (parentMaster.equity < credits /
           // walletService.block), just surfaced here before the request.
-          final ownMaster = profileProvider.master;
+          final ownMaster = _ownerMaster;
           if (ownMaster != null) {
             final creditEntered =
                 double.tryParse(_creditController.text.trim()) ?? 0;
             if (creditEntered > ownMaster.equity) {
               _showSnack(
-                  'Opening credit exceeds your own available balance (${ownMaster.equity.toStringAsFixed(2)}).',
+                  'Opening credit exceeds ${_forMaster != null ? "${_forMaster!.username}'s" : 'your own'} available balance (${ownMaster.equity.toStringAsFixed(2)}).',
                   isError: true);
               setState(() => _isSubmitting = false);
               return;
@@ -601,7 +674,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               final available = ownMaster.wallet[category] ?? 0;
               if (entered > available) {
                 _showSnack(
-                    '$category wallet amount exceeds your own available balance (${available.toStringAsFixed(2)}).',
+                    '$category wallet amount exceeds ${_forMaster != null ? "${_forMaster!.username}'s" : 'your own'} available balance (${available.toStringAsFixed(2)}).',
                     isError: true);
                 setState(() => _isSubmitting = false);
                 return;
@@ -632,6 +705,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           changePassOnFirstLogin: _changePasswordOnFirstLogin,
           serverId: serverId,
           wallet: walletMap.isEmpty ? null : walletMap,
+          forMasterId: _forMaster?.id,
           allottedScriptQuantityGroups:
               allottedGroupsPayload.isEmpty ? null : allottedGroupsPayload,
           scriptQuantityGroups: scriptQuantityGroupsPayload.isEmpty
@@ -952,6 +1026,29 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Personal Details
+                    if (widget.master == null && _downlineMasters.isNotEmpty) ...[
+                      _sectionLabel('CREATE ACCOUNT FOR'),
+                      const SizedBox(height: 12),
+                      _card(
+                        child: CreateForMasterPicker(
+                          masters: _downlineMasters,
+                          enabled: _createForOther,
+                          selectedId: _forMaster?.id,
+                          loading: _loadingForMaster,
+                          ownerLabel: _forMaster == null
+                              ? null
+                              : '${_forMaster!.name} (${_forMaster!.username})',
+                          onToggle: (checked) {
+                            setState(() => _createForOther = checked);
+                            _selectForMaster(checked
+                                ? _downlineMasters.first['id']?.toString()
+                                : null);
+                          },
+                          onSelect: _selectForMaster,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
                     _sectionLabel('PERSONAL DETAILS'),
                     const SizedBox(height: 12),
                     _card(
@@ -1029,11 +1126,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                               controller: _creditController,
                               keyboardType: TextInputType.number,
                               showWordsInIndian: true,
-                              remainingAvailable: Provider.of<
-                                          UserProfileProvider>(context,
-                                      listen: false)
-                                  .master
-                                  ?.equity),
+                              remainingAvailable: _ownerMaster?.equity),
                           _divider(),
                           _buildTextField(
                               label: 'Note / Remark',
@@ -1051,13 +1144,14 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                     _buildSharingCard(
                       title: 'Profit & Loss Sharing',
                       controller: _profitLossController,
-                      getParentValue: (p) => p.master?.pnlSharing ?? 100,
+                      getParentValue: (p) => _ownerMaster?.pnlSharing ?? 100,
                     ),
                     const SizedBox(height: 12),
                     _buildSharingCard(
                       title: 'BRK Sharing',
                       controller: _brkSharingController,
-                      getParentValue: (p) => p.master?.brokerageSharing ?? 100,
+                      getParentValue: (p) =>
+                          _ownerMaster?.brokerageSharing ?? 100,
                     ),
 
                     const SizedBox(height: 24),
@@ -2368,10 +2462,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             );
           }),
           Builder(builder: (_) {
-            final master =
-                Provider.of<UserProfileProvider>(context, listen: false)
-                    .master;
-            final available = master?.wallet[category];
+            final available = _ownerMaster?.wallet[category];
             if (available == null) return const SizedBox.shrink();
             return _remainingBalanceHint(available, controller.text);
           }),

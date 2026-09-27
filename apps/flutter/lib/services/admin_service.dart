@@ -56,8 +56,13 @@ class AdminService {
     Map<String, double>? wallet,
     List<Map<String, dynamic>>? scriptQuantityGroups,
     List<Map<String, dynamic>>? allottedScriptQuantityGroups,
+    // "Create account for": a downline master who owns/funds the new
+    // sub-broker (only honoured on a master's own create call).
+    String? forMasterId,
   }) async {
     final data = {
+      if (forMasterId != null && forMasterId.isNotEmpty)
+        'for_master_id': forMasterId,
       'name': name,
       'username': username,
       'password': password,
@@ -307,8 +312,12 @@ class AdminService {
     required String serverId,
     String? status,
     Map<String, double>? wallet,
+    // "Create account for": a downline master who owns/funds the new client.
+    String? forMasterId,
   }) async {
     final data = {
+      if (forMasterId != null && forMasterId.isNotEmpty)
+        'for_master_id': forMasterId,
       'name': name,
       'username': username,
       'password': password,
