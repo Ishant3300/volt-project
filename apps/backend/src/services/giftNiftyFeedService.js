@@ -26,7 +26,8 @@ const MONTHS = { JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5, JUL: 6, AUG: 7,
 // onward, NSEIFSC/TRADE/2543) trades the next month. Quotes are held on the
 // expiring contract until 16:00 so its closing bid/ask is what the expiry
 // cut's 15:31 snapshot and the 15:46 expiry-day close price at — then roll
-// before session 2 opens.
+// before session 2 opens. (The GIFT NIFTY expiry cut runs at 15:41, the
+// same time as NSE futures — config/expiryRules.js.)
 const EXPIRY_DAY_CUTOFF_MINUTE = 16 * 60;
 // Re-assert the stored near-month expiry at most this often — the daily
 // Kite instrument sync (fetchInstruments.js) rewrites GIFT NIFTY with

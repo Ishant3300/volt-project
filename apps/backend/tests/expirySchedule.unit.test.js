@@ -101,6 +101,6 @@ describe('planGroup against the real upcoming contracts', () => {
     const gift = planGroup(group('GIFT_NIFTY'), [{ name: 'GIFT NIFTY', expiry: d('2026-10-27') }], NSE, OPTS);
     expect(gift.map((x) => x.kind)).toEqual(['CUT']);
     expect(gift[0].action_date).toBe('2026-10-27');
-    expect(gift[0].execute_at.toISOString()).toBe('2026-10-27T10:01:00.000Z'); // 15:31 IST
+    expect(gift[0].execute_at.toISOString()).toBe('2026-10-27T10:11:00.000Z'); // 15:41 IST, same as NSE futures
   });
 });
