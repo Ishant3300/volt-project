@@ -20,10 +20,14 @@ const KiteInstrument = require('../models/KiteInstrument');
 const { dateKey, getIndiaDateTimeParts } = require('../utils/settlementDates');
 
 const MONTHS = { JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5, JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11 };
-// The expiring NIFTY contract stops trading at 3:40 PM IST on its expiry
-// day (this platform's GIFT NIFTY session-1 close); the evening session
-// that follows already trades the next month.
-const EXPIRY_DAY_CUTOFF_MINUTE = (15 * 60) + 40;
+// On expiry day the expiring NIFTY contract trades 06:15–15:30 IST only
+// (NSE IX consolidated circular NSEIFSC/TRADE/2129, index derivatives
+// "Expiry Day - Trade timings 06.15 AM to 3.30 PM"); session 2 (16:05 IST
+// onward, NSEIFSC/TRADE/2543) trades the next month. Quotes are held on the
+// expiring contract until 16:00 so its closing bid/ask is what the expiry
+// cut's 15:31 snapshot and the 15:46 expiry-day close price at — then roll
+// before session 2 opens.
+const EXPIRY_DAY_CUTOFF_MINUTE = 16 * 60;
 // Re-assert the stored near-month expiry at most this often — the daily
 // Kite instrument sync (fetchInstruments.js) rewrites GIFT NIFTY with
 // Kite's own, expiry-less record.
@@ -36,7 +40,7 @@ function parseNseixDate(value) {
   return new Date(Date.UTC(Number(m[3]), MONTHS[m[2].toUpperCase()], Number(m[1])));
 }
 
-/** Has this contract stopped trading as of `now`? (expiry day after 3:40 PM IST, or later days) */
+/** Should quotes/listing have moved past this contract as of `now`? (expiry day from 4:00 PM IST, or later days) */
 function isPastExpiry(expiry, now = new Date()) {
   const p = getIndiaDateTimeParts(now);
   const todayKey = `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
@@ -140,7 +144,7 @@ class GiftNiftyFeedService {
     }
   }
 
-  /** The near-month row that is still trading — the next month once the expiring one stops at 3:40 PM on expiry day. */
+  /** The near-month row — the next month from 4:00 PM on expiry day (the expiring one stops at 3:30 PM). */
   _pickNearMonthFuture(rows, now = new Date()) {
     const [near] = listedExpiries(rows, now);
     if (!near) return null;

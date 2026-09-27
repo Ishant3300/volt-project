@@ -21,9 +21,10 @@ describe('GIFT NIFTY expiries from NSEIX', () => {
     expect(parseNseixDate('2026-09-29')).toBeNull();
   });
 
-  test('the expiring contract stops at 3:40 PM IST on its expiry day', () => {
-    expect(isPastExpiry(d('2026-09-29'), ist('2026-09-29T15:39:00'))).toBe(false);
-    expect(isPastExpiry(d('2026-09-29'), ist('2026-09-29T15:40:00'))).toBe(true);
+  test('quotes stay on the expiring contract until 4:00 PM IST on its expiry day (trading stops 3:30)', () => {
+    expect(isPastExpiry(d('2026-09-29'), ist('2026-09-29T15:46:00'))).toBe(false);
+    expect(isPastExpiry(d('2026-09-29'), ist('2026-09-29T15:59:00'))).toBe(false);
+    expect(isPastExpiry(d('2026-09-29'), ist('2026-09-29T16:00:00'))).toBe(true);
     expect(isPastExpiry(d('2026-09-29'), ist('2026-09-28T23:00:00'))).toBe(false);
     expect(isPastExpiry(d('2026-09-29'), ist('2026-09-30T09:00:00'))).toBe(true);
   });
@@ -33,9 +34,10 @@ describe('GIFT NIFTY expiries from NSEIX', () => {
     expect(listedExpiries(ROWS, ist('2026-09-29T16:35:00'))).toEqual([d('2026-10-27'), d('2026-11-23')]);
   });
 
-  test('quotes roll to the next month once the expiring contract stops', () => {
-    expect(feed._pickNearMonthFuture(ROWS, ist('2026-09-29T15:00:00')).LASTPRICE).toBe(23237.5);
-    expect(feed._pickNearMonthFuture(ROWS, ist('2026-09-29T16:35:00')).LASTPRICE).toBe(23284);
+  test('quotes roll to the next month at 4:00 PM, before session 2 opens at 4:05', () => {
+    expect(feed._pickNearMonthFuture(ROWS, ist('2026-09-29T15:31:00')).LASTPRICE).toBe(23237.5); // cut snapshot
+    expect(feed._pickNearMonthFuture(ROWS, ist('2026-09-29T15:46:00')).LASTPRICE).toBe(23237.5); // expiry-day close
+    expect(feed._pickNearMonthFuture(ROWS, ist('2026-09-29T16:05:00')).LASTPRICE).toBe(23284);
     expect(feed._pickNearMonthFuture([], ist('2026-09-29T16:35:00'))).toBeNull();
   });
 });
