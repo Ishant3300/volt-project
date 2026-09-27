@@ -15,9 +15,10 @@
  *   continuous instrument and stays enabled.
  */
 
+const mongoose = require('mongoose');
 const ExpiryAction = require('../models/ExpiryAction');
 const KiteInstrument = require('../models/KiteInstrument');
-const { EFFECTIVE_FROM, OPEN_TIME, GROUPS } = require('../config/expiryRules');
+const { EFFECTIVE_FROM, NEW_CONTRACTS_CLOSED_FROM, OPEN_TIME, GROUPS } = require('../config/expiryRules');
 const { planGroup } = require('./expirySchedule');
 const { getHolidays } = require('./marketCalendarService');
 const { addUtcDays, dateKey, toIndiaDateOnly } = require('../utils/settlementDates');
@@ -121,9 +122,52 @@ async function refreshPlan(now = new Date()) {
       errors.push({ group: group.key, label: group.label, error: e.message });
     }
   }
+  try {
+    await closeNewTargetsUntilOpen(now);
+  } catch (e) {
+    console.error(`❌ [ExpiryActions] Closing new contracts failed: ${e.message}`);
+    errors.push({ group: 'NEW_CONTRACTS', label: 'New contracts', error: e.message });
+  }
   lastRefreshAt = Date.now();
   lastPlanErrors = errors;
   return { errors };
+}
+
+/**
+ * A contract loaded after NEW_CONTRACTS_CLOSED_FROM arrives enabled (schema
+ * default), which would let it trade before its open day. Close each such
+ * OPEN target once; it reopens when its OPEN runs.
+ */
+async function closeNewTargetsUntilOpen(now) {
+  const pending = await ExpiryAction.find({ kind: 'OPEN', status: { $in: ['planned', 'paused'] }, execute_at: { $gt: now } }).lean();
+  const cutoff = mongoose.Types.ObjectId.createFromTime(Math.floor(NEW_CONTRACTS_CLOSED_FROM.getTime() / 1000));
+  for (const action of pending) {
+    const handled = new Set(action.closed_targets || []);
+    const fresh = action.targets.filter((t) => !handled.has(`${t.name}|${dateKey(t.expiry)}`));
+    if (fresh.length === 0) continue;
+    let closed = 0;
+    for (const t of fresh) {
+      const day = new Date(t.expiry);
+      const res = await KiteInstrument.updateMany(
+        {
+          _id: { $gt: cutoff },
+          segment: { $in: action.segments },
+          instrument_type: 'FUT',
+          name: exactName(t.name),
+          expiry: { $gte: day, $lt: addUtcDays(day, 1) },
+          enabled: { $ne: false },
+          deleted_at: null,
+        },
+        { $set: { enabled: false, ban_reason: `Opens for trading on ${action.action_date}`, banned_at: now } },
+      );
+      closed += res.modifiedCount;
+    }
+    await ExpiryAction.updateOne({ _id: action._id }, { $addToSet: { closed_targets: { $each: fresh.map((t) => `${t.name}|${dateKey(t.expiry)}`) } } });
+    if (closed) {
+      invalidateSearchCache();
+      console.log(`🔒 [ExpiryActions] ${action.key}: ${closed} newly loaded contract(s) closed until ${action.action_date}`);
+    }
+  }
 }
 
 /* ----------------------------------------------------------- execution -- */
@@ -439,5 +483,5 @@ module.exports = {
   transition,
   buildAnnouncement,
   publishAnnouncement,
-  _private: { formatDay, formatTime, captureSnapshot, executeCut, executeOpen },
+  _private: { formatDay, formatTime, captureSnapshot, executeCut, executeOpen, closeNewTargetsUntilOpen },
 };

@@ -21,6 +21,9 @@ const expiryActionSchema = new mongoose.Schema({
   names: [String],
   current_expiry: { type: Date, required: true },
   targets: [{ _id: false, name: String, expiry: Date }], // OPEN: each name's next contract
+  // OPEN: targets ('NAME|YYYY-MM-DD') already closed-until-open-day once — never again,
+  // so an admin opening one early by hand is not fought.
+  closed_targets: [String],
   action_date: { type: String, required: true }, // 'YYYY-MM-DD' (India)
   close_time: { type: String, default: null }, // 'HH:MM' IST market close (CUT)
   execute_at: { type: Date, required: true },

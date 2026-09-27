@@ -321,12 +321,13 @@ class CronService {
         this.jobs.push(expirySquareOffMCX);
 
         // ── Contract expiry rules (config/expiryRules.js) ────────────────
-        // Plan refresh after midnight (and once now), then every minute run
+        // Plan refresh every 30 min (and once now) — also closes newly loaded
+        // contracts until their open day — then every minute run
         // whatever is due: opens automatically, cuts once admin-confirmed —
         // each just after its market's close, at the closing bid/ask.
         const expiryActionService = require('./expiryActionService');
         expiryActionService.refreshPlan().catch((e) => console.error('❌ [CRON] Expiry plan refresh failed:', e.message));
-        const expiryPlanJob = cron.schedule('10 0 * * *', async () => {
+        const expiryPlanJob = cron.schedule('*/30 * * * *', async () => {
             try {
                 const { errors } = await expiryActionService.refreshPlan();
                 if (errors.length) console.error('❌ [CRON] Expiry plan errors:', JSON.stringify(errors));

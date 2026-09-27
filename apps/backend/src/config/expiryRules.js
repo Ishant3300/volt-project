@@ -27,6 +27,13 @@
 /** Actions dated before this are never created — the rules apply from the next contracts on. */
 const EFFECTIVE_FROM = '2026-10-01';
 
+/**
+ * Contracts loaded from the feed after this instant start CLOSED until
+ * their scheduled open day (new rows default to enabled). Contracts that
+ * already existed are left exactly as admins set them.
+ */
+const NEW_CONTRACTS_CLOSED_FROM = new Date('2026-09-27T18:30:00.000Z'); // 28 Sep 2026 00:00 IST
+
 /** Local (IST) time opens are applied — before MCX 9:00 AM / NSE 9:15 AM. */
 const OPEN_TIME = '08:00';
 
@@ -85,4 +92,4 @@ const GROUPS = [
   },
 ];
 
-module.exports = { EFFECTIVE_FROM, OPEN_TIME, GROUPS };
+module.exports = { EFFECTIVE_FROM, NEW_CONTRACTS_CLOSED_FROM, OPEN_TIME, GROUPS };

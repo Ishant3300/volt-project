@@ -190,6 +190,34 @@ describeIntegration('contract expiry actions (real MongoDB)', () => {
     expect(await Trade.countDocuments({ instrument_token: '9201' })).toBe(1); // GLOBAL untouched
   });
 
+  test('a contract loaded after the cutoff starts closed until its open day — once only', async () => {
+    const { NEW_CONTRACTS_CLOSED_FROM } = require('../src/config/expiryRules');
+    const idAt = (ms) => mongoose.Types.ObjectId.createFromTime(Math.floor((NEW_CONTRACTS_CLOSED_FROM.getTime() + ms) / 1000));
+    const inst = (id, token, name, expiry) => ({
+      _id: id, instrument_token: token, exchange_token: `${token}9`, tradingsymbol: `${name}${token}`, name, raw_name: name,
+      expiry: d(expiry), strike: 0, tick_size: 1, lot_size: 1, instrument_type: 'FUT', segment: 'MCX-FUT', exchange: 'MCX', enabled: true,
+    });
+    await KiteInstrument.create([
+      inst(idAt(3_600_000), '9301', 'COPPER', '2026-11-30'), // loaded after the cutoff
+      inst(idAt(-3_600_000), '9302', 'ZINC', '2026-11-30'), // already existed — admin's choice stands
+    ]);
+    const open = await ExpiryAction.create(baseAction('OPEN', '2026-10-22T02:30:00Z', {
+      names: ['COPPER', 'ZINC'], targets: [{ name: 'COPPER', expiry: d('2026-11-30') }, { name: 'ZINC', expiry: d('2026-11-30') }],
+    }));
+    const now = new Date('2026-10-01T00:00:00Z');
+    const { closeNewTargetsUntilOpen } = expiryActionService._private;
+
+    await closeNewTargetsUntilOpen(now);
+    expect(await KiteInstrument.findOne({ instrument_token: '9301' }).lean()).toMatchObject({ enabled: false, ban_reason: 'Opens for trading on 2026-10-23' });
+    expect((await KiteInstrument.findOne({ instrument_token: '9302' }).lean()).enabled).toBe(true);
+    expect((await ExpiryAction.findById(open._id).lean()).closed_targets.sort()).toEqual(['COPPER|2026-11-30', 'ZINC|2026-11-30']);
+
+    // An admin opens it early by hand — the next refresh must not close it again.
+    await KiteInstrument.updateOne({ instrument_token: '9301' }, { $set: { enabled: true } });
+    await closeNewTargetsUntilOpen(now);
+    expect((await KiteInstrument.findOne({ instrument_token: '9301' }).lean()).enabled).toBe(true);
+  });
+
   test('announcement text follows the circulated format', async () => {
     await ExpiryAction.create([
       baseAction('OPEN', '2026-10-22T02:30:00Z', { action_date: '2026-10-22', names: ['COPPER', 'ZINC'], targets: [{ name: 'COPPER', expiry: d('2026-11-30') }, { name: 'ZINC', expiry: d('2026-11-30') }] }),
