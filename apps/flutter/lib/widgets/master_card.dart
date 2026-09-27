@@ -44,7 +44,7 @@ class MasterCard extends StatelessWidget {
                   child: Text(
                     master.username,
                     style: TextStyle(
-                      color: Colors.black,
+                      color: kColorTextPrimary,
                       fontSize: kFontSizeName,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightName,
@@ -56,8 +56,8 @@ class MasterCard extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                   decoration: BoxDecoration(
                     color: master.activeStatus
-                        ? const Color(0xFF34C759)
-                        : const Color(0xFFFF3B30),
+                        ? kColorBuy
+                        : kColorSell,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(

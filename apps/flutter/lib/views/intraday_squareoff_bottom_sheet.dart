@@ -223,7 +223,7 @@ class _IntradaySquareoffBottomSheetState extends State<IntradaySquareoffBottomSh
                         'Intraday SquareOff Settings',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Colors.black,
+                          color: kColorTextPrimary,
                           fontSize: kFontSizeSheetTitle,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold,
@@ -334,7 +334,7 @@ class _IntradaySquareoffBottomSheetState extends State<IntradaySquareoffBottomSh
                             'CLOSE',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: Colors.black,
+                              color: kColorTextPrimary,
                               fontSize: kFontSizeButtonText,
                               fontFamily: kFontFamily,
                               fontWeight: kFontWeightSemiBold,

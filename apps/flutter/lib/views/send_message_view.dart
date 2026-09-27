@@ -69,7 +69,7 @@ class _SendMessageViewState extends State<SendMessageView> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
-      backgroundColor: isError ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+      backgroundColor: isError ? kColorSell : kColorBuy,
     ));
   }
 
@@ -92,11 +92,11 @@ class _SendMessageViewState extends State<SendMessageView> {
                         color: Colors.white, borderRadius: BorderRadius.circular(12),
                         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
                       ),
-                      child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+                      child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text('Announcement', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                  const Text('Announcement', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                 ],
               ),
             ),
@@ -108,7 +108,7 @@ class _SendMessageViewState extends State<SendMessageView> {
                   children: [
                     // Current announcement
                     if (_currentMessage != null && _currentMessage!.isNotEmpty) ...[
-                      const Text('CURRENT ANNOUNCEMENT', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
+                      const Text('CURRENT ANNOUNCEMENT', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
                       const SizedBox(height: 12),
                       Container(
                         width: double.infinity, padding: const EdgeInsets.all(16),
@@ -124,8 +124,8 @@ class _SendMessageViewState extends State<SendMessageView> {
                             GestureDetector(
                               onTap: _isClearing ? null : _clear,
                               child: _isClearing
-                                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFEF4444)))
-                                  : const Icon(Icons.close, size: 18, color: Color(0xFFEF4444)),
+                                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: kColorSell))
+                                  : const Icon(Icons.close, size: 18, color: kColorSell),
                             ),
                           ],
                         ),
@@ -134,7 +134,7 @@ class _SendMessageViewState extends State<SendMessageView> {
                     ],
 
                     // New announcement
-                    const Text('NEW ANNOUNCEMENT', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
+                    const Text('NEW ANNOUNCEMENT', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
                     const SizedBox(height: 12),
                     Container(
                       width: double.infinity, padding: const EdgeInsets.all(16),
@@ -144,7 +144,7 @@ class _SendMessageViewState extends State<SendMessageView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text('This message will appear as a scrolling banner on all users\' Watchlist and Profile pages.',
-                            style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium, height: 1.4)),
+                            style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium, height: 1.4)),
                           const SizedBox(height: 16),
                           TextField(
                             controller: _messageCtrl,
@@ -169,7 +169,7 @@ class _SendMessageViewState extends State<SendMessageView> {
                       child: Container(
                         width: double.infinity, height: 52,
                         decoration: BoxDecoration(
-                          color: _isSending ? const Color(0xFF94A3B8) : kBrandPrimary,
+                          color: _isSending ? kColorTextMuted : kBrandPrimary,
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Center(

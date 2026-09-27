@@ -583,14 +583,14 @@ class _UsernameViewState extends State<UsernameView> {
                             ],
                           ),
                           child: const Icon(Icons.arrow_back,
-                              color: Colors.black, size: kIconSizeMedium),
+                              color: kColorTextPrimary, size: kIconSizeMedium),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Text(
                         username,
                         style: const TextStyle(
-                            color: Colors.black,
+                            color: kColorTextPrimary,
                             fontSize: kFontSizeViewTitle,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold),
@@ -699,7 +699,7 @@ class _UsernameViewState extends State<UsernameView> {
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: selected ? Colors.white : const Color(0xFF94A3B8),
+              color: selected ? Colors.white : kColorTextMuted,
               fontSize: kFontSizeBodySmall,
               fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,
@@ -816,7 +816,7 @@ class _UsernameViewState extends State<UsernameView> {
             children: [
               Text(label,
                   style: const TextStyle(
-                      color: Color(0xFF94A3B8),
+                      color: kColorTextMuted,
                       fontSize: kFontSizeBodySmall,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium)),
@@ -825,7 +825,7 @@ class _UsernameViewState extends State<UsernameView> {
                 child: Text(value,
                     textAlign: TextAlign.right,
                     style: const TextStyle(
-                        color: Colors.black,
+                        color: kColorTextPrimary,
                         fontSize: kFontSizeBodySmall,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium),
@@ -862,12 +862,12 @@ class _UsernameViewState extends State<UsernameView> {
                 Expanded(
                     child: Text(label,
                         style: const TextStyle(
-                            color: Colors.black,
+                            color: kColorTextPrimary,
                             fontSize: kFontSizeBody,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightMedium))),
                 const Icon(Icons.chevron_right,
-                    size: kIconSizeMedium, color: Color(0xFF94A3B8)),
+                    size: kIconSizeMedium, color: kColorTextMuted),
               ],
             ),
           ),
@@ -889,11 +889,11 @@ class _UsernameViewState extends State<UsernameView> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 40, color: Color(0xFFEF4444)),
+            const Icon(Icons.error_outline, size: 40, color: kColorSell),
             const SizedBox(height: 12),
             Text(_tradesError!,
                 style: const TextStyle(
-                    color: Color(0xFFEF4444),
+                    color: kColorSell,
                     fontSize: 13,
                     fontFamily: kFontFamily)),
             const SizedBox(height: 12),
@@ -1102,7 +1102,7 @@ class _UsernameViewState extends State<UsernameView> {
   Widget _buildCompletedTradeCard(Trade trade, {_PerTradePnl? tradePnl}) {
     final bool isBuy = trade.transactionType.toUpperCase() == 'BUY';
     final Color sideColor =
-        isBuy ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+        isBuy ? kColorBuy : kColorSell;
     final String sideLabel = isBuy ? 'BUY' : 'SELL';
     final bool isClosing = tradePnl != null && tradePnl.isClosing;
 
@@ -1126,7 +1126,7 @@ class _UsernameViewState extends State<UsernameView> {
                     Flexible(
                       child: Text(trade.tradingSymbol,
                           style: const TextStyle(
-                              color: Colors.black,
+                              color: kColorTextPrimary,
                               fontSize: kFontSizeTradeSymbol,
                               fontFamily: kFontFamily,
                               fontWeight: kFontWeightSemiBold,
@@ -1146,7 +1146,7 @@ class _UsernameViewState extends State<UsernameView> {
                               color: sideColor,
                               fontSize: kFontSizeTradeBadge,
                               fontFamily: kFontFamily,
-                              fontWeight: kFontWeightSemiBold,
+                              fontWeight: kFontWeightBadge,
                               letterSpacing: 0.3)),
                     ),
                     if (trade.tradeType == 'margin_square_off' ||
@@ -1180,10 +1180,10 @@ class _UsernameViewState extends State<UsernameView> {
                     child: Text(
                       'Closed ${_tradeDuration(tradePnl.openedAt, trade.createdAt)}',
                       style: const TextStyle(
-                          color: Color(0xFF64748B),
+                          color: kColorTextMuted,
                           fontSize: kFontSizeTradeBadge,
                           fontFamily: kFontFamily,
-                          fontWeight: kFontWeightSemiBold),
+                          fontWeight: kFontWeightBadge),
                     ),
                   ),
                 ],
@@ -1192,7 +1192,7 @@ class _UsernameViewState extends State<UsernameView> {
                   children: [
                     Text(_tradeVolumeLabel(trade),
                         style: const TextStyle(
-                            color: Color(0xFF94A3B8),
+                            color: kColorTextMuted,
                             fontSize: kFontSizeTradeMetadata,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightMedium)),
@@ -1203,11 +1203,11 @@ class _UsernameViewState extends State<UsernameView> {
                                 fontSize: kFontSizeTradeMetadata,
                                 color: Color(0xFFCBD5E1)))),
                     const Icon(Icons.access_time,
-                        size: 11, color: Color(0xFF94A3B8)),
+                        size: 11, color: kColorTextMuted),
                     const SizedBox(width: 3),
                     Text(formattedDate,
                         style: const TextStyle(
-                            color: Color(0xFF94A3B8),
+                            color: kColorTextMuted,
                             fontSize: kFontSizeTradeMetadata,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightMedium)),
@@ -1218,12 +1218,12 @@ class _UsernameViewState extends State<UsernameView> {
                   Row(
                     children: [
                       const Icon(Icons.person_outline,
-                          size: 11, color: Color(0xFF94A3B8)),
+                          size: 11, color: kColorTextMuted),
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(trade.userName!,
                             style: const TextStyle(
-                                color: Color(0xFF94A3B8),
+                                color: kColorTextMuted,
                                 fontSize: kFontSizeTradeMetadata,
                                 fontFamily: kFontFamily,
                                 fontWeight: kFontWeightMedium),
@@ -1242,7 +1242,7 @@ class _UsernameViewState extends State<UsernameView> {
             children: [
               Text(trade.price.toStringAsFixed(2),
                   style: const TextStyle(
-                      color: Colors.black,
+                      color: kColorTextPrimary,
                       fontSize: kFontSizeTradePrice,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold)),
@@ -1253,8 +1253,8 @@ class _UsernameViewState extends State<UsernameView> {
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: (tradePnl.pnl >= 0
-                            ? const Color(0xFF10B981)
-                            : const Color(0xFFEF4444))
+                            ? kColorBuy
+                            : kColorSell)
                         .withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -1262,11 +1262,11 @@ class _UsernameViewState extends State<UsernameView> {
                     'P&L ${tradePnl.pnl >= 0 ? '+' : ''}${tradePnl.pnl.toStringAsFixed(2)}',
                     style: TextStyle(
                       color: tradePnl.pnl >= 0
-                          ? const Color(0xFF10B981)
-                          : const Color(0xFFEF4444),
+                          ? kColorBuy
+                          : kColorSell,
                       fontSize: kFontSizeTradeBadge,
                       fontFamily: kFontFamily,
-                      fontWeight: kFontWeightBold,
+                      fontWeight: kFontWeightBadge,
                     ),
                   ),
                 ),
@@ -1281,7 +1281,7 @@ class _UsernameViewState extends State<UsernameView> {
   Widget _buildPendingTradeCard(Trade trade) {
     final bool isBuy = trade.transactionType.toUpperCase() == 'BUY';
     final Color sideColor =
-        isBuy ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+        isBuy ? kColorBuy : kColorSell;
 
     String formattedDate = trade.createdAt;
     try {
@@ -1302,7 +1302,7 @@ class _UsernameViewState extends State<UsernameView> {
                   children: [
                     Text(trade.tradingSymbol,
                         style: const TextStyle(
-                            color: Colors.black,
+                            color: kColorTextPrimary,
                             fontSize: kFontSizeTradeSymbol,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
@@ -1322,7 +1322,7 @@ class _UsernameViewState extends State<UsernameView> {
                               color: sideColor,
                               fontSize: kFontSizeTradeBadge,
                               fontFamily: kFontFamily,
-                              fontWeight: kFontWeightSemiBold,
+                              fontWeight: kFontWeightBadge,
                               letterSpacing: 0.3)),
                     ),
                     if (trade.userName != null) ...[
@@ -1330,12 +1330,12 @@ class _UsernameViewState extends State<UsernameView> {
                       Row(
                         children: [
                           const Icon(Icons.person_outline,
-                              size: 11, color: Color(0xFF94A3B8)),
+                              size: 11, color: kColorTextMuted),
                           const SizedBox(width: 4),
                           Flexible(
                             child: Text(trade.userName!,
                                 style: const TextStyle(
-                                    color: Color(0xFF94A3B8),
+                                    color: kColorTextMuted,
                                     fontSize: kFontSizeTradeMetadata,
                                     fontFamily: kFontFamily,
                                     fontWeight: kFontWeightMedium),
@@ -1354,7 +1354,7 @@ class _UsernameViewState extends State<UsernameView> {
                 children: [
                   Text(trade.price.toStringAsFixed(2),
                       style: const TextStyle(
-                          color: Colors.black,
+                          color: kColorTextPrimary,
                           fontSize: kFontSizeTradePrice,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold)),
@@ -1381,15 +1381,15 @@ class _UsernameViewState extends State<UsernameView> {
                         color: Color(0xFFB45309),
                         fontSize: kFontSizeTradeBadge,
                         fontFamily: kFontFamily,
-                        fontWeight: kFontWeightSemiBold,
+                        fontWeight: kFontWeightBadge,
                         letterSpacing: 0.3)),
               ),
               const SizedBox(width: 10),
-              const Icon(Icons.access_time, size: 11, color: Color(0xFF94A3B8)),
+              const Icon(Icons.access_time, size: 11, color: kColorTextMuted),
               const SizedBox(width: 3),
               Text(formattedDate,
                   style: const TextStyle(
-                      color: Color(0xFF94A3B8),
+                      color: kColorTextMuted,
                       fontSize: kFontSizeTradeMetadata,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium)),
@@ -1416,11 +1416,11 @@ class _UsernameViewState extends State<UsernameView> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.trending_flat, size: 40, color: Color(0xFF94A3B8)),
+            const Icon(Icons.trending_flat, size: 40, color: kColorTextMuted),
             const SizedBox(height: 12),
             const Text('No position data',
                 style: TextStyle(
-                    color: Color(0xFF94A3B8),
+                    color: kColorTextMuted,
                     fontSize: 14,
                     fontFamily: kFontFamily)),
             const SizedBox(height: 12),
@@ -1488,7 +1488,7 @@ class _UsernameViewState extends State<UsernameView> {
           Text(
             '${_livePositions.length} open position${_livePositions.length != 1 ? "s" : ""}${_currentMaster != null ? " (aggregated)" : ""}',
             style: const TextStyle(
-                color: Color(0xFF94A3B8),
+                color: kColorTextMuted,
                 fontSize: 12,
                 fontFamily: kFontFamily,
                 fontWeight: kFontWeightMedium,
@@ -1510,7 +1510,7 @@ class _UsernameViewState extends State<UsernameView> {
     final int netQty = (pos['net_qty'] as num?)?.toInt() ?? 0;
     final bool isBuy = netQty > 0;
     final Color sideColor =
-        isBuy ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+        isBuy ? kColorBuy : kColorSell;
 
     final double avgBuyPrice = (pos['avg_buy_price'] as num?)?.toDouble() ?? 0;
     final double avgSellPrice =
@@ -1553,7 +1553,7 @@ class _UsernameViewState extends State<UsernameView> {
                     children: [
                       Text(symbol,
                           style: const TextStyle(
-                              color: Colors.black,
+                              color: kColorTextPrimary,
                               fontSize: kFontSizePositionSymbol,
                               fontFamily: kFontFamily,
                               fontWeight: kFontWeightSemiBold,
@@ -1565,7 +1565,7 @@ class _UsernameViewState extends State<UsernameView> {
                         children: [
                           Text(exchange,
                               style: const TextStyle(
-                                  color: Color(0xFF94A3B8),
+                                  color: kColorTextMuted,
                                   fontSize: kFontSizePositionDetail,
                                   fontFamily: kFontFamily,
                                   fontWeight: kFontWeightMedium)),
@@ -1591,14 +1591,14 @@ class _UsernameViewState extends State<UsernameView> {
                         children: [
                           Text('ATP: ${avgPrice.toStringAsFixed(2)}',
                               style: const TextStyle(
-                                  color: Color(0xFF64748B),
+                                  color: kColorTextMuted,
                                   fontSize: kFontSizePositionDetail,
                                   fontFamily: kFontFamily,
                                   fontWeight: kFontWeightMedium)),
                           const SizedBox(width: 12),
                           Text('CMP: ${cmp.toStringAsFixed(2)}',
                               style: const TextStyle(
-                                  color: Color(0xFF64748B),
+                                  color: kColorTextMuted,
                                   fontSize: kFontSizePositionDetail,
                                   fontFamily: kFontFamily,
                                   fontWeight: kFontWeightMedium)),
@@ -1611,8 +1611,8 @@ class _UsernameViewState extends State<UsernameView> {
                   '${floating >= 0 ? '+' : ''}${floating.toStringAsFixed(2)}',
                   style: TextStyle(
                     color: floating >= 0
-                        ? const Color(0xFF10B981)
-                        : const Color(0xFFEF4444),
+                        ? kColorBuy
+                        : kColorSell,
                     fontSize: kFontSizePositionPnl,
                     fontFamily: kFontFamily,
                     fontWeight: kFontWeightBold,
@@ -1767,7 +1767,7 @@ class _UsernameViewState extends State<UsernameView> {
                     children: [
                       Text(l2.toUpperCase(),
                           style: const TextStyle(
-                              color: Color(0xFF94A3B8),
+                              color: kColorTextMuted,
                               fontSize: 9,
                               fontFamily: kFontFamily,
                               fontWeight: kFontWeightSemiBold,
@@ -1855,7 +1855,7 @@ class _UsernameViewState extends State<UsernameView> {
               const Divider(height: 24, color: Color(0xFFF1F5F9)),
               const Text('WALLET BALANCES',
                   style: TextStyle(
-                      color: Color(0xFF94A3B8),
+                      color: kColorTextMuted,
                       fontSize: 10,
                       fontFamily: kFontFamily,
                       fontWeight: FontWeight.w600,
@@ -1873,7 +1873,7 @@ class _UsernameViewState extends State<UsernameView> {
 
   Widget _equityRow(String label, double value, {bool isColored = false}) {
     final Color valueColor = isColored
-        ? (value >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444))
+        ? (value >= 0 ? kColorBuy : kColorSell)
         : const Color(0xFF0F172A);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -1882,7 +1882,7 @@ class _UsernameViewState extends State<UsernameView> {
         children: [
           Text(label,
               style: const TextStyle(
-                  color: Color(0xFF64748B),
+                  color: kColorTextMuted,
                   fontSize: 13,
                   fontFamily: kFontFamily,
                   fontWeight: FontWeight.w500)),
@@ -1901,7 +1901,7 @@ class _UsernameViewState extends State<UsernameView> {
       {bool showRightBorder = false}) {
     final bool isColored = label.contains('P&L') || label == 'Free Margin';
     final Color valueColor = isColored
-        ? (value >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444))
+        ? (value >= 0 ? kColorBuy : kColorSell)
         : const Color(0xFF0F172A);
 
     return Container(
@@ -1917,7 +1917,7 @@ class _UsernameViewState extends State<UsernameView> {
         children: [
           Text(label.toUpperCase(),
               style: const TextStyle(
-                  color: Color(0xFF94A3B8),
+                  color: kColorTextMuted,
                   fontSize: 9,
                   fontFamily: kFontFamily,
                   fontWeight: kFontWeightSemiBold,
@@ -1942,7 +1942,7 @@ class _UsernameViewState extends State<UsernameView> {
   Widget _sectionLabel(String text) {
     return Text(text,
         style: const TextStyle(
-            color: Color(0xFF94A3B8),
+            color: kColorTextMuted,
             fontSize: kFontSizeNavLabel,
             fontFamily: kFontFamily,
             fontWeight: kFontWeightSemiBold,
@@ -1975,7 +1975,7 @@ class _UsernameViewState extends State<UsernameView> {
         children: [
           Text(label,
               style: const TextStyle(
-                  color: Colors.black,
+                  color: kColorTextPrimary,
                   fontSize: kFontSizeBody,
                   fontFamily: kFontFamily,
                   fontWeight: kFontWeightMedium)),
@@ -2098,7 +2098,7 @@ class _UsernameViewState extends State<UsernameView> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Error: $e'),
-            backgroundColor: const Color(0xFFEF4444)));
+            backgroundColor: kColorSell));
       }
     }
   }
@@ -2251,7 +2251,7 @@ class _UsernameViewState extends State<UsernameView> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text('Password reset to $kDefaultResetPassword'),
-              backgroundColor: const Color(0xFF10B981)),
+              backgroundColor: kColorBuy),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2285,7 +2285,7 @@ class _UsernameViewState extends State<UsernameView> {
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
               child: const Text('Delete',
-                  style: TextStyle(color: Color(0xFFEF4444)))),
+                  style: TextStyle(color: kColorSell))),
         ],
       ),
     );
@@ -2356,11 +2356,11 @@ class _UsernameViewState extends State<UsernameView> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 40, color: Color(0xFFEF4444)),
+            const Icon(Icons.error_outline, size: 40, color: kColorSell),
             const SizedBox(height: 12),
             Text(_subMastersError!,
                 style: const TextStyle(
-                    color: Color(0xFFEF4444),
+                    color: kColorSell,
                     fontSize: 13,
                     fontFamily: kFontFamily)),
             const SizedBox(height: 12),
@@ -2476,7 +2476,7 @@ class _UsernameViewState extends State<UsernameView> {
                       children: [
                         Text(master.name,
                             style: const TextStyle(
-                                color: Colors.black,
+                                color: kColorTextPrimary,
                                 fontSize: 14,
                                 fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold)),
@@ -2484,7 +2484,7 @@ class _UsernameViewState extends State<UsernameView> {
                         Row(children: [
                           Text(master.username,
                               style: const TextStyle(
-                                  color: Color(0xFF94A3B8),
+                                  color: kColorTextMuted,
                                   fontSize: 12,
                                   fontFamily: kFontFamily,
                                   fontWeight: kFontWeightMedium)),
@@ -2510,7 +2510,7 @@ class _UsernameViewState extends State<UsernameView> {
                 Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                   Text(master.credits.toStringAsFixed(2),
                       style: const TextStyle(
-                          color: Colors.black,
+                          color: kColorTextPrimary,
                           fontSize: 13,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold)),
@@ -2520,14 +2520,14 @@ class _UsernameViewState extends State<UsernameView> {
                         const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                         color: master.activeStatus
-                            ? const Color(0xFF10B981).withValues(alpha: 0.1)
-                            : const Color(0xFFEF4444).withValues(alpha: 0.1),
+                            ? kColorBuy.withValues(alpha: 0.1)
+                            : kColorSell.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6)),
                     child: Text(master.activeStatus ? 'Active' : 'Inactive',
                         style: TextStyle(
                             color: master.activeStatus
-                                ? const Color(0xFF10B981)
-                                : const Color(0xFFEF4444),
+                                ? kColorBuy
+                                : kColorSell,
                             fontSize: 10,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold)),
@@ -2535,7 +2535,7 @@ class _UsernameViewState extends State<UsernameView> {
                 ]),
                 const SizedBox(width: 4),
                 const Icon(Icons.chevron_right,
-                    size: kIconSizeMedium, color: Color(0xFF94A3B8)),
+                    size: kIconSizeMedium, color: kColorTextMuted),
               ]),
             ),
           );
@@ -2556,11 +2556,11 @@ class _UsernameViewState extends State<UsernameView> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 40, color: Color(0xFFEF4444)),
+            const Icon(Icons.error_outline, size: 40, color: kColorSell),
             const SizedBox(height: 12),
             Text(_usersError!,
                 style: const TextStyle(
-                    color: Color(0xFFEF4444),
+                    color: kColorSell,
                     fontSize: 13,
                     fontFamily: kFontFamily)),
             const SizedBox(height: 12),
@@ -2681,14 +2681,14 @@ class _UsernameViewState extends State<UsernameView> {
                       children: [
                         Text(user.name,
                             style: const TextStyle(
-                                color: Colors.black,
+                                color: kColorTextPrimary,
                                 fontSize: 14,
                                 fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold)),
                         const SizedBox(height: 2),
                         Text(user.username,
                             style: const TextStyle(
-                                color: Color(0xFF94A3B8),
+                                color: kColorTextMuted,
                                 fontSize: 12,
                                 fontFamily: kFontFamily,
                                 fontWeight: kFontWeightMedium)),
@@ -2700,7 +2700,7 @@ class _UsernameViewState extends State<UsernameView> {
                     children: [
                       Text('${user.credits.toStringAsFixed(2)}',
                           style: const TextStyle(
-                              color: Colors.black,
+                              color: kColorTextPrimary,
                               fontSize: 13,
                               fontFamily: kFontFamily,
                               fontWeight: kFontWeightSemiBold)),
@@ -2710,16 +2710,16 @@ class _UsernameViewState extends State<UsernameView> {
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: user.activeStatus
-                              ? const Color(0xFF10B981).withValues(alpha: 0.1)
-                              : const Color(0xFFEF4444).withValues(alpha: 0.1),
+                              ? kColorBuy.withValues(alpha: 0.1)
+                              : kColorSell.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           user.activeStatus ? 'Active' : 'Inactive',
                           style: TextStyle(
                             color: user.activeStatus
-                                ? const Color(0xFF10B981)
-                                : const Color(0xFFEF4444),
+                                ? kColorBuy
+                                : kColorSell,
                             fontSize: 10,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
@@ -2730,7 +2730,7 @@ class _UsernameViewState extends State<UsernameView> {
                   ),
                   const SizedBox(width: 4),
                   const Icon(Icons.chevron_right,
-                      size: kIconSizeMedium, color: Color(0xFF94A3B8)),
+                      size: kIconSizeMedium, color: kColorTextMuted),
                 ],
               ),
             ),
@@ -2832,7 +2832,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content: Text('Account limit updated'),
-              backgroundColor: Color(0xFF10B981)),
+              backgroundColor: kColorBuy),
         );
         Navigator.pop(context);
       } else {
@@ -2841,7 +2841,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
                 content: Text(body['message'] ?? 'Failed'),
-                backgroundColor: const Color(0xFFEF4444)),
+                backgroundColor: kColorSell),
           );
         }
       }
@@ -2850,7 +2850,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text('Error: $e'),
-              backgroundColor: const Color(0xFFEF4444)),
+              backgroundColor: kColorSell),
         );
       }
     } finally {
@@ -2882,7 +2882,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
                   const SizedBox(height: 16),
                   const Text('Account Limit',
                       style: TextStyle(
-                          color: Colors.black,
+                          color: kColorTextPrimary,
                           fontSize: 18,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightBold)),
@@ -2890,7 +2890,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
                   const Text(
                       'Set limits on how many accounts this master can create',
                       style: TextStyle(
-                          color: Color(0xFF94A3B8),
+                          color: kColorTextMuted,
                           fontSize: 13,
                           fontFamily: kFontFamily)),
                   const SizedBox(height: 20),
@@ -2902,7 +2902,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
                       children: [
                         const Text('Limit Enabled',
                             style: TextStyle(
-                                color: Colors.black,
+                                color: kColorTextPrimary,
                                 fontSize: 14,
                                 fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold)),
@@ -3012,7 +3012,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
                             child: const Center(
                                 child: Text('Cancel',
                                     style: TextStyle(
-                                        color: Color(0xFF64748B),
+                                        color: kColorTextMuted,
                                         fontSize: 14,
                                         fontFamily: kFontFamily,
                                         fontWeight: kFontWeightSemiBold))),
@@ -3083,7 +3083,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
         children: [
           Text(label,
               style: const TextStyle(
-                  color: Color(0xFF94A3B8),
+                  color: kColorTextMuted,
                   fontSize: 13,
                   fontFamily: kFontFamily,
                   fontWeight: kFontWeightMedium)),
@@ -3094,7 +3094,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
               keyboardType: TextInputType.number,
               textAlign: TextAlign.right,
               style: const TextStyle(
-                  color: Colors.black,
+                  color: kColorTextPrimary,
                   fontSize: 14,
                   fontFamily: kFontFamily,
                   fontWeight: kFontWeightSemiBold),
@@ -3119,7 +3119,7 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
           Expanded(
               child: Text(label,
                   style: const TextStyle(
-                      color: Colors.black,
+                      color: kColorTextPrimary,
                       fontSize: 13,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium))),
@@ -3140,8 +3140,8 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: (remaining > 0
-                      ? const Color(0xFF10B981)
-                      : const Color(0xFFEF4444))
+                      ? kColorBuy
+                      : kColorSell)
                   .withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(8),
             ),
@@ -3149,8 +3149,8 @@ class _AccountLimitSheetState extends State<_AccountLimitSheet> {
               '$remaining left',
               style: TextStyle(
                 color: remaining > 0
-                    ? const Color(0xFF10B981)
-                    : const Color(0xFFEF4444),
+                    ? kColorBuy
+                    : kColorSell,
                 fontSize: 11,
                 fontFamily: kFontFamily,
                 fontWeight: kFontWeightSemiBold,
@@ -3225,7 +3225,7 @@ class _ManageUserReportsSheetState extends State<_ManageUserReportsSheet> {
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('Report permissions updated'),
-            backgroundColor: Color(0xFF10B981),
+            backgroundColor: kColorBuy,
           ));
         }
       } else {
@@ -3233,7 +3233,7 @@ class _ManageUserReportsSheetState extends State<_ManageUserReportsSheet> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(body['message'] ?? 'Failed to update'),
-            backgroundColor: const Color(0xFFEF4444),
+            backgroundColor: kColorSell,
           ));
         }
       }
@@ -3241,7 +3241,7 @@ class _ManageUserReportsSheetState extends State<_ManageUserReportsSheet> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error: $e'),
-          backgroundColor: const Color(0xFFEF4444),
+          backgroundColor: kColorSell,
         ));
       }
     } finally {
@@ -3264,7 +3264,7 @@ class _ManageUserReportsSheetState extends State<_ManageUserReportsSheet> {
           const SizedBox(height: 16),
           const Text('Manage Reports',
               style: TextStyle(
-                color: Colors.black,
+                color: kColorTextPrimary,
                 fontSize: kFontSizeSectionHeader,
                 fontFamily: kFontFamily,
                 fontWeight: kFontWeightBold,
@@ -3333,7 +3333,7 @@ class _ManageUserReportsSheetState extends State<_ManageUserReportsSheet> {
               children: [
                 Text(label,
                     style: TextStyle(
-                      color: parentHas ? Colors.black : const Color(0xFF94A3B8),
+                      color: parentHas ? kColorTextPrimary : kColorTextMuted,
                       fontSize: kFontSizeBody,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium,
@@ -3341,7 +3341,7 @@ class _ManageUserReportsSheetState extends State<_ManageUserReportsSheet> {
                 if (!parentHas)
                   const Text('Disabled by parent',
                       style: TextStyle(
-                        color: Color(0xFFEF4444),
+                        color: kColorSell,
                         fontSize: 11,
                         fontFamily: kFontFamily,
                       )),

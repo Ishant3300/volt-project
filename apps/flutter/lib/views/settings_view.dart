@@ -41,7 +41,7 @@ class SettingsView extends StatelessWidget {
                           ],
                         ),
                         child: const Icon(Icons.arrow_back,
-                            color: Colors.black, size: kIconSizeMedium),
+                            color: kColorTextPrimary, size: kIconSizeMedium),
                       ),
                     ),
                     const SizedBox(width: 12),

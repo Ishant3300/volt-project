@@ -479,7 +479,7 @@ class _SplashScreenState extends State<SplashScreen>
                     child: const Text(
                       'YOUR EDGE IN THE MARKET',
                       style: TextStyle(
-                        color: Color(0xFF64748B),
+                        color: kColorTextMuted,
                         fontSize: kFontSizeSubtitle,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium,

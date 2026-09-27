@@ -148,7 +148,7 @@ class _UserwisePositionFilterBottomSheetState
         children: [
           const SizedBox(height: 16),
           Text('Filter Positions',
-            style: TextStyle(color: Colors.black, fontSize: kFontSizeSheetTitle,
+            style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeSheetTitle,
               fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
           const SizedBox(height: 16),
 
@@ -205,7 +205,7 @@ class _UserwisePositionFilterBottomSheetState
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text('Clear',
-                    style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBody,
+                    style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBody,
                       fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                 ),
               ),
@@ -234,7 +234,7 @@ class _UserwisePositionFilterBottomSheetState
 
   Widget _buildLabel(String text) {
     return Text(text,
-      style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSheetLabel,
+      style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeSheetLabel,
         fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5));
   }
 
@@ -250,8 +250,8 @@ class _UserwisePositionFilterBottomSheetState
         child: DropdownButton<String>(
           value: _selectedExchange,
           isExpanded: true,
-          icon: Icon(Icons.keyboard_arrow_down, size: kIconSizeDefault, color: Color(0xFF94A3B8)),
-          style: TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
+          icon: Icon(Icons.keyboard_arrow_down, size: kIconSizeDefault, color: kColorTextMuted),
+          style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
           items: _exchanges.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
           onChanged: (v) => setState(() {
             _selectedExchange = v!;
@@ -291,8 +291,8 @@ class _UserwisePositionFilterBottomSheetState
                     child: CircularProgressIndicator(strokeWidth: 2, color: kBrandPrimary)))
               : (controller.text.isNotEmpty
                   ? GestureDetector(onTap: onClear,
-                      child: Icon(Icons.close, size: kIconSizeDefault, color: Color(0xFF94A3B8)))
-                  : Icon(Icons.search, size: kIconSizeDefault, color: Color(0xFF94A3B8))),
+                      child: Icon(Icons.close, size: kIconSizeDefault, color: kColorTextMuted))
+                  : Icon(Icons.search, size: kIconSizeDefault, color: kColorTextMuted)),
           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           border: InputBorder.none,
         ),
@@ -329,13 +329,13 @@ class _UserwisePositionFilterBottomSheetState
               ),
               child: Row(children: [
                 Expanded(child: Text(inst['tradingsymbol'] ?? '',
-                  style: TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall,
+                  style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBodySmall,
                     fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: -0.3))),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6)),
                   child: Text(inst['instrument_type'] ?? '',
-                    style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeCaption,
+                    style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeCaption,
                       fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                 ),
               ]),
@@ -378,12 +378,12 @@ class _UserwisePositionFilterBottomSheetState
               ),
               child: Row(children: [
                 Text(uname,
-                  style: TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall,
+                  style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBodySmall,
                     fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                 if (name.isNotEmpty) ...[
                   const SizedBox(width: 8),
                   Text(name,
-                    style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily)),
+                    style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily)),
                 ],
               ]),
             ),

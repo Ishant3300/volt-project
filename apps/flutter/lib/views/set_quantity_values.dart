@@ -26,7 +26,7 @@ class _SetQuantityValuesViewState extends State<SetQuantityValuesView> {
 
   Future<void> _save() async {
     await _storage.saveQuickQuantities(_values);
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved'), backgroundColor: Color(0xFF10B981)));
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved'), backgroundColor: kColorBuy));
   }
 
   void _reset() {
@@ -51,7 +51,7 @@ class _SetQuantityValuesViewState extends State<SetQuantityValuesView> {
           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: kBrandPrimary, width: 1.5))),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8), fontFamily: kFontFamily))),
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: kColorTextMuted, fontFamily: kFontFamily))),
         GestureDetector(
           onTap: () {
             final v = int.tryParse(ctrl.text);
@@ -76,16 +76,16 @@ class _SetQuantityValuesViewState extends State<SetQuantityValuesView> {
             child: Container(width: 40, height: 40,
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
-              child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium))),
+              child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium))),
           const SizedBox(width: 12),
-          const Expanded(child: Text('Set Quantity Values', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
+          const Expanded(child: Text('Set Quantity Values', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
         ])),
 
         // Grid of quantity boxes
         Expanded(child: _isLoading
           ? const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
           : Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Column(children: [
-              const Text('These values appear as quick quantity buttons on the trade card.', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily)),
+              const Text('These values appear as quick quantity buttons on the trade card.', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily)),
               const SizedBox(height: 12),
               Expanded(child: GridView.builder(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 10, crossAxisSpacing: 10, childAspectRatio: 2.8),
@@ -139,8 +139,8 @@ class _SetQuantityValuesViewState extends State<SetQuantityValuesView> {
             setState(() => _values.removeAt(index));
           },
           child: Container(width: 24, height: 24,
-            decoration: BoxDecoration(color: const Color(0xFFEF4444).withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
-            child: const Icon(Icons.close, size: kIconSizeSmall, color: Color(0xFFEF4444))),
+            decoration: BoxDecoration(color: kColorSell.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
+            child: const Icon(Icons.close, size: kIconSizeSmall, color: kColorSell)),
         )),
       ]),
     );

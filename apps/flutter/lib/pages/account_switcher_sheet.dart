@@ -107,7 +107,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Switched to ${account.username}'),
-          backgroundColor: const Color(0xFF10B981),
+          backgroundColor: kColorBuy,
           duration: const Duration(seconds: 2),
         ),
       );
@@ -117,7 +117,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Switch failed: $e'),
-            backgroundColor: const Color(0xFFEF4444),
+            backgroundColor: kColorSell,
           ),
         );
       }
@@ -143,13 +143,13 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancel',
                 style:
-                    TextStyle(color: Color(0xFF94A3B8), fontFamily: kFontFamily)),
+                    TextStyle(color: kColorTextMuted, fontFamily: kFontFamily)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Remove',
                 style: TextStyle(
-                    color: Color(0xFFEF4444),
+                    color: kColorSell,
                     fontFamily: kFontFamily,
                     fontWeight: kFontWeightSemiBold)),
           ),
@@ -184,7 +184,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
       case 'MASTER':
         return kBrandPrimary;
       default:
-        return const Color(0xFF10B981);
+        return kColorBuy;
     }
   }
 
@@ -241,7 +241,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                   SizedBox(height: 16),
                   Text('Switching account...',
                       style: TextStyle(
-                          color: Color(0xFF64748B),
+                          color: kColorTextMuted,
                           fontFamily: kFontFamily,
                           fontSize: kFontSizeBody)),
                 ],
@@ -379,13 +379,13 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                               horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color:
-                                const Color(0xFF10B981).withValues(alpha: 0.1),
+                                kColorBuy.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Text(
                             'ACTIVE',
                             style: TextStyle(
-                              color: Color(0xFF10B981),
+                              color: kColorBuy,
                               fontSize: kFontSizeBadge,
                               fontFamily: kFontFamily,
                               fontWeight: kFontWeightBold,
@@ -400,12 +400,12 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                   Row(
                     children: [
                       Icon(_roleIcon(account.role),
-                          size: kIconSizeSmall, color: const Color(0xFF94A3B8)),
+                          size: kIconSizeSmall, color: kColorTextMuted),
                       const SizedBox(width: 4),
                       Text(
                         '${account.username} · ${account.role}${account.investor ? ' · INVESTOR' : ''}',
                         style: const TextStyle(
-                          color: Color(0xFF94A3B8),
+                          color: kColorTextMuted,
                           fontSize: kFontSizeSubtitle,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
@@ -429,12 +429,12 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.close,
-                      size: kIconSizeSmall, color: Color(0xFF94A3B8)),
+                      size: kIconSizeSmall, color: kColorTextMuted),
                 ),
               )
             else
               const Icon(Icons.check_circle,
-                  size: 22, color: Color(0xFF10B981)),
+                  size: 22, color: kColorBuy),
           ],
         ),
       ),

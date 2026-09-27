@@ -142,7 +142,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('${inst['tradingsymbol']} ${!currentEnabled ? 'enabled' : 'disabled'}'),
-              backgroundColor: !currentEnabled ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+              backgroundColor: !currentEnabled ? kColorBuy : kColorSell,
               duration: const Duration(seconds: 1),
             ),
           );
@@ -167,20 +167,20 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
               const Text('Delete Instrument?', style: TextStyle(fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
               const SizedBox(height: 12),
               Text('${inst['tradingsymbol']} will be deactivated.\nExisting positions can still be closed.',
-                  style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBody, fontFamily: kFontFamily), textAlign: TextAlign.center),
+                  style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeBody, fontFamily: kFontFamily), textAlign: TextAlign.center),
               const SizedBox(height: 24),
               Row(children: [
                 Expanded(child: GestureDetector(
                   onTap: () => Navigator.pop(ctx, false),
                   child: Container(padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
-                    child: const Center(child: Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)))),
+                    child: const Center(child: Text('Cancel', style: TextStyle(color: kColorTextMuted, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)))),
                 )),
                 const SizedBox(width: 12),
                 Expanded(child: GestureDetector(
                   onTap: () => Navigator.pop(ctx, true),
                   child: Container(padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(12)),
+                    decoration: BoxDecoration(color: kColorSell, borderRadius: BorderRadius.circular(12)),
                     child: const Center(child: Text('Delete', style: TextStyle(color: Colors.white, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)))),
                 )),
               ]),
@@ -201,7 +201,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${inst['tradingsymbol']} deactivated'), backgroundColor: const Color(0xFFEF4444), duration: const Duration(seconds: 1)),
+            SnackBar(content: Text('${inst['tradingsymbol']} deactivated'), backgroundColor: kColorSell, duration: const Duration(seconds: 1)),
           );
         }
       }
@@ -223,7 +223,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${inst['tradingsymbol']} restored'), backgroundColor: const Color(0xFF10B981), duration: const Duration(seconds: 1)),
+            SnackBar(content: Text('${inst['tradingsymbol']} restored'), backgroundColor: kColorBuy, duration: const Duration(seconds: 1)),
           );
         }
       }
@@ -247,20 +247,20 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
               const Text('Disable All?', style: TextStyle(fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
               const SizedBox(height: 12),
               Text('Disable every $_selectedSegment instrument expiring $expiryLabel?\nExisting positions can still be closed.',
-                  style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBody, fontFamily: kFontFamily), textAlign: TextAlign.center),
+                  style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeBody, fontFamily: kFontFamily), textAlign: TextAlign.center),
               const SizedBox(height: 24),
               Row(children: [
                 Expanded(child: GestureDetector(
                   onTap: () => Navigator.pop(ctx, false),
                   child: Container(padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12)),
-                    child: const Center(child: Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)))),
+                    child: const Center(child: Text('Cancel', style: TextStyle(color: kColorTextMuted, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)))),
                 )),
                 const SizedBox(width: 12),
                 Expanded(child: GestureDetector(
                   onTap: () => Navigator.pop(ctx, true),
                   child: Container(padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(12)),
+                    decoration: BoxDecoration(color: kColorSell, borderRadius: BorderRadius.circular(12)),
                     child: const Center(child: Text('Disable All', style: TextStyle(color: Colors.white, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)))),
                 )),
               ]),
@@ -308,7 +308,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
       final res = await api.put('/admin/instruments/bulk-toggle', {'ids': ids, 'enabled': false}, token: token);
       if (res.statusCode == 200 && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${ids.length} instrument(s) disabled'), backgroundColor: const Color(0xFFEF4444), duration: const Duration(seconds: 2)),
+          SnackBar(content: Text('${ids.length} instrument(s) disabled'), backgroundColor: kColorSell, duration: const Duration(seconds: 2)),
         );
         await _loadInstruments();
       }
@@ -345,12 +345,12 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
                   child: Container(width: 40, height: 40,
                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
-                    child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium)),
+                    child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium)),
                 ),
                 const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Manage Instruments', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
-                  Text('$_total instruments', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
+                  const Text('Manage Instruments', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                  Text('$_total instruments', style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
                 ])),
               ]),
             ),
@@ -365,11 +365,11 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
                   style: const TextStyle(fontSize: kFontSizeBody, fontFamily: kFontFamily),
                   decoration: InputDecoration(
                     hintText: 'Search by name or symbol...',
-                    hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: kFontFamily),
-                    prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFF94A3B8)),
+                    hintStyle: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeBody, fontFamily: kFontFamily),
+                    prefixIcon: const Icon(Icons.search, size: 18, color: kColorTextMuted),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? GestureDetector(onTap: () { _searchController.clear(); _loadInstruments(); },
-                            child: const Icon(Icons.close, size: 16, color: Color(0xFF94A3B8)))
+                            child: const Icon(Icons.close, size: 16, color: kColorTextMuted))
                         : null,
                     border: InputBorder.none, isDense: true,
                     contentPadding: const EdgeInsets.symmetric(vertical: 12),
@@ -428,7 +428,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFEF4444).withValues(alpha: _isBulkActing ? 0.5 : 1),
+                      color: kColorSell.withValues(alpha: _isBulkActing ? 0.5 : 1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Center(
@@ -447,7 +447,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
                   : _instruments.isEmpty
-                      ? const Center(child: Text('No instruments found', style: TextStyle(color: Color(0xFF94A3B8), fontFamily: kFontFamily)))
+                      ? const Center(child: Text('No instruments found', style: TextStyle(color: kColorTextMuted, fontFamily: kFontFamily)))
                       : ListView.builder(
                           controller: _scrollController,
                           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -481,7 +481,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
         ),
         child: Text(label, style: TextStyle(
           fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold,
-          color: active ? Colors.white : const Color(0xFF64748B),
+          color: active ? Colors.white : kColorTextMuted,
         )),
       ),
     );
@@ -496,9 +496,9 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
     if (type == 'FUT') {
       typeColor = const Color(0xFF3B82F6);
     } else if (type == 'CE') {
-      typeColor = const Color(0xFF10B981);
+      typeColor = kColorBuy;
     } else if (type == 'PE') {
-      typeColor = const Color(0xFFEF4444);
+      typeColor = kColorSell;
     } else {
       typeColor = const Color(0xFF8B5CF6);
     }
@@ -519,7 +519,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
             width: 36, padding: const EdgeInsets.symmetric(vertical: 4),
             decoration: BoxDecoration(color: typeColor.withValues(alpha: isDeleted ? 0.05 : 0.1), borderRadius: BorderRadius.circular(8)),
             child: Text(type.isNotEmpty ? type : 'IDX', textAlign: TextAlign.center,
-              style: TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: isDeleted ? const Color(0xFF94A3B8) : typeColor, fontFamily: kFontFamily)),
+              style: TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: isDeleted ? kColorTextMuted : typeColor, fontFamily: kFontFamily)),
           ),
           const SizedBox(width: 10),
           // Info
@@ -528,13 +528,13 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
               Row(children: [
                 Flexible(child: Text(inst['display_name'] ?? inst['raw_name'] ?? inst['tradingsymbol'] ?? '',
                   style: TextStyle(fontSize: kFontSizeBody, fontWeight: kFontWeightSemiBold, fontFamily: kFontFamily,
-                    color: isDeleted ? const Color(0xFF94A3B8) : const Color(0xFF0F172A)),
+                    color: isDeleted ? kColorTextMuted : const Color(0xFF0F172A)),
                   overflow: TextOverflow.ellipsis)),
                 if (isDeleted) ...[
                   const SizedBox(width: 6),
                   Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: const Color(0xFFEF4444).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                    child: const Text('DELETED', style: TextStyle(fontSize: 8, fontWeight: kFontWeightBold, color: Color(0xFFEF4444), fontFamily: kFontFamily))),
+                    decoration: BoxDecoration(color: kColorSell.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                    child: const Text('DELETED', style: TextStyle(fontSize: 8, fontWeight: kFontWeightBold, color: kColorSell, fontFamily: kFontFamily))),
                 ],
               ]),
               const SizedBox(height: 2),
@@ -544,16 +544,16 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
                 runSpacing: 2,
                 children: [
                   Text(inst['tradingsymbol'] ?? '', overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: kFontSizeCaption,
-                    color: isDeleted ? const Color(0xFFCBD5E1) : const Color(0xFF94A3B8), fontFamily: kFontFamily, fontWeight: kFontWeightMedium, letterSpacing: 0.3)),
+                    color: isDeleted ? const Color(0xFFCBD5E1) : kColorTextMuted, fontFamily: kFontFamily, fontWeight: kFontWeightMedium, letterSpacing: 0.3)),
                   if ((inst['lot_size'] ?? 1) > 0) ...[
                     Text('·', style: TextStyle(color: Color(0xFFCBD5E1))),
                     Text('LOT ${inst['lot_size'] ?? 1}', style: TextStyle(fontSize: kFontSizeCaption,
-                      color: isDeleted ? const Color(0xFFCBD5E1) : const Color(0xFF94A3B8), fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+                      color: isDeleted ? const Color(0xFFCBD5E1) : kColorTextMuted, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
                   ],
                   if (inst['expiry'] != null) ...[
                     Text('·', style: TextStyle(color: Color(0xFFCBD5E1))),
                     Text(_formatExpiry(inst['expiry']), style: TextStyle(fontSize: kFontSizeCaption,
-                      color: isDeleted ? const Color(0xFFCBD5E1) : const Color(0xFF94A3B8), fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+                      color: isDeleted ? const Color(0xFFCBD5E1) : kColorTextMuted, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
                   ],
                 ],
               ),
@@ -582,14 +582,14 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
               onTap: () => _deleteInstrument(inst),
               child: Container(width: 32, height: 32,
                 decoration: BoxDecoration(color: const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(8)),
-                child: const Icon(Icons.delete_outline, size: 16, color: Color(0xFFEF4444))),
+                child: const Icon(Icons.delete_outline, size: 16, color: kColorSell)),
             ),
           ] else ...[
             GestureDetector(
               onTap: () => _restoreInstrument(inst),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: const Color(0xFF10B981), borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(color: kColorBuy, borderRadius: BorderRadius.circular(8)),
                 child: const Text('Restore', style: TextStyle(color: Colors.white, fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
               ),
             ),

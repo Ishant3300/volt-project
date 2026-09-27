@@ -76,7 +76,7 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               content: Text(data['message'] ?? 'Failed to create'),
-              backgroundColor: const Color(0xFFEF4444),
+              backgroundColor: kColorSell,
             ));
           }
         }
@@ -103,7 +103,7 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
       log('Error loading script quantities: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'), backgroundColor: const Color(0xFFEF4444),
+          content: Text('Error: $e'), backgroundColor: kColorSell,
         ));
       }
     }
@@ -129,7 +129,7 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
     final brkQty = double.tryParse(entry.brkQtyCtrl.text);
     if (maxQty == null || brkQty == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Enter valid numbers'), backgroundColor: Color(0xFFEF4444),
+        content: Text('Enter valid numbers'), backgroundColor: kColorSell,
       ));
       return;
     }
@@ -149,21 +149,21 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
           entry.isModified = false;
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('${entry.scriptName} updated'),
-            backgroundColor: const Color(0xFF10B981),
+            backgroundColor: kColorBuy,
             duration: const Duration(seconds: 1),
           ));
         } else {
           final data = jsonDecode(response.body);
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(data['message'] ?? 'Failed'),
-            backgroundColor: const Color(0xFFEF4444),
+            backgroundColor: kColorSell,
           ));
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'), backgroundColor: const Color(0xFFEF4444),
+          content: Text('Error: $e'), backgroundColor: kColorSell,
         ));
       }
     }
@@ -201,15 +201,15 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
               color: Colors.white, borderRadius: BorderRadius.circular(12),
               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
             ),
-            child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+            child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const Text('Script Quantity',
-              style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+              style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
           Text('${widget.exchange} · ${_instruments.length} instruments',
-              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily)),
+              style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily)),
         ])),
       ]),
     );
@@ -231,7 +231,7 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
           _isLotBased
               ? 'Values are in lots. Tap save icon to update each instrument.'
               : 'Values are in quantity. Tap save icon to update each instrument.',
-          style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily),
+          style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily),
         )),
       ]),
     );
@@ -247,12 +247,12 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
         ),
         child: Row(children: [
-          const Padding(padding: EdgeInsets.only(left: 14, right: 8), child: Icon(Icons.search, color: Color(0xFF94A3B8), size: kIconSizeMedium)),
+          const Padding(padding: EdgeInsets.only(left: 14, right: 8), child: Icon(Icons.search, color: kColorTextMuted, size: kIconSizeMedium)),
           Expanded(child: TextField(
             controller: _searchCtrl,
             style: const TextStyle(fontSize: kFontSizeBody, color: Color(0xFF0F172A), fontFamily: kFontFamily),
             decoration: const InputDecoration(
-              hintText: 'Filter instruments...', hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: kFontFamily),
+              hintText: 'Filter instruments...', hintStyle: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBody, fontFamily: kFontFamily),
               border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 12),
             ),
             onChanged: _filterInstruments,
@@ -260,7 +260,7 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
           if (_searchQuery.isNotEmpty)
             GestureDetector(
               onTap: () { _searchCtrl.clear(); _filterInstruments(''); },
-              child: const Padding(padding: EdgeInsets.only(right: 14), child: Icon(Icons.close, color: Color(0xFF94A3B8), size: 18)),
+              child: const Padding(padding: EdgeInsets.only(right: 14), child: Icon(Icons.close, color: kColorTextMuted, size: 18)),
             ),
         ]),
       ),
@@ -273,11 +273,11 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(8)),
       child: Row(children: [
-        const Expanded(flex: 3, child: Text('SCRIPT', style: TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: Color(0xFF94A3B8), fontFamily: kFontFamily, letterSpacing: 0.5))),
+        const Expanded(flex: 3, child: Text('SCRIPT', style: TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: kColorTextMuted, fontFamily: kFontFamily, letterSpacing: 0.5))),
         const SizedBox(width: 4),
-        Expanded(flex: 2, child: Text(_qtyLabel.toUpperCase(), style: const TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: Color(0xFF94A3B8), fontFamily: kFontFamily, letterSpacing: 0.5))),
+        Expanded(flex: 2, child: Text(_qtyLabel.toUpperCase(), style: const TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: kColorTextMuted, fontFamily: kFontFamily, letterSpacing: 0.5))),
         const SizedBox(width: 4),
-        Expanded(flex: 2, child: Text(_brkLabel.toUpperCase(), style: const TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: Color(0xFF94A3B8), fontFamily: kFontFamily, letterSpacing: 0.5))),
+        Expanded(flex: 2, child: Text(_brkLabel.toUpperCase(), style: const TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: kColorTextMuted, fontFamily: kFontFamily, letterSpacing: 0.5))),
         const SizedBox(width: 4),
         const SizedBox(width: 36),
       ]),
@@ -288,13 +288,13 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
     return const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
       CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5),
       SizedBox(height: 16),
-      Text('Loading instruments...', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
+      Text('Loading instruments...', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
     ]));
   }
 
   Widget _buildList() {
     if (_filteredInstruments.isEmpty) {
-      return const Center(child: Text('No instruments found', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: kFontFamily)));
+      return const Center(child: Text('No instruments found', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBody, fontFamily: kFontFamily)));
     }
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -315,7 +315,7 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
                   maxLines: 1, overflow: TextOverflow.ellipsis),
               if (!_isLotBased)
                 Text('Lot: ${entry.lotSize}',
-                    style: const TextStyle(fontSize: kFontSizeCaption, color: Color(0xFF94A3B8), fontFamily: kFontFamily)),
+                    style: const TextStyle(fontSize: kFontSizeCaption, color: kColorTextMuted, fontFamily: kFontFamily)),
             ])),
             const SizedBox(width: 4),
             Expanded(flex: 2, child: _buildCompactInput(entry.maxQtyCtrl, () => setState(() => entry.isModified = true))),

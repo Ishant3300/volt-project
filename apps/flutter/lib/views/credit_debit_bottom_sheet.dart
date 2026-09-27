@@ -151,7 +151,7 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
             'Transaction',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.black,
+              color: kColorTextPrimary,
               fontSize: kFontSizeSheetTitle,
               fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,
@@ -237,7 +237,7 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
             child: Text(
               'Available Credit: ${(widget.master?.credits ?? widget.user?.credits ?? 0).toStringAsFixed(2)}',
               style: TextStyle(
-                color: Colors.black,
+                color: kColorTextPrimary,
                 fontSize: kFontSizeSectionHeader,
                 fontFamily: kFontFamily,
                 fontWeight: kFontWeightRegular,
@@ -361,7 +361,7 @@ class _CreditDebitBottomSheetState extends State<CreditDebitBottomSheet> {
                       'CLOSE',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.black,
+                        color: kColorTextPrimary,
                         fontSize: kFontSizeButtonText,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,

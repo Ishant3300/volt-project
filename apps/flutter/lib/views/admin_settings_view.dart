@@ -147,7 +147,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
                 content: Text('TOTP reset. Re-enable to configure a new one.'),
-                backgroundColor: Color(0xFF10B981)),
+                backgroundColor: kColorBuy),
           );
         }
       } catch (e) {
@@ -178,7 +178,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
               const SizedBox(height: 12),
               Text(message,
                   style: const TextStyle(
-                      color: Color(0xFF64748B),
+                      color: kColorTextMuted,
                       fontSize: kFontSizeBody,
                       fontFamily: kFontFamily),
                   textAlign: TextAlign.center),
@@ -196,7 +196,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                         child: const Center(
                             child: Text('Cancel',
                                 style: TextStyle(
-                                    color: Color(0xFF64748B),
+                                    color: kColorTextMuted,
                                     fontFamily: kFontFamily,
                                     fontWeight: kFontWeightSemiBold))),
                       ),
@@ -209,7 +209,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
-                            color: const Color(0xFFEF4444),
+                            color: kColorSell,
                             borderRadius: BorderRadius.circular(12)),
                         child: const Center(
                             child: Text('Confirm',
@@ -258,13 +258,13 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                                   offset: const Offset(0, 2))
                             ]),
                         child: const Icon(Icons.arrow_back,
-                            color: Colors.black, size: kIconSizeMedium),
+                            color: kColorTextPrimary, size: kIconSizeMedium),
                       ),
                     ),
                     const SizedBox(width: 12),
                     const Text('Admin Settings',
                         style: TextStyle(
-                            color: Colors.black,
+                            color: kColorTextPrimary,
                             fontSize: kFontSizeViewTitle,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold)),
@@ -301,7 +301,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                                 SizedBox(height: 2),
                                 Text('Authenticator app verification',
                                     style: TextStyle(
-                                        color: Color(0xFF94A3B8),
+                                        color: kColorTextMuted,
                                         fontSize: kFontSizeSubtitle,
                                         fontFamily: kFontFamily)),
                               ],
@@ -505,7 +505,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
           SnackBar(
             content: Text(
                 'Fetched ${data['total']} prices (NSE: ${data['nse']}, MCX: ${data['mcx']}, BSE: ${data['bse']})'),
-            backgroundColor: const Color(0xFF10B981),
+            backgroundColor: kColorBuy,
             duration: const Duration(seconds: 3),
           ),
         );
@@ -535,7 +535,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Text(text,
           style: const TextStyle(
-              color: Color(0xFF94A3B8),
+              color: kColorTextMuted,
               fontSize: kFontSizeNavLabel,
               fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,
@@ -680,14 +680,14 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
             ),
             if (_verified) ...[
               const Icon(Icons.check_circle,
-                  color: Color(0xFF10B981), size: 64),
+                  color: kColorBuy, size: 64),
               const SizedBox(height: 16),
               const Text('TOTP Activated!',
                   style: TextStyle(
                       fontSize: kFontSizeViewTitle,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightBold,
-                      color: Color(0xFF10B981))),
+                      color: kColorBuy)),
             ] else ...[
               const Text('Setup Two-Factor Authentication',
                   style: TextStyle(
@@ -702,7 +702,7 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
                   style: TextStyle(
                       fontSize: kFontSizeBodySmall,
                       fontFamily: kFontFamily,
-                      color: Color(0xFF64748B))),
+                      color: kColorTextMuted)),
               const SizedBox(height: 20),
               Container(
                 padding: const EdgeInsets.all(16),
@@ -743,11 +743,11 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
                                   fontSize: kFontSizeBodySmall,
                                   fontFamily: kFontFamily,
                                   fontWeight: kFontWeightMedium,
-                                  color: Color(0xFF64748B),
+                                  color: kColorTextMuted,
                                   letterSpacing: 1))),
                       const SizedBox(width: 8),
                       const Icon(Icons.copy,
-                          size: 14, color: Color(0xFF94A3B8)),
+                          size: 14, color: kColorTextMuted),
                     ],
                   ),
                 ),
@@ -757,7 +757,7 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
                   style: TextStyle(
                       fontSize: kFontSizeSubtitle,
                       fontFamily: kFontFamily,
-                      color: Color(0xFF94A3B8))),
+                      color: kColorTextMuted)),
               const SizedBox(height: 24),
               const Align(
                 alignment: Alignment.centerLeft,
@@ -808,7 +808,7 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
                           ? null
                           : const LinearGradient(
                               colors: [kBrandGradientStart, kBrandGradientEnd]),
-                      color: _isVerifying ? const Color(0xFF94A3B8) : null,
+                      color: _isVerifying ? kColorTextMuted : null,
                       borderRadius: BorderRadius.circular(14)),
                   child: Center(
                     child: _isVerifying
@@ -831,7 +831,7 @@ class _TotpSetupSheetState extends State<_TotpSetupSheet> {
                 onTap: () => Navigator.pop(context),
                 child: const Text('Cancel',
                     style: TextStyle(
-                        color: Color(0xFF64748B),
+                        color: kColorTextMuted,
                         fontSize: kFontSizeBody,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold)),

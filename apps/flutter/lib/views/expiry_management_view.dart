@@ -162,7 +162,7 @@ class _ExpiryManagementViewState extends State<ExpiryManagementView> {
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Confirm', style: TextStyle(color: Color(0xFFEF4444))),
+            child: const Text('Confirm', style: TextStyle(color: kColorSell)),
           ),
         ],
       ),
@@ -199,7 +199,7 @@ class _ExpiryManagementViewState extends State<ExpiryManagementView> {
   void _showSnack(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: const Color(0xFFEF4444)),
+      SnackBar(content: Text(message), backgroundColor: kColorSell),
     );
   }
 
@@ -236,7 +236,7 @@ class _ExpiryManagementViewState extends State<ExpiryManagementView> {
                           BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2)),
                         ],
                       ),
-                      child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+                      child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -244,7 +244,7 @@ class _ExpiryManagementViewState extends State<ExpiryManagementView> {
                     child: Text(
                       'Expiry Management',
                       style: TextStyle(
-                        color: Colors.black,
+                        color: kColorTextPrimary,
                         fontSize: kFontSizeViewTitle,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
@@ -260,12 +260,12 @@ class _ExpiryManagementViewState extends State<ExpiryManagementView> {
                 children: [
                   const Text(
                     'Expiry toggle',
-                    style: TextStyle(color: Colors.black, fontSize: kFontSizeSectionHeader, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
+                    style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeSectionHeader, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
                   ),
                   const SizedBox(height: 4),
                   const Text(
                     'Manually open/close a whole expiry batch for trading',
-                    style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeCaption, fontFamily: kFontFamily),
+                    style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeCaption, fontFamily: kFontFamily),
                   ),
                   const SizedBox(height: 12),
                   Wrap(
@@ -288,7 +288,7 @@ class _ExpiryManagementViewState extends State<ExpiryManagementView> {
                           child: Text(
                             s,
                             style: TextStyle(
-                              color: selected ? kBrandPrimary : const Color(0xFF64748B),
+                              color: selected ? kBrandPrimary : kColorTextMuted,
                               fontSize: kFontSizeCaption,
                               fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium,
@@ -307,12 +307,12 @@ class _ExpiryManagementViewState extends State<ExpiryManagementView> {
                   else if (_loadError != null)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 24),
-                      child: Text(_loadError!, style: const TextStyle(color: Color(0xFFEF4444), fontFamily: kFontFamily)),
+                      child: Text(_loadError!, style: const TextStyle(color: kColorSell, fontFamily: kFontFamily)),
                     )
                   else if (_rows.isEmpty)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Text('No upcoming expiries found.', style: TextStyle(color: Color(0xFF94A3B8), fontFamily: kFontFamily)),
+                      child: Text('No upcoming expiries found.', style: TextStyle(color: kColorTextMuted, fontFamily: kFontFamily)),
                     )
                   else
                     ..._rows.map((row) => _expiryRow(row)),
@@ -322,12 +322,12 @@ class _ExpiryManagementViewState extends State<ExpiryManagementView> {
                   const SizedBox(height: 16),
                   const Text(
                     'MCX square-off',
-                    style: TextStyle(color: Colors.black, fontSize: kFontSizeSectionHeader, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
+                    style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeSectionHeader, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
                   ),
                   const SizedBox(height: 4),
                   const Text(
                     'Close every open MCX position system-wide, in batches. Separate from the toggle above — trigger each independently.',
-                    style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeCaption, fontFamily: kFontFamily),
+                    style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeCaption, fontFamily: kFontFamily),
                   ),
                   const SizedBox(height: 12),
                   GestureDetector(
@@ -336,15 +336,15 @@ class _ExpiryManagementViewState extends State<ExpiryManagementView> {
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEF4444).withValues(alpha: isRunning ? 0.05 : 0.1),
-                        border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: isRunning ? 0.2 : 0.6)),
+                        color: kColorSell.withValues(alpha: isRunning ? 0.05 : 0.1),
+                        border: Border.all(color: kColorSell.withValues(alpha: isRunning ? 0.2 : 0.6)),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       alignment: Alignment.center,
                       child: Text(
                         isRunning ? 'Square-off in progress…' : 'Square off all MCX positions',
                         style: TextStyle(
-                          color: const Color(0xFFEF4444).withValues(alpha: isRunning ? 0.6 : 1),
+                          color: kColorSell.withValues(alpha: isRunning ? 0.6 : 1),
                           fontSize: kFontSizeBody,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold,
@@ -386,13 +386,13 @@ class _ExpiryManagementViewState extends State<ExpiryManagementView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(_formatDate(row['expiry']),
-                    style: const TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+                    style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
                 const SizedBox(height: 2),
                 Text(rawNamesLabel,
-                    style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
+                    style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
                 const SizedBox(height: 2),
                 Text('${row['count']} instrument(s)',
-                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
+                    style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
               ],
             ),
           ),
@@ -402,7 +402,7 @@ class _ExpiryManagementViewState extends State<ExpiryManagementView> {
               mixed ? 'Mixed' : (enabled ? 'Open' : 'Closed'),
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: mixed ? const Color(0xFFF59E0B) : (enabled ? const Color(0xFF10B981) : const Color(0xFFEF4444)),
+                color: mixed ? const Color(0xFFF59E0B) : (enabled ? kColorBuy : kColorSell),
                 fontSize: kFontSizeCaption,
                 fontFamily: kFontFamily,
                 fontWeight: kFontWeightMedium,
@@ -438,8 +438,8 @@ class _ExpiryManagementViewState extends State<ExpiryManagementView> {
     final status = run['status'] as String? ?? 'running';
     final failed = List<dynamic>.from(run['failed_users'] ?? []);
     Color statusColor = const Color(0xFFF59E0B);
-    if (status == 'completed') statusColor = const Color(0xFF10B981);
-    if (status == 'failed') statusColor = const Color(0xFFEF4444);
+    if (status == 'completed') statusColor = kColorBuy;
+    if (status == 'failed') statusColor = kColorSell;
 
     return Container(
       margin: const EdgeInsets.only(top: 12),
@@ -462,7 +462,7 @@ class _ExpiryManagementViewState extends State<ExpiryManagementView> {
           const SizedBox(height: 6),
           Text(
             '${run['processed_users'] ?? 0} / ${run['total_users'] ?? 0} client(s) processed — ${run['positions_closed'] ?? 0} position(s) closed',
-            style: const TextStyle(color: Colors.black, fontSize: kFontSizeCaption, fontFamily: kFontFamily),
+            style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeCaption, fontFamily: kFontFamily),
           ),
           if (failed.isNotEmpty) ...[
             const SizedBox(height: 6),

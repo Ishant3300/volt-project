@@ -17,6 +17,21 @@ const bool kLogLivePrices = false;
 const bool kLogWebSockets = false;
 const bool kLogTokenWarnings = false;
 
+// ─── Text / Action Colors ───────────────────────────────────────────────────
+// Sampled directly from the reference app's History screen (instrument
+// names, user tags, timestamps, BUY/SELL labels, Deals badges) — not brand
+// colors (those stay in app_brand.dart's kBrandPrimary etc., per-flavor and
+// untouched here). These are plain shared UI tokens for wherever a screen
+// needs "the dark text" / "the muted text" / "the buy blue" / "the sell red"
+// look, so a redesign doesn't have to keep re-typing the same hex.
+const Color kColorTextPrimary = Color(0xFF1F2429); // headings, instrument names, user tags
+const Color kColorTextMuted = Color(0xFF8C939D); // timestamps, inactive tabs/nav items
+const Color kColorBuy = Color(0xFF2E7BE5); // BUY labels, buy prices, active-state accents
+const Color kColorSell = Color(0xFFC94A4A); // SELL labels, sell prices, loss figures
+const Color kColorBuyBadgeBg = Color(0xFFE8F1FD); // light tint behind a BUY badge
+const Color kColorSellBadgeBg = Color(0xFFFCEAE9); // light tint behind a SELL badge
+const Color kColorLossBadgeBg = Color(0xFFFDE8E8); // light tint behind a "Deals: -…" loss pill
+
 // One-tap "Reset Password" (username_view.dart / web's PasswordResetPage.tsx)
 // sets a user's/master's password to this fixed value instead of requiring
 // the admin/master to type one every time. change_pass_on_first_login isn't
@@ -28,20 +43,29 @@ const String kDefaultResetPassword = '123456';
 // ─── Font Sizes ─────────────────────────────────────────────────────────────
 
 // Font Weights
+// Bumped one notch app-wide (previously w300/w300/w400/w400 — visibly thin,
+// and Bold/SemiBold were indistinguishable from each other at the same
+// w400). Every screen sharing these four constants gets the bolder look in
+// one place — Watchlist is exempt, it already uses its own literal weights
+// from the earlier redesign rather than these constants.
 const FontWeight kFontWeightRegular =
-    FontWeight.w300; // Body text, hints, metadata, labels across all pages
+    FontWeight.w400; // Body text, hints, metadata, labels across all pages
 const FontWeight kFontWeightMedium =
-    FontWeight.w300; // Secondary text, search fields, menu items, tab labels
+    FontWeight.w400; // Secondary text, search fields, menu items, tab labels
 const FontWeight kFontWeightSemiBold =
-    FontWeight.w400; // Titles, card names, buttons, badges, option names
+    FontWeight.w600; // Titles, card names, buttons, badges, option names
 const FontWeight kFontWeightBold =
-    FontWeight.w400; // Page titles, P&L values, emphasis text
+    FontWeight.w600; // Page titles, P&L values, emphasis text
+// Distinct from kFontWeightSemiBold — pill/tag badges (BUY/SELL, ADMIN,
+// DELETE, Closed…) want a visibly heavier 700 per the typography spec, while
+// titles/prices sharing kFontSizeTradeSymbol-style constants stay at 600.
+const FontWeight kFontWeightBadge = FontWeight.w700;
 
 // Universal Name Style (option names, usernames, master names, instrument names — all screens)
 const double kFontSizeName =
     12.0; // Profile names, master names, user names, instrument names in all cards/lists
 const FontWeight kFontWeightName =
-    FontWeight.w400; // Weight for all names across the app
+    FontWeight.w600; // Weight for all names across the app
 
 // Display / Splash
 const double kFontSizeDisplay = 32.0;
@@ -54,7 +78,7 @@ const double kFontSizeSectionHeader = 16.0;
 const double kFontSizeButtonText = 15.0;
 
 // Body Text
-const double kFontSizeBody = 12.0; // title, orders page tile
+const double kFontSizeBody = 13.0; // title, orders page tile, top segment tabs
 const double kFontSizeBodySmall =
     12.0; // bottom sheets, trade margin, group quantity, script quantity
 const double kFontSizeSubtitle = 10.0;
@@ -64,7 +88,7 @@ const double kFontSizeNavLabel = 11.0; // Nav text
 const double kFontSizeNavIcon = 14.0; // Nav icons
 
 // Small / Captions
-const double kFontSizeCaption = 10.0; // all sub text under cards in all pages
+const double kFontSizeCaption = 11.0; // all sub text under cards in all pages
 const double kFontSizeBadge = 10.0; // badges on account
 
 // Price Data
@@ -74,9 +98,9 @@ const double kFontSizeInstrumentName = 12.0; // Instrument names
 
 // Trade Card / Position Card (Watchlist, Orders, History, Username View)
 const double kFontSizeTradeSymbol =
-    12.0; // Instrument name in trade/position cards
+    14.0; // Instrument name in trade/position cards
 const double kFontSizeTradePrice = 14.0; // Price on right side of trade cards
-const double kFontSizeTradeBadge = 10.0; // BUY/SELL/PENDING badges
+const double kFontSizeTradeBadge = 12.0; // BUY/SELL/PENDING badges
 const double kFontSizeTradeMetadata = 10.0; // Volume, time, username metadata
 const double kFontSizePositionSymbol =
     11.5; // Symbol in position cards // user's view in orders page

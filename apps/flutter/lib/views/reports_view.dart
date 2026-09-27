@@ -111,7 +111,7 @@ class ReportsView extends StatelessWidget {
                         ],
                       ),
                       child: const Icon(Icons.arrow_back,
-                          color: Colors.black, size: kIconSizeMedium),
+                          color: kColorTextPrimary, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -138,7 +138,7 @@ class ReportsView extends StatelessWidget {
                       child: Text(
                         'No reports available',
                         style: TextStyle(
-                          color: Color(0xFF94A3B8),
+                          color: kColorTextMuted,
                           fontSize: kFontSizeBody,
                           fontFamily: kFontFamily,
                         ),
@@ -423,7 +423,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                 style: const TextStyle(
                     fontSize: kFontSizeSubtitle,
                     fontFamily: kFontFamily,
-                    color: Color(0xFF94A3B8))),
+                    color: kColorTextMuted)),
             const SizedBox(height: 24),
             Row(
               children: [
@@ -521,14 +521,14 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                       child: const Column(
                         children: [
                           Icon(Icons.share_rounded,
-                              size: 28, color: Color(0xFF10B981)),
+                              size: 28, color: kColorBuy),
                           SizedBox(height: 6),
                           Text('Share',
                               style: TextStyle(
                                   fontSize: kFontSizeBody,
                                   fontFamily: kFontFamily,
                                   fontWeight: kFontWeightSemiBold,
-                                  color: Color(0xFF10B981))),
+                                  color: kColorBuy)),
                         ],
                       ),
                     ),
@@ -852,7 +852,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
             children: [
               const Text('Generate PDF',
                   style: TextStyle(
-                      color: Colors.black,
+                      color: kColorTextPrimary,
                       fontSize: kFontSizeSheetTitle,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold)),
@@ -861,7 +861,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
               // Mode selector — layout type only
               const Text('Report Type',
                   style: TextStyle(
-                      color: Color(0xFF64748B),
+                      color: kColorTextMuted,
                       fontSize: kFontSizeSheetLabel,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
@@ -894,7 +894,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
               if (!_isUser && widget.preselectedUserId == null) ...[
                 const Text('Select User',
                     style: TextStyle(
-                        color: Color(0xFF64748B),
+                        color: kColorTextMuted,
                         fontSize: kFontSizeSheetLabel,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
@@ -967,7 +967,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                                   color: Color(0xFFCBD5E1),
                                   fontSize: kFontSizeSheetHint),
                               prefixIcon: Icon(Icons.search,
-                                  size: 18, color: Color(0xFF94A3B8)),
+                                  size: 18, color: kColorTextMuted),
                               contentPadding: EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 8),
                               border: OutlineInputBorder(
@@ -1013,7 +1013,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                         child: const Text('CLEAR',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                                color: Colors.black,
+                                color: kColorTextPrimary,
                                 fontSize: kFontSizeButtonText,
                                 fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold)),
@@ -1117,7 +1117,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
               fontWeight: kFontWeightRegular,
             ),
           ),
-          const Icon(Icons.calendar_today, size: 18, color: Colors.black),
+          const Icon(Icons.calendar_today, size: 18, color: kColorTextPrimary),
         ],
       ),
     );
@@ -1138,7 +1138,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? Colors.white : const Color(0xFF64748B),
+            color: selected ? Colors.white : kColorTextMuted,
             fontSize: 13,
             fontFamily: kFontFamily,
             fontWeight: kFontWeightSemiBold,

@@ -375,7 +375,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                   child: Row(
                     children: [
                       const Icon(Icons.search,
-                          size: 18, color: Color(0xFF94A3B8)),
+                          size: 18, color: kColorTextMuted),
                       const SizedBox(width: 8),
                       Expanded(
                         child: TextField(
@@ -389,7 +389,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                           decoration: const InputDecoration(
                             hintText: 'Search by instrument name...',
                             hintStyle: TextStyle(
-                              color: Color(0xFF94A3B8),
+                              color: kColorTextMuted,
                               fontSize: kFontSizeBody,
                               fontFamily: kFontFamily,
                             ),
@@ -408,7 +408,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                             setState(() => _searchQuery = '');
                           },
                           child: const Icon(Icons.close,
-                              size: 18, color: Color(0xFF94A3B8)),
+                              size: 18, color: kColorTextMuted),
                         ),
                     ],
                   ),
@@ -467,10 +467,14 @@ class _PortfolioPageState extends State<PortfolioPage>
             child: Text(
               label,
               style: TextStyle(
-                color: isActive ? Colors.white : const Color(0xFF94A3B8),
+                color: isActive ? Colors.white : kColorTextMuted,
                 fontSize: kFontSizeBody,
                 fontFamily: kFontFamily,
-                fontWeight: isActive ? kFontWeightSemiBold : kFontWeightMedium,
+                // 500 inactive / 600 active per the typography spec — a
+                // dedicated literal here rather than kFontWeightMedium
+                // (400), since that shared constant is also used for lots
+                // of unrelated body text this spec doesn't touch.
+                fontWeight: isActive ? kFontWeightSemiBold : FontWeight.w500,
               ),
             ),
           ),
@@ -885,7 +889,7 @@ class _PortfolioPageState extends State<PortfolioPage>
   Widget _buildCompletedTradeCard(Trade trade) {
     final bool isBuy = trade.transactionType.toUpperCase() == 'BUY';
     final Color sideColor =
-        isBuy ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+        isBuy ? kColorBuy : kColorSell;
     final String sideLabel = isBuy ? 'BUY' : 'SELL';
 
     String formattedDate = trade.createdAt;
@@ -898,7 +902,7 @@ class _PortfolioPageState extends State<PortfolioPage>
     final bool isClosing = trade.pnl != 0;
     final double deals = trade.pnl;
     final Color dealsColor =
-        deals >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+        deals >= 0 ? kColorBuy : kColorSell;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -921,7 +925,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                             child: Text(
                               _displayName(trade),
                               style: const TextStyle(
-                                color: Colors.black,
+                                color: kColorTextPrimary,
                                 fontSize: kFontSizeTradeSymbol,
                                 fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold,
@@ -945,7 +949,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                                 color: sideColor,
                                 fontSize: kFontSizeTradeBadge,
                                 fontFamily: kFontFamily,
-                                fontWeight: kFontWeightSemiBold,
+                                fontWeight: kFontWeightBadge,
                                 letterSpacing: 0.3,
                               ),
                             ),
@@ -965,7 +969,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                                   color: kBrandPrimary,
                                   fontSize: kFontSizeTradeBadge,
                                   fontFamily: kFontFamily,
-                                  fontWeight: kFontWeightSemiBold,
+                                  fontWeight: kFontWeightBadge,
                                   letterSpacing: 0.3,
                                 ),
                               ),
@@ -996,7 +1000,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                           Text(
                             _tradeVolumeLabel(trade),
                             style: const TextStyle(
-                              color: Color(0xFF94A3B8),
+                              color: kColorTextMuted,
                               fontSize: kFontSizeCaption,
                               fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium,
@@ -1014,7 +1018,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                               child: Text(
                                 'M: ${trade.masterName!}',
                                 style: const TextStyle(
-                                  color: Color(0xFF94A3B8),
+                                  color: kColorTextMuted,
                                   fontSize: kFontSizeCaption,
                                   fontFamily: kFontFamily,
                                   fontWeight: kFontWeightMedium,
@@ -1031,12 +1035,12 @@ class _PortfolioPageState extends State<PortfolioPage>
                       Row(
                         children: [
                           const Icon(Icons.access_time,
-                              size: 11, color: Color(0xFF94A3B8)),
+                              size: 11, color: kColorTextMuted),
                           const SizedBox(width: 4),
                           Text(
                             formattedDate,
                             style: const TextStyle(
-                              color: Color(0xFF94A3B8),
+                              color: kColorTextMuted,
                               fontSize: kFontSizeCaption,
                               fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium,
@@ -1066,7 +1070,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                     children: [
                       if (_isAdmin && trade.userName != null) ...[
                         const Icon(Icons.person_outline,
-                            size: 13, color: Color(0xFF94A3B8)),
+                            size: 13, color: kColorTextMuted),
                         const SizedBox(width: 4),
                         Flexible(
                           child: Text(
@@ -1094,7 +1098,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                             child: Text(
                               'Closed',
                               style: const TextStyle(
-                                color: Color(0xFF64748B),
+                                color: kColorTextMuted,
                                 fontSize: kFontSizeCaption,
                                 fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold,
@@ -1103,12 +1107,12 @@ class _PortfolioPageState extends State<PortfolioPage>
                           )
                         else ...[
                           const Icon(Icons.access_time,
-                              size: 11, color: Color(0xFF94A3B8)),
+                              size: 11, color: kColorTextMuted),
                           const SizedBox(width: 4),
                           Text(
                             formattedDate,
                             style: const TextStyle(
-                              color: Color(0xFF94A3B8),
+                              color: kColorTextMuted,
                               fontSize: kFontSizeCaption,
                               fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium,
@@ -1127,7 +1131,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                           child: const Text(
                             'Closed',
                             style: TextStyle(
-                              color: Color(0xFF64748B),
+                              color: kColorTextMuted,
                               fontSize: kFontSizeCaption,
                               fontFamily: kFontFamily,
                               fontWeight: kFontWeightSemiBold,
@@ -1148,18 +1152,18 @@ class _PortfolioPageState extends State<PortfolioPage>
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                            color: const Color(0xFFEF4444).withOpacity(0.4)),
+                            color: kColorSell.withOpacity(0.4)),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.delete_outline,
-                              size: 13, color: Color(0xFFEF4444)),
+                              size: 13, color: kColorSell),
                           SizedBox(width: 4),
                           Text(
                             'DELETE',
                             style: TextStyle(
-                              color: Color(0xFFEF4444),
+                              color: kColorSell,
                               fontSize: kFontSizeCaption,
                               fontFamily: kFontFamily,
                               fontWeight: kFontWeightSemiBold,
@@ -1205,7 +1209,7 @@ class _PortfolioPageState extends State<PortfolioPage>
     final bool isPending = trade.status.toLowerCase() == 'pending';
     final bool isBuy = trade.transactionType.toUpperCase() == 'BUY';
     final Color sideColor =
-        isBuy ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+        isBuy ? kColorBuy : kColorSell;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -1229,7 +1233,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                         Text(
                           _displayName(trade),
                           style: const TextStyle(
-                            color: Colors.black,
+                            color: kColorTextPrimary,
                             fontSize: kFontSizeTradeSymbol,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
@@ -1255,7 +1259,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                                   color: sideColor,
                                   fontSize: kFontSizeTradeBadge,
                                   fontFamily: kFontFamily,
-                                  fontWeight: kFontWeightSemiBold,
+                                  fontWeight: kFontWeightBadge,
                                   letterSpacing: 0.3,
                                 ),
                               ),
@@ -1267,13 +1271,13 @@ class _PortfolioPageState extends State<PortfolioPage>
                           Row(
                             children: [
                               const Icon(Icons.person_outline,
-                                  size: 11, color: Color(0xFF94A3B8)),
+                                  size: 11, color: kColorTextMuted),
                               const SizedBox(width: 4),
                               Flexible(
                                 child: Text(
                                   trade.userName!,
                                   style: const TextStyle(
-                                    color: Color(0xFF94A3B8),
+                                    color: kColorTextMuted,
                                     fontSize: kFontSizeCaption,
                                     fontFamily: kFontFamily,
                                     fontWeight: kFontWeightMedium,
@@ -1318,7 +1322,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                   Text(
                     trade.price.toStringAsFixed(2),
                     style: const TextStyle(
-                      color: Colors.black,
+                      color: kColorTextPrimary,
                       fontSize: kFontSizeTradePrice,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
@@ -1344,12 +1348,12 @@ class _PortfolioPageState extends State<PortfolioPage>
                   Row(
                     children: [
                       Icon(Icons.access_time,
-                          size: 11, color: const Color(0xFF94A3B8)),
+                          size: 11, color: kColorTextMuted),
                       const SizedBox(width: 4),
                       Text(
                         formattedDate,
                         style: const TextStyle(
-                          color: Color(0xFF94A3B8),
+                          color: kColorTextMuted,
                           fontSize: kFontSizeCaption,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
@@ -1376,10 +1380,10 @@ class _PortfolioPageState extends State<PortfolioPage>
                           style: TextStyle(
                             color: isPending
                                 ? const Color(0xFFB45309)
-                                : const Color(0xFFEF4444),
+                                : kColorSell,
                             fontSize: kFontSizeTradeBadge,
                             fontFamily: kFontFamily,
-                            fontWeight: kFontWeightSemiBold,
+                            fontWeight: kFontWeightBadge,
                             letterSpacing: 0.3,
                           ),
                         ),
@@ -1396,19 +1400,19 @@ class _PortfolioPageState extends State<PortfolioPage>
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
-                                      color: const Color(0xFFEF4444)
+                                      color: kColorSell
                                           .withOpacity(0.4)),
                                 ),
                                 child: const Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(Icons.delete_outline,
-                                        size: 13, color: Color(0xFFEF4444)),
+                                        size: 13, color: kColorSell),
                                     SizedBox(width: 4),
                                     Text(
                                       'Delete',
                                       style: TextStyle(
-                                        color: Color(0xFFEF4444),
+                                        color: kColorSell,
                                         fontSize: kFontSizeSubtitle,
                                         fontFamily: kFontFamily,
                                         fontWeight: kFontWeightSemiBold,
@@ -1450,13 +1454,13 @@ class _PortfolioPageState extends State<PortfolioPage>
                                     horizontal: 14, vertical: 5),
                                 decoration: BoxDecoration(
                                   color:
-                                      const Color(0xFFEF4444).withOpacity(0.1),
+                                      kColorSell.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: const Text(
                                   'Cancel',
                                   style: TextStyle(
-                                    color: Color(0xFFEF4444),
+                                    color: kColorSell,
                                     fontSize: kFontSizeSubtitle,
                                     fontFamily: kFontFamily,
                                     fontWeight: kFontWeightSemiBold,
@@ -1481,11 +1485,11 @@ class _PortfolioPageState extends State<PortfolioPage>
     final isLong = position.netQty > 0;
     final sideLabel = isLong ? 'LONG' : 'SHORT';
     final sideColor =
-        isLong ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+        isLong ? kColorBuy : kColorSell;
     final avgPrice = isLong ? position.avgBuyPrice : position.avgSellPrice;
     final pnl = position.realised + position.floating;
     final pnlColor =
-        pnl >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+        pnl >= 0 ? kColorBuy : kColorSell;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1503,7 +1507,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                     Text(
                       position.tradingsymbol,
                       style: const TextStyle(
-                        color: Colors.black,
+                        color: kColorTextPrimary,
                         fontSize: kFontSizePositionSymbol,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
@@ -1546,7 +1550,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                         Text(
                           '${position.displayVolume} ${position.volumeUnit} @ ${avgPrice.toStringAsFixed(2)}',
                           style: const TextStyle(
-                            color: Color(0xFF94A3B8),
+                            color: kColorTextMuted,
                             fontSize: kFontSizeCaption,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightMedium,
@@ -1569,7 +1573,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                         ? position.ltp.toStringAsFixed(2)
                         : avgPrice.toStringAsFixed(2),
                     style: const TextStyle(
-                      color: Colors.black,
+                      color: kColorTextPrimary,
                       fontSize: kFontSizePositionPnl,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
@@ -1615,7 +1619,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                   Text(
                     position.exchange,
                     style: const TextStyle(
-                      color: Color(0xFF94A3B8),
+                      color: kColorTextMuted,
                       fontSize: kFontSizeCaption,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium,
@@ -1625,8 +1629,8 @@ class _PortfolioPageState extends State<PortfolioPage>
                     'Floating: ${position.floating >= 0 ? '+' : ''}${position.floating.toStringAsFixed(2)}',
                     style: TextStyle(
                       color: position.floating >= 0
-                          ? const Color(0xFF10B981)
-                          : const Color(0xFFEF4444),
+                          ? kColorBuy
+                          : kColorSell,
                       fontSize: kFontSizeCaption,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
@@ -1735,13 +1739,13 @@ class _PortfolioPageState extends State<PortfolioPage>
             onPressed: () => Navigator.pop(context, false),
             child: const Text('No',
                 style:
-                    TextStyle(color: Color(0xFF94A3B8), fontFamily: kFontFamily)),
+                    TextStyle(color: kColorTextMuted, fontFamily: kFontFamily)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: const Text('Yes, Delete',
                 style: TextStyle(
-                    color: Color(0xFFEF4444),
+                    color: kColorSell,
                     fontFamily: kFontFamily,
                     fontWeight: kFontWeightSemiBold)),
           ),
@@ -1776,7 +1780,7 @@ class _PortfolioPageState extends State<PortfolioPage>
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                   content: Text('Trade deleted: ${trade.tradingSymbol}'),
-                  backgroundColor: const Color(0xFF10B981)),
+                  backgroundColor: kColorBuy),
             );
           }
         } else {
@@ -1790,7 +1794,7 @@ class _PortfolioPageState extends State<PortfolioPage>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text('Error: ${e.toString()}'),
-              backgroundColor: const Color(0xFFEF4444)),
+              backgroundColor: kColorSell),
         );
       }
     }
@@ -1834,7 +1838,7 @@ class _PortfolioPageState extends State<PortfolioPage>
             child: const Text(
               'No',
               style: TextStyle(
-                color: Color(0xFF94A3B8),
+                color: kColorTextMuted,
                 fontFamily: kFontFamily,
               ),
             ),
@@ -1844,7 +1848,7 @@ class _PortfolioPageState extends State<PortfolioPage>
             child: const Text(
               'Yes, Cancel',
               style: TextStyle(
-                color: Color(0xFFEF4444),
+                color: kColorSell,
                 fontFamily: kFontFamily,
                 fontWeight: kFontWeightSemiBold,
               ),
@@ -1885,7 +1889,7 @@ class _PortfolioPageState extends State<PortfolioPage>
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Order cancelled: ${trade.tradingSymbol}'),
-                backgroundColor: const Color(0xFF10B981),
+                backgroundColor: kColorBuy,
               ),
             );
           }
@@ -1900,7 +1904,7 @@ class _PortfolioPageState extends State<PortfolioPage>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
-            backgroundColor: const Color(0xFFEF4444),
+            backgroundColor: kColorSell,
           ),
         );
       }
@@ -1978,7 +1982,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                 Text(
                   dialogError!,
                   style: const TextStyle(
-                    color: Color(0xFFEF4444),
+                    color: kColorSell,
                     fontFamily: kFontFamily,
                     fontSize: kFontSizeCaption,
                   ),
@@ -1992,7 +1996,7 @@ class _PortfolioPageState extends State<PortfolioPage>
               child: const Text(
                 'Cancel',
                 style: TextStyle(
-                  color: Color(0xFF94A3B8),
+                  color: kColorTextMuted,
                   fontFamily: kFontFamily,
                 ),
               ),
@@ -2062,7 +2066,7 @@ class _PortfolioPageState extends State<PortfolioPage>
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Order modified: ${trade.tradingSymbol}'),
-                backgroundColor: const Color(0xFF10B981),
+                backgroundColor: kColorBuy,
               ),
             );
           }
@@ -2078,7 +2082,7 @@ class _PortfolioPageState extends State<PortfolioPage>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: ${e.toString()}'),
-            backgroundColor: const Color(0xFFEF4444),
+            backgroundColor: kColorSell,
           ),
         );
       }

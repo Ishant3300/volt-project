@@ -129,10 +129,10 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
                 child: Container(width: 40, height: 40,
                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
                     boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
-                  child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium)),
+                  child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium)),
               ),
               const SizedBox(width: 12),
-              const Expanded(child: Text('Userwise Open Position', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
+              const Expanded(child: Text('Userwise Open Position', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(color: kBrandPrimary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
@@ -149,15 +149,15 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
                 child: TextField(controller: _searchCtrl, onChanged: (v) => setState(() => _searchQuery = v),
                   style: const TextStyle(fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
                   decoration: InputDecoration(hintText: 'Search user or instrument...', hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily),
-                    prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFF94A3B8)),
-                    suffixIcon: _searchQuery.isNotEmpty ? GestureDetector(onTap: () { _searchCtrl.clear(); setState(() => _searchQuery = ''); }, child: const Icon(Icons.close, size: 18, color: Color(0xFF94A3B8))) : null,
+                    prefixIcon: const Icon(Icons.search, size: 18, color: kColorTextMuted),
+                    suffixIcon: _searchQuery.isNotEmpty ? GestureDetector(onTap: () { _searchCtrl.clear(); setState(() => _searchQuery = ''); }, child: const Icon(Icons.close, size: 18, color: kColorTextMuted)) : null,
                     contentPadding: const EdgeInsets.symmetric(vertical: 12), border: InputBorder.none)),
               )),
               const SizedBox(width: 10),
               GestureDetector(onTap: _openFilter, child: Container(width: 44, height: 44,
                 decoration: BoxDecoration(color: _hasActiveFilters ? kBrandPrimary : Colors.white, borderRadius: BorderRadius.circular(12),
                   boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
-                child: Icon(Icons.tune, size: kIconSizeMedium, color: _hasActiveFilters ? Colors.white : const Color(0xFF94A3B8)))),
+                child: Icon(Icons.tune, size: kIconSizeMedium, color: _hasActiveFilters ? Colors.white : kColorTextMuted))),
             ]),
           ),
           if (_hasActiveFilters)
@@ -173,9 +173,9 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
                 ? const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
                 : filtered.isEmpty
                     ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.inbox_outlined, size: 48, color: const Color(0xFF94A3B8).withValues(alpha: 0.5)),
+                        Icon(Icons.inbox_outlined, size: 48, color: kColorTextMuted.withValues(alpha: 0.5)),
                         const SizedBox(height: 12),
-                        const Text('No open positions', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: kFontFamily))]))
+                        const Text('No open positions', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBody, fontFamily: kFontFamily))]))
                     : RefreshIndicator(color: kBrandPrimary, onRefresh: _fetch,
                         child: ListView.separated(padding: const EdgeInsets.symmetric(horizontal: 16),
                           itemCount: filtered.length,
@@ -203,9 +203,9 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
     final marginUsed = (pos['margin_used'] as num?)?.toDouble() ?? 0;
     final avgRate = (pos['avg_rate'] as num?)?.toDouble() ?? 0;
     final vol = _volumeLabel(pos);
-    final sideColor = side == 'BUY' ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+    final sideColor = side == 'BUY' ? kColorBuy : kColorSell;
     final floatingPnl = (pos['floating_pnl'] as num?)?.toDouble() ?? 0;
-    final pnlColor = floatingPnl >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+    final pnlColor = floatingPnl >= 0 ? kColorBuy : kColorSell;
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
@@ -214,7 +214,7 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
         Row(children: [
           Expanded(child: Row(children: [
             Flexible(child: Text('$exchange $symbol',
-              style: const TextStyle(color: Colors.black, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
+              style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
               maxLines: 1, overflow: TextOverflow.ellipsis)),
             const SizedBox(width: 6),
             Container(padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
@@ -251,9 +251,9 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
         border: showRight ? const Border(right: BorderSide(color: Color(0xFFF1F5F9))) : null,
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBadge, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+        Text(label, style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeBadge, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
         const SizedBox(height: 1),
-        Text(value, style: TextStyle(color: valueColor ?? Colors.black, fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
+        Text(value, style: TextStyle(color: valueColor ?? kColorTextPrimary, fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
           maxLines: 1, overflow: TextOverflow.ellipsis),
       ]),
     );

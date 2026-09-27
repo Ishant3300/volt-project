@@ -28,7 +28,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
   bool get _isBuy => trade.transactionType.toUpperCase() == 'BUY';
 
   Color get _sideColor =>
-      _isBuy ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+      _isBuy ? kColorBuy : kColorSell;
 
   String get _sideLabel => _isBuy ? 'BUY' : 'SELL';
 
@@ -88,7 +88,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                       Text(
                         trade.tradingSymbol,
                         style: const TextStyle(
-                          color: Colors.black,
+                          color: kColorTextPrimary,
                           fontSize: kFontSizeSectionHeader,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightBold,
@@ -127,7 +127,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                             child: Text(
                               trade.exchange,
                               style: const TextStyle(
-                                color: Color(0xFF64748B),
+                                color: kColorTextMuted,
                                 fontSize: kFontSizeNavLabel,
                                 fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold,
@@ -145,7 +145,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                     Text(
                       '${trade.price.toStringAsFixed(2)}',
                       style: const TextStyle(
-                        color: Colors.black,
+                        color: kColorTextPrimary,
                         fontSize: kFontSizeViewTitle,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightBold,
@@ -157,7 +157,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                           horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: trade.status.toLowerCase() == 'completed'
-                            ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                            ? kColorBuy.withValues(alpha: 0.1)
                             : const Color(0xFFFEF3C7),
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -165,7 +165,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                         _displayStatus,
                         style: TextStyle(
                           color: trade.status.toLowerCase() == 'completed'
-                              ? const Color(0xFF10B981)
+                              ? kColorBuy
                               : const Color(0xFFB45309),
                           fontSize: kFontSizeCaption,
                           fontFamily: kFontFamily,
@@ -267,7 +267,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
           Text(
             label,
             style: const TextStyle(
-              color: Color(0xFF94A3B8),
+              color: kColorTextMuted,
               fontSize: kFontSizeBodySmall,
               fontFamily: kFontFamily,
               fontWeight: kFontWeightMedium,
@@ -279,7 +279,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
               value,
               textAlign: TextAlign.right,
               style: const TextStyle(
-                color: Colors.black,
+                color: kColorTextPrimary,
                 fontSize: kFontSizeBodySmall,
                 fontFamily: kFontFamily,
                 fontWeight: kFontWeightSemiBold,

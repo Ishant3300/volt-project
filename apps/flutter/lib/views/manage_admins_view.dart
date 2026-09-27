@@ -87,12 +87,12 @@ class _ManageAdminsViewState extends State<ManageAdminsView> {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
                       ),
-                      child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+                      child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 12),
                   const Expanded(
-                    child: Text('Manage Admins', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                    child: Text('Manage Admins', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                   ),
                   GestureDetector(
                     onTap: () async {
@@ -161,7 +161,7 @@ class _ManageAdminsViewState extends State<ManageAdminsView> {
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
-                                              Text(admin.username, style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                                              Text(admin.username, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                                               const SizedBox(height: 4),
                                               Row(
                                                 children: [
@@ -172,7 +172,7 @@ class _ManageAdminsViewState extends State<ManageAdminsView> {
                                                   const SizedBox(width: 6),
                                                   _badge(
                                                     admin.activeStatus ? 'Active' : 'Disabled',
-                                                    admin.activeStatus ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                                                    admin.activeStatus ? kColorBuy : kColorSell,
                                                   ),
                                                   if (admin.watchOnly) ...[
                                                     const SizedBox(width: 6),
@@ -185,12 +185,12 @@ class _ManageAdminsViewState extends State<ManageAdminsView> {
                                                 admin.isSuperAdmin
                                                     ? 'All permissions (unrestricted)'
                                                     : '${admin.permissions.length}/9 permissions · ${admin.hiddenMasterIds.isEmpty ? 'all masters visible' : '${admin.hiddenMasterIds.length} master(s) hidden'}',
-                                                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontFamily: kFontFamily),
+                                                style: const TextStyle(color: kColorTextMuted, fontSize: 12, fontFamily: kFontFamily),
                                               ),
                                             ],
                                           ),
                                         ),
-                                        if (!admin.isSuperAdmin) const Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
+                                        if (!admin.isSuperAdmin) const Icon(Icons.chevron_right, color: kColorTextMuted),
                                       ],
                                     ),
                                   ),

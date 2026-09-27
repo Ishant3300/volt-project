@@ -83,7 +83,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
             style: const TextStyle(fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, fontSize: kFontSizeSectionHeader)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           const Text('This will create/update limits for ALL instruments in this segment.',
-              style: TextStyle(fontSize: kFontSizeBodySmall, color: Color(0xFF94A3B8), fontFamily: kFontFamily)),
+              style: TextStyle(fontSize: kFontSizeBodySmall, color: kColorTextMuted, fontFamily: kFontFamily)),
           const SizedBox(height: 14),
           _dialogField(timeCtrl, 'Time (minutes)', 'e.g. 30'),
           const SizedBox(height: 10),
@@ -91,7 +91,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8), fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
+              child: const Text('Cancel', style: TextStyle(color: kColorTextMuted, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
           GestureDetector(
             onTap: () async {
               Navigator.pop(ctx);
@@ -122,12 +122,12 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
         final body = jsonDecode(res.body);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(body['message'] ?? 'Done'),
-          backgroundColor: const Color(0xFF10B981),
+          backgroundColor: kColorBuy,
         ));
         _fetchLimits();
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: const Color(0xFFEF4444)));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: kColorSell));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -144,7 +144,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
             style: const TextStyle(fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, fontSize: kFontSizeSectionHeader)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           const Text('Update time and/or price for ALL instruments in this segment. Leave blank to keep current value.',
-              style: TextStyle(fontSize: kFontSizeBodySmall, color: Color(0xFF94A3B8), fontFamily: kFontFamily)),
+              style: TextStyle(fontSize: kFontSizeBodySmall, color: kColorTextMuted, fontFamily: kFontFamily)),
           const SizedBox(height: 14),
           _dialogField(timeCtrl, 'Time (minutes)', 'Leave blank to skip'),
           const SizedBox(height: 10),
@@ -152,7 +152,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8), fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
+              child: const Text('Cancel', style: TextStyle(color: kColorTextMuted, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
           GestureDetector(
             onTap: () async {
               Navigator.pop(ctx);
@@ -181,11 +181,11 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
       final res = await ApiService(backendUrl).put('/admin/fresh-stoploss-limits/bulk-update', body, token: token);
       if (res.statusCode == 200 && mounted) {
         final respBody = jsonDecode(res.body);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(respBody['message'] ?? 'Updated'), backgroundColor: const Color(0xFF10B981)));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(respBody['message'] ?? 'Updated'), backgroundColor: kColorBuy));
         _fetchLimits();
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: const Color(0xFFEF4444)));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: kColorSell));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -207,7 +207,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8), fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
+              child: const Text('Cancel', style: TextStyle(color: kColorTextMuted, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
           GestureDetector(
             onTap: () async {
               Navigator.pop(ctx);
@@ -233,11 +233,11 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
         token: token,
       );
       if (res.statusCode == 200 && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Updated'), backgroundColor: Color(0xFF10B981)));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Updated'), backgroundColor: kColorBuy));
         _fetchLimits();
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: const Color(0xFFEF4444)));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: kColorSell));
     }
   }
 
@@ -249,7 +249,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
       style: const TextStyle(fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily),
+        labelStyle: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily),
         hintText: hint,
         hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -274,10 +274,10 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
             child: Container(width: 40, height: 40,
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
-              child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium)),
+              child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium)),
           ),
           const SizedBox(width: 12),
-          const Text('Fresh Stop-Loss Limits', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+          const Text('Fresh Stop-Loss Limits', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
         ])),
 
         // Exchange chips
@@ -295,7 +295,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
                     color: sel ? kBrandPrimary : Colors.white,
                     borderRadius: BorderRadius.circular(10),
                     border: sel ? null : Border.all(color: const Color(0xFFE2E8F0))),
-                  child: Text(ex, style: TextStyle(color: sel ? Colors.white : const Color(0xFF64748B), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
+                  child: Text(ex, style: TextStyle(color: sel ? Colors.white : kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
               );
             },
           ),
@@ -319,7 +319,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
             child: Container(height: 42, alignment: Alignment.center,
               decoration: BoxDecoration(color: _limits.isEmpty ? const Color(0xFFE2E8F0) : Colors.white, borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: _limits.isEmpty ? const Color(0xFFE2E8F0) : kBrandPrimary)),
-              child: Text('Update All', style: TextStyle(color: _limits.isEmpty ? const Color(0xFF94A3B8) : kBrandPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
+              child: Text('Update All', style: TextStyle(color: _limits.isEmpty ? kColorTextMuted : kBrandPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
           )),
         ])),
         const SizedBox(height: 12),
@@ -333,7 +333,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
             style: const TextStyle(fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
             decoration: const InputDecoration(
               hintText: 'Search instrument...', hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily),
-              prefixIcon: Icon(Icons.search, size: 18, color: Color(0xFF94A3B8)),
+              prefixIcon: Icon(Icons.search, size: 18, color: kColorTextMuted),
               contentPadding: EdgeInsets.symmetric(vertical: 12), border: InputBorder.none)),
         )),
         const SizedBox(height: 6),
@@ -342,14 +342,14 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
         if (!_isLoading)
           Padding(padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Align(alignment: Alignment.centerLeft,
-              child: Text('${filtered.length} instruments', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)))),
+              child: Text('${filtered.length} instruments', style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)))),
         const SizedBox(height: 6),
 
         // List
         Expanded(child: _isLoading
           ? const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
           : filtered.isEmpty
-            ? const Center(child: Text('No limits set. Tap "Create All" to initialize.', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)))
+            ? const Center(child: Text('No limits set. Tap "Create All" to initialize.', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)))
             : RefreshIndicator(onRefresh: _fetchLimits, child: ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 16), itemCount: filtered.length,
                 itemBuilder: (_, i) => _buildLimitCard(filtered[i])))),
@@ -377,7 +377,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
               _valuePill('Price', price.toStringAsFixed(0)),
             ]),
           ])),
-          const Icon(Icons.edit_outlined, size: kIconSizeDefault, color: Color(0xFF94A3B8)),
+          const Icon(Icons.edit_outlined, size: kIconSizeDefault, color: kColorTextMuted),
         ]),
       ),
     );
@@ -388,7 +388,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(8)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Text('$label: ', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+        Text('$label: ', style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
         Text(value, style: const TextStyle(color: Color(0xFF334155), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
       ]),
     );

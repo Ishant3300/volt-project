@@ -145,7 +145,7 @@ class _PortfolioFilterSheetState extends State<PortfolioFilterSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Filter Trades', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                  const Text('Filter Trades', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                   GestureDetector(
                     onTap: _clearFilters,
                     child: const Text('Clear All', style: TextStyle(color: kBrandPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
@@ -217,7 +217,7 @@ class _PortfolioFilterSheetState extends State<PortfolioFilterSheet> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         decoration: BoxDecoration(color: const Color(0xFFD1D1D6), borderRadius: BorderRadius.circular(8)),
-                        child: const Text('CLOSE', textAlign: TextAlign.center, style: TextStyle(color: Colors.black, fontSize: kFontSizeSectionHeader, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                        child: const Text('CLOSE', textAlign: TextAlign.center, style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeSectionHeader, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                       ),
                     ),
                   ),
@@ -261,7 +261,7 @@ class _PortfolioFilterSheetState extends State<PortfolioFilterSheet> {
               children: [
                 Text(
                   date != null ? fmt.format(date) : 'DD/MM/YYYY',
-                  style: TextStyle(color: date != null ? Colors.black : const Color(0xFF8E8E93), fontSize: kFontSizeBody, fontFamily: kFontFamily),
+                  style: TextStyle(color: date != null ? kColorTextPrimary : const Color(0xFF8E8E93), fontSize: kFontSizeBody, fontFamily: kFontFamily),
                 ),
                 const Icon(Icons.calendar_today, size: kFontSizeViewTitle, color: Color(0xFF222222)),
               ],

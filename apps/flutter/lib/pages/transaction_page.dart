@@ -198,14 +198,14 @@ class _TransactionPageState extends State<TransactionPage> {
         if (mounted) {
           final body = jsonDecode(response.body);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(body['message'] ?? 'Failed'), backgroundColor: const Color(0xFFEF4444)),
+            SnackBar(content: Text(body['message'] ?? 'Failed'), backgroundColor: kColorSell),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: const Color(0xFFEF4444)),
+          SnackBar(content: Text('Error: $e'), backgroundColor: kColorSell),
         );
       }
     } finally {
@@ -234,7 +234,7 @@ class _TransactionPageState extends State<TransactionPage> {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
                       ),
-                      child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+                      child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -242,8 +242,8 @@ class _TransactionPageState extends State<TransactionPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Transactions', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
-                        Text(_targetName, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+                        const Text('Transactions', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                        Text(_targetName, style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
                       ],
                     ),
                   ),
@@ -295,7 +295,7 @@ class _TransactionPageState extends State<TransactionPage> {
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: selected ? Colors.white : const Color(0xFF94A3B8),
+              color: selected ? Colors.white : kColorTextMuted,
               fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold,
             ),
           ),
@@ -387,7 +387,7 @@ class _TransactionPageState extends State<TransactionPage> {
       formattedDate = DateFormat('dd MMM yyyy · hh:mm a').format(dt);
     } catch (_) {}
 
-    final Color typeColor = isCredit ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+    final Color typeColor = isCredit ? kColorBuy : kColorSell;
 
     return Padding(
       padding: const EdgeInsets.all(14),
@@ -419,7 +419,7 @@ class _TransactionPageState extends State<TransactionPage> {
                   children: [
                     Text(
                       isCredit ? 'Credit' : 'Debit',
-                      style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
+                      style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
                     ),
                     Text(
                       '${isCredit ? '+' : '-'}${amount.toStringAsFixed(2)}',
@@ -431,14 +431,14 @@ class _TransactionPageState extends State<TransactionPage> {
                 // Row 2: date + note
                 Row(
                   children: [
-                    Text(formattedDate, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+                    Text(formattedDate, style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
                     if (note.isNotEmpty) ...[
                       const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 5),
                         child: Text('·', style: TextStyle(fontSize: kFontSizeCaption, color: Color(0xFFCBD5E1))),
                       ),
                       Flexible(
-                        child: Text(note, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightMedium), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        child: Text(note, style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightMedium), maxLines: 1, overflow: TextOverflow.ellipsis),
                       ),
                     ],
                   ],
@@ -474,8 +474,8 @@ class _TransactionPageState extends State<TransactionPage> {
             padding: const EdgeInsets.all(4),
             child: Row(
               children: [
-                _buildTypeToggle('Credit', 0, const Color(0xFF10B981)),
-                _buildTypeToggle('Debit', 1, const Color(0xFFEF4444)),
+                _buildTypeToggle('Credit', 0, kColorBuy),
+                _buildTypeToggle('Debit', 1, kColorSell),
               ],
             ),
           ),
@@ -493,15 +493,15 @@ class _TransactionPageState extends State<TransactionPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Available Credit', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
-                Text('${_currentCredits.toStringAsFixed(2)}', style: const TextStyle(color: Colors.black, fontSize: kFontSizeButtonText, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
+                const Text('Available Credit', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+                Text('${_currentCredits.toStringAsFixed(2)}', style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeButtonText, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
               ],
             ),
           ),
           const SizedBox(height: 20),
 
           // Amount field
-          const Text('Amount', style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.3)),
+          const Text('Amount', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.3)),
           const SizedBox(height: 8),
           TextField(
             controller: _amountController,
@@ -539,7 +539,7 @@ class _TransactionPageState extends State<TransactionPage> {
           const SizedBox(height: 16),
 
           // Comment field
-          const Text('Comment', style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.3)),
+          const Text('Comment', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.3)),
           const SizedBox(height: 8),
           TextField(
             controller: _commentController,
@@ -565,7 +565,7 @@ class _TransactionPageState extends State<TransactionPage> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
-                color: _isSubmitting ? const Color(0xFF94A3B8) : (_txnType == 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444)),
+                color: _isSubmitting ? kColorTextMuted : (_txnType == 0 ? kColorBuy : kColorSell),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: _isSubmitting
@@ -599,7 +599,7 @@ class _TransactionPageState extends State<TransactionPage> {
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: selected ? Colors.white : const Color(0xFF94A3B8),
+              color: selected ? Colors.white : kColorTextMuted,
               fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold,
             ),
           ),

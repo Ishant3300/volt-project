@@ -66,7 +66,7 @@ class _ChangePasswordViewState extends State<ChangePasswordView> {
 
   void _snack(String msg, {bool isError = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: isError ? const Color(0xFFEF4444) : const Color(0xFF10B981)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: isError ? kColorSell : kColorBuy));
   }
 
   @override
@@ -80,9 +80,9 @@ class _ChangePasswordViewState extends State<ChangePasswordView> {
             child: Container(width: 40, height: 40,
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
-              child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium))),
+              child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium))),
           const SizedBox(width: 12),
-          const Text('Change Password', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+          const Text('Change Password', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
         ])),
 
         Expanded(child: SingleChildScrollView(padding: const EdgeInsets.symmetric(horizontal: 16), child: Container(
@@ -132,7 +132,7 @@ class _ChangePasswordViewState extends State<ChangePasswordView> {
             hintText: 'Enter $label'.toLowerCase(), hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily),
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14), border: InputBorder.none,
             suffixIcon: GestureDetector(onTap: toggleObscure,
-              child: Icon(obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: kIconSizeMedium, color: const Color(0xFF94A3B8))),
+              child: Icon(obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: kIconSizeMedium, color: kColorTextMuted)),
           )),
       ),
     ]);

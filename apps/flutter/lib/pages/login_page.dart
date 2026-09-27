@@ -263,14 +263,14 @@ class _LoginPageState extends State<LoginPage> {
                             fontSize: kFontSizeSectionHeader,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightBold,
-                            color: Color(0xFF10B981))),
+                            color: kColorBuy)),
                     const SizedBox(height: 8),
                     Text(loadingMessage,
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                             fontSize: kFontSizeBodySmall,
                             fontFamily: kFontFamily,
-                            color: Color(0xFF94A3B8))),
+                            color: kColorTextMuted)),
                   ],
                 ),
               ),
@@ -302,7 +302,7 @@ class _LoginPageState extends State<LoginPage> {
                       style: TextStyle(
                           fontSize: kFontSizeBodySmall,
                           fontFamily: kFontFamily,
-                          color: Color(0xFF64748B))),
+                          color: kColorTextMuted)),
                   const SizedBox(height: 20),
                   TextField(
                     controller: totpController,
@@ -472,7 +472,7 @@ class _LoginPageState extends State<LoginPage> {
                             ? null
                             : const LinearGradient(
                                 colors: [kBrandGradientStart, kBrandGradientEnd]),
-                        color: isVerifying ? const Color(0xFF94A3B8) : null,
+                        color: isVerifying ? kColorTextMuted : null,
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Center(
@@ -496,7 +496,7 @@ class _LoginPageState extends State<LoginPage> {
                     onTap: () => Navigator.of(ctx).pop(),
                     child: const Text('Cancel',
                         style: TextStyle(
-                            color: Color(0xFF64748B),
+                            color: kColorTextMuted,
                             fontSize: kFontSizeBody,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold)),
@@ -559,7 +559,7 @@ class _LoginPageState extends State<LoginPage> {
                   fontSize: kFontSizeSubtitle,
                   fontFamily: kFontFamily,
                   fontWeight: kFontWeightRegular,
-                  color: const Color(0xFF64748B),
+                  color: kColorTextMuted,
                 ),
               ),
               const SizedBox(height: 24),
@@ -616,7 +616,7 @@ class _LoginPageState extends State<LoginPage> {
                     child: Text(
                       'Exit App',
                       style: TextStyle(
-                          color: const Color(0xFF64748B),
+                          color: kColorTextMuted,
                           fontSize: kFontSizeButtonText,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold),
@@ -638,7 +638,7 @@ class _LoginPageState extends State<LoginPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('•  ',
-              style: TextStyle(fontSize: 14, color: Color(0xFF64748B))),
+              style: TextStyle(fontSize: 14, color: kColorTextMuted)),
           Expanded(
             child: Text(
               text,
@@ -646,7 +646,7 @@ class _LoginPageState extends State<LoginPage> {
                 fontSize: kFontSizeBodySmall,
                 fontFamily: kFontFamily,
                 fontWeight: kFontWeightRegular,
-                color: const Color(0xFF64748B),
+                color: kColorTextMuted,
               ),
             ),
           ),
@@ -702,7 +702,7 @@ class _LoginPageState extends State<LoginPage> {
                         'To sign in to an account in the application,\nenter your username and password',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                            color: Color(0xFF94A3B8),
+                            color: kColorTextMuted,
                             fontSize: kFontSizeBody,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightRegular),
@@ -746,7 +746,7 @@ class _LoginPageState extends State<LoginPage> {
                                       kBrandGradientEnd,
                                     ],
                                   ),
-                            color: _isLoading ? const Color(0xFF94A3B8) : null,
+                            color: _isLoading ? kColorTextMuted : null,
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Center(
@@ -779,7 +779,7 @@ class _LoginPageState extends State<LoginPage> {
                           text:
                               'By clicking "Continue", I have read and agree\nwith the ',
                           style: TextStyle(
-                              color: Color(0xFF94A3B8),
+                              color: kColorTextMuted,
                               fontSize: kFontSizeSubtitle,
                               fontFamily: kFontFamily)),
                       WidgetSpan(
@@ -832,7 +832,7 @@ class _LoginPageState extends State<LoginPage> {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: _selectedServer != 'Select Server'
-                  ? const Color(0xFF10B981)
+                  ? kColorBuy
                   : const Color(0xFFE2E8F0),
             ),
           ),
@@ -881,13 +881,13 @@ class _LoginPageState extends State<LoginPage> {
                   child: const Padding(
                     padding: EdgeInsets.only(right: 12),
                     child:
-                        Icon(Icons.close, size: 18, color: Color(0xFF94A3B8)),
+                        Icon(Icons.close, size: 18, color: kColorTextMuted),
                   ),
                 )
               else
                 const Padding(
                   padding: EdgeInsets.only(right: 12),
-                  child: Icon(Icons.search, size: 18, color: Color(0xFF94A3B8)),
+                  child: Icon(Icons.search, size: 18, color: kColorTextMuted),
                 ),
             ],
           ),
@@ -933,11 +933,11 @@ class _LoginPageState extends State<LoginPage> {
                     child: Row(
                       children: [
                         const Icon(Icons.dns_outlined,
-                            size: 16, color: Color(0xFF94A3B8)),
+                            size: 16, color: kColorTextMuted),
                         const SizedBox(width: 10),
                         Text(name,
                             style: const TextStyle(
-                                color: Colors.black,
+                                color: kColorTextPrimary,
                                 fontSize: kFontSizeBody,
                                 fontFamily: kFontFamily,
                                 fontWeight: kFontWeightMedium)),
@@ -957,7 +957,7 @@ class _LoginPageState extends State<LoginPage> {
       alignment: Alignment.centerLeft,
       child: Text(label,
           style: const TextStyle(
-              color: Colors.black,
+              color: kColorTextPrimary,
               fontSize: kFontSizeBodySmall,
               fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,

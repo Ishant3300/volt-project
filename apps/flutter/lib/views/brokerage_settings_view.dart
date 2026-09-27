@@ -179,11 +179,11 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
           final modified = body['data']?['modified'] ?? ids.length;
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               content: Text('Updated $modified script(s)'),
-              backgroundColor: const Color(0xFF10B981)));
+              backgroundColor: kColorBuy));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               content: Text(body['message'] ?? 'Update failed'),
-              backgroundColor: const Color(0xFFEF4444)));
+              backgroundColor: kColorSell));
         }
         _amountCtrl.clear();
         _selected.clear();
@@ -233,12 +233,12 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                                 offset: const Offset(0, 2))
                           ]),
                       child: const Icon(Icons.arrow_back,
-                          color: Colors.black, size: kIconSizeMedium))),
+                          color: kColorTextPrimary, size: kIconSizeMedium))),
               const SizedBox(width: 12),
               const Expanded(
                   child: Text('Brokerage Settings',
                       style: TextStyle(
-                          color: Colors.black,
+                          color: kColorTextPrimary,
                           fontSize: kFontSizeViewTitle,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold))),
@@ -392,14 +392,14 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                 const Expanded(
                     child: Text('SCRIPT',
                         style: TextStyle(
-                            color: Color(0xFF94A3B8),
+                            color: kColorTextMuted,
                             fontSize: kFontSizeCaption,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
                             letterSpacing: 0.5))),
                 const Text('BRK VALUE',
                     style: TextStyle(
-                        color: Color(0xFF94A3B8),
+                        color: kColorTextMuted,
                         fontSize: kFontSizeCaption,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
@@ -421,7 +421,7 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                               ? 'Select an exchange'
                               : 'No settings found',
                           style: const TextStyle(
-                              color: Color(0xFF94A3B8),
+                              color: kColorTextMuted,
                               fontSize: kFontSizeBodySmall,
                               fontFamily: kFontFamily)))
                   : ListView.builder(
@@ -489,9 +489,9 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
           value: items.contains(value) ? value : items.first,
           isExpanded: true,
           icon: const Icon(Icons.keyboard_arrow_down,
-              size: 18, color: Color(0xFF94A3B8)),
+              size: 18, color: kColorTextMuted),
           style: const TextStyle(
-              color: Colors.black,
+              color: kColorTextPrimary,
               fontSize: kFontSizeBodySmall,
               fontFamily: kFontFamily,
               fontWeight: kFontWeightMedium),

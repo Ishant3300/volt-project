@@ -33,7 +33,7 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
             'Summary Filter',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.black,
+              color: kColorTextPrimary,
               fontSize: kFontSizeSheetTitle,
               fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,
@@ -208,7 +208,7 @@ class _SummaryFilterBottomSheetState extends State<SummaryFilterBottomSheet> {
                       'CLEAR',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.black,
+                        color: kColorTextPrimary,
                         fontSize: kFontSizeButtonText,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,

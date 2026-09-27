@@ -172,7 +172,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
       SnackBar(
         content: Text(msg),
         backgroundColor:
-            isError ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+            isError ? kColorSell : kColorBuy,
       ),
     );
   }
@@ -181,7 +181,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
   Widget build(BuildContext context) {
     final cats = _allowedCats;
     final Color actionColor =
-        _mode == 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+        _mode == 0 ? kColorBuy : kColorSell;
 
     return Padding(
       padding:
@@ -210,7 +210,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
                 const Text(
                   'Trade Wallet',
                   style: TextStyle(
-                    color: Colors.black,
+                    color: kColorTextPrimary,
                     fontSize: kFontSizeSheetTitle,
                     fontFamily: kFontFamily,
                     fontWeight: kFontWeightSemiBold,
@@ -222,7 +222,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
                     textAlign: TextAlign.right,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      color: Color(0xFF94A3B8),
+                      color: kColorTextMuted,
                       fontSize: kFontSizeSubtitle,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium,
@@ -237,7 +237,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
               const Text(
                 'No fundable categories for this account.',
                 style: TextStyle(
-                  color: Color(0xFF94A3B8),
+                  color: kColorTextMuted,
                   fontSize: kFontSizeSheetBody,
                   fontFamily: kFontFamily,
                   fontWeight: kFontWeightMedium,
@@ -256,8 +256,8 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
                 padding: const EdgeInsets.all(4),
                 child: Row(
                   children: [
-                    _buildModeToggle('Assign', 0, const Color(0xFF10B981)),
-                    _buildModeToggle('Withdraw', 1, const Color(0xFFEF4444)),
+                    _buildModeToggle('Assign', 0, kColorBuy),
+                    _buildModeToggle('Withdraw', 1, kColorSell),
                   ],
                 ),
               ),
@@ -267,7 +267,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
               const Text(
                 'Category',
                 style: TextStyle(
-                  color: Color(0xFF64748B),
+                  color: kColorTextMuted,
                   fontSize: kFontSizeSheetLabel,
                   fontFamily: kFontFamily,
                   fontWeight: kFontWeightSemiBold,
@@ -297,7 +297,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
                     Text(
                       'Available ${_category ?? ''}',
                       style: const TextStyle(
-                        color: Color(0xFF94A3B8),
+                        color: kColorTextMuted,
                         fontSize: kFontSizeSheetLabel,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium,
@@ -306,7 +306,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
                     Text(
                       (_balances[_category] ?? 0).toStringAsFixed(2),
                       style: const TextStyle(
-                        color: Colors.black,
+                        color: kColorTextPrimary,
                         fontSize: kFontSizeSheetBody,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightBold,
@@ -321,7 +321,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
               const Text(
                 'Amount',
                 style: TextStyle(
-                  color: Color(0xFF64748B),
+                  color: kColorTextMuted,
                   fontSize: kFontSizeSheetLabel,
                   fontFamily: kFontFamily,
                   fontWeight: kFontWeightSemiBold,
@@ -345,7 +345,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
                   keyboardType:
                       const TextInputType.numberWithOptions(decimal: true),
                   style: const TextStyle(
-                    color: Colors.black,
+                    color: kColorTextPrimary,
                     fontSize: kFontSizeSheetBody,
                     fontFamily: kFontFamily,
                     fontWeight: kFontWeightRegular,
@@ -445,7 +445,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
           'CLOSE',
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: Colors.black,
+            color: kColorTextPrimary,
             fontSize: kFontSizeButtonText,
             fontFamily: kFontFamily,
             fontWeight: kFontWeightSemiBold,
@@ -472,7 +472,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: selected ? Colors.white : const Color(0xFF94A3B8),
+              color: selected ? Colors.white : kColorTextMuted,
               fontSize: kFontSizeBodySmall,
               fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,
@@ -499,7 +499,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
         child: Text(
           category,
           style: TextStyle(
-            color: selected ? Colors.white : const Color(0xFF64748B),
+            color: selected ? Colors.white : kColorTextMuted,
             fontSize: kFontSizeBodySmall,
             fontFamily: kFontFamily,
             fontWeight: kFontWeightSemiBold,

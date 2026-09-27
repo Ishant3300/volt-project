@@ -96,7 +96,7 @@ class _ManageAdminDetailViewState extends State<ManageAdminDetailView> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
-      backgroundColor: isError ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+      backgroundColor: isError ? kColorSell : kColorBuy,
     ));
   }
 
@@ -203,7 +203,7 @@ class _ManageAdminDetailViewState extends State<ManageAdminDetailView> {
   }
 
   Widget _sectionTitle(String text) {
-    return Text(text, style: const TextStyle(color: Colors.black, fontSize: kFontSizeSectionHeader, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold));
+    return Text(text, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeSectionHeader, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold));
   }
 
   Widget _toggleRow(String label, bool value, ValueChanged<bool> onChanged, {String? hint}) {
@@ -216,9 +216,9 @@ class _ManageAdminDetailViewState extends State<ManageAdminDetailView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+                Text(label, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
                 if (hint != null)
-                  Text(hint, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontFamily: kFontFamily)),
+                  Text(hint, style: const TextStyle(color: kColorTextMuted, fontSize: 11, fontFamily: kFontFamily)),
               ],
             ),
           ),
@@ -266,12 +266,12 @@ class _ManageAdminDetailViewState extends State<ManageAdminDetailView> {
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
                         ),
-                        child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+                        child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text(_admin.username, style: const TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold), overflow: TextOverflow.ellipsis),
+                      child: Text(_admin.username, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold), overflow: TextOverflow.ellipsis),
                     ),
                   ],
                 ),
@@ -290,12 +290,12 @@ class _ManageAdminDetailViewState extends State<ManageAdminDetailView> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: _admin.activeStatus ? const Color(0xFF10B981).withValues(alpha: 0.1) : const Color(0xFFEF4444).withValues(alpha: 0.1),
+                                  color: _admin.activeStatus ? kColorBuy.withValues(alpha: 0.1) : kColorSell.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
                                   _admin.activeStatus ? 'Active' : 'Disabled',
-                                  style: TextStyle(color: _admin.activeStatus ? const Color(0xFF10B981) : const Color(0xFFEF4444), fontSize: 12, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
+                                  style: TextStyle(color: _admin.activeStatus ? kColorBuy : kColorSell, fontSize: 12, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
                                 ),
                               ),
                             ],
@@ -305,14 +305,14 @@ class _ManageAdminDetailViewState extends State<ManageAdminDetailView> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                               decoration: BoxDecoration(
-                                border: Border.all(color: _admin.activeStatus ? const Color(0xFFEF4444) : const Color(0xFF10B981)),
+                                border: Border.all(color: _admin.activeStatus ? kColorSell : kColorBuy),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: _isTogglingStatus
                                   ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
                                   : Text(
                                       _admin.activeStatus ? 'Disable account' : 'Enable account',
-                                      style: TextStyle(color: _admin.activeStatus ? const Color(0xFFEF4444) : const Color(0xFF10B981), fontSize: 13, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
+                                      style: TextStyle(color: _admin.activeStatus ? kColorSell : kColorBuy, fontSize: 13, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
                                     ),
                             ),
                           ),
@@ -351,7 +351,7 @@ class _ManageAdminDetailViewState extends State<ManageAdminDetailView> {
                             children: [
                               GestureDetector(
                                 onTap: () => setState(() => _permissions = kAdminPermissionLabels.keys.toSet()),
-                                child: const Text('Grant all', style: TextStyle(color: Color(0xFF64748B), fontSize: 13, fontFamily: kFontFamily, decoration: TextDecoration.underline)),
+                                child: const Text('Grant all', style: TextStyle(color: kColorTextMuted, fontSize: 13, fontFamily: kFontFamily, decoration: TextDecoration.underline)),
                               ),
                               ElevatedButton(
                                 onPressed: _isSavingPermissions ? null : _savePermissions,
@@ -379,7 +379,7 @@ class _ManageAdminDetailViewState extends State<ManageAdminDetailView> {
                           const SizedBox(height: 4),
                           const Text(
                             'Every master is visible by default. Turning one off hides that master, its entire sub-master tree, their users, and all trade/report/ledger data belonging to any of them — everywhere, for this admin only.',
-                            style: TextStyle(color: Color(0xFF64748B), fontSize: 12, fontFamily: kFontFamily),
+                            style: TextStyle(color: kColorTextMuted, fontSize: 12, fontFamily: kFontFamily),
                           ),
                           const SizedBox(height: 12),
                           if (_isLoadingMasters)
@@ -387,7 +387,7 @@ class _ManageAdminDetailViewState extends State<ManageAdminDetailView> {
                           else if (_masters.isEmpty)
                             const Padding(
                               padding: EdgeInsets.symmetric(vertical: 12),
-                              child: Text('No masters on the platform yet.', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: kFontFamily)),
+                              child: Text('No masters on the platform yet.', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBody, fontFamily: kFontFamily)),
                             )
                           else
                             ..._orderedMasters.map((entry) {
@@ -434,15 +434,15 @@ class _ManageAdminDetailViewState extends State<ManageAdminDetailView> {
                           ? Row(
                               children: [
                                 const Expanded(
-                                  child: Text('Delete this admin permanently?', style: TextStyle(color: Color(0xFFEF4444), fontSize: kFontSizeBody, fontFamily: kFontFamily)),
+                                  child: Text('Delete this admin permanently?', style: TextStyle(color: kColorSell, fontSize: kFontSizeBody, fontFamily: kFontFamily)),
                                 ),
                                 TextButton(
                                   onPressed: () => setState(() => _confirmDelete = false),
-                                  child: const Text('Cancel', style: TextStyle(color: Color(0xFF64748B), fontFamily: kFontFamily)),
+                                  child: const Text('Cancel', style: TextStyle(color: kColorTextMuted, fontFamily: kFontFamily)),
                                 ),
                                 ElevatedButton(
                                   onPressed: _isDeleting ? null : _delete,
-                                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                                  style: ElevatedButton.styleFrom(backgroundColor: kColorSell, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                                   child: _isDeleting
                                       ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                                       : const Text('Confirm delete', style: TextStyle(color: Colors.white, fontFamily: kFontFamily)),
@@ -451,7 +451,7 @@ class _ManageAdminDetailViewState extends State<ManageAdminDetailView> {
                             )
                           : GestureDetector(
                               onTap: () => setState(() => _confirmDelete = true),
-                              child: const Text('Delete this admin', style: TextStyle(color: Color(0xFFEF4444), fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+                              child: const Text('Delete this admin', style: TextStyle(color: kColorSell, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
                             ),
                     ),
                     const SizedBox(height: 16),

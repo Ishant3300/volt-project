@@ -659,7 +659,7 @@ class _CreateUserViewState extends State<CreateUserView> {
       SnackBar(
         content: Text(msg),
         backgroundColor:
-            isError ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+            isError ? kColorSell : kColorBuy,
       ),
     );
   }
@@ -924,14 +924,14 @@ class _CreateUserViewState extends State<CreateUserView> {
                         ],
                       ),
                       child: const Icon(Icons.arrow_back,
-                          color: Colors.black, size: kIconSizeMedium),
+                          color: kColorTextPrimary, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Text(
                     widget.user != null ? 'Edit User' : 'Create User',
                     style: const TextStyle(
-                      color: Colors.black,
+                      color: kColorTextPrimary,
                       fontSize: kFontSizeViewTitle,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
@@ -1047,7 +1047,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                             padding: EdgeInsets.all(16),
                             child: Text('No exchanges available',
                                 style: TextStyle(
-                                    color: Color(0xFF94A3B8),
+                                    color: kColorTextMuted,
                                     fontSize: kFontSizeBodySmall,
                                     fontFamily: kFontFamily)),
                           ),
@@ -1068,7 +1068,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                           padding: EdgeInsets.only(left: 8),
                                           child: Text('Exchange',
                                               style: TextStyle(
-                                                  color: Color(0xFF94A3B8),
+                                                  color: kColorTextMuted,
                                                   fontSize: kFontSizeNavLabel,
                                                   fontFamily: kFontFamily,
                                                   fontWeight:
@@ -1079,7 +1079,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                       child: Center(
                                           child: Text('T/O',
                                               style: TextStyle(
-                                                  color: Color(0xFF94A3B8),
+                                                  color: kColorTextMuted,
                                                   fontSize: kFontSizeNavLabel,
                                                   fontFamily: kFontFamily,
                                                   fontWeight:
@@ -1090,7 +1090,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                       child: Center(
                                           child: Text('Lot',
                                               style: TextStyle(
-                                                  color: Color(0xFF94A3B8),
+                                                  color: kColorTextMuted,
                                                   fontSize: kFontSizeNavLabel,
                                                   fontFamily: kFontFamily,
                                                   fontWeight:
@@ -1101,7 +1101,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                       child: Center(
                                           child: Text('Group',
                                               style: TextStyle(
-                                                  color: Color(0xFF94A3B8),
+                                                  color: kColorTextMuted,
                                                   fontSize: kFontSizeNavLabel,
                                                   fontFamily: kFontFamily,
                                                   fontWeight:
@@ -1166,7 +1166,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                             padding: EdgeInsets.all(16),
                             child: Text('No trade limits available',
                                 style: TextStyle(
-                                    color: Color(0xFF94A3B8),
+                                    color: kColorTextMuted,
                                     fontSize: kFontSizeBodySmall,
                                     fontFamily: kFontFamily)),
                           ),
@@ -1229,7 +1229,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                   flex: 3,
                                   child: Text('Exchange',
                                       style: TextStyle(
-                                          color: Color(0xFF94A3B8),
+                                          color: kColorTextMuted,
                                           fontSize: kFontSizeNavLabel,
                                           fontFamily: kFontFamily,
                                           fontWeight: kFontWeightSemiBold,
@@ -1240,7 +1240,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                   child: Center(
                                     child: Text('Type',
                                         style: TextStyle(
-                                            color: Color(0xFF94A3B8),
+                                            color: kColorTextMuted,
                                             fontSize: kFontSizeNavLabel,
                                             fontFamily: kFontFamily,
                                             fontWeight: kFontWeightSemiBold,
@@ -1252,7 +1252,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                   child: Center(
                                     child: Text('Value',
                                         style: TextStyle(
-                                            color: Color(0xFF94A3B8),
+                                            color: kColorTextMuted,
                                             fontSize: kFontSizeNavLabel,
                                             fontFamily: kFontFamily,
                                             fontWeight: kFontWeightSemiBold,
@@ -1310,7 +1310,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                     kBrandGradientEnd,
                                   ],
                                 ),
-                          color: _isSubmitting ? const Color(0xFF94A3B8) : null,
+                          color: _isSubmitting ? kColorTextMuted : null,
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Center(
@@ -1352,7 +1352,7 @@ class _CreateUserViewState extends State<CreateUserView> {
     return Text(
       text,
       style: const TextStyle(
-        color: Color(0xFF94A3B8),
+        color: kColorTextMuted,
         fontSize: kFontSizeNavLabel,
         fontFamily: kFontFamily,
         fontWeight: kFontWeightSemiBold,
@@ -1409,7 +1409,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                 child: Text(
                   label,
                   style: const TextStyle(
-                      color: Color(0xFF94A3B8),
+                      color: kColorTextMuted,
                       fontSize: kFontSizeBodySmall,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium),
@@ -1427,7 +1427,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                   style: readOnly
                       ? const TextStyle(color: Colors.grey)
                       : const TextStyle(
-                          color: Colors.black,
+                          color: kColorTextPrimary,
                           fontSize: kFontSizeBody,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
@@ -1489,7 +1489,7 @@ class _CreateUserViewState extends State<CreateUserView> {
             ? 'Exceeds available balance by ${fmt.format(remaining.abs())}'
             : 'Available ${fmt.format(available)} → Remaining ${fmt.format(remaining)}',
         style: TextStyle(
-          color: negative ? const Color(0xFFEF4444) : kBrandPrimary,
+          color: negative ? kColorSell : kBrandPrimary,
           fontSize: 11,
           fontFamily: kFontFamily,
           fontWeight: FontWeight.w500,
@@ -1539,7 +1539,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                 Expanded(
                   child: Text(exchange,
                       style: const TextStyle(
-                          color: Colors.black,
+                          color: kColorTextPrimary,
                           fontSize: kFontSizeBodySmall,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium),
@@ -1651,9 +1651,9 @@ class _CreateUserViewState extends State<CreateUserView> {
                 ),
                 isExpanded: true,
                 icon: const Icon(Icons.keyboard_arrow_down,
-                    size: kIconSizeDefault, color: Color(0xFF94A3B8)),
+                    size: kIconSizeDefault, color: kColorTextMuted),
                 style: const TextStyle(
-                    color: Colors.black,
+                    color: kColorTextPrimary,
                     fontSize: kFontSizeSubtitle,
                     fontFamily: kFontFamily,
                     fontWeight: kFontWeightMedium),
@@ -1684,7 +1684,7 @@ class _CreateUserViewState extends State<CreateUserView> {
           Expanded(
             child: Text(label,
                 style: const TextStyle(
-                    color: Colors.black,
+                    color: kColorTextPrimary,
                     fontSize: kFontSizeBody,
                     fontFamily: kFontFamily,
                     fontWeight: kFontWeightMedium)),
@@ -1734,7 +1734,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                   child: Text(
                     'Select exchanges to fund wallet',
                     style: TextStyle(
-                        color: Color(0xFF94A3B8),
+                        color: kColorTextMuted,
                         fontSize: kFontSizeBodySmall,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium),
@@ -1767,7 +1767,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                 child: Text(
                   category,
                   style: const TextStyle(
-                      color: Color(0xFF94A3B8),
+                      color: kColorTextMuted,
                       fontSize: kFontSizeBodySmall,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium),
@@ -1780,7 +1780,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                       const TextInputType.numberWithOptions(decimal: true),
                   onChanged: (_) => setState(() {}),
                   style: const TextStyle(
-                      color: Colors.black,
+                      color: kColorTextPrimary,
                       fontSize: kFontSizeBody,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium),
@@ -1865,7 +1865,7 @@ class _CreateUserViewState extends State<CreateUserView> {
             child: Text(
               exchange,
               style: const TextStyle(
-                color: Colors.black,
+                color: kColorTextPrimary,
                 fontSize: kFontSizeBodySmall,
                 fontFamily: kFontFamily,
                 fontWeight: kFontWeightMedium,
@@ -1887,7 +1887,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                 decoration: BoxDecoration(
                   color: type == 'LOT WISE'
                       ? kBrandPrimary.withValues(alpha: 0.08)
-                      : const Color(0xFF10B981).withValues(alpha: 0.08),
+                      : kColorBuy.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -1896,7 +1896,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                   style: TextStyle(
                     color: type == 'LOT WISE'
                         ? kBrandPrimary
-                        : const Color(0xFF10B981),
+                        : kColorBuy,
                     fontSize: kFontSizeCaption,
                     fontFamily: kFontFamily,
                     fontWeight: kFontWeightSemiBold,
@@ -1925,7 +1925,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 style: TextStyle(
-                  color: customized ? const Color(0xFF94A3B8) : Colors.black,
+                  color: customized ? kColorTextMuted : kColorTextPrimary,
                   fontSize: kFontSizeBodySmall,
                   fontFamily: kFontFamily,
                   fontWeight: kFontWeightMedium,
@@ -1949,7 +1949,7 @@ class _CreateUserViewState extends State<CreateUserView> {
               child: Icon(
                 customized ? Icons.expand_less : Icons.tune,
                 size: 18,
-                color: customized ? kBrandPrimary : const Color(0xFF94A3B8),
+                color: customized ? kBrandPrimary : kColorTextMuted,
               ),
             ),
           ],
@@ -2019,7 +2019,7 @@ class _CreateUserViewState extends State<CreateUserView> {
           child: Text(
             label,
             style: const TextStyle(
-              color: Color(0xFF64748B),
+              color: kColorTextMuted,
               fontSize: kFontSizeCaption,
               fontFamily: kFontFamily,
               fontWeight: kFontWeightMedium,
@@ -2074,7 +2074,7 @@ class _CreateUserViewState extends State<CreateUserView> {
             child: Text(
               error ?? 'Select scripts below, type a value, tap apply',
               style: TextStyle(
-                color: error != null ? const Color(0xFFEF4444) : const Color(0xFF94A3B8),
+                color: error != null ? kColorSell : kColorTextMuted,
                 fontSize: kFontSizeCaption,
                 fontFamily: kFontFamily,
               ),
@@ -2116,7 +2116,7 @@ class _CreateUserViewState extends State<CreateUserView> {
           child: Text(
             rawName,
             style: const TextStyle(
-              color: Color(0xFF64748B),
+              color: kColorTextMuted,
               fontSize: kFontSizeCaption,
               fontFamily: kFontFamily,
               fontWeight: kFontWeightMedium,
@@ -2144,7 +2144,7 @@ class _CreateUserViewState extends State<CreateUserView> {
         controller: controller,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         style: const TextStyle(
-          color: Colors.black,
+          color: kColorTextPrimary,
           fontSize: kFontSizeCaption,
           fontFamily: kFontFamily,
           fontWeight: kFontWeightMedium,

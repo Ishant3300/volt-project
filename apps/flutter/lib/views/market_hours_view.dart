@@ -152,9 +152,9 @@ class _MarketHoursViewState extends State<MarketHoursView> {
             child: Container(width: 40, height: 40,
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
-              child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium))),
+              child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium))),
           const SizedBox(width: 12),
-          const Text('Market Timings', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+          const Text('Market Timings', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
         ])),
 
         // Exchange dropdown
@@ -163,8 +163,8 @@ class _MarketHoursViewState extends State<MarketHoursView> {
             boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
           child: DropdownButtonHideUnderline(child: DropdownButton<String>(
             value: _selectedExchange, isExpanded: true,
-            icon: const Icon(Icons.keyboard_arrow_down, size: kIconSizeMedium, color: Color(0xFF94A3B8)),
-            style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
+            icon: const Icon(Icons.keyboard_arrow_down, size: kIconSizeMedium, color: kColorTextMuted),
+            style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
             items: _exchanges.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
             onChanged: (v) => setState(() { _selectedExchange = v!; }),
           )),
@@ -191,18 +191,18 @@ class _MarketHoursViewState extends State<MarketHoursView> {
                 startingDayOfWeek: StartingDayOfWeek.sunday,
                 headerStyle: const HeaderStyle(
                   titleCentered: true, formatButtonVisible: false,
-                  titleTextStyle: TextStyle(color: Colors.black, fontSize: kFontSizeButtonText, fontFamily: kFontFamily, fontWeight: kFontWeightBold),
+                  titleTextStyle: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeButtonText, fontFamily: kFontFamily, fontWeight: kFontWeightBold),
                   leftChevronIcon: Icon(Icons.chevron_left, color: kBrandPrimary, size: 22),
                   rightChevronIcon: Icon(Icons.chevron_right, color: kBrandPrimary, size: 22),
                 ),
                 daysOfWeekStyle: const DaysOfWeekStyle(
-                  weekdayStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
-                  weekendStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
+                  weekdayStyle: TextStyle(color: kColorTextMuted, fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
+                  weekendStyle: TextStyle(color: kColorTextMuted, fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
                 ),
                 calendarStyle: CalendarStyle(
                   outsideDaysVisible: false,
                   defaultTextStyle: const TextStyle(color: Color(0xFF334155), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
-                  weekendTextStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
+                  weekendTextStyle: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
                   todayDecoration: BoxDecoration(color: kBrandPrimary.withValues(alpha: 0.12), shape: BoxShape.circle),
                   todayTextStyle: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightBold),
                   selectedDecoration: const BoxDecoration(color: kBrandPrimary, shape: BoxShape.circle),
@@ -212,7 +212,7 @@ class _MarketHoursViewState extends State<MarketHoursView> {
                 calendarBuilders: CalendarBuilders(
                   markerBuilder: (ctx, day, events) {
                     final s = _getDayStatus(day);
-                    final color = s == _DayStatus.closed ? const Color(0xFFEF4444) : s == _DayStatus.partial ? const Color(0xFFF59E0B) : const Color(0xFF10B981);
+                    final color = s == _DayStatus.closed ? kColorSell : s == _DayStatus.partial ? const Color(0xFFF59E0B) : kColorBuy;
                     return Positioned(bottom: 4, child: Container(width: 6, height: 6, decoration: BoxDecoration(shape: BoxShape.circle, color: color)));
                   },
                 ),
@@ -229,13 +229,13 @@ class _MarketHoursViewState extends State<MarketHoursView> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 // Day label + status badge
                 Row(children: [
-                  Text(_dayLabel(sel), style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
+                  Text(_dayLabel(sel), style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
                   const Spacer(),
                   _statusBadge(status),
                 ]),
                 if (holiday != null) ...[
                   const SizedBox(height: 6),
-                  Text(holiday['description'] ?? '', style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium, fontStyle: FontStyle.italic)),
+                  Text(holiday['description'] ?? '', style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium, fontStyle: FontStyle.italic)),
                 ],
                 const SizedBox(height: 12),
 
@@ -243,8 +243,8 @@ class _MarketHoursViewState extends State<MarketHoursView> {
                   const Center(child: Padding(padding: EdgeInsets.all(8), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: kBrandPrimary))))
                 else if (status == _DayStatus.closed)
                   Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(color: const Color(0xFFEF4444).withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
-                    child: Text(_closedReason(sel, holiday), style: const TextStyle(color: Color(0xFFEF4444), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)))
+                    decoration: BoxDecoration(color: kColorSell.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
+                    child: Text(_closedReason(sel, holiday), style: const TextStyle(color: kColorSell, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)))
                 else ...[
                   // Show timing from API (or holiday special timing)
                   if (holidayTiming != null)
@@ -252,7 +252,7 @@ class _MarketHoursViewState extends State<MarketHoursView> {
                   else if (exchangeTiming != null)
                     _timingPill(exchangeTiming['start_time'], exchangeTiming['end_time'])
                   else
-                    const Text('Timing data not available', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily)),
+                    const Text('Timing data not available', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily)),
                 ],
               ]),
             ),
@@ -260,11 +260,11 @@ class _MarketHoursViewState extends State<MarketHoursView> {
 
             // Legend
             Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              _legendDot(const Color(0xFF10B981), 'Open'),
+              _legendDot(kColorBuy, 'Open'),
               const SizedBox(width: 16),
               _legendDot(const Color(0xFFF59E0B), 'Partial'),
               const SizedBox(width: 16),
-              _legendDot(const Color(0xFFEF4444), 'Closed'),
+              _legendDot(kColorSell, 'Closed'),
             ])),
             const SizedBox(height: 24),
           ]))),
@@ -274,15 +274,15 @@ class _MarketHoursViewState extends State<MarketHoursView> {
 
   Widget _timingPill(dynamic startEpoch, dynamic endEpoch, {bool partial = false}) {
     return Container(width: double.infinity, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(color: partial ? const Color(0xFFF59E0B) : const Color(0xFF10B981), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: partial ? const Color(0xFFF59E0B) : kColorBuy, borderRadius: BorderRadius.circular(12)),
       child: Text('${_formatEpoch(startEpoch)} - ${_formatEpoch(endEpoch)}', style: const TextStyle(color: Colors.white, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)));
   }
 
   Widget _statusBadge(_DayStatus s) {
     final (label, color) = switch (s) {
-      _DayStatus.open => ('OPEN', const Color(0xFF10B981)),
+      _DayStatus.open => ('OPEN', kColorBuy),
       _DayStatus.partial => ('PARTIAL', const Color(0xFFF59E0B)),
-      _DayStatus.closed => ('CLOSED', const Color(0xFFEF4444)),
+      _DayStatus.closed => ('CLOSED', kColorSell),
     };
     return Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
@@ -305,7 +305,7 @@ class _MarketHoursViewState extends State<MarketHoursView> {
     return Row(mainAxisSize: MainAxisSize.min, children: [
       Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle, color: c)),
       const SizedBox(width: 6),
-      Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+      Text(label, style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
     ]);
   }
 }

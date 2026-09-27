@@ -180,17 +180,17 @@ class _ScriptQuantityDetailViewState extends State<ScriptQuantityDetailView> {
                     color: Colors.white, borderRadius: BorderRadius.circular(12),
                     boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
                   ),
-                  child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+                  child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   const Text('Script Quantity',
-                    style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                    style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                   if (!isUser)
                     const Text('All Lots (Read Only)',
-                      style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+                      style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
                 ]),
               ),
             ]),
@@ -252,11 +252,11 @@ class _ScriptQuantityDetailViewState extends State<ScriptQuantityDetailView> {
                 decoration: InputDecoration(
                   hintText: 'Search script...',
                   hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily),
-                  prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFF94A3B8)),
+                  prefixIcon: const Icon(Icons.search, size: 18, color: kColorTextMuted),
                   suffixIcon: _searchQuery.isNotEmpty
                       ? GestureDetector(
                           onTap: () { _searchCtrl.clear(); setState(() => _searchQuery = ''); },
-                          child: const Icon(Icons.close, size: 18, color: Color(0xFF94A3B8)))
+                          child: const Icon(Icons.close, size: 18, color: kColorTextMuted))
                       : null,
                   contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   border: InputBorder.none,
@@ -279,8 +279,8 @@ class _ScriptQuantityDetailViewState extends State<ScriptQuantityDetailView> {
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
               ),
               child: Row(children: [
-                Text('Group Name :  ', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
-                Text(groupName, style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
+                Text('Group Name :  ', style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+                Text(groupName, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
               ]),
             ),
 
@@ -308,7 +308,7 @@ class _ScriptQuantityDetailViewState extends State<ScriptQuantityDetailView> {
                 : data.isEmpty
                     ? Center(child: Text(
                         _getEmptyMessage(isUser),
-                        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)))
+                        style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)))
                     : Container(
                         margin: const EdgeInsets.symmetric(horizontal: 16),
                         decoration: const BoxDecoration(
@@ -349,12 +349,12 @@ class _ScriptQuantityDetailViewState extends State<ScriptQuantityDetailView> {
             mainAxisAlignment: col == 0 ? MainAxisAlignment.start : MainAxisAlignment.end,
             children: [
               Text(label, style: TextStyle(
-                color: isSorted ? kBrandPrimary : const Color(0xFF94A3B8),
+                color: isSorted ? kBrandPrimary : kColorTextMuted,
                 fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.3)),
               const SizedBox(width: 2),
               Icon(
                 isSorted ? (_sortAsc ? Icons.arrow_upward : Icons.arrow_downward) : Icons.unfold_more,
-                size: 13, color: isSorted ? kBrandPrimary : const Color(0xFF94A3B8)),
+                size: 13, color: isSorted ? kBrandPrimary : kColorTextMuted),
             ],
           ),
         ),
@@ -382,7 +382,7 @@ class _ScriptQuantityDetailViewState extends State<ScriptQuantityDetailView> {
           child: Padding(
             padding: const EdgeInsets.only(left: 14),
             child: Text(symbol,
-              style: const TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: -0.3)),
+              style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: -0.3)),
           ),
         ),
         // Breakup Qty
@@ -429,8 +429,8 @@ class _ScriptQuantityDetailViewState extends State<ScriptQuantityDetailView> {
         child: DropdownButton<String>(
           value: value,
           isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down, size: 18, color: Color(0xFF94A3B8)),
-          style: const TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
+          icon: const Icon(Icons.keyboard_arrow_down, size: 18, color: kColorTextMuted),
+          style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
           items: items.map((e) => DropdownMenuItem(
             value: e,
             child: Text(displayMap?[e] ?? e, overflow: TextOverflow.ellipsis),

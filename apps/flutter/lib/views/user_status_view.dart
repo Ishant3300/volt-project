@@ -18,13 +18,13 @@ class UserStatusView extends StatelessWidget {
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: Icon(Icons.arrow_back, size: kIconSizeLarge, color: Colors.black),
+                    child: Icon(Icons.arrow_back, size: kIconSizeLarge, color: kColorTextPrimary),
                   ),
                   SizedBox(width: 12),
                   Text(
                     'User Status',
                     style: TextStyle(
-                      color: Colors.black,
+                      color: kColorTextPrimary,
                       fontSize: kFontSizeSectionHeader,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
@@ -73,7 +73,7 @@ class UserStatusView extends StatelessWidget {
               Text(
                 name,
                 style: TextStyle(
-                  color: Colors.black,
+                  color: kColorTextPrimary,
                   fontSize: kFontSizeBody,
                   fontFamily: kFontFamily,
                   fontWeight: kFontWeightRegular,
@@ -82,7 +82,7 @@ class UserStatusView extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isActive ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
+                  color: isActive ? kColorBuy : kColorSell,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(

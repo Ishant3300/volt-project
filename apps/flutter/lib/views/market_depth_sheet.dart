@@ -97,7 +97,7 @@ class _MarketDepthSheetState extends State<MarketDepthSheet> {
             'Market Depth',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.black,
+              color: kColorTextPrimary,
               fontSize: kFontSizeSheetTitle,
               fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,
@@ -172,7 +172,7 @@ class _MarketDepthSheetState extends State<MarketDepthSheet> {
                   'CLOSE',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.black,
+                    color: kColorTextPrimary,
                     fontSize: kFontSizeButtonText,
                     fontFamily: kFontFamily,
                     fontWeight: kFontWeightSemiBold,
@@ -195,7 +195,7 @@ class _MarketDepthSheetState extends State<MarketDepthSheet> {
         Text(
           'OHLC Data',
           style: TextStyle(
-            color: Colors.black,
+            color: kColorTextPrimary,
             fontSize: kFontSizeBody,
             fontFamily: kFontFamily,
             fontWeight: kFontWeightSemiBold,
@@ -247,7 +247,7 @@ class _MarketDepthSheetState extends State<MarketDepthSheet> {
             Text(
               value,
               style: TextStyle(
-                color: Colors.black,
+                color: kColorTextPrimary,
                 fontSize: kFontSizeSectionHeader,
                 fontFamily: kFontFamily,
                 fontWeight: kFontWeightSemiBold,
@@ -283,7 +283,7 @@ class _MarketDepthSheetState extends State<MarketDepthSheet> {
           Text(
             _marketDepth!.lastPrice!.toStringAsFixed(2),
             style: TextStyle(
-              color: Colors.black,
+              color: kColorTextPrimary,
               fontSize: kFontSizeViewTitle,
               fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,

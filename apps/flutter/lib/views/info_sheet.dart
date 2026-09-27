@@ -96,7 +96,7 @@ class _InfoSheetState extends State<InfoSheet> {
             'Instrument Info',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.black,
+              color: kColorTextPrimary,
               fontSize: kFontSizeSheetTitle,
               fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,
@@ -147,7 +147,7 @@ class _InfoSheetState extends State<InfoSheet> {
                   'CLOSE',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.black,
+                    color: kColorTextPrimary,
                     fontSize: kFontSizeButtonText,
                     fontFamily: kFontFamily,
                     fontWeight: kFontWeightSemiBold,
@@ -174,7 +174,7 @@ class _InfoSheetState extends State<InfoSheet> {
           Text(
             label,
             style: const TextStyle(
-              color: Color(0xFF64748B),
+              color: kColorTextMuted,
               fontSize: kFontSizeSheetBody,
               fontFamily: kFontFamily,
               fontWeight: kFontWeightMedium,
@@ -185,7 +185,7 @@ class _InfoSheetState extends State<InfoSheet> {
               value,
               textAlign: TextAlign.right,
               style: const TextStyle(
-                color: Colors.black,
+                color: kColorTextPrimary,
                 fontSize: kFontSizeSheetBody,
                 fontFamily: kFontFamily,
                 fontWeight: kFontWeightSemiBold,

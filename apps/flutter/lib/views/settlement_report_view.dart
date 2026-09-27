@@ -412,7 +412,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
             const Text('PDF Generated',
                 style: TextStyle(fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightBold, color: Color(0xFF0F172A))),
             const SizedBox(height: 8),
-            Text(fileName, style: const TextStyle(fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, color: Color(0xFF94A3B8))),
+            Text(fileName, style: const TextStyle(fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, color: kColorTextMuted)),
             const SizedBox(height: 24),
             Row(
               children: [
@@ -572,13 +572,13 @@ class _SettlementReportViewState extends State<SettlementReportView> {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
               ),
-              child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+              child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium),
             ),
           ),
           const SizedBox(width: 12),
           const Expanded(
             child: Text('Settlement Report',
-                style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
+                style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
                 overflow: TextOverflow.ellipsis),
           ),
         ],
@@ -624,7 +624,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
         ),
         const SizedBox(height: 12),
 
-        const Text('With Opening:', style: TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+        const Text('With Opening:', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
         Row(children: [
           _radioOption('Yes', true),
           const SizedBox(width: 16),
@@ -673,7 +673,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
           activeColor: kBrandPrimary,
           onChanged: (v) => setState(() => _withOpening = v ?? false),
         ),
-        Text(label, style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: kFontFamily)),
+        Text(label, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily)),
       ]),
     );
   }
@@ -689,7 +689,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
           const Icon(Icons.picture_as_pdf_outlined, size: kIconSizeMedium, color: Colors.black87),
           const SizedBox(width: 10),
           const Expanded(
-            child: Text('Download Report', style: TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+            child: Text('Download Report', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
           ),
           _isDownloading
               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: kBrandPrimary))
@@ -711,7 +711,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(color: const Color(0xFFE5E5EA), borderRadius: BorderRadius.circular(8)),
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        const Text('Total Profit & Loss', style: TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: kFontFamily)),
+        const Text('Total Profit & Loss', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily)),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
@@ -721,7 +721,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
           child: Text(
             totalPnl.toStringAsFixed(0),
             style: TextStyle(
-              color: totalPnl >= 0 ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
+              color: totalPnl >= 0 ? kColorBuy : kColorSell,
               fontSize: kFontSizeBody,
               fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,
@@ -802,10 +802,10 @@ class _SettlementReportViewState extends State<SettlementReportView> {
       decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFD1D1D6), width: 0.5))),
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(children: [
-        Expanded(child: Text(username, textAlign: TextAlign.center, style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: kFontFamily))),
-        Expanded(child: Text(pnl.toStringAsFixed(2), textAlign: TextAlign.center, style: TextStyle(color: pnl >= 0 ? const Color(0xFF34C759) : const Color(0xFFFF3B30), fontSize: kFontSizeBody, fontFamily: kFontFamily))),
-        Expanded(child: Text(brk.toStringAsFixed(2), textAlign: TextAlign.center, style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: kFontFamily))),
-        Expanded(child: Text(total.toStringAsFixed(2), textAlign: TextAlign.center, style: TextStyle(color: total >= 0 ? const Color(0xFF34C759) : const Color(0xFFFF3B30), fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
+        Expanded(child: Text(username, textAlign: TextAlign.center, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily))),
+        Expanded(child: Text(pnl.toStringAsFixed(2), textAlign: TextAlign.center, style: TextStyle(color: pnl >= 0 ? kColorBuy : kColorSell, fontSize: kFontSizeBody, fontFamily: kFontFamily))),
+        Expanded(child: Text(brk.toStringAsFixed(2), textAlign: TextAlign.center, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily))),
+        Expanded(child: Text(total.toStringAsFixed(2), textAlign: TextAlign.center, style: TextStyle(color: total >= 0 ? kColorBuy : kColorSell, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
       ]),
     );
   }
@@ -814,10 +814,10 @@ class _SettlementReportViewState extends State<SettlementReportView> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(children: [
-        const Expanded(child: Text('TOTAL', textAlign: TextAlign.center, style: TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
-        Expanded(child: Text(sumPnl.toStringAsFixed(2), textAlign: TextAlign.center, style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
-        Expanded(child: Text(sumBrk.toStringAsFixed(2), textAlign: TextAlign.center, style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
-        Expanded(child: Text(sumTotal.toStringAsFixed(2), textAlign: TextAlign.center, style: TextStyle(color: sumTotal >= 0 ? const Color(0xFF34C759) : const Color(0xFFFF3B30), fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightBold))),
+        const Expanded(child: Text('TOTAL', textAlign: TextAlign.center, style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
+        Expanded(child: Text(sumPnl.toStringAsFixed(2), textAlign: TextAlign.center, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
+        Expanded(child: Text(sumBrk.toStringAsFixed(2), textAlign: TextAlign.center, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
+        Expanded(child: Text(sumTotal.toStringAsFixed(2), textAlign: TextAlign.center, style: TextStyle(color: sumTotal >= 0 ? kColorBuy : kColorSell, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightBold))),
       ]),
     );
   }
@@ -836,7 +836,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
           value: items.contains(value) ? value : items.first,
           isExpanded: true,
           icon: const Icon(Icons.keyboard_arrow_down, size: 18, color: Color(0xFF8E8E93)),
-          style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightRegular),
+          style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightRegular),
           items: items.map((k) => DropdownMenuItem(value: k, child: Text(displayMap?[k] ?? k, overflow: TextOverflow.ellipsis))).toList(),
           onChanged: onChanged,
         ),
@@ -854,7 +854,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
       child: Row(children: [
         Icon(Icons.calendar_today, size: kIconSizeSmall, color: isPlaceholder ? const Color(0xFFCBD5E1) : kBrandPrimary),
         const SizedBox(width: 6),
-        Expanded(child: Text(text, style: TextStyle(color: isPlaceholder ? const Color(0xFFCBD5E1) : Colors.black, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium), overflow: TextOverflow.ellipsis)),
+        Expanded(child: Text(text, style: TextStyle(color: isPlaceholder ? const Color(0xFFCBD5E1) : kColorTextPrimary, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium), overflow: TextOverflow.ellipsis)),
       ]),
     );
   }

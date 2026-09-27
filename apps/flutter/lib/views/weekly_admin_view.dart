@@ -61,7 +61,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
   }
 
   Color _pnlColor(double v) =>
-      v >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+      v >= 0 ? kColorBuy : kColorSell;
   String _fmt(double v) => v.toStringAsFixed(2);
   String _fmtSigned(double v) => '${v >= 0 ? '+' : ''}${v.toStringAsFixed(2)}';
 
@@ -97,13 +97,13 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
                             offset: const Offset(0, 2))
                       ]),
                   child: const Icon(Icons.arrow_back,
-                      color: Colors.black, size: kIconSizeMedium),
+                      color: kColorTextPrimary, size: kIconSizeMedium),
                 ),
               ),
               const SizedBox(width: 12),
               const Text('Weekly Admin Report',
                   style: TextStyle(
-                      color: Colors.black,
+                      color: kColorTextPrimary,
                       fontSize: kFontSizeViewTitle,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold)),
@@ -156,7 +156,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
                     fontSize: kFontSizeBody,
                     fontFamily: kFontFamily),
                 prefixIcon: const Icon(Icons.search,
-                    color: Color(0xFF94A3B8), size: kIconSizeMedium),
+                    color: kColorTextMuted, size: kIconSizeMedium),
                 suffixIcon: _searchCtrl.text.isNotEmpty
                     ? GestureDetector(
                         onTap: () {
@@ -164,7 +164,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
                           setState(() => _searchQuery = '');
                         },
                         child: const Icon(Icons.close,
-                            color: Color(0xFF94A3B8), size: 18))
+                            color: kColorTextMuted, size: 18))
                     : null,
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -181,7 +181,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
                 alignment: Alignment.centerLeft,
                 child: Text('${filtered.length} $label',
                     style: const TextStyle(
-                        color: Color(0xFF94A3B8),
+                        color: kColorTextMuted,
                         fontSize: kFontSizeNavLabel,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium))),
@@ -198,7 +198,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
                     ? const Center(
                         child: Text('No data',
                             style: TextStyle(
-                                color: Color(0xFF94A3B8),
+                                color: kColorTextMuted,
                                 fontSize: kFontSizeBodySmall,
                                 fontFamily: kFontFamily)))
                     : RefreshIndicator(
@@ -230,7 +230,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Text('$label: ',
             style: const TextStyle(
-                color: Color(0xFF94A3B8),
+                color: kColorTextMuted,
                 fontSize: kFontSizeNavLabel,
                 fontFamily: kFontFamily,
                 fontWeight: kFontWeightMedium)),
@@ -301,7 +301,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                  color: const Color(0xFF94A3B8),
+                  color: kColorTextMuted,
                   borderRadius: BorderRadius.circular(6)),
               child: Text('PARENT: $parentUsername',
                   style: const TextStyle(
@@ -372,7 +372,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(label,
               style: const TextStyle(
-                  color: Color(0xFF94A3B8),
+                  color: kColorTextMuted,
                   fontSize: kFontSizeCaption,
                   fontFamily: kFontFamily,
                   fontWeight: kFontWeightMedium,
@@ -402,7 +402,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
           Text(label,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                  color: Color(0xFF94A3B8),
+                  color: kColorTextMuted,
                   fontSize: kFontSizeBadge,
                   fontFamily: kFontFamily,
                   fontWeight: kFontWeightSemiBold,

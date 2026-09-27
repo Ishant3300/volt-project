@@ -169,20 +169,20 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
                         ],
                       ),
                       child: const Icon(Icons.arrow_back,
-                          color: Colors.black, size: kIconSizeMedium),
+                          color: kColorTextPrimary, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 12),
                   const Text('Login History',
                       style: TextStyle(
-                          color: Colors.black,
+                          color: kColorTextPrimary,
                           fontSize: kFontSizeViewTitle,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold)),
                   const Spacer(),
                   Text(_isLoading ? '...' : '${_filtered.length} of $_total',
                       style: const TextStyle(
-                          color: Color(0xFF94A3B8),
+                          color: kColorTextMuted,
                           fontSize: kFontSizeSubtitle,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium)),
@@ -216,7 +216,7 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
                       fontSize: kFontSizeBody,
                       fontFamily: kFontFamily),
                   prefixIcon: Icon(Icons.search,
-                      color: Color(0xFF94A3B8), size: kIconSizeMedium),
+                      color: kColorTextMuted, size: kIconSizeMedium),
                   contentPadding:
                       EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   border: InputBorder.none,
@@ -313,10 +313,10 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
     }
 
     final roleColor = role == 'ADMIN'
-        ? const Color(0xFFEF4444)
+        ? kColorSell
         : role == 'MASTER'
             ? kBrandPrimary
-            : const Color(0xFF10B981);
+            : kColorBuy;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -356,7 +356,7 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
               Expanded(
                 child: Text(name,
                     style: const TextStyle(
-                        color: Colors.black,
+                        color: kColorTextPrimary,
                         fontSize: kFontSizeBody,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold)),
@@ -397,13 +397,13 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: kFontSizeBodySmall, color: const Color(0xFF94A3B8)),
+          Icon(icon, size: kFontSizeBodySmall, color: kColorTextMuted),
           const SizedBox(width: 4),
           Flexible(
             child: Text(
               text,
               style: const TextStyle(
-                  color: Color(0xFF64748B),
+                  color: kColorTextMuted,
                   fontSize: kFontSizeNavLabel,
                   fontFamily: kFontFamily,
                   fontWeight: kFontWeightMedium),

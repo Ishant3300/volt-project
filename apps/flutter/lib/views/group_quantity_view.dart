@@ -113,7 +113,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
               const Text('Enter a name for the new lot.',
                   style: TextStyle(
                       fontSize: kFontSizeBodySmall,
-                      color: Color(0xFF94A3B8),
+                      color: kColorTextMuted,
                       fontFamily: kFontFamily)),
               const SizedBox(height: 14),
               TextField(
@@ -150,7 +150,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
               onPressed: () => Navigator.pop(ctx),
               child: const Text('Cancel',
                   style: TextStyle(
-                      color: Color(0xFF94A3B8),
+                      color: kColorTextMuted,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold))),
           GestureDetector(
@@ -210,12 +210,12 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                               offset: const Offset(0, 2))
                         ]),
                     child: const Icon(Icons.arrow_back,
-                        color: Colors.black, size: kIconSizeMedium)),
+                        color: kColorTextPrimary, size: kIconSizeMedium)),
               ),
               const SizedBox(width: 12),
               const Text('Group Quantity',
                   style: TextStyle(
-                      color: Colors.black,
+                      color: kColorTextPrimary,
                       fontSize: kFontSizeViewTitle,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold)),
@@ -298,7 +298,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                   alignment: Alignment.centerLeft,
                   child: Text('${_lotCounts.length} lots',
                       style: const TextStyle(
-                          color: Color(0xFF94A3B8),
+                          color: kColorTextMuted,
                           fontSize: kFontSizeNavLabel,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium)))),
@@ -317,7 +317,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                               ? 'No lots found. Create one!'
                               : 'No lots available',
                           style: const TextStyle(
-                              color: Color(0xFF94A3B8),
+                              color: kColorTextMuted,
                               fontSize: kFontSizeBodySmall,
                               fontFamily: kFontFamily)))
                   : RefreshIndicator(
@@ -345,7 +345,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                                   borderRadius: BorderRadius.circular(20),
                                   boxShadow: [
                                     BoxShadow(
-                                        color: Colors.black
+                                        color: kColorTextPrimary
                                             .withValues(alpha: 0.02),
                                         blurRadius: 4,
                                         offset: const Offset(0, 2))
@@ -366,7 +366,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                                       const SizedBox(height: 4),
                                       Text('$count instruments',
                                           style: const TextStyle(
-                                              color: Color(0xFF94A3B8),
+                                              color: kColorTextMuted,
                                               fontSize: kFontSizeSubtitle,
                                               fontFamily: kFontFamily)),
                                     ])),

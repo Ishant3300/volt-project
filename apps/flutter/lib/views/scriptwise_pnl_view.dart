@@ -128,7 +128,7 @@ class _ScriptwisePnlViewState extends State<ScriptwisePnlView> {
   }
 
   double _d(dynamic v) => (v as num?)?.toDouble() ?? 0.0;
-  Color _pnlColor(double v) => v >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+  Color _pnlColor(double v) => v >= 0 ? kColorBuy : kColorSell;
 
   Future<void> _pickCustomDate(bool isFrom) async {
     final now = DateTime.now();
@@ -183,7 +183,7 @@ class _ScriptwisePnlViewState extends State<ScriptwisePnlView> {
                         child: Column(mainAxisSize: MainAxisSize.min, children: [
                           Text(_error!,
                               style: const TextStyle(
-                                  color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
+                                  color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
                           const SizedBox(height: 12),
                           TextButton(onPressed: _fetch, child: const Text('Retry')),
                         ]),
@@ -224,13 +224,13 @@ class _ScriptwisePnlViewState extends State<ScriptwisePnlView> {
               borderRadius: BorderRadius.circular(12),
               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
             ),
-            child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+            child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium),
           ),
         ),
         const SizedBox(width: 12),
         const Text('Scriptwise P & L Summary',
             style: TextStyle(
-                color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
       ]),
     );
   }
@@ -334,8 +334,8 @@ class _ScriptwisePnlViewState extends State<ScriptwisePnlView> {
         child: DropdownButton<T>(
           value: value,
           isExpanded: true,
-          hint: Text(hint, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
-          icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF94A3B8)),
+          hint: Text(hint, style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
+          icon: const Icon(Icons.arrow_drop_down, color: kColorTextMuted),
           items: [
             DropdownMenuItem<T>(
                 value: null,
@@ -364,7 +364,7 @@ class _ScriptwisePnlViewState extends State<ScriptwisePnlView> {
         decoration: InputDecoration(
           hintText: 'Search',
           hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBody, fontFamily: kFontFamily),
-          prefixIcon: const Icon(Icons.search, color: Color(0xFF94A3B8), size: kIconSizeMedium),
+          prefixIcon: const Icon(Icons.search, color: kColorTextMuted, size: kIconSizeMedium),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           border: InputBorder.none,
         ),
@@ -398,7 +398,7 @@ class _ScriptwisePnlViewState extends State<ScriptwisePnlView> {
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
+        Text(label, style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
         Text(value.toStringAsFixed(2),
             style: TextStyle(
                 color: colored ? _pnlColor(value) : const Color(0xFF334155),
@@ -421,7 +421,7 @@ class _ScriptwisePnlViewState extends State<ScriptwisePnlView> {
           border: Border.all(color: const Color(0xFFF1F5F9)),
         ),
         child: const Center(
-          child: Text('No data', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
+          child: Text('No data', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
         ),
       );
     }
@@ -469,7 +469,7 @@ class _ScriptwisePnlViewState extends State<ScriptwisePnlView> {
         width: width,
         child: Text(label,
             style: const TextStyle(
-                color: Color(0xFF64748B), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                color: kColorTextMuted, fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
       );
 
   Widget _buildRow(Map<String, dynamic> row) {
@@ -493,7 +493,7 @@ class _ScriptwisePnlViewState extends State<ScriptwisePnlView> {
               Text(displayName,
                   style: const TextStyle(
                       color: kBrandPrimary, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
-              Text(exchange, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
+              Text(exchange, style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
             ]),
           ),
           SizedBox(

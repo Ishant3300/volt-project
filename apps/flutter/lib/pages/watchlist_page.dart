@@ -7,6 +7,14 @@ import '../utils/contants.dart';
 import '../views/trade_card_view.dart';
 import '../widgets/announcement_banner.dart';
 
+/// Cosmetic only — the "x/100" counter next to the search pill. Not a real
+/// cap: neither `WatchlistProvider`/`WatchlistService` nor the backend
+/// enforces any watchlist size limit today, so this never blocks
+/// `addInstrument`, it's purely a display number matching the reference design.
+const int _kWatchlistDisplayCap = 100;
+
+enum _InstrumentFilter { all, equityIndex, futures, options }
+
 class WatchlistPage extends StatefulWidget {
   const WatchlistPage({super.key});
 
@@ -15,6 +23,9 @@ class WatchlistPage extends StatefulWidget {
 }
 
 class _WatchlistPageState extends State<WatchlistPage> {
+  bool _editMode = false;
+  _InstrumentFilter _filter = _InstrumentFilter.all;
+
   @override
   void initState() {
     super.initState();
@@ -29,63 +40,163 @@ class _WatchlistPageState extends State<WatchlistPage> {
     });
   }
 
+  bool _matchesFilter(dynamic instrument) {
+    if (_filter == _InstrumentFilter.all) return true;
+    final instType = instrument.instrumentType ?? '';
+    final isOption = instType == 'CE' || instType == 'PE';
+    final isFut = instType == 'FUT';
+    switch (_filter) {
+      case _InstrumentFilter.futures:
+        return isFut;
+      case _InstrumentFilter.options:
+        return isOption;
+      case _InstrumentFilter.equityIndex:
+        return !isFut && !isOption;
+      case _InstrumentFilter.all:
+        return true;
+    }
+  }
+
+  Future<void> _showFilterSheet(BuildContext context) async {
+    final picked = await showModalBottomSheet<_InstrumentFilter>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) {
+        Widget option(_InstrumentFilter value, String label) {
+          return ListTile(
+            title: Text(
+              label,
+              style: TextStyle(
+                fontFamily: kFontFamily,
+                fontSize: 15,
+                fontWeight: _filter == value ? FontWeight.w700 : FontWeight.w400,
+                color: const Color(0xFF111827),
+              ),
+            ),
+            trailing: _filter == value
+                ? const Icon(Icons.check, color: kBrandPrimary, size: 20)
+                : null,
+            onTap: () => Navigator.pop(sheetContext, value),
+          );
+        }
+
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              option(_InstrumentFilter.all, 'All'),
+              option(_InstrumentFilter.equityIndex, 'Equity & index'),
+              option(_InstrumentFilter.futures, 'Futures'),
+              option(_InstrumentFilter.options, 'Options'),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+    if (picked != null && mounted) setState(() => _filter = picked);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
-            // Search bar
+            // Header — title + edit + filter
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
               child: Row(
                 children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const InstrumentSearchPage(),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        height: 48,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.02),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.search,
-                                color: Color(0xFF94A3B8),
-                                size: kIconSizeMedium),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'Search & Add',
-                              style: TextStyle(
-                                color: Color(0xFF94A3B8),
-                                fontSize: kFontSizeBody,
-                                fontFamily: kFontFamily,
-                                fontWeight: kFontWeightRegular,
-                              ),
-                            ),
-                          ],
-                        ),
+                  const Expanded(
+                    child: Text(
+                      'Quotes',
+                      style: TextStyle(
+                        fontFamily: kFontFamily,
+                        fontSize: 21,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF1A1D20),
+                        letterSpacing: -0.4,
                       ),
                     ),
                   ),
+                  IconButton(
+                    onPressed: () => setState(() => _editMode = !_editMode),
+                    tooltip: _editMode ? 'Done' : 'Edit watchlist',
+                    icon: Icon(
+                      _editMode ? Icons.check : Icons.edit_outlined,
+                      size: 20,
+                      color: _editMode ? kBrandPrimary : const Color(0xFF6B7280),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => _showFilterSheet(context),
+                    tooltip: 'Filter',
+                    icon: Icon(
+                      Icons.filter_list,
+                      size: 20,
+                      color: _filter != _InstrumentFilter.all
+                          ? kBrandPrimary
+                          : const Color(0xFF6B7280),
+                    ),
+                  ),
                 ],
+              ),
+            ),
+
+            // Search pill with a live count/cap indicator
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const InstrumentSearchPage(),
+                    ),
+                  );
+                },
+                child: Container(
+                  height: 44,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F9FA),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.search, color: Color(0xFF8E95A2), size: 18),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Search & add',
+                          style: TextStyle(
+                            color: Color(0xFF8E95A2),
+                            fontSize: 14,
+                            fontFamily: kFontFamily,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                      Consumer<WatchlistProvider>(
+                        builder: (context, watchlistProvider, child) => Text(
+                          '${watchlistProvider.items.length}/$_kWatchlistDisplayCap',
+                          style: const TextStyle(
+                            color: Color(0xFF8E95A2),
+                            fontSize: 14,
+                            fontFamily: kFontFamily,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
 
@@ -169,146 +280,92 @@ class _WatchlistPageState extends State<WatchlistPage> {
                     );
                   }
 
+                  final visibleItems = watchlistProvider.items
+                      .where((item) => _matchesFilter(item.instrument))
+                      .toList();
+
+                  if (visibleItems.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.filter_list_off,
+                              size: 64, color: Colors.grey[400]),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No instruments match this filter',
+                            style: TextStyle(
+                                fontSize: kFontSizeSectionHeader,
+                                color: Colors.grey[600]),
+                          ),
+                          const SizedBox(height: 8),
+                          TextButton(
+                            onPressed: () =>
+                                setState(() => _filter = _InstrumentFilter.all),
+                            child: const Text('Clear filter'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
                   return RefreshIndicator(
                     onRefresh: () => watchlistProvider.loadWatchlist(),
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
-                      clipBehavior: Clip.antiAlias,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.02),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
+                    child: ListView.separated(
+                      padding: EdgeInsets.zero,
+                      itemCount: visibleItems.length,
+                      separatorBuilder: (context, index) => const Divider(
+                        height: 1,
+                        color: Color(0xFFF0F2F5),
                       ),
-                      child: Column(
-                        children: [
-                          // Header row with BID / ASK labels — LOW/HIGH now
-                          // render as small inline captions under each price
-                          // per row instead of their own header columns (see
-                          // _buildWatchlistCard's compact 2-column layout).
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                            child: Row(
-                              children: [
-                                const Expanded(
-                                  child: Text(
-                                    'SCRIPTS',
-                                    style: TextStyle(
-                                      color: Color(0xFF94A3B8),
-                                      fontSize: kFontSizeCaption,
-                                      fontFamily: kFontFamily,
-                                      fontWeight: kFontWeightSemiBold,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(
-                                  width: 180,
-                                  child: Row(
-                                    children: [
-                                      const Expanded(
-                                        child: Text(
-                                          'BID',
-                                          textAlign: TextAlign.end,
-                                          style: TextStyle(
-                                            color: Color(0xFF94A3B8),
-                                            fontSize: kFontSizeCaption,
-                                            fontFamily: kFontFamily,
-                                            fontWeight: kFontWeightSemiBold,
-                                            letterSpacing: 0.5,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 21),
-                                      const Expanded(
-                                        child: Text(
-                                          'ASK',
-                                          textAlign: TextAlign.end,
-                                          style: TextStyle(
-                                            color: Color(0xFF94A3B8),
-                                            fontSize: kFontSizeCaption,
-                                            fontFamily: kFontFamily,
-                                            fontWeight: kFontWeightSemiBold,
-                                            letterSpacing: 0.5,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Divider(height: 1, color: Color(0xFFF1F5F9)),
-                          // List
-                          Expanded(
-                            child: ListView.separated(
-                              padding: EdgeInsets.zero,
-                              itemCount: watchlistProvider.items.length,
-                              separatorBuilder: (context, index) =>
-                                  const Divider(
-                                height: 1,
-                                color: Color(0xFFF1F5F9),
-                              ),
-                              itemBuilder: (context, index) {
-                                final item = watchlistProvider.items[index];
-                                final instrument = item.instrument;
+                      itemBuilder: (context, index) {
+                        final item = visibleItems[index];
+                        final instrument = item.instrument;
 
-                                return Dismissible(
-                                  key: Key(item.id),
-                                  direction: DismissDirection.endToStart,
-                                  confirmDismiss: (direction) async {
-                                    final investorMode =
-                                        Provider.of<InvestorModeProvider>(
-                                            context,
-                                            listen: false);
-                                    if (investorMode.isInvestor) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                            content: Text(
-                                                'Watchlist editing is not available in investor mode'),
-                                            backgroundColor: Color(0xFF64748B)),
-                                      );
-                                      return false;
-                                    }
-                                    return true;
-                                  },
-                                  background: Container(
-                                    alignment: Alignment.centerRight,
-                                    padding: const EdgeInsets.only(right: 20),
-                                    color: Colors.red,
-                                    child: const Icon(Icons.delete,
-                                        color: Colors.white),
-                                  ),
-                                  onDismissed: (direction) async {
-                                    final removed = await watchlistProvider
-                                        .removeInstrument(item.id);
-                                    if (!context.mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(removed
-                                            ? '${instrument.tradingsymbol} removed from watchlist'
-                                            : 'Could not remove ${instrument.tradingsymbol} — try again'),
-                                        backgroundColor: removed
-                                            ? null
-                                            : const Color(0xFFEF4444),
-                                      ),
-                                    );
-                                  },
-                                  child: _buildWatchlistCard(
-                                      context, item, instrument),
-                                );
-                              },
-                            ),
+                        return Dismissible(
+                          key: Key(item.id),
+                          direction: DismissDirection.endToStart,
+                          confirmDismiss: (direction) async {
+                            final investorMode =
+                                Provider.of<InvestorModeProvider>(
+                                    context,
+                                    listen: false);
+                            if (investorMode.isInvestor) {
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(
+                                const SnackBar(
+                                    content: Text(
+                                        'Watchlist editing is not available in investor mode'),
+                                    backgroundColor: Color(0xFF64748B)),
+                              );
+                              return false;
+                            }
+                            return true;
+                          },
+                          background: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 20),
+                            color: kColorSell,
+                            child: const Icon(Icons.delete,
+                                color: Colors.white),
                           ),
-                        ],
-                      ),
+                          onDismissed: (direction) async {
+                            final removed = await watchlistProvider
+                                .removeInstrument(item.id);
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(removed
+                                    ? '${instrument.tradingsymbol} removed from watchlist'
+                                    : 'Could not remove ${instrument.tradingsymbol} — try again'),
+                                backgroundColor: removed ? null : kColorSell,
+                              ),
+                            );
+                          },
+                          child: _buildWatchlistRow(
+                              context, item, instrument, watchlistProvider),
+                        );
+                      },
                     ),
                   );
                 },
@@ -322,8 +379,8 @@ class _WatchlistPageState extends State<WatchlistPage> {
     );
   }
 
-  Widget _buildWatchlistCard(
-      BuildContext context, dynamic item, dynamic instrument) {
+  Widget _buildWatchlistRow(BuildContext context, dynamic item,
+      dynamic instrument, WatchlistProvider watchlistProvider) {
     final bool isPositive = item.isPositive;
     final String instType = instrument.instrumentType ?? '';
     final double strike = instrument.strike ?? 0.0;
@@ -341,74 +398,52 @@ class _WatchlistPageState extends State<WatchlistPage> {
         );
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        color: Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        color: Colors.white,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Left side
+            // Left side — 3 stacked lines
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Change row — now leads the card (was last), matching
-                  // the reference terminal's layout of change on top,
-                  // symbol + expiry below it.
-                  Row(
-                    children: [
-                      Icon(
-                        isPositive ? Icons.north_east : Icons.south_west,
-                        size: kIconSizeSmall,
-                        color: isPositive
-                            ? const Color(0xFF10B981)
-                            : const Color(0xFFEF4444),
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          item.changeDisplay.isEmpty
-                              ? '--'
-                              : item.changeDisplay,
-                          style: TextStyle(
-                            color: isPositive
-                                ? const Color(0xFF10B981)
-                                : const Color(0xFFEF4444),
-                            fontSize: kFontSizePositionDetail,
-                            fontFamily: kFontFamily,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  // Name line: "NIFTY FUT" or "ADANIENT 1680 CE"
+                  // Line 1: change + % change
                   Text(
-                    _buildInstrumentTitle(
-                        instrument, instType, strike, isOption, isFut),
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: kFontSizeTradeSymbol,
+                    item.changeDisplay.isEmpty ? '--' : item.changeDisplay,
+                    style: TextStyle(
+                      color: isPositive ? kColorBuy : kColorSell,
+                      fontSize: 12,
                       fontFamily: kFontFamily,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.3,
+                      fontWeight: FontWeight.w600,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 3),
-                  // Expiry row
+                  // Line 2: script title
+                  Text(
+                    _buildInstrumentTitle(
+                        instrument, instType, strike, isOption, isFut),
+                    style: const TextStyle(
+                      color: Color(0xFF111417),
+                      fontSize: 16,
+                      fontFamily: kFontFamily,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 3),
+                  // Line 3: expiry/date
                   if (instrument.expiry != null)
                     Text(
-                      instrument.expiryDisplay.toString().toUpperCase(),
+                      instrument.expiryMonthDayDisplay,
                       style: const TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: kFontSizeCaption,
+                        color: Color(0xFF7C828D),
+                        fontSize: 12,
                         fontFamily: kFontFamily,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
+                        fontWeight: FontWeight.w400,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -419,7 +454,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
 
             const SizedBox(width: 8),
 
-            // Right side — BID/ASK + HIGH/LOW
+            // Right side — Bid/LTP + Ask, each with an L:/H: subtext
             Builder(builder: (context) {
               final ltp = item.currentPrice ?? 0.0;
               final spread = ltp * 0.0005;
@@ -446,12 +481,12 @@ class _WatchlistPageState extends State<WatchlistPage> {
               // every instrument showed red on first load (before any
               // second tick arrived) and stayed red forever if the price
               // never actually moved, reading as a market-wide sell-off.
-              const neutralTickColor = Color(0xFF0F172A);
+              const neutralTickColor = Color(0xFF1A1D20);
               Color tickColor(double? prev, double? current) {
                 if (prev == null || current == null || current == prev) {
                   return neutralTickColor;
                 }
-                return current > prev ? kBrandPrimary : const Color(0xFFEF4444);
+                return current > prev ? kColorBuy : kColorSell;
               }
 
               final prevBid = item.previousBidPrice;
@@ -462,21 +497,54 @@ class _WatchlistPageState extends State<WatchlistPage> {
               final double? high = item.high;
               final double? low = item.low;
 
-              // Compact 2-column layout: BID (with today's Low underneath)
-              // and ASK (with today's High underneath), replacing the old
-              // separate BID/ASK row + HIGH/LOW row 2x2 grid — same tick-
-              // color/synthetic-price logic above, just re-laid-out.
+              // 17px bold tabular price, with the decimal segment rendered
+              // smaller — same tick-color/synthetic-price logic as before,
+              // just split across two TextSpans for the size difference.
               Widget priceText(double? value, Color color, bool synthetic) {
-                return Text(
-                  value != null ? value.toStringAsFixed(2) : '--',
-                  textAlign: TextAlign.end,
-                  style: TextStyle(
-                    fontFamily: kFontFamily,
-                    fontSize: kFontSizePriceMain,
-                    fontWeight: FontWeight.w700,
-                    fontStyle: synthetic ? FontStyle.italic : FontStyle.normal,
-                    color: synthetic ? syntheticColor : color,
+                if (value == null) {
+                  return Text(
+                    '--',
+                    textAlign: TextAlign.end,
+                    style: TextStyle(
+                      fontFamily: kFontFamily,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: syntheticColor,
+                    ),
+                  );
+                }
+                final parts = value.toStringAsFixed(2).split('.');
+                final resolvedColor = synthetic ? syntheticColor : color;
+                final fontStyle =
+                    synthetic ? FontStyle.italic : FontStyle.normal;
+                return Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: parts[0],
+                        style: TextStyle(
+                          fontFamily: kFontFamily,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          fontStyle: fontStyle,
+                          color: resolvedColor,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                      TextSpan(
+                        text: '.${parts[1]}',
+                        style: TextStyle(
+                          fontFamily: kFontFamily,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          fontStyle: fontStyle,
+                          color: resolvedColor,
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      ),
+                    ],
                   ),
+                  textAlign: TextAlign.end,
                 );
               }
 
@@ -488,41 +556,74 @@ class _WatchlistPageState extends State<WatchlistPage> {
                   textAlign: TextAlign.end,
                   style: const TextStyle(
                     fontFamily: kFontFamily,
-                    fontSize: kFontSizeCaption,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF94A3B8),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w400,
+                    color: Color(0xFF7C828D),
                   ),
                 );
               }
 
-              return SizedBox(
-                width: 180,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          priceText(effectiveBid, bidColor, bidIsSynthetic),
-                          const SizedBox(height: 2),
-                          captionText('L', low),
-                        ],
-                      ),
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 84,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        priceText(effectiveBid, bidColor, bidIsSynthetic),
+                        const SizedBox(height: 2),
+                        captionText('L', low),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          priceText(effectiveAsk, askColor, askIsSynthetic),
-                          const SizedBox(height: 2),
-                          captionText('H', high),
-                        ],
-                      ),
+                  ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 84,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        priceText(effectiveAsk, askColor, askIsSynthetic),
+                        const SizedBox(height: 2),
+                        captionText('H', high),
+                      ],
+                    ),
+                  ),
+                  if (_editMode) ...[
+                    const SizedBox(width: 4),
+                    IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      onPressed: () async {
+                        final investorMode = Provider.of<InvestorModeProvider>(
+                            context,
+                            listen: false);
+                        if (investorMode.isInvestor) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text(
+                                    'Watchlist editing is not available in investor mode'),
+                                backgroundColor: Color(0xFF64748B)),
+                          );
+                          return;
+                        }
+                        final removed =
+                            await watchlistProvider.removeInstrument(item.id);
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(removed
+                                ? '${instrument.tradingsymbol} removed from watchlist'
+                                : 'Could not remove ${instrument.tradingsymbol} — try again'),
+                            backgroundColor: removed ? null : kColorSell,
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.remove_circle_outline,
+                          size: 20, color: kColorSell),
                     ),
                   ],
-                ),
+                ],
               );
             }),
           ],

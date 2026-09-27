@@ -43,8 +43,8 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
 
   static const Map<String, Color> typeColors = {
     'FUT': Color(0xFF3B82F6),
-    'CE': Color(0xFF10B981),
-    'PE': Color(0xFFEF4444),
+    'CE': kColorBuy,
+    'PE': kColorSell,
     'EQ': Color(0xFF64748B),
     'IDX': Color(0xFF8B5CF6),
   };
@@ -343,7 +343,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
               ? '$displayName added'
               : 'Could not add $displayName — try again'),
           backgroundColor:
-              added ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+              added ? kColorBuy : kColorSell,
           duration: Duration(seconds: added ? 1 : 2),
         ),
       );
@@ -411,7 +411,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                 decoration: const InputDecoration(
                   hintText: 'Try: NIFTY FUT, BANKNIFTY CE, 22000 PE',
                   hintStyle: TextStyle(
-                    color: Color(0xFF94A3B8),
+                    color: kColorTextMuted,
                     fontSize: kFontSizeBody,
                     fontFamily: kFontFamily,
                     fontWeight: kFontWeightRegular,
@@ -432,7 +432,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                 child: const Padding(
                   padding: EdgeInsets.only(right: 16),
                   child: Icon(Icons.close,
-                      color: Color(0xFF94A3B8), size: kIconSizeDefault),
+                      color: kColorTextMuted, size: kIconSizeDefault),
                 ),
               ),
           ],
@@ -582,7 +582,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                       style: const TextStyle(
                         fontSize: kFontSizeCaption,
                         fontWeight: kFontWeightSemiBold,
-                        color: Color(0xFF94A3B8),
+                        color: kColorTextMuted,
                         fontFamily: kFontFamily,
                         letterSpacing: 0.5,
                       ),
@@ -630,7 +630,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Icon(Icons.search,
-                        size: kIconSizeSmall, color: Color(0xFF94A3B8)),
+                        size: kIconSizeSmall, color: kColorTextMuted),
                     const SizedBox(width: 6),
                     Text(
                       _hasMore
@@ -711,7 +711,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                           style: const TextStyle(
                             fontSize: kFontSizeCaption,
                             fontWeight: kFontWeightMedium,
-                            color: Color(0xFF94A3B8),
+                            color: kColorTextMuted,
                             fontFamily: kFontFamily,
                             letterSpacing: 0.3,
                           ),
@@ -728,7 +728,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                             'LOT ${instrument.lotSize}',
                             style: const TextStyle(
                               fontSize: kFontSizeCaption,
-                              color: Color(0xFF94A3B8),
+                              color: kColorTextMuted,
                               fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium,
                             ),
@@ -746,7 +746,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                             '${instrument.strike.toInt()}',
                             style: const TextStyle(
                               fontSize: kFontSizeCaption,
-                              color: Color(0xFF94A3B8),
+                              color: kColorTextMuted,
                               fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium,
                             ),
@@ -766,14 +766,14 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: isAdded
-                        ? const Color(0xFF10B981).withOpacity(0.1)
+                        ? kColorBuy.withOpacity(0.1)
                         : kBrandPrimary.withOpacity(0.1),
                   ),
                   child: Icon(
                     isAdded ? Icons.check : Icons.add,
                     size: kIconSizeDefault,
                     color: isAdded
-                        ? const Color(0xFF10B981)
+                        ? kColorBuy
                         : kBrandPrimary,
                   ),
                 ),
@@ -920,7 +920,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
           const Text(
             'Try: NIFTY FUT, BANKNIFTY CE, 22000 PE',
             style: TextStyle(
-              color: Color(0xFF94A3B8),
+              color: kColorTextMuted,
               fontSize: kFontSizeBodySmall,
               fontFamily: kFontFamily,
               fontWeight: kFontWeightRegular,
@@ -968,7 +968,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
             'Try different keywords like:\nNIFTY FUT, BANKNIFTY CE, RELIANCE',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Color(0xFF94A3B8),
+              color: kColorTextMuted,
               fontSize: kFontSizeBodySmall,
               fontFamily: kFontFamily,
               fontWeight: kFontWeightRegular,

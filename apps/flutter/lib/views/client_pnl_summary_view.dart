@@ -303,7 +303,7 @@ class _ClientPnlSummaryViewState extends State<ClientPnlSummaryView> {
                         child: Column(mainAxisSize: MainAxisSize.min, children: [
                           Text(_error!,
                               style: const TextStyle(
-                                  color: Color(0xFF94A3B8),
+                                  color: kColorTextMuted,
                                   fontSize: kFontSizeBodySmall,
                                   fontFamily: kFontFamily)),
                           const SizedBox(height: 12),
@@ -344,13 +344,13 @@ class _ClientPnlSummaryViewState extends State<ClientPnlSummaryView> {
               borderRadius: BorderRadius.circular(12),
               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
             ),
-            child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+            child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium),
           ),
         ),
         const SizedBox(width: 12),
         const Text('Client P & L Summary',
             style: TextStyle(
-                color: Colors.black,
+                color: kColorTextPrimary,
                 fontSize: kFontSizeViewTitle,
                 fontFamily: kFontFamily,
                 fontWeight: kFontWeightSemiBold)),
@@ -394,7 +394,7 @@ class _ClientPnlSummaryViewState extends State<ClientPnlSummaryView> {
           child: Text(label,
               textAlign: TextAlign.center,
               style: TextStyle(
-                  color: selected ? Colors.white : const Color(0xFF94A3B8),
+                  color: selected ? Colors.white : kColorTextMuted,
                   fontSize: kFontSizeBodySmall,
                   fontFamily: kFontFamily,
                   fontWeight: kFontWeightSemiBold)),
@@ -543,8 +543,8 @@ class _ClientPnlSummaryViewState extends State<ClientPnlSummaryView> {
           value: value,
           isExpanded: true,
           hint: Text(hint,
-              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
-          icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF94A3B8)),
+              style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
+          icon: const Icon(Icons.arrow_drop_down, color: kColorTextMuted),
           items: [
             DropdownMenuItem<T>(
                 value: null,
@@ -575,7 +575,7 @@ class _ClientPnlSummaryViewState extends State<ClientPnlSummaryView> {
         decoration: InputDecoration(
           hintText: 'Search by username',
           hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBody, fontFamily: kFontFamily),
-          prefixIcon: const Icon(Icons.search, color: Color(0xFF94A3B8), size: kIconSizeMedium),
+          prefixIcon: const Icon(Icons.search, color: kColorTextMuted, size: kIconSizeMedium),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           border: InputBorder.none,
         ),
@@ -590,7 +590,7 @@ class _ClientPnlSummaryViewState extends State<ClientPnlSummaryView> {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Text(label,
             style: TextStyle(
-                color: active ? kBrandPrimary : const Color(0xFF64748B),
+                color: active ? kBrandPrimary : kColorTextMuted,
                 fontSize: kFontSizeCaption,
                 fontFamily: kFontFamily,
                 fontWeight: kFontWeightSemiBold)),
@@ -599,7 +599,7 @@ class _ClientPnlSummaryViewState extends State<ClientPnlSummaryView> {
               ? (_sortAscending ? Icons.arrow_upward : Icons.arrow_downward)
               : Icons.unfold_more,
           size: 14,
-          color: active ? kBrandPrimary : const Color(0xFF94A3B8),
+          color: active ? kBrandPrimary : kColorTextMuted,
         ),
       ]),
     );
@@ -632,7 +632,7 @@ class _ClientPnlSummaryViewState extends State<ClientPnlSummaryView> {
           const Padding(
             padding: EdgeInsets.all(24),
             child: Text('No data',
-                style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
+                style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
           )
         else
           ListView.separated(
@@ -653,7 +653,7 @@ class _ClientPnlSummaryViewState extends State<ClientPnlSummaryView> {
     final username = (row['username'] ?? '').toString();
     final name = (row['name'] ?? '').toString();
 
-    Color pnlColor(double v) => v >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+    Color pnlColor(double v) => v >= 0 ? kColorBuy : kColorSell;
 
     return InkWell(
       onTap: () => _openRow(row),
@@ -672,7 +672,7 @@ class _ClientPnlSummaryViewState extends State<ClientPnlSummaryView> {
                       decoration: TextDecoration.underline)),
               if (name.isNotEmpty)
                 Text(name,
-                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
+                    style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
             ]),
           ),
           Expanded(

@@ -112,7 +112,7 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
                         ],
                       ),
                       child: const Icon(Icons.arrow_back,
-                          color: Colors.black, size: kIconSizeMedium),
+                          color: kColorTextPrimary, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -120,7 +120,7 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
                     child: Text(
                       _title,
                       style: const TextStyle(
-                        color: Colors.black,
+                        color: kColorTextPrimary,
                         fontSize: kFontSizeViewTitle,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
@@ -313,7 +313,7 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
                 Text(
                   username,
                   style: const TextStyle(
-                    color: Colors.black,
+                    color: kColorTextPrimary,
                     fontSize: kFontSizeName,
                     fontFamily: kFontFamily,
                     fontWeight: kFontWeightName,
@@ -326,7 +326,7 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
                       Text(
                         name,
                         style: const TextStyle(
-                          color: Color(0xFF94A3B8),
+                          color: kColorTextMuted,
                           fontSize: kFontSizeCaption,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightRegular,

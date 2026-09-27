@@ -199,7 +199,7 @@ class _ChartViewState extends State<ChartView> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back, color: kColorTextPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Column(
@@ -210,7 +210,7 @@ class _ChartViewState extends State<ChartView> {
                   ? widget.instrument.name.toUpperCase()
                   : widget.instrument.tradingsymbol,
               style: const TextStyle(
-                color: Colors.black,
+                color: kColorTextPrimary,
                 fontSize: kFontSizeViewTitle,
                 fontFamily: kFontFamily,
                 fontWeight: kFontWeightSemiBold,
@@ -230,7 +230,7 @@ class _ChartViewState extends State<ChartView> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.black),
+            icon: const Icon(Icons.refresh, color: kColorTextPrimary),
             onPressed: _loadChartData,
           ),
         ],
@@ -267,7 +267,7 @@ class _ChartViewState extends State<ChartView> {
                       child: Text(
                         displayName,
                         style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.black,
+                          color: isSelected ? Colors.white : kColorTextPrimary,
                           fontSize: kFontSizeBody,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
@@ -308,7 +308,7 @@ class _ChartViewState extends State<ChartView> {
                     child: Text(
                       displayName,
                       style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.black,
+                        color: isSelected ? Colors.white : kColorTextPrimary,
                         fontSize: kFontSizeSubtitle,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightMedium,
@@ -367,8 +367,8 @@ class _ChartViewState extends State<ChartView> {
                       : InteractiveChart(
                           candles: _candles,
                           style: ChartStyle(
-                            priceGainColor: const Color(0xFF34C759),
-                            priceLossColor: const Color(0xFFFF3B30),
+                            priceGainColor: kColorBuy,
+                            priceLossColor: kColorSell,
                             volumeColor: Colors.grey.withOpacity(0.5),
                             trendLineStyles: [
                               Paint()

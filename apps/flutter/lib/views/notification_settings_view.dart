@@ -100,7 +100,7 @@ class _NotificationSettingsViewState extends State<NotificationSettingsView> {
 
   void _snack(String msg, {bool isError = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: isError ? const Color(0xFFEF4444) : const Color(0xFF10B981)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg), backgroundColor: isError ? kColorSell : kColorBuy));
   }
 
   @override
@@ -114,9 +114,9 @@ class _NotificationSettingsViewState extends State<NotificationSettingsView> {
             child: Container(width: 40, height: 40,
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
-              child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium))),
+              child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium))),
           const SizedBox(width: 12),
-          const Text('Notification Settings', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+          const Text('Notification Settings', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
         ])),
 
         if (_loadFailed && !_isLoading)

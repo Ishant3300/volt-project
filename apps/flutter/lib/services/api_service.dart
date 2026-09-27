@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/services/navigation_service.dart';
 import 'package:stocker/services/firebase_service.dart';
+import 'package:stocker/utils/contants.dart';
 
 class ApiService {
   final String baseUrl;
@@ -64,7 +65,7 @@ class ApiService {
         ScaffoldMessenger.of(ctx).showSnackBar(
           const SnackBar(
             content: Text('Session expired. You may have logged in on another device.'),
-            backgroundColor: Color(0xFFEF4444),
+            backgroundColor: kColorSell,
             duration: Duration(seconds: 3),
           ),
         );

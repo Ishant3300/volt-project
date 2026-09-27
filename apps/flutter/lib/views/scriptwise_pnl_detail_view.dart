@@ -88,7 +88,7 @@ class _ScriptwisePnlDetailViewState extends State<ScriptwisePnlDetailView> {
   }
 
   double _d(dynamic v) => (v as num?)?.toDouble() ?? 0.0;
-  Color _pnlColor(double v) => v >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+  Color _pnlColor(double v) => v >= 0 ? kColorBuy : kColorSell;
 
   List<Map<String, dynamic>> get _displayedRows {
     if (_searchQuery.isEmpty) return _rows;
@@ -115,7 +115,7 @@ class _ScriptwisePnlDetailViewState extends State<ScriptwisePnlDetailView> {
                         child: Column(mainAxisSize: MainAxisSize.min, children: [
                           Text(_error!,
                               style: const TextStyle(
-                                  color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
+                                  color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
                           const SizedBox(height: 12),
                           TextButton(onPressed: _fetch, child: const Text('Retry')),
                         ]),
@@ -154,7 +154,7 @@ class _ScriptwisePnlDetailViewState extends State<ScriptwisePnlDetailView> {
               borderRadius: BorderRadius.circular(12),
               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
             ),
-            child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+            child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium),
           ),
         ),
         const SizedBox(width: 12),
@@ -162,7 +162,7 @@ class _ScriptwisePnlDetailViewState extends State<ScriptwisePnlDetailView> {
           child: Text('${widget.exchange} ${widget.displayName}',
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                  color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                  color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
         ),
       ]),
     );
@@ -182,7 +182,7 @@ class _ScriptwisePnlDetailViewState extends State<ScriptwisePnlDetailView> {
         decoration: InputDecoration(
           hintText: 'Search by username',
           hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBody, fontFamily: kFontFamily),
-          prefixIcon: const Icon(Icons.search, color: Color(0xFF94A3B8), size: kIconSizeMedium),
+          prefixIcon: const Icon(Icons.search, color: kColorTextMuted, size: kIconSizeMedium),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           border: InputBorder.none,
         ),
@@ -216,7 +216,7 @@ class _ScriptwisePnlDetailViewState extends State<ScriptwisePnlDetailView> {
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
+        Text(label, style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
         Text(value.toStringAsFixed(2),
             style: TextStyle(
                 color: colored ? _pnlColor(value) : const Color(0xFF334155),
@@ -240,7 +240,7 @@ class _ScriptwisePnlDetailViewState extends State<ScriptwisePnlDetailView> {
           border: Border.all(color: const Color(0xFFF1F5F9)),
         ),
         child: const Center(
-          child: Text('No data', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
+          child: Text('No data', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
         ),
       );
     }
@@ -288,7 +288,7 @@ class _ScriptwisePnlDetailViewState extends State<ScriptwisePnlDetailView> {
         width: width,
         child: Text(label,
             style: const TextStyle(
-                color: Color(0xFF64748B), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                color: kColorTextMuted, fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
       );
 
   Widget _buildRow(Map<String, dynamic> row) {
@@ -314,7 +314,7 @@ class _ScriptwisePnlDetailViewState extends State<ScriptwisePnlDetailView> {
                 style: const TextStyle(
                     color: kBrandPrimary, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
             if (name.isNotEmpty)
-              Text(name, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
+              Text(name, style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
           ]),
         ),
         SizedBox(
@@ -347,7 +347,7 @@ class _ScriptwisePnlDetailViewState extends State<ScriptwisePnlDetailView> {
               ? const Text('—', style: TextStyle(color: Color(0xFF334155), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily))
               : Text(side,
                   style: TextStyle(
-                      color: side == 'BUY' ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                      color: side == 'BUY' ? kColorBuy : kColorSell,
                       fontSize: kFontSizeBodySmall,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold)),

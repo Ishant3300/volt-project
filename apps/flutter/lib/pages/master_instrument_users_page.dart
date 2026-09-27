@@ -262,7 +262,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
   Widget build(BuildContext context) {
     final bool isNetLong = widget.netQty > 0;
     final Color sideColor =
-        isNetLong ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+        isNetLong ? kColorBuy : kColorSell;
 
     final query = _searchQuery.toLowerCase();
     final filteredUsers = query.isEmpty
@@ -311,7 +311,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                         Text(
                           widget.tradingsymbol,
                           style: const TextStyle(
-                            color: Colors.black,
+                            color: kColorTextPrimary,
                             fontSize: kFontSizeSectionHeader,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
@@ -324,7 +324,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                             Text(
                               widget.exchange,
                               style: const TextStyle(
-                                color: Color(0xFF94A3B8),
+                                color: kColorTextMuted,
                                 fontSize: kFontSizeSubtitle,
                                 fontFamily: kFontFamily,
                                 fontWeight: kFontWeightMedium,
@@ -369,7 +369,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                           const Text(
                             'LTP',
                             style: TextStyle(
-                              color: Color(0xFF94A3B8),
+                              color: kColorTextMuted,
                               fontSize: kFontSizeBadge,
                               fontFamily: kFontFamily,
                               fontWeight: kFontWeightSemiBold,
@@ -414,7 +414,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                     const Padding(
                       padding: EdgeInsets.only(left: 12),
                       child: Icon(Icons.search,
-                          size: 18, color: Color(0xFF94A3B8)),
+                          size: 18, color: kColorTextMuted),
                     ),
                     Expanded(
                       child: TextField(
@@ -427,7 +427,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                         decoration: const InputDecoration(
                           hintText: 'Search client...',
                           hintStyle: TextStyle(
-                            color: Color(0xFF94A3B8),
+                            color: kColorTextMuted,
                             fontSize: kFontSizeBodySmall,
                             fontFamily: kFontFamily,
                           ),
@@ -455,7 +455,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                         ? '${_users.length} user${_users.length != 1 ? "s" : ""} with open positions'
                         : '${filteredUsers.length} of ${_users.length} user${_users.length != 1 ? "s" : ""}',
                     style: const TextStyle(
-                      color: Color(0xFF94A3B8),
+                      color: kColorTextMuted,
                       fontSize: kFontSizeSubtitle,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightMedium,
@@ -513,7 +513,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
             ),
             child: Icon(
                 isSearching ? Icons.search_off : Icons.people_outline,
-                size: 28, color: const Color(0xFF94A3B8)),
+                size: 28, color: kColorTextMuted),
           ),
           const SizedBox(height: 12),
           Text(
@@ -521,7 +521,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                 ? 'No clients match your search'
                 : 'No users with open positions',
             style: const TextStyle(
-              color: Color(0xFF94A3B8),
+              color: kColorTextMuted,
               fontSize: kFontSizeBody,
               fontFamily: kFontFamily,
             ),
@@ -537,7 +537,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
     final String side = user['side'] ?? 'FLAT';
     final bool isBuy = side == 'BUY';
     final Color sideColor =
-        isBuy ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+        isBuy ? kColorBuy : kColorSell;
     final double avgPrice = (isBuy
                 ? (user['avg_buy_price'] as num?)
                 : (user['avg_sell_price'] as num?))
@@ -622,7 +622,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                         Text(
                           user['name'] ?? 'Unknown',
                           style: const TextStyle(
-                            color: Colors.black,
+                            color: kColorTextPrimary,
                             fontSize: kFontSizeName,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightName,
@@ -633,7 +633,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                         Text(
                           '@${user['username'] ?? ''}',
                           style: const TextStyle(
-                            color: Color(0xFF94A3B8),
+                            color: kColorTextMuted,
                             fontSize: kFontSizeSubtitle,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightRegular,
@@ -671,7 +671,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                           Text(
                             'Avg: ',
                             style: const TextStyle(
-                              color: Color(0xFF94A3B8),
+                              color: kColorTextMuted,
                               fontSize: kFontSizeNavLabel,
                               fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium,
@@ -680,7 +680,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                           Text(
                             avgPrice.toStringAsFixed(2),
                             style: const TextStyle(
-                              color: Color(0xFF94A3B8),
+                              color: kColorTextMuted,
                               fontSize: kFontSizeNavLabel,
                               fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium,
@@ -694,8 +694,8 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                           '${instrumentPnl >= 0 ? '+' : ''}${instrumentPnl.toStringAsFixed(2)}',
                           style: TextStyle(
                             color: instrumentPnl >= 0
-                                ? const Color(0xFF10B981)
-                                : const Color(0xFFEF4444),
+                                ? kColorBuy
+                                : kColorSell,
                             fontSize: kFontSizeSubtitle,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightBold,

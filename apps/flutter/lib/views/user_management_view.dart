@@ -174,7 +174,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                     child: Text(
                       title,
                       style: const TextStyle(
-                        color: Colors.black,
+                        color: kColorTextPrimary,
                         fontSize: kFontSizeSectionHeader,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
@@ -224,7 +224,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                 child: Row(
                   children: [
                     const Icon(Icons.search,
-                        color: Color(0xFF94A3B8), size: kIconSizeMedium),
+                        color: kColorTextMuted, size: kIconSizeMedium),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextField(
@@ -233,7 +233,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                           setState(() => _searchQuery = value);
                         },
                         style: const TextStyle(
-                          color: Colors.black,
+                          color: kColorTextPrimary,
                           fontSize: kFontSizeBody,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightRegular,
@@ -242,7 +242,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                           border: InputBorder.none,
                           hintText: 'Search users or masters',
                           hintStyle: TextStyle(
-                            color: Color(0xFF94A3B8),
+                            color: kColorTextMuted,
                             fontSize: kFontSizeBody,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightRegular,
@@ -259,7 +259,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                           setState(() => _searchQuery = '');
                         },
                         child: const Icon(Icons.close,
-                            color: Color(0xFF94A3B8), size: kIconSizeMedium),
+                            color: kColorTextMuted, size: kIconSizeMedium),
                       ),
                   ],
                 ),
@@ -442,7 +442,7 @@ class _UserManagementViewState extends State<UserManagementView> {
               ],
             ),
             child: const Icon(Icons.error_outline,
-                size: kIconSizeXLarge, color: Color(0xFFEF4444)),
+                size: kIconSizeXLarge, color: kColorSell),
           ),
           const SizedBox(height: 16),
           Text(
@@ -565,7 +565,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                   Text(
                     master.name.toUpperCase(),
                     style: const TextStyle(
-                      color: Colors.black,
+                      color: kColorTextPrimary,
                       fontSize: kFontSizeName,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightName,
@@ -619,8 +619,8 @@ class _UserManagementViewState extends State<UserManagementView> {
                         height: 6,
                         decoration: BoxDecoration(
                           color: isActive
-                              ? const Color(0xFF10B981)
-                              : const Color(0xFFEF4444),
+                              ? kColorBuy
+                              : kColorSell,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -632,7 +632,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                       Text(
                         'Credits: ${master.credits.toStringAsFixed(2)}',
                         style: const TextStyle(
-                          color: Color(0xFF94A3B8),
+                          color: kColorTextMuted,
                           fontSize: kFontSizeNavLabel,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
@@ -648,7 +648,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                       Text(
                         'P&L: ${master.pnlSharing.toStringAsFixed(0)}%',
                         style: const TextStyle(
-                          color: Color(0xFF94A3B8),
+                          color: kColorTextMuted,
                           fontSize: kFontSizeNavLabel,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
@@ -660,7 +660,7 @@ class _UserManagementViewState extends State<UserManagementView> {
               ),
             ),
             const Icon(Icons.chevron_right,
-                size: kIconSizeMedium, color: Color(0xFF94A3B8)),
+                size: kIconSizeMedium, color: kColorTextMuted),
           ],
         ),
       ),
@@ -714,7 +714,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                   Text(
                     user.name.toUpperCase(),
                     style: const TextStyle(
-                      color: Colors.black,
+                      color: kColorTextPrimary,
                       fontSize: kFontSizeName,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightName,
@@ -768,8 +768,8 @@ class _UserManagementViewState extends State<UserManagementView> {
                         height: 6,
                         decoration: BoxDecoration(
                           color: isActive
-                              ? const Color(0xFF10B981)
-                              : const Color(0xFFEF4444),
+                              ? kColorBuy
+                              : kColorSell,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -781,7 +781,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                       Text(
                         'Credits: ${user.credits.toStringAsFixed(2)}',
                         style: const TextStyle(
-                          color: Color(0xFF94A3B8),
+                          color: kColorTextMuted,
                           fontSize: kFontSizeNavLabel,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
@@ -797,7 +797,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                       Text(
                         'P&L: ${user.pnlSharing.toStringAsFixed(0)}%',
                         style: const TextStyle(
-                          color: Color(0xFF94A3B8),
+                          color: kColorTextMuted,
                           fontSize: kFontSizeNavLabel,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium,
@@ -809,7 +809,7 @@ class _UserManagementViewState extends State<UserManagementView> {
               ),
             ),
             const Icon(Icons.chevron_right,
-                size: kIconSizeMedium, color: Color(0xFF94A3B8)),
+                size: kIconSizeMedium, color: kColorTextMuted),
           ],
         ),
       ),
@@ -853,7 +853,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                 const Text(
                   'Create New',
                   style: TextStyle(
-                    color: Colors.black,
+                    color: kColorTextPrimary,
                     fontSize: kFontSizeSectionHeader,
                     fontFamily: kFontFamily,
                     fontWeight: kFontWeightSemiBold,
@@ -973,7 +973,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                   Text(
                     title,
                     style: const TextStyle(
-                      color: Colors.black,
+                      color: kColorTextPrimary,
                       fontSize: kFontSizeBody,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
@@ -983,7 +983,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                   Text(
                     subtitle,
                     style: const TextStyle(
-                      color: Color(0xFF94A3B8),
+                      color: kColorTextMuted,
                       fontSize: kFontSizeSubtitle,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightRegular,
@@ -993,7 +993,7 @@ class _UserManagementViewState extends State<UserManagementView> {
               ),
             ),
             const Icon(Icons.chevron_right,
-                size: kIconSizeMedium, color: Color(0xFF94A3B8)),
+                size: kIconSizeMedium, color: kColorTextMuted),
           ],
         ),
       ),

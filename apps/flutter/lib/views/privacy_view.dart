@@ -18,13 +18,13 @@ class PrivacyView extends StatelessWidget {
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: Icon(Icons.arrow_back, size: kIconSizeLarge, color: Colors.black),
+                    child: Icon(Icons.arrow_back, size: kIconSizeLarge, color: kColorTextPrimary),
                   ),
                   SizedBox(width: 12),
                   Text(
                     'Privacy',
                     style: TextStyle(
-                      color: Colors.black,
+                      color: kColorTextPrimary,
                       fontSize: kFontSizeSectionHeader,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
@@ -48,7 +48,7 @@ class PrivacyView extends StatelessWidget {
                   child: Text(
                     'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Duis sed odio in augue ornare hendrerit. Sed vitae euismod ex. Nam sit amet vehicula odio. Sed sed quam neque. Aenean consequat odio dolor. Proin feugiat quis tellus porta tincidunt. Sed sagittis, nisi vitae facilisis ultrices, urna nibh tristique magna, vel ultricies eros massa aliquet leo. Phasellus metus purus, posuere ac nulla nec, suscipit facilisis lorem. Vivamus sed nibh eu purus finibus consequat. Phasellus eget maximus sem. Vivamus ligula ligula, tristique at odio et, finibus ullamcorper elit. Fusce turpis enim, tempus ut mauris non, feugiat malesuada nulla. Phasellus egestas sapien ut est rutrum placerat.\n\nAliquam fermentum aliquam erat eget aliquam. Morbi vel risus eros. Nullam id gravida nulla. Fusce hendrerit molestie justo eu dictum. Maecenas elit leo, vulputate tempor ipsum eget, molestie finibus purus. Duis ac turpis porta libero cursus ultricies. Quisque fringilla ac nibh nec blandit. Donec fringilla lectus nec orci egestas molestie. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Proin egestas commodo nunc, viverra ornare nunc laoreet nec. Nunc sed nisi placerat, faucibus mi eget, ornare tellus. Praesent ante nisi, scelerisque id mattis at, porta vitae sem. In egestas tincidunt nisi porta tempor. Curabitur sed metus consectetur, consequat leo id, mattis nisi. Sed nulla sapien, auctor vitae dictum eu, tristique sit amet ex.\n\nSuspendisse fermentum rhoncus arcu, at finibus mi viverra in. Morbi id turpis a neque lacinia auctor. Vivamus ultrices malesuada metus sit amet vulputate. Suspendisse',
                     style: TextStyle(
-                      color: Colors.black,
+                      color: kColorTextPrimary,
                       fontSize: kFontSizeBody,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightRegular,

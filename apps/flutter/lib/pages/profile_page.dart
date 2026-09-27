@@ -176,7 +176,7 @@ class _ProfilePageState extends State<ProfilePage> {
               const Text(
                 'Are you sure you want to delete your account? This action cannot be undone.\n\nAll your data will be permanently removed.',
                 style: TextStyle(
-                    color: Color(0xFF64748B),
+                    color: kColorTextMuted,
                     fontSize: kFontSizeBody,
                     fontFamily: kFontFamily,
                     fontWeight: kFontWeightRegular,
@@ -196,7 +196,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     child: const Text('Cancel',
                         style: TextStyle(
-                            color: Color(0xFF64748B),
+                            color: kColorTextMuted,
                             fontSize: kFontSizeBody,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold)),
@@ -213,7 +213,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     child: const Text('Delete',
                         style: TextStyle(
-                            color: Color(0xFFEF4444),
+                            color: kColorSell,
                             fontSize: kFontSizeBody,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold)),
@@ -285,14 +285,14 @@ class _ProfilePageState extends State<ProfilePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Account deleted successfully'),
-            backgroundColor: Color(0xFF10B981),
+            backgroundColor: kColorBuy,
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(body['message'] ?? 'Failed to delete account'),
-            backgroundColor: const Color(0xFFEF4444),
+            backgroundColor: kColorSell,
           ),
         );
       }
@@ -302,7 +302,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: $e'),
-            backgroundColor: const Color(0xFFEF4444),
+            backgroundColor: kColorSell,
           ),
         );
       }
@@ -362,7 +362,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       roleColor = kBrandPrimary;
                       break;
                     default:
-                      roleColor = const Color(0xFF10B981);
+                      roleColor = kColorBuy;
                   }
 
                   return GestureDetector(
@@ -423,7 +423,7 @@ class _ProfilePageState extends State<ProfilePage> {
                                     Text(
                                       username,
                                       style: const TextStyle(
-                                        color: Color(0xFF94A3B8),
+                                        color: kColorTextMuted,
                                         fontSize: kFontSizeNavLabel,
                                         fontFamily: kFontFamily,
                                         fontWeight: kFontWeightMedium,
@@ -464,7 +464,7 @@ class _ProfilePageState extends State<ProfilePage> {
                               child: Text(
                                 '$_savedAccountCount',
                                 style: const TextStyle(
-                                  color: Color(0xFF64748B),
+                                  color: kColorTextMuted,
                                   fontSize: kFontSizeCaption,
                                   fontFamily: kFontFamily,
                                   fontWeight: kFontWeightSemiBold,
@@ -474,7 +474,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             const SizedBox(width: 4),
                           ],
                           const Icon(Icons.unfold_more,
-                              size: kIconSizeMedium, color: Color(0xFF94A3B8)),
+                              size: kIconSizeMedium, color: kColorTextMuted),
                         ],
                       ),
                     ),

@@ -117,7 +117,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               content: Text(data['message'] ?? 'Failed to create group'),
-              backgroundColor: const Color(0xFFEF4444),
+              backgroundColor: kColorSell,
             ));
           }
         }
@@ -129,7 +129,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error: $e'),
-          backgroundColor: const Color(0xFFEF4444),
+          backgroundColor: kColorSell,
         ));
       }
     }
@@ -157,7 +157,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
     if (maxQty == null || breakQty == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Please enter valid numbers'),
-        backgroundColor: Color(0xFFEF4444),
+        backgroundColor: kColorSell,
       ));
       return;
     }
@@ -200,14 +200,14 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
           }
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('${entry.rawName} updated'),
-            backgroundColor: const Color(0xFF10B981),
+            backgroundColor: kColorBuy,
             duration: const Duration(seconds: 1),
           ));
         } else {
           final data = jsonDecode(response.body);
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(data['message'] ?? 'Failed to save'),
-            backgroundColor: const Color(0xFFEF4444),
+            backgroundColor: kColorSell,
           ));
         }
       }
@@ -215,7 +215,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error: $e'),
-          backgroundColor: const Color(0xFFEF4444),
+          backgroundColor: kColorSell,
         ));
       }
     }
@@ -258,7 +258,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
                 borderRadius: BorderRadius.circular(12),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
               ),
-              child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+              child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium),
             ),
           ),
           const SizedBox(width: 12),
@@ -267,9 +267,9 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(widget.lotName,
-                    style: const TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                    style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                 Text('${widget.exchange} · ${_instruments.length} instruments',
-                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily)),
+                    style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily)),
               ],
             ),
           ),
@@ -296,7 +296,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
               _isLotBased
                   ? 'Values are in lots. Tap save icon to update each instrument.'
                   : 'Values are in quantity. Tap save icon to update each instrument.',
-              style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily),
+              style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily),
             ),
           ),
         ],
@@ -318,7 +318,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
           children: [
             const Padding(
               padding: EdgeInsets.only(left: 14, right: 8),
-              child: Icon(Icons.search, color: Color(0xFF94A3B8), size: kIconSizeMedium),
+              child: Icon(Icons.search, color: kColorTextMuted, size: kIconSizeMedium),
             ),
             Expanded(
               child: TextField(
@@ -326,7 +326,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
                 style: const TextStyle(fontSize: kFontSizeBody, color: Color(0xFF0F172A), fontFamily: kFontFamily),
                 decoration: const InputDecoration(
                   hintText: 'Filter instruments...',
-                  hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: kFontFamily),
+                  hintStyle: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBody, fontFamily: kFontFamily),
                   border: InputBorder.none, isDense: true,
                   contentPadding: EdgeInsets.symmetric(vertical: 12),
                 ),
@@ -338,7 +338,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
                 onTap: () { _searchCtrl.clear(); _filterInstruments(''); },
                 child: const Padding(
                   padding: EdgeInsets.only(right: 14),
-                  child: Icon(Icons.close, color: Color(0xFF94A3B8), size: 18),
+                  child: Icon(Icons.close, color: kColorTextMuted, size: 18),
                 ),
               ),
           ],
@@ -357,11 +357,11 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
       ),
       child: Row(
         children: [
-          const Expanded(flex: 3, child: Text('Instrument', style: TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: Color(0xFF94A3B8), fontFamily: kFontFamily, letterSpacing: 0.5))),
+          const Expanded(flex: 3, child: Text('Instrument', style: TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: kColorTextMuted, fontFamily: kFontFamily, letterSpacing: 0.5))),
           const SizedBox(width: 4),
-          Expanded(flex: 2, child: Text(_qtyLabel, style: const TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: Color(0xFF94A3B8), fontFamily: kFontFamily, letterSpacing: 0.5))),
+          Expanded(flex: 2, child: Text(_qtyLabel, style: const TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: kColorTextMuted, fontFamily: kFontFamily, letterSpacing: 0.5))),
           const SizedBox(width: 4),
-          Expanded(flex: 2, child: Text(_brkLabel, style: const TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: Color(0xFF94A3B8), fontFamily: kFontFamily, letterSpacing: 0.5))),
+          Expanded(flex: 2, child: Text(_brkLabel, style: const TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: kColorTextMuted, fontFamily: kFontFamily, letterSpacing: 0.5))),
           const SizedBox(width: 4),
           const SizedBox(width: 36), // save button space
         ],
@@ -376,7 +376,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
         children: [
           CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5),
           SizedBox(height: 16),
-          Text('Loading instruments...', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
+          Text('Loading instruments...', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
         ],
       ),
     );
@@ -385,7 +385,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
   Widget _buildList() {
     if (_filteredInstruments.isEmpty) {
       return const Center(
-        child: Text('No instruments found', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: kFontFamily)),
+        child: Text('No instruments found', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBody, fontFamily: kFontFamily)),
       );
     }
 
@@ -422,7 +422,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
                     maxLines: 1, overflow: TextOverflow.ellipsis),
                 if (!_isLotBased)
                   Text('Lot: ${entry.lotSize}',
-                      style: const TextStyle(fontSize: kFontSizeCaption, color: Color(0xFF94A3B8), fontFamily: kFontFamily)),
+                      style: const TextStyle(fontSize: kFontSizeCaption, color: kColorTextMuted, fontFamily: kFontFamily)),
               ],
             ),
           ),

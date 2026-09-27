@@ -258,7 +258,7 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
                       fontSize: kFontSizeBody,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightRegular,
-                      color: Color(0xFF64748B),
+                      color: kColorTextMuted,
                     ),
                   ),
 
@@ -320,7 +320,7 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
                                 _obscureNew
                                     ? Icons.visibility_off
                                     : Icons.visibility,
-                                color: const Color(0xFF94A3B8),
+                                color: kColorTextMuted,
                                 size: 20,
                               ),
                               onPressed: () =>
@@ -367,7 +367,7 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
                                 _obscureConfirm
                                     ? Icons.visibility_off
                                     : Icons.visibility,
-                                color: const Color(0xFF94A3B8),
+                                color: kColorTextMuted,
                                 size: 20,
                               ),
                               onPressed: () => setState(
@@ -395,7 +395,7 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
                                 end: Alignment.centerRight,
                                 colors: [kBrandGradientStart, kBrandGradientEnd],
                               ),
-                        color: _isLoading ? const Color(0xFF94A3B8) : null,
+                        color: _isLoading ? kColorTextMuted : null,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Center(
@@ -427,7 +427,7 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
                     child: const Text(
                       'Logout instead',
                       style: TextStyle(
-                        color: Color(0xFF64748B),
+                        color: kColorTextMuted,
                         fontSize: kFontSizeBody,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,

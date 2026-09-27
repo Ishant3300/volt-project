@@ -254,7 +254,7 @@ class _ManageReportsViewState extends State<ManageReportsView> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
-      backgroundColor: isError ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+      backgroundColor: isError ? kColorSell : kColorBuy,
     ));
   }
 
@@ -280,11 +280,11 @@ class _ManageReportsViewState extends State<ManageReportsView> {
                         color: Colors.white, borderRadius: BorderRadius.circular(12),
                         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
                       ),
-                      child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+                      child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text('Manage Reports', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                  const Text('Manage Reports', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                 ],
               ),
             ),
@@ -324,18 +324,18 @@ class _ManageReportsViewState extends State<ManageReportsView> {
                                   : (_selectedUser?.name ?? 'Select User'),
                               style: TextStyle(
                                 color: (_selectedTab == 0 ? _selectedMaster : _selectedUser) != null
-                                    ? Colors.black : const Color(0xFF94A3B8),
+                                    ? kColorTextPrimary : const Color(0xFF94A3B8),
                                 fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold,
                               ),
                             ),
                             if (_selectedTab == 0 && _selectedMaster != null)
-                              Text(_selectedMaster!.username, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+                              Text(_selectedMaster!.username, style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
                             if (_selectedTab == 1 && _selectedUser != null)
-                              Text(_selectedUser!.username, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+                              Text(_selectedUser!.username, style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
                           ],
                         ),
                       ),
-                      const Icon(Icons.keyboard_arrow_down, size: kIconSizeMedium, color: Color(0xFF94A3B8)),
+                      const Icon(Icons.keyboard_arrow_down, size: kIconSizeMedium, color: kColorTextMuted),
                     ],
                   ),
                 ),
@@ -352,7 +352,7 @@ class _ManageReportsViewState extends State<ManageReportsView> {
                       ? Center(
                           child: Text(
                             _selectedTab == 0 ? 'No masters to manage' : 'No users to manage',
-                            style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: kFontFamily),
+                            style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeBody, fontFamily: kFontFamily),
                           ),
                         )
                       : ((_selectedTab == 0 && _selectedMaster == null) || (_selectedTab == 1 && _selectedUser == null))
@@ -369,7 +369,7 @@ class _ManageReportsViewState extends State<ManageReportsView> {
                                   const SizedBox(height: 16),
                                   Text(
                                     _selectedTab == 0 ? 'Select a master to manage permissions' : 'Select a user to manage permissions',
-                                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: kFontFamily),
+                                    style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeBody, fontFamily: kFontFamily),
                                   ),
                                 ],
                               ),
@@ -377,7 +377,7 @@ class _ManageReportsViewState extends State<ManageReportsView> {
                           : ListView(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       children: [
-                        const Text('PERMISSIONS', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
+                        const Text('PERMISSIONS', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
                         const SizedBox(height: 12),
                         _card(
                           child: Column(
@@ -407,7 +407,7 @@ class _ManageReportsViewState extends State<ManageReportsView> {
                           child: Container(
                             width: double.infinity, height: 52,
                             decoration: BoxDecoration(
-                              color: _isUpdating || !_hasChanges ? const Color(0xFF94A3B8) : kBrandPrimary,
+                              color: _isUpdating || !_hasChanges ? kColorTextMuted : kBrandPrimary,
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Center(
@@ -442,7 +442,7 @@ class _ManageReportsViewState extends State<ManageReportsView> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 16),
-            const Text('Select Master', style: TextStyle(color: Colors.black, fontSize: kFontSizeSectionHeader, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
+            const Text('Select Master', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeSectionHeader, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
             const SizedBox(height: 16),
             if (_isLoadingMasters)
               const Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
@@ -474,8 +474,8 @@ class _ManageReportsViewState extends State<ManageReportsView> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(m.name, style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
-                                  Text(m.username, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+                                  Text(m.name, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                                  Text(m.username, style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
                                 ],
                               ),
                             ),
@@ -509,7 +509,7 @@ class _ManageReportsViewState extends State<ManageReportsView> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 16),
-            const Text('Select User', style: TextStyle(color: Colors.black, fontSize: kFontSizeSectionHeader, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
+            const Text('Select User', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeSectionHeader, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
             const SizedBox(height: 16),
             if (_isLoadingUsers)
               const Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
@@ -541,8 +541,8 @@ class _ManageReportsViewState extends State<ManageReportsView> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(u.name, style: const TextStyle(color: Colors.black, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
-                                  Text(u.username, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+                                  Text(u.name, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                                  Text(u.username, style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
                                 ],
                               ),
                             ),
@@ -581,12 +581,12 @@ class _ManageReportsViewState extends State<ManageReportsView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label, style: TextStyle(
-                  color: enabled ? Colors.black : const Color(0xFF94A3B8),
+                  color: enabled ? kColorTextPrimary : kColorTextMuted,
                   fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightMedium,
                 )),
                 if (!enabled)
                   const Text('Disabled by parent', style: TextStyle(
-                    color: Color(0xFFEF4444), fontSize: 11, fontFamily: kFontFamily,
+                    color: kColorSell, fontSize: 11, fontFamily: kFontFamily,
                   )),
               ],
             ),

@@ -77,7 +77,7 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
     });
   }
 
-  Color _pnlColor(double v) => v >= 0 ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+  Color _pnlColor(double v) => v >= 0 ? kColorBuy : kColorSell;
   String _pnlStr(double v) => '${v >= 0 ? '+' : ''}${v.toStringAsFixed(2)}';
 
   @override
@@ -100,11 +100,11 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
                   width: 40, height: 40,
                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
                     boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
-                  child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+                  child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium),
                 ),
               ),
               const SizedBox(width: 12),
-              const Text('Profit & Loss', style: TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+              const Text('Profit & Loss', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
             ]),
           ),
 
@@ -137,10 +137,10 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
               decoration: InputDecoration(
                 hintText: 'Search $label...',
                 hintStyle: const TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeBody, fontFamily: kFontFamily),
-                prefixIcon: const Icon(Icons.search, color: Color(0xFF94A3B8), size: kIconSizeMedium),
+                prefixIcon: const Icon(Icons.search, color: kColorTextMuted, size: kIconSizeMedium),
                 suffixIcon: _searchCtrl.text.isNotEmpty
                     ? GestureDetector(onTap: () { _searchCtrl.clear(); setState(() => _searchQuery = ''); },
-                        child: const Icon(Icons.close, color: Color(0xFF94A3B8), size: 18))
+                        child: const Icon(Icons.close, color: kColorTextMuted, size: 18))
                     : null,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 border: InputBorder.none,
@@ -153,7 +153,7 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Align(alignment: Alignment.centerLeft,
-              child: Text('${filtered.length} $label', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
+              child: Text('${filtered.length} $label', style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
           ),
           const SizedBox(height: 8),
 
@@ -174,11 +174,11 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
                   onTap: () => _sort(i),
                   child: Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
                     Text(labels[i], style: TextStyle(
-                      color: isSorted ? kBrandPrimary : const Color(0xFF94A3B8),
+                      color: isSorted ? kBrandPrimary : kColorTextMuted,
                       fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
                     const SizedBox(width: 2),
                     Icon(isSorted ? (_sortAsc ? Icons.arrow_upward : Icons.arrow_downward) : Icons.unfold_more,
-                      size: 11, color: isSorted ? kBrandPrimary : const Color(0xFF94A3B8)),
+                      size: 11, color: isSorted ? kBrandPrimary : kColorTextMuted),
                   ]),
                 ),
               );
@@ -190,7 +190,7 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
                 : filtered.isEmpty
-                    ? const Center(child: Text('No data', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)))
+                    ? const Center(child: Text('No data', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)))
                     : RefreshIndicator(
                         onRefresh: _fetch,
                         child: Container(
@@ -212,7 +212,7 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
   Widget _totalItem(String label, double value) {
     return Expanded(
       child: Column(children: [
-        Text(label.toUpperCase(), style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
+        Text(label.toUpperCase(), style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
         const SizedBox(height: 4),
         Text(_pnlStr(value), style: TextStyle(color: _pnlColor(value), fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
       ]),
@@ -239,7 +239,7 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
             const Padding(padding: EdgeInsets.only(right: 4),
               child: Icon(Icons.supervisor_account, size: 12, color: kBrandPrimary)),
           Flexible(child: Text(username, textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.black, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
+            style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
             maxLines: 1, overflow: TextOverflow.ellipsis)),
         ])),
         Expanded(child: Text(_pnlStr(realised), textAlign: TextAlign.center,

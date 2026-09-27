@@ -59,12 +59,12 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
       final adminService = AdminService(apiService);
       final response = await adminService.deleteGroupedQuantity(docId);
       if (response.statusCode == 200) {
-        if (mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Instrument deleted'), backgroundColor: Color(0xFF10B981))); _fetchLotData(); }
+        if (mounted) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Instrument deleted'), backgroundColor: kColorBuy)); _fetchLotData(); }
       } else {
         final data = jsonDecode(response.body);
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(data['message'] ?? 'Failed'), backgroundColor: const Color(0xFFEF4444)));
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(data['message'] ?? 'Failed'), backgroundColor: kColorSell));
       }
-    } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: const Color(0xFFEF4444))); }
+    } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: kColorSell)); }
   }
 
   @override
@@ -79,12 +79,12 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
             child: Container(width: 40, height: 40,
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
-              child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium)),
+              child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium)),
           ),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(widget.lotName, style: const TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
-            Text('${widget.exchange} · ${_instruments.length} instruments', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily)),
+            Text(widget.lotName, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+            Text('${widget.exchange} · ${_instruments.length} instruments', style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily)),
           ])),
         ])),
 
@@ -106,7 +106,7 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
         Expanded(child: _isLoading
           ? const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5))
           : _instruments.isEmpty
-            ? const Center(child: Text('No instruments added yet', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)))
+            ? const Center(child: Text('No instruments added yet', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)))
             : RefreshIndicator(onRefresh: _fetchLotData, child: ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 itemCount: _instruments.length,
@@ -138,17 +138,17 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
                             title: const Text('Delete Instrument', style: TextStyle(fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, fontSize: kFontSizeSectionHeader)),
                             content: const Text('Are you sure?', style: TextStyle(fontFamily: kFontFamily, fontSize: kFontSizeBodySmall)),
                             actions: [
-                              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: Color(0xFF94A3B8), fontFamily: kFontFamily))),
+                              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: kColorTextMuted, fontFamily: kFontFamily))),
                               GestureDetector(
                                 onTap: () { Navigator.pop(ctx); _deleteInstrument(inst['id'], inst['instrument_symbol']); },
-                                child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(color: const Color(0xFFEF4444), borderRadius: BorderRadius.circular(10)),
+                                child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(color: kColorSell, borderRadius: BorderRadius.circular(10)),
                                   child: const Text('Delete', style: TextStyle(color: Colors.white, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, fontSize: kFontSizeBodySmall))),
                               ),
                             ],
                           )),
                           child: Container(width: 36, height: 36,
-                            decoration: BoxDecoration(color: const Color(0xFFEF4444).withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
-                            child: const Icon(Icons.delete_outline, size: 18, color: Color(0xFFEF4444))),
+                            decoration: BoxDecoration(color: kColorSell.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
+                            child: const Icon(Icons.delete_outline, size: 18, color: kColorSell)),
                         ),
                     ]),
                   ),
@@ -165,7 +165,7 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6)),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Text('$label ', style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.3)),
+        Text('$label ', style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.3)),
         Text(value, style: const TextStyle(color: Color(0xFF334155), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
       ]),
     );

@@ -36,7 +36,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Widget _buildNavItem(String svgPath, String label, int index) {
     final bool isSelected = _selectedIndex == index;
-    final color = isSelected ? kBrandPrimary : const Color(0xFF94A3B8);
+    final color = isSelected ? kBrandPrimary : kColorTextMuted;
     return GestureDetector(
       onTap: () => _onItemTapped(index),
       behavior: HitTestBehavior.opaque,
@@ -65,8 +65,12 @@ class _MyHomePageState extends State<MyHomePage> {
               style: TextStyle(
                 fontFamily: kFontFamily,
                 fontSize: kFontSizeNavLabel,
-                fontWeight:
-                    isSelected ? kFontWeightSemiBold : kFontWeightMedium,
+                // Flat 500 for both states per the typography spec (it
+                // doesn't call for an active/inactive weight split here,
+                // unlike the top segment tabs) — a literal rather than
+                // kFontWeightMedium, which is also used for lots of
+                // unrelated body text elsewhere at 400.
+                fontWeight: FontWeight.w500,
                 color: color,
                 letterSpacing: 0.2,
               ),
@@ -122,7 +126,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   width: double.infinity,
                   padding:
                       const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
-                  color: const Color(0xFF64748B),
+                  color: kColorTextMuted,
                   child: SafeArea(
                     bottom: false,
                     child: Row(

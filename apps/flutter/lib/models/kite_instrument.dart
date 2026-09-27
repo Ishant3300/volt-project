@@ -116,6 +116,17 @@ class KiteInstrument {
     return '${expiry!.day} ${_getMonthName(expiry!.month)}';
   }
 
+  /// "Sep 29" — month-then-day, mixed case. Same underlying data as
+  /// [shortExpiryDisplay] (which is day-then-month, all caps) — added
+  /// separately for the watchlist row redesign rather than changing that
+  /// getter's existing format, since other screens already depend on it.
+  String get expiryMonthDayDisplay {
+    if (expiry == null) return '';
+    final month = _getMonthName(expiry!.month);
+    final titleCased = month[0] + month.substring(1).toLowerCase();
+    return '$titleCased ${expiry!.day}';
+  }
+
   String _getMonthName(int month) {
     const months = [
       'JAN',

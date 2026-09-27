@@ -60,8 +60,15 @@ const LinearGradient kBrandGradient = LinearGradient(
 // ─── Typography ─────────────────────────────────────────────────────────────
 
 /// Font family applied app-wide via ThemeData and every explicit TextStyle.
-/// Apex uses Inter (loaded via google_fonts), Volt uses Manrope (bundled).
-const String kFontFamily = kIsVolt ? 'Manrope' : 'Inter';
+/// Apex uses Inter (loaded via google_fonts) — already one of the typography
+/// spec's own approved web/Android alternatives to SF Pro. Volt previously
+/// used the bundled 'Manrope', which isn't on that list; switched to
+/// 'Roboto' instead — deliberately NOT registered as a custom font asset,
+/// so Flutter falls back to each platform's real system default when it
+/// can't resolve the family: true Roboto on Android, San Francisco on iOS.
+/// That fallback IS the spec's own "SF Pro on iOS / Roboto on Android" ask,
+/// with no asset changes needed.
+const String kFontFamily = kIsVolt ? 'Roboto' : 'Inter';
 
 // ─── Menu row style (Profile / Settings / Admin Settings / Reports) ─────────
 //

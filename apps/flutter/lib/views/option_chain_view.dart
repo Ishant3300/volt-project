@@ -172,7 +172,7 @@ class _OptionChainViewState extends State<OptionChainView> {
                     color: Colors.white, borderRadius: BorderRadius.circular(12),
                     boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
                   ),
-                  child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+                  child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium),
                 ),
               ),
               const SizedBox(width: 12),
@@ -180,23 +180,23 @@ class _OptionChainViewState extends State<OptionChainView> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(
                     'Option Chain',
-                    style: const TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
+                    style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     _deriveBaseSymbol(),
-                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium, letterSpacing: -0.3),
+                    style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium, letterSpacing: -0.3),
                   ),
                 ]),
               ),
               // Live indicator
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: const Color(0xFF10B981).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(color: kColorBuy.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Container(width: 6, height: 6, decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle)),
+                  Container(width: 6, height: 6, decoration: const BoxDecoration(color: kColorBuy, shape: BoxShape.circle)),
                   const SizedBox(width: 4),
-                  const Text('LIVE', style: TextStyle(color: Color(0xFF10B981), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightBold, letterSpacing: 0.5)),
+                  const Text('LIVE', style: TextStyle(color: kColorBuy, fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightBold, letterSpacing: 0.5)),
                 ]),
               ),
             ]),
@@ -253,11 +253,11 @@ class _OptionChainViewState extends State<OptionChainView> {
       return Center(child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.error_outline, size: 40, color: Color(0xFFEF4444)),
+          const Icon(Icons.error_outline, size: 40, color: kColorSell),
           const SizedBox(height: 12),
-          Text('Failed to load option chain', style: const TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+          Text('Failed to load option chain', style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
           const SizedBox(height: 4),
-          Text(_error!, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily), textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis),
+          Text(_error!, style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily), textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 16),
           GestureDetector(
             onTap: _loadOptionChain,
@@ -272,9 +272,9 @@ class _OptionChainViewState extends State<OptionChainView> {
     }
     if (_optionChain.isEmpty) {
       return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.show_chart, size: 40, color: const Color(0xFF94A3B8).withValues(alpha: 0.5)),
+        Icon(Icons.show_chart, size: 40, color: kColorTextMuted.withValues(alpha: 0.5)),
         const SizedBox(height: 12),
-        const Text('No option chain data', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+        const Text('No option chain data', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
       ]));
     }
     return Container(
@@ -301,7 +301,7 @@ class _OptionChainViewState extends State<OptionChainView> {
       child: IntrinsicHeight(
         child: Row(children: [
           // CALL price — tappable
-          Expanded(child: _buildPriceCell(item.call, const Color(0xFF10B981), () {
+          Expanded(child: _buildPriceCell(item.call, kColorBuy, () {
             if (item.call != null) _openTradeCard(item.call!);
           })),
           // CALL volume
@@ -325,7 +325,7 @@ class _OptionChainViewState extends State<OptionChainView> {
           // PUT volume
           Expanded(child: _buildVolCell(item.put?.volumeDisplay ?? '--')),
           // PUT price — tappable
-          Expanded(child: _buildPriceCell(item.put, const Color(0xFFEF4444), () {
+          Expanded(child: _buildPriceCell(item.put, kColorSell, () {
             if (item.put != null) _openTradeCard(item.put!);
           })),
         ]),
@@ -349,14 +349,14 @@ class _OptionChainViewState extends State<OptionChainView> {
           Text(
             data.lastPrice > 0 ? data.lastPrice.toStringAsFixed(2) : '--',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: -0.3),
+            style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: -0.3),
           ),
           if (data.lotSize > 0) ...[
             const SizedBox(height: 2),
             Text(
               'Lot ${data.lotSize}',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBadge, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
+              style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeBadge, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
             ),
           ],
         ]),
@@ -368,7 +368,7 @@ class _OptionChainViewState extends State<OptionChainView> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Text(vol, textAlign: TextAlign.center,
-        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
+        style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightMedium)),
     );
   }
 
@@ -384,7 +384,7 @@ class _OptionChainViewState extends State<OptionChainView> {
           boxShadow: isSelected ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
         ),
         child: Text(label, style: TextStyle(
-          color: isSelected ? Colors.white : const Color(0xFF64748B),
+          color: isSelected ? Colors.white : kColorTextMuted,
           fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold,
         )),
       ),
@@ -399,7 +399,7 @@ class _HeaderLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(text, textAlign: alignment, style: const TextStyle(
-      color: Color(0xFF94A3B8), fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5,
+      color: kColorTextMuted, fontSize: kFontSizeNavLabel, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5,
     ));
   }
 }

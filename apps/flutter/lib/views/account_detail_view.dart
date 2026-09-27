@@ -102,7 +102,7 @@ class _AccountDetailViewState extends State<AccountDetailView> {
                             ],
                           ),
                           child: const Icon(Icons.arrow_back,
-                              color: Colors.black, size: kIconSizeMedium),
+                              color: kColorTextPrimary, size: kIconSizeMedium),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -205,7 +205,7 @@ class _AccountDetailViewState extends State<AccountDetailView> {
           Text(
             label,
             style: const TextStyle(
-              color: Color(0xFF64748B),
+              color: kColorTextMuted,
               fontSize: kFontSizeBody,
               fontFamily: kFontFamily,
               fontWeight: kFontWeightRegular,

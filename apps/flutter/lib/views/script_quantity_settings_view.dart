@@ -122,7 +122,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('"${item.scriptName}" deleted'),
-            backgroundColor: const Color(0xFF10B981),
+            backgroundColor: kColorBuy,
           ),
         );
       } else {
@@ -130,14 +130,14 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(d['message'] ?? 'Delete failed'),
-            backgroundColor: const Color(0xFFEF4444),
+            backgroundColor: kColorSell,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: const Color(0xFFEF4444)),
+          SnackBar(content: Text('Error: $e'), backgroundColor: kColorSell),
         );
       }
     }
@@ -234,13 +234,13 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                     children: [
                       GestureDetector(
                         onTap: () => Navigator.pop(context),
-                        child: const Icon(Icons.arrow_back, color: Colors.black),
+                        child: const Icon(Icons.arrow_back, color: kColorTextPrimary),
                       ),
                       const SizedBox(width: 12),
                       const Text(
                         'Script Quantity Setting',
                         style: TextStyle(
-                          color: Colors.black,
+                          color: kColorTextPrimary,
                           fontSize: kFontSizeSectionHeader,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold,
@@ -301,10 +301,10 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _selectedExchange,
-                    hint: const Text('Select Exchange', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
+                    hint: const Text('Select Exchange', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
                     isExpanded: true,
-                    icon: const Icon(Icons.keyboard_arrow_down, size: 18, color: Color(0xFF94A3B8)),
-                    style: const TextStyle(color: Colors.black, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
+                    icon: const Icon(Icons.keyboard_arrow_down, size: 18, color: kColorTextMuted),
+                    style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
                     items: _exchanges.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                     onChanged: (v) {
                       setState(() => _selectedExchange = v);
@@ -407,7 +407,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                           border: InputBorder.none,
                           hintText: 'Max Qty',
                           hintStyle: TextStyle(
-                            color: Colors.black,
+                            color: kColorTextPrimary,
                             fontSize: kFontSizeSubtitle,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightRegular,
@@ -416,7 +416,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                           contentPadding: EdgeInsets.zero,
                         ),
                         style: const TextStyle(
-                          color: Colors.black,
+                          color: kColorTextPrimary,
                           fontSize: kFontSizeSubtitle,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightRegular,
@@ -442,7 +442,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                           border: InputBorder.none,
                           hintText: 'Breakup',
                           hintStyle: TextStyle(
-                            color: Colors.black,
+                            color: kColorTextPrimary,
                             fontSize: kFontSizeSubtitle,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightRegular,
@@ -451,7 +451,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                           contentPadding: EdgeInsets.zero,
                         ),
                         style: const TextStyle(
-                          color: Colors.black,
+                          color: kColorTextPrimary,
                           fontSize: kFontSizeSubtitle,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightRegular,
@@ -528,7 +528,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                               background: Container(
                                 alignment: Alignment.centerRight,
                                 padding: const EdgeInsets.only(right: 20),
-                                color: const Color(0xFFEF4444),
+                                color: kColorSell,
                                 child: const Icon(Icons.delete_outline, color: Colors.white, size: 22),
                               ),
                               confirmDismiss: (_) async {
@@ -541,7 +541,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                       TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
                                       TextButton(
                                         onPressed: () => Navigator.pop(ctx, true),
-                                        child: const Text('Delete', style: TextStyle(color: Color(0xFFEF4444))),
+                                        child: const Text('Delete', style: TextStyle(color: kColorSell)),
                                       ),
                                     ],
                                   ),
@@ -618,7 +618,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                           const Text(
                                                             'Lot ',
                                                             style: TextStyle(
-                                                              color: Colors.black,
+                                                              color: kColorTextPrimary,
                                                               fontSize: kFontSizeCaption,
                                                               fontFamily: kFontFamily,
                                                               fontWeight: kFontWeightRegular,
@@ -628,7 +628,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                             child: Text(
                                                               item.lotSize.toStringAsFixed(0),
                                                               style: const TextStyle(
-                                                                color: Colors.black,
+                                                                color: kColorTextPrimary,
                                                                 fontSize: kFontSizeSubtitle,
                                                                 fontFamily: kFontFamily,
                                                                 fontWeight: kFontWeightMedium,
@@ -658,7 +658,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                           const Text(
                                                             'Brk ',
                                                             style: TextStyle(
-                                                              color: Colors.black,
+                                                              color: kColorTextPrimary,
                                                               fontSize: kFontSizeCaption,
                                                               fontFamily: kFontFamily,
                                                               fontWeight: kFontWeightRegular,
@@ -668,7 +668,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                             child: Text(
                                                               item.brkQty.toStringAsFixed(0),
                                                               style: const TextStyle(
-                                                                color: Colors.black,
+                                                                color: kColorTextPrimary,
                                                                 fontSize: kFontSizeSubtitle,
                                                                 fontFamily: kFontFamily,
                                                                 fontWeight: kFontWeightMedium,
@@ -698,7 +698,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                           const Text(
                                                             'Max ',
                                                             style: TextStyle(
-                                                              color: Colors.black,
+                                                              color: kColorTextPrimary,
                                                               fontSize: kFontSizeCaption,
                                                               fontFamily: kFontFamily,
                                                               fontWeight: kFontWeightRegular,
@@ -708,7 +708,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                             child: Text(
                                                               item.maxQty.toStringAsFixed(0),
                                                               style: const TextStyle(
-                                                                color: Colors.black,
+                                                                color: kColorTextPrimary,
                                                                 fontSize: kFontSizeSubtitle,
                                                                 fontFamily: kFontFamily,
                                                                 fontWeight: kFontWeightMedium,
@@ -739,7 +739,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                                   TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
                                                   TextButton(
                                                     onPressed: () => Navigator.pop(ctx, true),
-                                                    child: const Text('Delete', style: TextStyle(color: Color(0xFFEF4444))),
+                                                    child: const Text('Delete', style: TextStyle(color: kColorSell)),
                                                   ),
                                                 ],
                                               ),
@@ -748,7 +748,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                           },
                                           child: const Padding(
                                             padding: EdgeInsets.only(left: 8),
-                                            child: Icon(Icons.delete_outline, size: 18, color: Color(0xFFEF4444)),
+                                            child: Icon(Icons.delete_outline, size: 18, color: kColorSell),
                                           ),
                                         ),
                                     ],

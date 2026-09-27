@@ -208,10 +208,10 @@ const Color _pink = Color(0xFFFF3B5C);
 const Color _magenta = Color(0xFFC026D3);
 const Color _indigo = Color(0xFF5B5BE6);
 const Color _grey = Color(0xFF8E8E93);
-const Color _green = Color(0xFF34C759);
+const Color _green = kColorBuy;
 const Color _cyan = Color(0xFF00BCD4);
 const Color _teal = Color(0xFF14B8A6);
-const Color _red = Color(0xFFFF3B30);
+const Color _red = kColorSell;
 const Color _black = Color(0xFF000000);
 const Color _orange = Color(0xFFFF7A2F);
 const Color _deepOrange = Color(0xFFFF5722);
@@ -250,7 +250,7 @@ const Map<String, Color> _menuAccents = {
   'Group Quantity': _magenta,
   'Script Quantity': _orange,
   'Brokerage Settings': _green,
-  'Fresh Stop-Loss Limits': Color(0xFFEF4444),
+  'Fresh Stop-Loss Limits': kColorSell,
 
   // Reports
   'Account Summary': _blue,
@@ -260,7 +260,7 @@ const Map<String, Color> _menuAccents = {
   'Intraday History': _orange,
   'Userwise Open Position': _magenta,
   'Script Qty Details': _teal,
-  'Deleted Trades': Color(0xFFEF4444),
+  'Deleted Trades': kColorSell,
   'Rejection Log History': _brown,
 };
 

@@ -42,8 +42,8 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
 
   static const Map<String, Color> _typeColors = {
     'FUT': Color(0xFF3B82F6),
-    'CE': Color(0xFF10B981),
-    'PE': Color(0xFFEF4444),
+    'CE': kColorBuy,
+    'PE': kColorSell,
     'EQ': Color(0xFF64748B),
     'IDX': Color(0xFF8B5CF6),
   };
@@ -200,7 +200,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                       onPressed: adding ? null : () => Navigator.pop(ctx),
                       child: const Text('Cancel',
                           style: TextStyle(
-                              color: Color(0xFF94A3B8), fontFamily: kFontFamily))),
+                              color: kColorTextMuted, fontFamily: kFontFamily))),
                   GestureDetector(
                     onTap: adding
                         ? null
@@ -230,7 +230,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                           content: Text('Created'),
-                                          backgroundColor: Color(0xFF10B981)));
+                                          backgroundColor: kColorBuy));
                               } else {
                                 final d = jsonDecode(r.body);
                                 if (mounted)
@@ -239,7 +239,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                                           content:
                                               Text(d['message'] ?? 'Failed'),
                                           backgroundColor:
-                                              const Color(0xFFEF4444)));
+                                              kColorSell));
                               }
                             } catch (e) {
                               setD(() => adding = false);
@@ -306,12 +306,12 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                         offset: const Offset(0, 2))
                   ]),
               child:
-                  const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium)),
+                  const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium)),
         ),
         const SizedBox(width: 12),
         const Text('Create Brokerage',
             style: TextStyle(
-                color: Colors.black,
+                color: kColorTextPrimary,
                 fontSize: kFontSizeViewTitle,
                 fontFamily: kFontFamily,
                 fontWeight: kFontWeightSemiBold)),
@@ -347,7 +347,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                       sel ? null : Border.all(color: const Color(0xFFE2E8F0))),
               child: Text(ex,
                   style: TextStyle(
-                      color: sel ? Colors.white : const Color(0xFF64748B),
+                      color: sel ? Colors.white : kColorTextMuted,
                       fontSize: kFontSizeBodySmall,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold)),
@@ -375,7 +375,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
         child: Row(children: [
           const Padding(
               padding: EdgeInsets.only(left: 16, right: 8),
-              child: Icon(Icons.search, color: Color(0xFF94A3B8), size: kIconSizeMedium)),
+              child: Icon(Icons.search, color: kColorTextMuted, size: kIconSizeMedium)),
           Expanded(
               child: TextField(
             controller: _searchCtrl,
@@ -388,7 +388,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
             decoration: const InputDecoration(
                 hintText: 'Search instruments...',
                 hintStyle: TextStyle(
-                    color: Color(0xFF94A3B8),
+                    color: kColorTextMuted,
                     fontSize: kFontSizeBody,
                     fontFamily: kFontFamily),
                 border: InputBorder.none,
@@ -412,7 +412,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
               },
               child: const Padding(
                   padding: EdgeInsets.only(right: 14),
-                  child: Icon(Icons.close, color: Color(0xFF94A3B8), size: 18)),
+                  child: Icon(Icons.close, color: kColorTextMuted, size: 18)),
             ),
         ]),
       ),
@@ -424,7 +424,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
       return const Center(
           child: Text('Search for an instrument to add',
               style: TextStyle(
-                  color: Color(0xFF94A3B8),
+                  color: kColorTextMuted,
                   fontSize: kFontSizeBodySmall,
                   fontFamily: kFontFamily)));
     }
@@ -437,7 +437,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
       return const Center(
           child: Text('No results found',
               style: TextStyle(
-                  color: Color(0xFF94A3B8),
+                  color: kColorTextMuted,
                   fontSize: kFontSizeBodySmall,
                   fontFamily: kFontFamily)));
     }
@@ -485,7 +485,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                           style: const TextStyle(
                               fontSize: kFontSizeCaption,
                               fontWeight: kFontWeightSemiBold,
-                              color: Color(0xFF94A3B8),
+                              color: kColorTextMuted,
                               fontFamily: kFontFamily,
                               letterSpacing: 0.5))),
                   ...items.asMap().entries.map((e) => Column(children: [
@@ -566,7 +566,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                   Text(inst.tradingsymbol,
                       style: const TextStyle(
                           fontSize: kFontSizeCaption,
-                          color: Color(0xFF94A3B8),
+                          color: kColorTextMuted,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium)),
                   const Padding(
@@ -577,7 +577,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                   Text('LOT ${inst.lotSize}',
                       style: const TextStyle(
                           fontSize: kFontSizeCaption,
-                          color: Color(0xFF94A3B8),
+                          color: kColorTextMuted,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium)),
                 ]),
@@ -671,9 +671,9 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                 value: value,
                 isExpanded: true,
                 icon: const Icon(Icons.keyboard_arrow_down,
-                    size: 18, color: Color(0xFF94A3B8)),
+                    size: 18, color: kColorTextMuted),
                 style: const TextStyle(
-                    color: Colors.black,
+                    color: kColorTextPrimary,
                     fontSize: kFontSizeBodySmall,
                     fontFamily: kFontFamily,
                     fontWeight: kFontWeightMedium),

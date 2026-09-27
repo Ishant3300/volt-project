@@ -216,7 +216,7 @@ class _MarginSquareoffBottomSheetState extends State<MarginSquareoffBottomSheet>
                           'Margin SquareOff Settings',
                           textAlign: TextAlign.center,
                           style: TextStyle(
-                            color: Colors.black,
+                            color: kColorTextPrimary,
                             fontSize: kFontSizeSheetTitle,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
@@ -270,7 +270,7 @@ class _MarginSquareoffBottomSheetState extends State<MarginSquareoffBottomSheet>
                             ),
                           ),
                           style: TextStyle(
-                            color: Colors.black,
+                            color: kColorTextPrimary,
                             fontSize: kFontSizeSheetBody,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightRegular,
@@ -298,7 +298,7 @@ class _MarginSquareoffBottomSheetState extends State<MarginSquareoffBottomSheet>
                               'CLOSE',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                color: Colors.black,
+                                color: kColorTextPrimary,
                                 fontSize: kFontSizeButtonText,
                                 fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold,

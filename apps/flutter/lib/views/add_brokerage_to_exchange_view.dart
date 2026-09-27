@@ -68,7 +68,7 @@ class _AddBrokerageToExchangeViewState extends State<AddBrokerageToExchangeView>
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               content: Text(data['message'] ?? 'Failed to create'),
-              backgroundColor: const Color(0xFFEF4444),
+              backgroundColor: kColorSell,
             ));
           }
         }
@@ -96,7 +96,7 @@ class _AddBrokerageToExchangeViewState extends State<AddBrokerageToExchangeView>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error: $e'),
-          backgroundColor: const Color(0xFFEF4444),
+          backgroundColor: kColorSell,
         ));
       }
     }
@@ -122,7 +122,7 @@ class _AddBrokerageToExchangeViewState extends State<AddBrokerageToExchangeView>
     if (value == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Enter a valid number'),
-        backgroundColor: Color(0xFFEF4444),
+        backgroundColor: kColorSell,
       ));
       return;
     }
@@ -140,14 +140,14 @@ class _AddBrokerageToExchangeViewState extends State<AddBrokerageToExchangeView>
           entry.isModified = false;
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('${entry.scriptName} updated'),
-            backgroundColor: const Color(0xFF10B981),
+            backgroundColor: kColorBuy,
             duration: const Duration(seconds: 1),
           ));
         } else {
           final data = jsonDecode(response.body);
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(data['message'] ?? 'Failed'),
-            backgroundColor: const Color(0xFFEF4444),
+            backgroundColor: kColorSell,
           ));
         }
       }
@@ -155,7 +155,7 @@ class _AddBrokerageToExchangeViewState extends State<AddBrokerageToExchangeView>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error: $e'),
-          backgroundColor: const Color(0xFFEF4444),
+          backgroundColor: kColorSell,
         ));
       }
     }
@@ -193,15 +193,15 @@ class _AddBrokerageToExchangeViewState extends State<AddBrokerageToExchangeView>
               color: Colors.white, borderRadius: BorderRadius.circular(12),
               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
             ),
-            child: const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium),
+            child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Brokerage · ${widget.type}',
-              style: const TextStyle(color: Colors.black, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+              style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
           Text('${widget.exchange} · ${_instruments.length} instruments',
-              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily)),
+              style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily)),
         ])),
       ]),
     );
@@ -220,7 +220,7 @@ class _AddBrokerageToExchangeViewState extends State<AddBrokerageToExchangeView>
         Icon(Icons.info_outline, size: kIconSizeDefault, color: kBrandPrimary),
         SizedBox(width: 8),
         Expanded(child: Text('Tap save icon to update each instrument\'s brokerage value.',
-          style: TextStyle(color: Color(0xFF64748B), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily))),
+          style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily))),
       ]),
     );
   }
@@ -235,12 +235,12 @@ class _AddBrokerageToExchangeViewState extends State<AddBrokerageToExchangeView>
           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
         ),
         child: Row(children: [
-          const Padding(padding: EdgeInsets.only(left: 14, right: 8), child: Icon(Icons.search, color: Color(0xFF94A3B8), size: kIconSizeMedium)),
+          const Padding(padding: EdgeInsets.only(left: 14, right: 8), child: Icon(Icons.search, color: kColorTextMuted, size: kIconSizeMedium)),
           Expanded(child: TextField(
             controller: _searchCtrl,
             style: const TextStyle(fontSize: kFontSizeBody, color: Color(0xFF0F172A), fontFamily: kFontFamily),
             decoration: const InputDecoration(
-              hintText: 'Filter instruments...', hintStyle: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: kFontFamily),
+              hintText: 'Filter instruments...', hintStyle: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBody, fontFamily: kFontFamily),
               border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 12),
             ),
             onChanged: _filterInstruments,
@@ -248,7 +248,7 @@ class _AddBrokerageToExchangeViewState extends State<AddBrokerageToExchangeView>
           if (_searchQuery.isNotEmpty)
             GestureDetector(
               onTap: () { _searchCtrl.clear(); _filterInstruments(''); },
-              child: const Padding(padding: EdgeInsets.only(right: 14), child: Icon(Icons.close, color: Color(0xFF94A3B8), size: 18)),
+              child: const Padding(padding: EdgeInsets.only(right: 14), child: Icon(Icons.close, color: kColorTextMuted, size: 18)),
             ),
         ]),
       ),
@@ -261,9 +261,9 @@ class _AddBrokerageToExchangeViewState extends State<AddBrokerageToExchangeView>
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(8)),
       child: const Row(children: [
-        Expanded(flex: 3, child: Text('SCRIPT', style: TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: Color(0xFF94A3B8), fontFamily: kFontFamily, letterSpacing: 0.5))),
+        Expanded(flex: 3, child: Text('SCRIPT', style: TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: kColorTextMuted, fontFamily: kFontFamily, letterSpacing: 0.5))),
         SizedBox(width: 4),
-        Expanded(flex: 2, child: Text('BRK VALUE', style: TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: Color(0xFF94A3B8), fontFamily: kFontFamily, letterSpacing: 0.5))),
+        Expanded(flex: 2, child: Text('BRK VALUE', style: TextStyle(fontSize: kFontSizeCaption, fontWeight: kFontWeightSemiBold, color: kColorTextMuted, fontFamily: kFontFamily, letterSpacing: 0.5))),
         SizedBox(width: 4),
         SizedBox(width: 36),
       ]),
@@ -274,13 +274,13 @@ class _AddBrokerageToExchangeViewState extends State<AddBrokerageToExchangeView>
     return const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
       CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5),
       SizedBox(height: 16),
-      Text('Loading instruments...', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
+      Text('Loading instruments...', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily)),
     ]));
   }
 
   Widget _buildList() {
     if (_filteredInstruments.isEmpty) {
-      return const Center(child: Text('No instruments found', style: TextStyle(color: Color(0xFF94A3B8), fontSize: kFontSizeBody, fontFamily: kFontFamily)));
+      return const Center(child: Text('No instruments found', style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeBody, fontFamily: kFontFamily)));
     }
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),

@@ -48,8 +48,8 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
 
   static const Map<String, Color> _typeColors = {
     'FUT': Color(0xFF3B82F6),
-    'CE': Color(0xFF10B981),
-    'PE': Color(0xFFEF4444),
+    'CE': kColorBuy,
+    'PE': kColorSell,
     'EQ': Color(0xFF64748B),
     'IDX': Color(0xFF8B5CF6),
   };
@@ -188,13 +188,13 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
     if (maxQty == null || maxQty <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Enter a valid max quantity'),
-          backgroundColor: Color(0xFFEF4444)));
+          backgroundColor: kColorSell));
       return;
     }
     if (brkQty == null || brkQty <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Enter a valid breakup quantity'),
-          backgroundColor: Color(0xFFEF4444)));
+          backgroundColor: kColorSell));
       return;
     }
     setState(() => _isSubmitting = true);
@@ -218,7 +218,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
       if (r.statusCode == 201) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Created'), backgroundColor: Color(0xFF10B981)));
+              content: Text('Created'), backgroundColor: kColorBuy));
           Navigator.pop(context, true);
         }
       } else {
@@ -226,13 +226,13 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
         if (mounted)
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               content: Text(d['message'] ?? 'Failed'),
-              backgroundColor: const Color(0xFFEF4444)));
+              backgroundColor: kColorSell));
       }
     } catch (e) {
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Error: $e'),
-            backgroundColor: const Color(0xFFEF4444)));
+            backgroundColor: kColorSell));
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -274,12 +274,12 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
                         offset: const Offset(0, 2))
                   ]),
               child:
-                  const Icon(Icons.arrow_back, color: Colors.black, size: kIconSizeMedium)),
+                  const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium)),
         ),
         const SizedBox(width: 12),
         const Text('Create Script Quantity',
             style: TextStyle(
-                color: Colors.black,
+                color: kColorTextPrimary,
                 fontSize: kFontSizeViewTitle,
                 fontFamily: kFontFamily,
                 fontWeight: kFontWeightSemiBold)),
@@ -316,7 +316,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
                       sel ? null : Border.all(color: const Color(0xFFE2E8F0))),
               child: Text(ex,
                   style: TextStyle(
-                      color: sel ? Colors.white : const Color(0xFF64748B),
+                      color: sel ? Colors.white : kColorTextMuted,
                       fontSize: kFontSizeBodySmall,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold)),
@@ -344,7 +344,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
         child: Row(children: [
           const Padding(
               padding: EdgeInsets.only(left: 16, right: 8),
-              child: Icon(Icons.search, color: Color(0xFF94A3B8), size: kIconSizeMedium)),
+              child: Icon(Icons.search, color: kColorTextMuted, size: kIconSizeMedium)),
           Expanded(
               child: TextField(
             controller: _searchCtrl,
@@ -357,7 +357,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
             decoration: const InputDecoration(
                 hintText: 'Search instruments...',
                 hintStyle: TextStyle(
-                    color: Color(0xFF94A3B8),
+                    color: kColorTextMuted,
                     fontSize: kFontSizeBody,
                     fontFamily: kFontFamily),
                 border: InputBorder.none,
@@ -385,7 +385,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
               },
               child: const Padding(
                   padding: EdgeInsets.only(right: 14),
-                  child: Icon(Icons.close, color: Color(0xFF94A3B8), size: 18)),
+                  child: Icon(Icons.close, color: kColorTextMuted, size: 18)),
             ),
         ]),
       ),
@@ -397,7 +397,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
       return const Center(
           child: Text('Search for an instrument to add',
               style: TextStyle(
-                  color: Color(0xFF94A3B8),
+                  color: kColorTextMuted,
                   fontSize: kFontSizeBodySmall,
                   fontFamily: kFontFamily)));
     }
@@ -410,7 +410,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
       return const Center(
           child: Text('No results found',
               style: TextStyle(
-                  color: Color(0xFF94A3B8),
+                  color: kColorTextMuted,
                   fontSize: kFontSizeBodySmall,
                   fontFamily: kFontFamily)));
     }
@@ -458,7 +458,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
                           style: const TextStyle(
                               fontSize: kFontSizeCaption,
                               fontWeight: kFontWeightSemiBold,
-                              color: Color(0xFF94A3B8),
+                              color: kColorTextMuted,
                               fontFamily: kFontFamily,
                               letterSpacing: 0.5))),
                   ...items.asMap().entries.map((e) => Column(children: [
@@ -548,7 +548,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
                   Text('${_selected!.exchange}  ·  LOT ${_selected!.lotSize}',
                       style: const TextStyle(
                           fontSize: kFontSizeNavLabel,
-                          color: Color(0xFF94A3B8),
+                          color: kColorTextMuted,
                           fontFamily: kFontFamily)),
                 ])),
             GestureDetector(
@@ -557,7 +557,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
                       _groupedResults = [];
                     }),
                 child: const Icon(Icons.close,
-                    size: 18, color: Color(0xFF94A3B8))),
+                    size: 18, color: kColorTextMuted)),
           ]),
         ),
         const SizedBox(height: 20),
@@ -672,7 +672,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
                   Text(inst.tradingsymbol,
                       style: const TextStyle(
                           fontSize: kFontSizeCaption,
-                          color: Color(0xFF94A3B8),
+                          color: kColorTextMuted,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium)),
                   const Padding(
@@ -683,7 +683,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
                   Text('LOT ${inst.lotSize}',
                       style: const TextStyle(
                           fontSize: kFontSizeCaption,
-                          color: Color(0xFF94A3B8),
+                          color: kColorTextMuted,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium)),
                 ]),
