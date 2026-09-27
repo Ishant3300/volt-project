@@ -17,6 +17,43 @@
 
 const axios = require('axios');
 const KiteInstrument = require('../models/KiteInstrument');
+const { dateKey, getIndiaDateTimeParts } = require('../utils/settlementDates');
+
+const MONTHS = { JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5, JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11 };
+// The expiring NIFTY contract stops trading at 3:40 PM IST on its expiry
+// day (this platform's GIFT NIFTY session-1 close); the evening session
+// that follows already trades the next month.
+const EXPIRY_DAY_CUTOFF_MINUTE = (15 * 60) + 40;
+// Re-assert the stored near-month expiry at most this often — the daily
+// Kite instrument sync (fetchInstruments.js) rewrites GIFT NIFTY with
+// Kite's own, expiry-less record.
+const EXPIRY_RESYNC_MS = 60 * 1000;
+
+/** NSEIX 'DD-Mon-YYYY' (e.g. '29-Sep-2026') → UTC-midnight Date, or null. */
+function parseNseixDate(value) {
+  const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/.exec(String(value || '').trim());
+  if (!m || MONTHS[m[2].toUpperCase()] === undefined) return null;
+  return new Date(Date.UTC(Number(m[3]), MONTHS[m[2].toUpperCase()], Number(m[1])));
+}
+
+/** Has this contract stopped trading as of `now`? (expiry day after 3:40 PM IST, or later days) */
+function isPastExpiry(expiry, now = new Date()) {
+  const p = getIndiaDateTimeParts(now);
+  const todayKey = `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
+  const key = dateKey(expiry);
+  return key < todayKey || (key === todayKey && (p.hour * 60 + p.minute) >= EXPIRY_DAY_CUTOFF_MINUTE);
+}
+
+/** NIFTY FUTIDX rows → sorted distinct expiries still trading as of `now`. */
+function listedExpiries(rows, now = new Date()) {
+  const keys = new Map();
+  for (const r of rows) {
+    if (r.INSTRUMENTTYPE !== 'FUTIDX' || r.SYMBOL !== 'NIFTY') continue;
+    const d = parseNseixDate(r.EXPIRYDATE);
+    if (d && !isPastExpiry(d, now)) keys.set(dateKey(d), d);
+  }
+  return [...keys.values()].sort((a, b) => a - b);
+}
 
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 const NSEIX_URL = 'https://www.nseix.com/api/derivatives-watch?inst_type1=IDX&inst_type2=STK&type=live';
@@ -37,6 +74,41 @@ class GiftNiftyFeedService {
     // write on every single 2s tick and only touch the DB when NSEIX's own
     // near-month contract actually rolls to the next expiry.
     this._lastWrittenExpiryIso = null;
+    this._lastExpirySyncAt = 0;
+    // Every NIFTY future NSEIX currently lists (near, next, far) — read by
+    // the contract-expiry scheduler (expiryActionService) to plan GIFT NIFTY cuts.
+    this._listedExpiries = [];
+    this._listedAt = 0;
+  }
+
+  /** Listed GIFT NIFTY expiries (UTC-midnight Dates), freshest known. */
+  getListedExpiries() {
+    return this._listedExpiries.slice();
+  }
+
+  /** One-off fetch of the listed expiries — for callers that can't wait for a poll. */
+  async fetchListedExpiries() {
+    const res = await axios.get(NSEIX_URL, { timeout: 8000, headers: { 'User-Agent': BROWSER_UA } });
+    const rows = res.data && Array.isArray(res.data.data) ? res.data.data : [];
+    const expiries = listedExpiries(rows);
+    if (expiries.length) {
+      this._listedExpiries = expiries;
+      this._listedAt = Date.now();
+    }
+    return expiries.slice();
+  }
+
+  /** Keep KiteInstrument.expiry = the near-month contract, surviving the daily Kite sync. */
+  async _syncStoredExpiry(nearExpiry) {
+    const iso = nearExpiry.toISOString();
+    if (iso === this._lastWrittenExpiryIso && Date.now() - this._lastExpirySyncAt < EXPIRY_RESYNC_MS) return;
+    this._lastExpirySyncAt = Date.now();
+    this._lastWrittenExpiryIso = iso;
+    const res = await KiteInstrument.updateOne(
+      { instrument_token: this.instrumentToken, expiry: { $ne: nearExpiry } },
+      { $set: { expiry: nearExpiry } },
+    );
+    if (res.modifiedCount) console.log(`📅 [GiftNiftyFeed] GIFT NIFTY expiry set to ${dateKey(nearExpiry)} (NSEIX near month)`);
   }
 
   async init(livePriceService) {
@@ -68,13 +140,12 @@ class GiftNiftyFeedService {
     }
   }
 
-  _pickNearMonthFuture(rows) {
-    const futures = rows.filter(r => r.INSTRUMENTTYPE === 'FUTIDX' && r.SYMBOL === 'NIFTY');
-    if (futures.length === 0) return null;
-    return futures.reduce((nearest, row) => {
-      if (!nearest) return row;
-      return new Date(row.EXPIRYDATE) < new Date(nearest.EXPIRYDATE) ? row : nearest;
-    }, null);
+  /** The near-month row that is still trading — the next month once the expiring one stops at 3:40 PM on expiry day. */
+  _pickNearMonthFuture(rows, now = new Date()) {
+    const [near] = listedExpiries(rows, now);
+    if (!near) return null;
+    const key = dateKey(near);
+    return rows.find(r => r.INSTRUMENTTYPE === 'FUTIDX' && r.SYMBOL === 'NIFTY' && dateKey(parseNseixDate(r.EXPIRYDATE) || 0) === key) || null;
   }
 
   async _poll() {
@@ -87,6 +158,15 @@ class GiftNiftyFeedService {
       });
 
       const rows = res.data && Array.isArray(res.data.data) ? res.data.data : [];
+      const expiries = listedExpiries(rows);
+      if (expiries.length) {
+        this._listedExpiries = expiries;
+        this._listedAt = Date.now();
+        // Before the staleness check below — the expiry is a fact about the
+        // contract, valid even when there's no fresh quote (weekends, nights).
+        await this._syncStoredExpiry(expiries[0])
+          .catch((err) => console.warn(`⚠️  [GiftNiftyFeed] Failed to persist expiry: ${err.message}`));
+      }
       const row = this._pickNearMonthFuture(rows);
       if (!row) {
         console.warn('⚠️  [GiftNiftyFeed] No NIFTY FUTIDX row in NSEIX response.');
@@ -98,29 +178,6 @@ class GiftNiftyFeedService {
         if (Number.isFinite(tickAge) && tickAge > STALE_THRESHOLD_MS) {
           console.warn(`⚠️  [GiftNiftyFeed] NSEIX tick stale (${Math.round(tickAge / 1000)}s old) — skipping.`);
           return;
-        }
-      }
-
-      // NSEIX's own row already carries the near-month contract's real
-      // expiry (EXPIRYDATE) — confirmed real, just never persisted before,
-      // which left GIFT NIFTY's own KiteInstrument record stuck at
-      // expiry: null forever (only ever seeded that way, never updated).
-      // Written only when the near-month contract actually rolls (not every
-      // 2s poll) — `_pickNearMonthFuture` always returns NSEIX's own current
-      // near-month row, so this stays >= today for as long as the poll
-      // keeps running, same invariant browseInstruments' GLOBAL-category
-      // expiry filter (`expiry: null OR expiry >= today`) already relies on.
-      if (row.EXPIRYDATE) {
-        const expiryDate = new Date(row.EXPIRYDATE);
-        if (!Number.isNaN(expiryDate.getTime())) {
-          const expiryIso = expiryDate.toISOString();
-          if (expiryIso !== this._lastWrittenExpiryIso) {
-            this._lastWrittenExpiryIso = expiryIso;
-            KiteInstrument.updateOne(
-              { instrument_token: this.instrumentToken },
-              { $set: { expiry: expiryDate } },
-            ).catch((err) => console.warn(`⚠️  [GiftNiftyFeed] Failed to persist expiry: ${err.message}`));
-          }
         }
       }
 
@@ -152,3 +209,4 @@ class GiftNiftyFeedService {
 }
 
 module.exports = new GiftNiftyFeedService();
+module.exports._private = { parseNseixDate, isPastExpiry, listedExpiries };

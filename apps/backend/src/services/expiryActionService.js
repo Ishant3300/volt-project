@@ -44,9 +44,19 @@ let lastPlanErrors = [];
 
 async function loadContracts(group, today) {
   if (group.tradingsymbols) {
-    const rows = await KiteInstrument.find({ tradingsymbol: { $in: group.tradingsymbols }, deleted_at: null })
-      .select('tradingsymbol expiry').lean();
-    return rows.filter((r) => r.expiry && r.expiry >= today).map((r) => ({ name: r.tradingsymbol, expiry: r.expiry }));
+    // GIFT NIFTY is one continuous instrument here; its real contract
+    // expiries come from NSEIX's own listing (every NIFTY future it lists),
+    // falling back to the near month stored on the instrument.
+    const name = group.tradingsymbols[0];
+    const feed = require('./giftNiftyFeedService');
+    let expiries = feed.getListedExpiries();
+    if (expiries.length === 0) expiries = await feed.fetchListedExpiries().catch(() => []);
+    if (expiries.length === 0) {
+      const inst = await KiteInstrument.findOne({ tradingsymbol: name, deleted_at: null }).select('expiry').lean();
+      if (inst?.expiry) expiries = [inst.expiry];
+    }
+    if (expiries.length === 0) throw new Error('GIFT NIFTY expiry unavailable from NSE IX');
+    return expiries.filter((e) => e >= today).map((expiry) => ({ name, expiry }));
   }
   const rows = await KiteInstrument.aggregate([
     { $match: { segment: { $in: group.segments }, instrument_type: 'FUT', is_active: true, deleted_at: null, expiry: { $gte: today } } },
