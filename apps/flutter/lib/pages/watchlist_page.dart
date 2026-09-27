@@ -386,6 +386,10 @@ class _WatchlistPageState extends State<WatchlistPage> {
     final double strike = instrument.strike ?? 0.0;
     final bool isOption = instType == 'CE' || instType == 'PE';
     final bool isFut = instType == 'FUT';
+    // Price columns size to the screen instead of a fixed 84dp each, so on
+    // a narrow phone the instrument name keeps enough room.
+    final double priceColWidth =
+        (MediaQuery.sizeOf(context).width * 0.2).clamp(64.0, 84.0);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -398,7 +402,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
         );
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         color: Colors.white,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -413,35 +417,40 @@ class _WatchlistPageState extends State<WatchlistPage> {
                     item.changeDisplay.isEmpty ? '--' : item.changeDisplay,
                     style: TextStyle(
                       color: isPositive ? kColorBuy : kColorSell,
-                      fontSize: 12,
+                      fontSize: 11,
                       fontFamily: kFontFamily,
                       fontWeight: FontWeight.w600,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 1),
                   // Line 2: script title
-                  Text(
-                    _buildInstrumentTitle(
-                        instrument, instType, strike, isOption, isFut),
-                    style: const TextStyle(
-                      color: Color(0xFF111417),
-                      fontSize: 16,
-                      fontFamily: kFontFamily,
-                      fontWeight: FontWeight.w600,
+                  // Shrinks a long name (e.g. BANKNIFTY 57800 CE) to fit
+                  // the available width instead of cutting it to "…".
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      _buildInstrumentTitle(
+                          instrument, instType, strike, isOption, isFut),
+                      style: const TextStyle(
+                        color: Color(0xFF111417),
+                        fontSize: 14,
+                        fontFamily: kFontFamily,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 1),
                   // Line 3: expiry/date
                   if (instrument.expiry != null)
                     Text(
                       instrument.expiryMonthDayDisplay,
                       style: const TextStyle(
                         color: Color(0xFF7C828D),
-                        fontSize: 12,
+                        fontSize: 11,
                         fontFamily: kFontFamily,
                         fontWeight: FontWeight.w400,
                       ),
@@ -507,7 +516,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                     textAlign: TextAlign.end,
                     style: TextStyle(
                       fontFamily: kFontFamily,
-                      fontSize: 17,
+                      fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: syntheticColor,
                     ),
@@ -524,7 +533,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                         text: parts[0],
                         style: TextStyle(
                           fontFamily: kFontFamily,
-                          fontSize: 17,
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                           fontStyle: fontStyle,
                           color: resolvedColor,
@@ -535,7 +544,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                         text: '.${parts[1]}',
                         style: TextStyle(
                           fontFamily: kFontFamily,
-                          fontSize: 13,
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
                           fontStyle: fontStyle,
                           color: resolvedColor,
@@ -556,7 +565,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                   textAlign: TextAlign.end,
                   style: const TextStyle(
                     fontFamily: kFontFamily,
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: FontWeight.w400,
                     color: Color(0xFF7C828D),
                   ),
@@ -567,7 +576,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
-                    width: 84,
+                    width: priceColWidth,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
@@ -577,9 +586,9 @@ class _WatchlistPageState extends State<WatchlistPage> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   SizedBox(
-                    width: 84,
+                    width: priceColWidth,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [

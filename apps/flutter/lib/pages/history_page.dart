@@ -886,6 +886,27 @@ class _PortfolioPageState extends State<PortfolioPage>
     return symbol.toUpperCase();
   }
 
+  /// Compact pill used for BUY/SELL/ADMIN on the trade card's second line.
+  Widget _tradeBadge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontFamily: kFontFamily,
+          fontWeight: kFontWeightBadge,
+          letterSpacing: 0.3,
+        ),
+      ),
+    );
+  }
+
   Widget _buildCompletedTradeCard(Trade trade) {
     final bool isBuy = trade.transactionType.toUpperCase() == 'BUY';
     final Color sideColor =
@@ -914,70 +935,31 @@ class _PortfolioPageState extends State<PortfolioPage>
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Column(
               children: [
-                // Row 1: Instrument name + badge → price
+                // Row 1: Instrument name (full width, shrinks to fit
+                // instead of "…") → price. The BUY/ADMIN badges used to sit
+                // on this line and squeezed long names like
+                // "RELIANCE | 26 SEP FUT" down to "RELIANCE | 26 SEP F…".
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(
-                      child: Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              _displayName(trade),
-                              style: const TextStyle(
-                                color: kColorTextPrimary,
-                                fontSize: kFontSizeTradeSymbol,
-                                fontFamily: kFontFamily,
-                                fontWeight: kFontWeightSemiBold,
-                                letterSpacing: -0.3,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          _displayName(trade),
+                          style: const TextStyle(
+                            color: kColorTextPrimary,
+                            fontSize: kFontSizeTradeSymbol,
+                            fontFamily: kFontFamily,
+                            fontWeight: kFontWeightSemiBold,
+                            letterSpacing: -0.3,
                           ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: sideColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              sideLabel,
-                              style: TextStyle(
-                                color: sideColor,
-                                fontSize: kFontSizeTradeBadge,
-                                fontFamily: kFontFamily,
-                                fontWeight: kFontWeightBadge,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                          ),
-                          if (trade.placedBy == 'ADMIN') ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: kBrandPrimary.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Text(
-                                'ADMIN',
-                                style: TextStyle(
-                                  color: kBrandPrimary,
-                                  fontSize: kFontSizeTradeBadge,
-                                  fontFamily: kFontFamily,
-                                  fontWeight: kFontWeightBadge,
-                                  letterSpacing: 0.3,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
+                          maxLines: 1,
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Text(
                       trade.price.toStringAsFixed(2),
                       style: TextStyle(
@@ -989,14 +971,20 @@ class _PortfolioPageState extends State<PortfolioPage>
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                // Row 2: Volume + master name → date
+                const SizedBox(height: 4),
+                // Row 2: BUY/SELL (+ ADMIN) badges · volume + master name → date
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Expanded(
                       child: Row(
                         children: [
+                          _tradeBadge(sideLabel, sideColor),
+                          if (trade.placedBy == 'ADMIN') ...[
+                            const SizedBox(width: 4),
+                            _tradeBadge('ADMIN', kBrandPrimary),
+                          ],
+                          const SizedBox(width: 8),
                           Text(
                             _tradeVolumeLabel(trade),
                             style: const TextStyle(
@@ -1229,20 +1217,23 @@ class _PortfolioPageState extends State<PortfolioPage>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Symbol
-                        Text(
-                          _displayName(trade),
-                          style: const TextStyle(
-                            color: kColorTextPrimary,
-                            fontSize: kFontSizeTradeSymbol,
-                            fontFamily: kFontFamily,
-                            fontWeight: kFontWeightSemiBold,
-                            letterSpacing: -0.3,
+                        // Symbol — shrinks to fit instead of "…"
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            _displayName(trade),
+                            style: const TextStyle(
+                              color: kColorTextPrimary,
+                              fontSize: kFontSizeTradeSymbol,
+                              fontFamily: kFontFamily,
+                              fontWeight: kFontWeightSemiBold,
+                              letterSpacing: -0.3,
+                            ),
+                            maxLines: 1,
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 4),
                         // Metadata row
                         Row(
                           children: [

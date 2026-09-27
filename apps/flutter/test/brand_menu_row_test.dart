@@ -53,7 +53,7 @@ void main() {
       // Rounded square, larger, filled with the row's accent colour.
       expect(decoration.shape, BoxShape.rectangle);
       expect(decoration.borderRadius, isNotNull);
-      expect(tile.width, 40.0);
+      expect(tile.width, 36.0);
       expect(decoration.color, menuAccentFor('Settings'));
     } else {
       // Circle, compact, single neutral grey — unchanged Apex look.
@@ -70,7 +70,7 @@ void main() {
     // tile height + 2 * vertical padding
     final expected = kMenuTileSize + (kMenuRowVerticalPadding * 2);
     expect(rowHeight, expected);
-    expect(rowHeight, kIsVolt ? 68.0 : 50.0);
+    expect(rowHeight, kIsVolt ? 54.0 : 50.0);
   });
 
   testWidgets('destructive rows use the destructive foreground',

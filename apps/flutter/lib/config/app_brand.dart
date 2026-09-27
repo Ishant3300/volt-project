@@ -91,13 +91,16 @@ const bool kMenuTileIsCircle = !kIsVolt;
 const double kMenuTileCornerRadius = 10.0;
 
 /// Width/height of the icon tile.
-const double kMenuTileSize = kIsVolt ? 40.0 : 32.0;
+const double kMenuTileSize = kIsVolt ? 36.0 : 32.0;
 
 /// Icon size inside the tile.
-const double kMenuTileIconSize = kIsVolt ? 21.0 : 16.0;
+const double kMenuTileIconSize = kIsVolt ? 19.0 : 16.0;
 
-/// Vertical padding on each row — this is what makes Volt's rows taller.
-const double kMenuRowVerticalPadding = kIsVolt ? 14.0 : 9.0;
+/// Vertical padding on each row (same for both brands; Volt rows are still
+/// slightly taller via their larger tile).
+// Volt was 14 (68px rows, ~7 items per screen); tightened to 9 (54px rows)
+// in the cross-device density pass — same icons/colours, just less padding.
+const double kMenuRowVerticalPadding = 9.0;
 
 /// Gap between the icon tile and the label.
 const double kMenuRowIconLabelGap = kIsVolt ? 14.0 : 16.0;

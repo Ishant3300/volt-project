@@ -185,6 +185,23 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           useMaterial3: true,
         ),
         debugShowCheckedModeBanner: false,
+        // Every phone's own font-size / display-size setting used to scale
+        // all text unbounded, so the same screen looked fine on one device
+        // and cramped on another (4-5 watchlist rows, names cut to "…").
+        // Clamped to 0.9-1.1x: users on "large text" still get slightly
+        // larger text, but dense trading layouts can't blow apart.
+        builder: (context, child) {
+          final mq = MediaQuery.of(context);
+          return MediaQuery(
+            data: mq.copyWith(
+              textScaler: mq.textScaler.clamp(
+                minScaleFactor: 0.9,
+                maxScaleFactor: 1.1,
+              ),
+            ),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
         home: const InitialScreen(),
         routes: {
           '/login': (context) => const LoginPage(),

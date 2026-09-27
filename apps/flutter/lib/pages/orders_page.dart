@@ -1079,26 +1079,32 @@ class _OrdersPageState extends State<OrdersPage> {
         );
       },
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    displayName,
-                    style: const TextStyle(
-                      color: kColorTextPrimary,
-                      fontSize: kFontSizeTradeSymbol,
-                      fontFamily: kFontFamily,
-                      fontWeight: kFontWeightSemiBold,
-                      letterSpacing: -0.3,
+                  // Shrinks to fit instead of "…" — long option names
+                  // (e.g. BANKNIFTY | 57800 CE SEP) used to be cut off by
+                  // the qty badge.
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      displayName,
+                      style: const TextStyle(
+                        color: kColorTextPrimary,
+                        fontSize: 13,
+                        fontFamily: kFontFamily,
+                        fontWeight: kFontWeightSemiBold,
+                        letterSpacing: -0.3,
+                      ),
+                      maxLines: 1,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Row(
                     children: [
                       Text(
@@ -1136,10 +1142,10 @@ class _OrdersPageState extends State<OrdersPage> {
             ),
             // Net qty badge
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
               decoration: BoxDecoration(
                 color: sideColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(7),
               ),
               child: Text(
                 _positionVolumeLabel(exchange, symbol, netQty,
@@ -2167,7 +2173,7 @@ class _OrdersPageState extends State<OrdersPage> {
         }
       },
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         color: isSelected
             ? const Color(0xFFE3F2FD)
             : Colors
@@ -2193,16 +2199,23 @@ class _OrdersPageState extends State<OrdersPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      color: Color(0xFF0F172A),
-                      fontSize: kFontSizePositionSymbol,
-                      fontFamily: kFontFamily,
-                      fontWeight: kFontWeightSemiBold,
+                  // One line, shrinking to fit — a long name used to wrap
+                  // onto a second line and make the row taller.
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      name,
+                      style: const TextStyle(
+                        color: kColorTextPrimary,
+                        fontSize: 13,
+                        fontFamily: kFontFamily,
+                        fontWeight: kFontWeightSemiBold,
+                      ),
+                      maxLines: 1,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Row(
                     children: [
                       Text(
