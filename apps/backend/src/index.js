@@ -70,6 +70,11 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
       // be allowed rather than guessing.
       'https://volt-web-portal.vercel.app',
       'https://volt-web-portal-eta.vercel.app',
+      // Volt's own custom domain (2026-09-27) — the volt-web-portal Vercel
+      // project now serves www.volt.camp; the bare domain 308-redirects to
+      // www but is listed too in case that redirect is ever dropped.
+      'https://www.volt.camp',
+      'https://volt.camp',
       'http://localhost:5173',
       'http://localhost:3000',
     ];
