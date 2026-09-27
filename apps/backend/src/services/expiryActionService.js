@@ -1,0 +1,443 @@
+'use strict';
+
+/**
+ * Contract-expiry scheduler — see config/expiryRules.js for the rules and
+ * services/expirySchedule.js for the (pure, unit-tested) date logic.
+ *
+ * - refreshPlan(): turns the rules + live contracts + exchange holiday
+ *   calendars into ExpiryAction rows (idempotent upsert by key).
+ * - runDue(): every minute. An OPEN whose time has come enables each name's
+ *   next contract. A CUT whose time has come (just after that market's
+ *   close) first captures the closing bid/ask snapshot; it only closes
+ *   positions once an admin has confirmed it — then every open position in
+ *   that contract is closed at the snapshot (long at bid, short at ask) and
+ *   the contract is disabled (closing-only), except GIFT NIFTY which is one
+ *   continuous instrument and stays enabled.
+ */
+
+const ExpiryAction = require('../models/ExpiryAction');
+const KiteInstrument = require('../models/KiteInstrument');
+const { EFFECTIVE_FROM, OPEN_TIME, GROUPS } = require('../config/expiryRules');
+const { planGroup } = require('./expirySchedule');
+const { getHolidays } = require('./marketCalendarService');
+const { addUtcDays, dateKey, toIndiaDateOnly } = require('../utils/settlementDates');
+const { beginTradeWrite } = require('./tradeWriteFenceService');
+const { closeOpenPositions, bidAskPrice } = require('./positionCloseService');
+
+const groupByKey = new Map(GROUPS.map((g) => [g.key, g]));
+const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const exactName = (name) => new RegExp(`^${escapeRegex(name)}$`, 'i');
+
+/**
+ * A cut must be confirmed within this long after its close — before the
+ * next session opens (MCX 11:31 PM → 8:31 AM). Later than that, the closing
+ * snapshot is stale and the contract may have traded again, so the cut is
+ * marked missed and nothing is closed (the expiry-day close still runs).
+ */
+const CONFIRM_WINDOW_MS = 9 * 60 * 60 * 1000;
+
+let lastRefreshAt = 0;
+let lastPlanErrors = [];
+
+/* ------------------------------------------------------------ planning -- */
+
+async function loadContracts(group, today) {
+  if (group.tradingsymbols) {
+    const rows = await KiteInstrument.find({ tradingsymbol: { $in: group.tradingsymbols }, deleted_at: null })
+      .select('tradingsymbol expiry').lean();
+    return rows.filter((r) => r.expiry && r.expiry >= today).map((r) => ({ name: r.tradingsymbol, expiry: r.expiry }));
+  }
+  const rows = await KiteInstrument.aggregate([
+    { $match: { segment: { $in: group.segments }, instrument_type: 'FUT', is_active: true, deleted_at: null, expiry: { $gte: today } } },
+    { $group: { _id: { name: '$name', expiry: '$expiry' } } },
+  ]);
+  const wanted = group.names ? new Set(group.names.map((n) => n.toUpperCase())) : null;
+  return rows
+    .map((r) => ({ name: r._id.name, expiry: r._id.expiry }))
+    .filter((c) => c.name && (!wanted || wanted.has(String(c.name).toUpperCase())));
+}
+
+async function loadHolidays(calendar, contracts) {
+  if (calendar === 'WEEKDAYS') return null;
+  const years = new Set();
+  for (const c of contracts) {
+    const expiry = new Date(c.expiry);
+    years.add(expiry.getUTCFullYear());
+    // A January expiry's open/cut can count back into December.
+    if (expiry.getUTCMonth() === 0) years.add(expiry.getUTCFullYear() - 1);
+  }
+  const all = new Set();
+  for (const y of years) {
+    for (const key of await getHolidays(calendar, y)) all.add(key);
+  }
+  return all;
+}
+
+/**
+ * Upsert every planned action. Only 'planned'/'confirmed'/'paused' rows are
+ * ever rewritten or retired — an action that ran (or is running) is history.
+ */
+async function refreshPlan(now = new Date()) {
+  const today = toIndiaDateOnly(now);
+  const todayKey = dateKey(today);
+  const errors = [];
+
+  for (const group of GROUPS) {
+    try {
+      const contracts = await loadContracts(group, today);
+      const holidays = await loadHolidays(group.calendar, contracts);
+      const planned = planGroup(group, contracts, holidays, { effectiveFrom: EFFECTIVE_FROM, openTime: OPEN_TIME });
+      const keys = new Set(planned.map((a) => a.key));
+
+      for (const a of planned) {
+        const fields = {
+          group_key: group.key,
+          group_label: group.label,
+          exchange_label: group.exchangeLabel,
+          segments: group.segments,
+          continuous: !!group.continuous,
+          names: a.names,
+          current_expiry: a.current_expiry,
+          targets: a.targets,
+          action_date: a.action_date,
+          close_time: a.kind === 'CUT' ? group.closeTime : null,
+          execute_at: a.execute_at,
+        };
+        const existing = await ExpiryAction.findOne({ key: a.key }).select('status').lean();
+        if (!existing) {
+          await ExpiryAction.updateOne({ key: a.key }, { $setOnInsert: { key: a.key, kind: a.kind, status: 'planned', ...fields } }, { upsert: true });
+        } else if (['planned', 'confirmed', 'paused', 'obsolete'].includes(existing.status)) {
+          const status = existing.status === 'obsolete' ? 'planned' : existing.status;
+          await ExpiryAction.updateOne({ _id: existing._id }, { $set: { ...fields, status } });
+        }
+      }
+
+      await ExpiryAction.updateMany(
+        { group_key: group.key, status: { $in: ['planned', 'confirmed', 'paused'] }, action_date: { $gte: todayKey }, key: { $nin: [...keys] } },
+        { $set: { status: 'obsolete' } },
+      );
+    } catch (e) {
+      console.error(`❌ [ExpiryActions] Planning failed for ${group.key}: ${e.message}`);
+      errors.push({ group: group.key, label: group.label, error: e.message });
+    }
+  }
+  lastRefreshAt = Date.now();
+  lastPlanErrors = errors;
+  return { errors };
+}
+
+/* ----------------------------------------------------------- execution -- */
+
+async function resolveCutInstruments(action) {
+  const group = groupByKey.get(action.group_key);
+  if (action.continuous) {
+    return KiteInstrument.find({ tradingsymbol: { $in: group.tradingsymbols }, deleted_at: null })
+      .select('instrument_token tradingsymbol exchange segment last_price').lean();
+  }
+  const day = new Date(action.current_expiry);
+  const rows = await KiteInstrument.find({
+    segment: { $in: action.segments },
+    instrument_type: 'FUT',
+    expiry: { $gte: day, $lt: addUtcDays(day, 1) },
+    deleted_at: null,
+  }).select('instrument_token tradingsymbol exchange segment last_price name').lean();
+  const names = new Set(action.names.map((n) => n.toUpperCase()));
+  return rows.filter((r) => names.has(String(r.name).toUpperCase()));
+}
+
+async function captureSnapshot(action) {
+  const metricsEngine = require('./metricsEngine');
+  const instruments = await resolveCutInstruments(action);
+  const prices = instruments.map((i) => {
+    const token = i.instrument_token.toString();
+    return {
+      token,
+      symbol: i.tradingsymbol,
+      bid: Number(metricsEngine._bidMap?.get(token)) || 0,
+      ask: Number(metricsEngine._askMap?.get(token)) || 0,
+      ltp: Number(metricsEngine._ltpMap?.get(token) || i.last_price) || 0,
+    };
+  });
+  const snapshot = { captured_at: new Date(), prices };
+  await ExpiryAction.updateOne({ _id: action._id, 'snapshot.captured_at': null }, { $set: { snapshot } });
+  console.log(`📸 [ExpiryActions] Closing snapshot for ${action.key}: ${prices.map((p) => `${p.symbol} ${p.bid}/${p.ask}`).join(', ')}`);
+}
+
+/** Atomically move a due action into 'running' — nothing runs twice. */
+function claim(action, fromStatuses) {
+  return ExpiryAction.findOneAndUpdate(
+    { _id: action._id, status: { $in: fromStatuses } },
+    { $set: { status: 'running', started_at: new Date(), error: null } },
+    { new: true },
+  ).lean();
+}
+
+function invalidateSearchCache() {
+  try { require('./instrumentSearchService').invalidateCache(); } catch (_) {}
+}
+
+async function executeOpen(action) {
+  let enabled = 0;
+  for (const t of action.targets) {
+    const day = new Date(t.expiry);
+    const res = await KiteInstrument.updateMany(
+      {
+        segment: { $in: action.segments },
+        instrument_type: 'FUT',
+        name: exactName(t.name),
+        expiry: { $gte: day, $lt: addUtcDays(day, 1) },
+        deleted_at: null,
+      },
+      { $set: { enabled: true, ban_reason: null, banned_at: null } },
+    );
+    enabled += res.modifiedCount;
+  }
+  invalidateSearchCache();
+  await ExpiryAction.updateOne({ _id: action._id }, {
+    $set: { status: 'done', executed_at: new Date(), 'result.contracts': enabled },
+  });
+  console.log(`🟢 [ExpiryActions] ${action.key}: opened next contracts (${enabled} enabled)`);
+}
+
+function notifyUser(userId, action) {
+  const message = `Your ${action.group_label} positions were closed ahead of expiry at the closing rate.`;
+  try {
+    require('./livePriceService').broadcastToUser(userId, { type: 'admin_square_off', message });
+  } catch (_) {}
+  try {
+    require('./firebaseService').sendNotification(userId, 'admin_order_execution', {
+      title: `${action.group_label} positions closed`,
+      body: message,
+      data: { reason: 'expiry_cut' },
+    });
+  } catch (_) {}
+}
+
+async function executeCut(action) {
+  let lease = null;
+  try {
+    lease = await beginTradeWrite('expiry_cut');
+    const instruments = await resolveCutInstruments(action);
+    const quotes = new Map((action.snapshot?.prices || []).map((p) => [p.token, p]));
+    const metricsEngine = require('./metricsEngine');
+    const quoteFor = (token) => quotes.get(token) || {
+      bid: metricsEngine._bidMap?.get(token),
+      ask: metricsEngine._askMap?.get(token),
+      ltp: metricsEngine._ltpMap?.get(token),
+    };
+    const expiryKey = dateKey(action.current_expiry);
+
+    const result = await closeOpenPositions({
+      instruments,
+      priceFor: (token, closeSide) => bidAskPrice(quoteFor(token), closeSide),
+      lease,
+      trade: {
+        placed_by: 'ADMIN',
+        trade_type: 'admin_square_off',
+        remarks: (symbol) => `Expiry cut ahead of ${expiryKey} expiry (${symbol})`,
+      },
+      reason: 'EXPIRY_CUT',
+      txSuffix: 'EXC',
+      onUserClosed: (userId) => notifyUser(userId, action),
+    });
+
+    let disabled = 0;
+    if (!action.continuous && instruments.length) {
+      const res = await KiteInstrument.updateMany(
+        { instrument_token: { $in: instruments.map((i) => i.instrument_token) } },
+        { $set: { enabled: false, ban_reason: 'Contract closed ahead of expiry', banned_at: new Date() } },
+      );
+      disabled = res.modifiedCount;
+      invalidateSearchCache();
+    }
+
+    const failures = [...result.failures, ...result.skipped].map((f) => ({ ...f, user_id: String(f.user_id) }));
+    await ExpiryAction.updateOne({ _id: action._id }, {
+      $set: {
+        status: failures.length ? 'failed' : 'done',
+        executed_at: new Date(),
+        error: failures.length ? `${failures.length} position(s) could not be closed — confirm again to retry` : null,
+        result: { contracts: disabled, open_positions: result.openPositions, positions_closed: result.squared, failures },
+      },
+    });
+    console.log(`🔴 [ExpiryActions] ${action.key}: closed ${result.squared}/${result.openPositions} position(s), ${disabled} contract(s) disabled, ${failures.length} failure(s)`);
+  } finally {
+    await lease?.release();
+  }
+}
+
+/** Every minute: run whatever is due. */
+async function runDue(now = new Date()) {
+  const due = await ExpiryAction.find({ status: { $in: ['planned', 'confirmed'] }, execute_at: { $lte: now } })
+    .sort({ execute_at: 1 }).lean();
+
+  for (const action of due) {
+    try {
+      if (action.kind === 'OPEN') {
+        const claimed = await claim(action, ['planned', 'confirmed']);
+        if (claimed) await executeOpen(claimed);
+        continue;
+      }
+      if (!action.snapshot?.captured_at) await captureSnapshot(action);
+      if (action.status !== 'confirmed') {
+        if (now - new Date(action.execute_at) > CONFIRM_WINDOW_MS) {
+          await ExpiryAction.updateOne({ _id: action._id, status: 'planned' }, {
+            $set: { status: 'failed', error: 'Not confirmed before the next session — nothing was closed; the expiry-day close still applies.' },
+          });
+        }
+        continue; // waits for an admin
+      }
+      const claimed = await claim(action, ['confirmed']);
+      if (claimed) await executeCut(claimed);
+    } catch (e) {
+      console.error(`❌ [ExpiryActions] ${action.key} failed: ${e.message}`);
+      await ExpiryAction.updateOne({ _id: action._id, status: 'running' }, { $set: { status: 'failed', error: e.message } });
+    }
+  }
+}
+
+/* --------------------------------------------------------------- admin -- */
+
+async function list({ from, to } = {}) {
+  if (Date.now() - lastRefreshAt > 60_000) await refreshPlan();
+  const filter = { status: { $ne: 'obsolete' } };
+  if (from || to) filter.action_date = { ...(from ? { $gte: from } : {}), ...(to ? { $lte: to } : {}) };
+  const actions = await ExpiryAction.find(filter).sort({ execute_at: 1, key: 1 }).lean();
+  return { actions: actions.map(({ _id, __v, ...a }) => ({ id: _id, ...a })), plan_errors: lastPlanErrors };
+}
+
+const TRANSITIONS = {
+  confirm: { kinds: ['CUT'], from: ['planned', 'paused', 'failed'], to: 'confirmed' },
+  unconfirm: { kinds: ['CUT'], from: ['confirmed'], to: 'planned' },
+  pause: { kinds: ['OPEN', 'CUT'], from: ['planned', 'confirmed'], to: 'paused' },
+  resume: { kinds: ['OPEN', 'CUT'], from: ['paused'], to: 'planned' },
+};
+
+async function transition(id, op, adminId, now = new Date()) {
+  const t = TRANSITIONS[op];
+  if (!t) throw Object.assign(new Error(`Unknown action "${op}"`), { status: 400 });
+  const set = { status: t.to };
+  if (op === 'confirm') {
+    Object.assign(set, { confirmed_by: adminId || null, confirmed_at: new Date() });
+    const current = await ExpiryAction.findById(id).select('execute_at').lean();
+    if (current && now - new Date(current.execute_at) > CONFIRM_WINDOW_MS) {
+      throw Object.assign(new Error("Too late to confirm — the next session has started since this cut's close"), { status: 409 });
+    }
+  }
+  if (op === 'unconfirm') Object.assign(set, { confirmed_by: null, confirmed_at: null });
+  const updated = await ExpiryAction.findOneAndUpdate(
+    { _id: id, kind: { $in: t.kinds }, status: { $in: t.from } },
+    { $set: set },
+    { new: true },
+  ).lean();
+  if (!updated) {
+    const current = await ExpiryAction.findById(id).select('kind status').lean();
+    if (!current) throw Object.assign(new Error('Expiry action not found'), { status: 404 });
+    throw Object.assign(new Error(`Cannot ${op} a ${current.kind} action that is ${current.status}`), { status: 409 });
+  }
+  return updated;
+}
+
+/* -------------------------------------------------------- announcement -- */
+
+const EXCHANGE_ORDER = ['MCX', 'COMEX', 'NSE', 'GIFT NIFTY', 'GLOBAL'];
+const WEEKDAYS = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+/** '2026-10-23' → '23-OCT-FRIDAY' */
+function formatDay(key) {
+  const d = new Date(`${key}T00:00:00.000Z`);
+  return `${String(d.getUTCDate()).padStart(2, '0')}-${MONTHS[d.getUTCMonth()]}-${WEEKDAYS[d.getUTCDay()]}`;
+}
+
+/** '23:30' → '11.30 P.M.' */
+function formatTime(hhmm) {
+  const [h, m] = hhmm.split(':').map(Number);
+  return `${h % 12 || 12}.${String(m).padStart(2, '0')} ${h < 12 ? 'A.M.' : 'P.M.'}`;
+}
+
+/**
+ * The "NEW CONTRACT Open 📢" notice for one day's opens, in the format the
+ * business already circulates by hand. The admin can edit it before publishing.
+ */
+async function buildAnnouncement(date) {
+  const opens = await ExpiryAction.find({ kind: 'OPEN', action_date: date, status: { $ne: 'obsolete' } }).lean();
+  if (opens.length === 0) return { message: '', opens: 0 };
+  const cuts = await ExpiryAction.find({
+    kind: 'CUT',
+    status: { $ne: 'obsolete' },
+    $or: opens.map((o) => ({ group_key: o.group_key, current_expiry: o.current_expiry })),
+  }).lean();
+
+  const lines = ['NEW CONTRACT Open 📢', ''];
+  for (const exchange of EXCHANGE_ORDER) {
+    const blocks = opens
+      .filter((o) => o.exchange_label === exchange)
+      .map((o) => {
+        const group = groupByKey.get(o.group_key);
+        if (!group?.names) return [`ALL ${group ? group.label.toUpperCase() : o.group_label.toUpperCase()}`];
+        return [...new Set(o.targets.map((t) => t.name.toUpperCase()))];
+      });
+    if (blocks.length === 0) continue;
+    lines.push(`${exchange} - `, '');
+    blocks.forEach((names) => lines.push(...names, ''));
+  }
+
+  const settlements = new Map();
+  for (const c of cuts) {
+    const k = `${c.action_date}|${c.close_time}`;
+    if (!settlements.has(k)) settlements.set(k, { date: c.action_date, time: c.close_time, labels: [] });
+    settlements.get(k).labels.push(c.group_label);
+  }
+  for (const s of [...settlements.values()].sort((a, b) => a.date.localeCompare(b.date))) {
+    const prefix = settlements.size > 1 ? `${s.labels.join(', ')} — ` : '';
+    lines.push(`${prefix}Old Contract settlement: ${formatDay(s.date)} at last Quotation`, ` ( ${formatTime(s.time)} )`, '');
+  }
+  return { message: lines.join('\n').trimEnd(), opens: opens.length };
+}
+
+/**
+ * Publish: becomes the app-wide announcement banner (replacing the current
+ * one), plus an optional push notification to every client and master with
+ * the app installed — sent in the background, one account at a time,
+ * respecting each account's notification settings.
+ */
+async function publishAnnouncement({ message, push, adminId }) {
+  const Announcement = require('../models/Announcement');
+  const text = String(message || '').trim();
+  if (!text) throw Object.assign(new Error('Message is required'), { status: 400 });
+  await Announcement.updateMany({ is_active: true }, { $set: { is_active: false } });
+  const announcement = await Announcement.create({ message: text, is_active: true, created_by: adminId || undefined });
+
+  let recipients = 0;
+  if (push) {
+    const User = require('../models/User');
+    const Master = require('../models/Master');
+    const withTokens = { deleted_at: null, 'fcm_tokens.0': { $exists: true } };
+    const ids = [
+      ...(await User.find(withTokens).select('_id').lean()),
+      ...(await Master.find(withTokens).select('_id').lean()),
+    ].map((r) => r._id.toString());
+    recipients = ids.length;
+    const firebaseService = require('./firebaseService');
+    const title = text.split('\n')[0].slice(0, 80);
+    const body = text.split('\n').slice(1).filter((l) => l.trim()).join(', ').slice(0, 900);
+    (async () => {
+      for (const id of ids) {
+        await firebaseService.sendNotification(id, 'announcement', { title, body, data: { reason: 'expiry_announcement' } });
+      }
+      console.log(`📣 [ExpiryActions] Announcement pushed to ${ids.length} account(s)`);
+    })().catch((e) => console.error(`❌ [ExpiryActions] Announcement push failed: ${e.message}`));
+  }
+  return { announcement_id: announcement._id, push_recipients: recipients };
+}
+
+module.exports = {
+  refreshPlan,
+  runDue,
+  list,
+  transition,
+  buildAnnouncement,
+  publishAnnouncement,
+  _private: { formatDay, formatTime, captureSnapshot, executeCut, executeOpen },
+};

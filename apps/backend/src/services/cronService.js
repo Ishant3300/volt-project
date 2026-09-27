@@ -1,5 +1,4 @@
 const cron = require('node-cron');
-const mongoose = require('mongoose');
 const path = require('path');
 const { fork } = require('child_process');
 const User = require('../models/User');
@@ -9,8 +8,6 @@ const redisService = require('./redisService');
 const { snapshotWeeklySummary, snapshotWeeklyLedger } = require('./weeklySummaryService');
 const livePriceService = require('./livePriceService');
 const { beginTradeWrite } = require('./tradeWriteFenceService');
-const walletService = require('./walletService');
-const { categoryForSegment } = require('../utils/walletCategory');
 
 class CronService {
     constructor() {
@@ -304,7 +301,7 @@ class CronService {
         const expirySquareOffNSE = cron.schedule('46 15 * * 1-5', async () => {
             console.log('📊 [CRON] Expiry auto square-off check (NSE close)...');
             try {
-                await this.autoSquareOffExpiredPositions();
+                await this.autoSquareOffExpiredPositions({ skipSegments: ['GLOBAL', 'COMEX-FUT'] });
                 console.log('✅ [CRON] NSE expiry auto square-off completed.');
             } catch (error) {
                 console.error('❌ [CRON] Error during NSE expiry auto square-off:', error);
@@ -322,6 +319,36 @@ class CronService {
             }
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(expirySquareOffMCX);
+
+        // ── Contract expiry rules (config/expiryRules.js) ────────────────
+        // Plan refresh after midnight (and once now), then every minute run
+        // whatever is due: opens automatically, cuts once admin-confirmed —
+        // each just after its market's close, at the closing bid/ask.
+        const expiryActionService = require('./expiryActionService');
+        expiryActionService.refreshPlan().catch((e) => console.error('❌ [CRON] Expiry plan refresh failed:', e.message));
+        const expiryPlanJob = cron.schedule('10 0 * * *', async () => {
+            try {
+                const { errors } = await expiryActionService.refreshPlan();
+                if (errors.length) console.error('❌ [CRON] Expiry plan errors:', JSON.stringify(errors));
+            } catch (error) {
+                console.error('❌ [CRON] Expiry plan refresh failed:', error.message);
+            }
+        }, { timezone: 'Asia/Kolkata' });
+        this.jobs.push(expiryPlanJob);
+
+        let expiryRunBusy = false;
+        const expiryRunJob = cron.schedule('* * * * *', async () => {
+            if (expiryRunBusy) return; // a long cut may outlast a minute
+            expiryRunBusy = true;
+            try {
+                await expiryActionService.runDue();
+            } catch (error) {
+                console.error('❌ [CRON] Expiry actions run failed:', error.message);
+            } finally {
+                expiryRunBusy = false;
+            }
+        }, { timezone: 'Asia/Kolkata' });
+        this.jobs.push(expiryRunJob);
 
         // ── Intraday Square-Off at Market Close ──────────────────────────
         // Squares off positions for users who have intraday_squareoff enabled for the segment.
@@ -563,15 +590,22 @@ class CronService {
     }
 
     /**
-     * Auto square-off positions on instruments that expired today.
-     * Uses LTP (not bid/ask) for the closing price.
+     * Expiry-day safety net: closes every position still open on an
+     * instrument expiring today, at the closing bid/ask (a long sells at the
+     * bid, a short buys at the ask; LTP when that side has no quote). The
+     * admin-confirmed early cuts (expiryActionService.js) normally leave
+     * nothing for this to do — it catches anything unconfirmed or unruled.
+     *
+     * @param {object} [options]
+     * @param {Date} [options.now]
+     * @param {string[]} [options.skipSegments] - e.g. GLOBAL/COMEX on the 3:46 PM
+     *   run: on their expiry day those still trade for hours after NSE's close.
      */
     async autoSquareOffExpiredPositions(options = {}) {
-        const Trade = require('../models/Trade');
         const KiteInstrument = require('../models/KiteInstrument');
         const metricsEngine = require('./metricsEngine');
+        const { closeOpenPositions, bidAskPrice } = require('./positionCloseService');
         let lease = null;
-        let squared = 0;
 
         try {
             lease = await beginTradeWrite('expiry_square_off');
@@ -580,213 +614,45 @@ class CronService {
             const tomorrow = new Date(today);
             tomorrow.setDate(tomorrow.getDate() + 1);
 
-            const expiredInstruments = await KiteInstrument.find({
-                expiry: { $gte: today, $lt: tomorrow },
-                deleted_at: null,
-            }).select('instrument_token tradingsymbol exchange last_price segment').lean();
+            const filter = { expiry: { $gte: today, $lt: tomorrow }, deleted_at: null };
+            if (options.skipSegments?.length) filter.segment = { $nin: options.skipSegments };
+            const expiredInstruments = await KiteInstrument.find(filter)
+                .select('instrument_token tradingsymbol exchange last_price segment').lean();
 
             if (expiredInstruments.length === 0) {
                 console.log('   No instruments expiring today.');
                 return;
             }
 
-            const expiredTokens = expiredInstruments.map(instrument => instrument.instrument_token.toString());
-            const priceMap = {};
+            const quotes = new Map();
             for (const instrument of expiredInstruments) {
                 const token = instrument.instrument_token.toString();
-                const ltp = metricsEngine._ltpMap?.get(token) || instrument.last_price;
-                priceMap[token] = { price: ltp, symbol: instrument.tradingsymbol, exchange: instrument.exchange, segment: instrument.segment };
+                quotes.set(token, {
+                    bid: metricsEngine._bidMap?.get(token),
+                    ask: metricsEngine._askMap?.get(token),
+                    ltp: metricsEngine._ltpMap?.get(token) || instrument.last_price,
+                });
             }
 
-            const openPositions = await Trade.aggregate([
-                { $match: { instrument_token: { $in: expiredTokens }, status: 'completed', deleted_at: null } },
-                { $group: {
-                    _id: { user_id: '$user_id', instrument_token: '$instrument_token' },
-                    net_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'BUY'] }, '$executed_quantity', { $multiply: ['$executed_quantity', -1] }] } },
-                }},
-                { $match: { net_qty: { $ne: 0 } } },
-            ]);
+            const result = await closeOpenPositions({
+                instruments: expiredInstruments,
+                priceFor: (token, closeSide) => bidAskPrice(quotes.get(token), closeSide),
+                lease,
+                trade: {
+                    placed_by: 'SYSTEM',
+                    trade_type: 'margin_square_off',
+                    remarks: (symbol) => `Auto square-off: instrument expired (${symbol})`,
+                },
+                reason: 'EXPIRY_SQUARE_OFF',
+                txSuffix: 'EXP',
+                faultInjector: options.faultInjector,
+            });
 
-            if (openPositions.length === 0) {
+            if (result.openPositions === 0) {
                 console.log(`   ${expiredInstruments.length} instrument(s) expiring today, no open positions.`);
                 return;
             }
-
-            console.log(`   Found ${openPositions.length} open position(s) on ${expiredInstruments.length} expiring instrument(s).`);
-
-            // Same reasoning as tradeController.js's rolloverPositions: this
-            // previously ran fully sequentially, one MongoDB transaction per
-            // position, under one shared session, holding the SAME
-            // platform-wide 'expiry_square_off' lease for the entire
-            // duration — a real risk when many instruments expire
-            // simultaneously with many open positions. Bounded-concurrency
-            // chunks instead; each task gets its OWN session (a ClientSession
-            // cannot be used by concurrent transactions) and always returns
-            // rather than throws, so a lease-lost error is only acted on
-            // after every transaction in the current chunk has fully
-            // committed/aborted/errored and closed its own session.
-            const EXPIRY_SQUAREOFF_CONCURRENCY = 5;
-
-            const processExpiryCandidate = async (candidate) => {
-                const token = candidate._id.instrument_token.toString();
-                const userId = candidate._id.user_id;
-                const instData = priceMap[token];
-                if (!instData?.price || instData.price <= 0) return { skipped: true };
-
-                const session = await mongoose.startSession();
-                let committed = null;
-                try {
-                    await session.withTransaction(async () => {
-                        committed = null;
-                        await lease.assertActive({ session });
-                        const freshPosition = await Trade.aggregate([
-                            { $match: { user_id: userId, instrument_token: token, status: 'completed', deleted_at: null } },
-                            { $group: {
-                                _id: null,
-                                net_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'BUY'] }, '$executed_quantity', { $multiply: ['$executed_quantity', -1] }] } },
-                                total_buy_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'BUY'] }, '$executed_quantity', 0] } },
-                                total_sell_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'SELL'] }, '$executed_quantity', 0] } },
-                                total_buy_value: { $sum: { $cond: [{ $eq: ['$transaction_type', 'BUY'] }, { $multiply: ['$executed_quantity', '$executed_price'] }, 0] } },
-                                total_sell_value: { $sum: { $cond: [{ $eq: ['$transaction_type', 'SELL'] }, { $multiply: ['$executed_quantity', '$executed_price'] }, 0] } },
-                            }},
-                        ]).session(session);
-                        const netQty = Number(freshPosition[0]?.net_qty || 0);
-                        if (netQty === 0) return;
-
-                        // Derive avg entry price from the trade legs — needed both to
-                        // release the ENTRY notional (independent of the exit/LTP price)
-                        // and to compute the real realised P&L this close produces.
-                        const buyQty = Number(freshPosition[0]?.total_buy_qty || 0);
-                        const sellQty = Number(freshPosition[0]?.total_sell_qty || 0);
-                        const buyVal = Number(freshPosition[0]?.total_buy_value || 0);
-                        const sellVal = Number(freshPosition[0]?.total_sell_value || 0);
-                        const avgBuy = buyQty > 0 ? buyVal / buyQty : 0;
-                        const avgSell = sellQty > 0 ? sellVal / sellQty : 0;
-                        const avgEntry = netQty > 0 ? avgBuy : avgSell;
-                        const releaseCategory = categoryForSegment(instData.segment || instData.exchange || '');
-
-                        const user = await User.findById(userId).session(session);
-                        if (!user) throw new Error(`User ${userId} not found`);
-                        const absQty = Math.abs(netQty);
-                        const closeSide = netQty > 0 ? 'SELL' : 'BUY';
-
-                        // Real realised P&L, closing at the expiring instrument's LTP —
-                        // this was previously hardcoded to 0, silently dropping every
-                        // gain/loss on a position still open at expiry instead of settling
-                        // it (matches marginSquareOffService.js's pnl formula, the
-                        // already-correct pattern for every other forced-square-off path).
-                        const pnl = netQty > 0
-                            ? (instData.price - avgBuy) * absQty
-                            : (avgSell - instData.price) * absQty;
-
-                        const newTrade = new Trade({
-                            user_id: userId,
-                            master_id: user.master_id,
-                            admin_id: user.admin_id || null,
-                            instrument_token: token,
-                            tradingsymbol: instData.symbol,
-                            exchange: instData.exchange,
-                            transaction_type: closeSide,
-                            quantity: absQty,
-                            price: instData.price,
-                            order_type: 'MARKET',
-                            placed_by: 'SYSTEM',
-                            trade_type: 'margin_square_off',
-                            status: 'completed',
-                            executed_at: new Date(),
-                            executed_price: instData.price,
-                            executed_quantity: absQty,
-                            pnl,
-                            remarks: `Auto square-off: instrument expired (${instData.symbol})`,
-                        });
-
-                        const { calculateBrokerage } = require('./brokerageService');
-                        const brokerage = await calculateBrokerage(newTrade, session);
-                        newTrade.brokerage = brokerage;
-                        newTrade.net_amount = pnl - brokerage;
-                        await newTrade.save({ session });
-
-                        // Requirement 3.2 / 7.5: release the closed position's ENTRY notional
-                        // back to its category wallet inside this same transaction, so the
-                        // release commits atomically with the close trade.
-                        if (absQty > 0 && avgEntry > 0) {
-                            await walletService.release('User', userId, releaseCategory, absQty * avgEntry, session);
-                        }
-
-                        // Credit the real P&L (net of brokerage) to equity and record a
-                        // Transaction audit row — every other forced-close path
-                        // (marginSquareOffService.js) does this; this path silently
-                        // skipped it since pnl was always 0 before.
-                        const balanceBefore = Number(user.equity || 0);
-                        const pnlNetBrokerage = pnl - brokerage;
-                        user.equity = balanceBefore + pnlNetBrokerage;
-                        await user.save({ session });
-
-                        const Transaction = require('../models/Transaction');
-                        const expiryTx = new Transaction({
-                            transactionId: `TXN_${Date.now()}_${Math.random().toString(36).slice(2, 8)}_EXP`,
-                            userId,
-                            userModel: 'User',
-                            type: closeSide,
-                            status: 'SUCCESS',
-                            amount: instData.price * absQty,
-                            referenceId: newTrade._id,
-                            referenceModel: 'Trade',
-                            balanceBefore,
-                            balanceAfter: user.equity,
-                            metadata: {
-                                tradingsymbol: instData.symbol,
-                                quantity: absQty,
-                                executedPrice: instData.price,
-                                order_type: 'MARKET',
-                                realisedPnl: pnl,
-                                brokerage,
-                                reason: 'EXPIRY_SQUARE_OFF',
-                                positionClosed: true,
-                            },
-                        });
-                        await expiryTx.save({ session });
-
-                        if (options.faultInjector) {
-                            await options.faultInjector({
-                                phase: 'before_final_lease_proof',
-                                lease,
-                                session,
-                                userId,
-                                instrumentToken: token,
-                            });
-                        }
-                        await lease.assertActive({ session });
-                        committed = { absQty, closeSide, pnl };
-                    });
-
-                    return { committed, userId, instData, error: null, leaseLost: false };
-                } catch (error) {
-                    return { committed: null, userId, instData, error, leaseLost: error.code === 'TRADE_WRITE_LEASE_LOST' };
-                } finally {
-                    await session.endSession();
-                }
-            };
-
-            for (let i = 0; i < openPositions.length; i += EXPIRY_SQUAREOFF_CONCURRENCY) {
-                const chunk = openPositions.slice(i, i + EXPIRY_SQUAREOFF_CONCURRENCY);
-                const outcomes = await Promise.all(chunk.map(processExpiryCandidate));
-
-                for (const outcome of outcomes) {
-                    if (outcome.skipped) continue;
-                    if (outcome.committed) {
-                        await metricsEngine.onTradeExecuted(outcome.userId.toString());
-                        squared++;
-                        console.log(`   ✅ Squared off ${outcome.instData.symbol}: ${outcome.committed.closeSide} ${outcome.committed.absQty} @ ${outcome.instData.price} for user ${outcome.userId}, P&L: ₹${outcome.committed.pnl.toFixed(2)}`);
-                    } else if (outcome.leaseLost) {
-                        throw outcome.error;
-                    } else if (outcome.error) {
-                        console.error(`   ❌ Failed to square off ${outcome.instData.symbol} for user ${outcome.userId}: ${outcome.error.message}`);
-                    }
-                }
-            }
-
-            console.log(`   ✅ Auto squared off ${squared} position(s).`);
+            console.log(`   ✅ Auto squared off ${result.squared} of ${result.openPositions} position(s).`);
         } finally {
             await lease?.release();
         }

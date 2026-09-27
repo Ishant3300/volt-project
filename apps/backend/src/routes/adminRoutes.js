@@ -622,6 +622,49 @@ router.put('/instruments/expiry-toggle', authenticateAdmin, rejectIfAdminWatchOn
   }
 });
 
+// ==================== CONTRACT EXPIRY ACTIONS ====================
+// Working-day rules for opening the next contract and cutting the current one
+// (config/expiryRules.js). Opens run automatically; cuts need a confirm here
+// and then run just after that market's close at the closing bid/ask.
+const expiryActionService = require('../services/expiryActionService');
+const expiryPerm = [authenticateAdmin, requireAdminPermission('INSTRUMENT_MANAGE')];
+const expiryWrite = [authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('INSTRUMENT_MANAGE')];
+const expiryError = (res, e) => res.status(e.status || 500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
+
+// GET /admin/expiry-actions?from=YYYY-MM-DD&to=YYYY-MM-DD
+router.get('/expiry-actions', ...expiryPerm, async (req, res) => {
+  try {
+    const data = await expiryActionService.list({ from: req.query.from, to: req.query.to });
+    res.json({ success: true, data });
+  } catch (e) { expiryError(res, e); }
+});
+
+// GET /admin/expiry-actions/announcement?date=YYYY-MM-DD — draft "NEW CONTRACT Open" notice
+router.get('/expiry-actions/announcement', ...expiryPerm, async (req, res) => {
+  try {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(req.query.date || ''))) {
+      return res.status(400).json({ success: false, message: 'date (YYYY-MM-DD) is required', data: null });
+    }
+    res.json({ success: true, data: await expiryActionService.buildAnnouncement(req.query.date) });
+  } catch (e) { expiryError(res, e); }
+});
+
+// POST /admin/expiry-actions/announcement { message, push } — publish the notice
+router.post('/expiry-actions/announcement', ...expiryWrite, async (req, res) => {
+  try {
+    const data = await expiryActionService.publishAnnouncement({ message: req.body?.message, push: !!req.body?.push, adminId: req.admin?.id });
+    res.json({ success: true, message: 'Announcement published', data });
+  } catch (e) { expiryError(res, e); }
+});
+
+// POST /admin/expiry-actions/:id/(confirm|unconfirm|pause|resume)
+router.post('/expiry-actions/:id/:op(confirm|unconfirm|pause|resume)', ...expiryWrite, async (req, res) => {
+  try {
+    const data = await expiryActionService.transition(req.params.id, req.params.op, req.admin?.id);
+    res.json({ success: true, data });
+  } catch (e) { expiryError(res, e); }
+});
+
 // GET /admin/instruments — list instruments with filters (paginated)
 // Shows ALL instruments including soft-deleted ones (admin needs to see them to restore)
 router.get('/instruments', authenticateAdmin, async (req, res) => {
