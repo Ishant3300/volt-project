@@ -18,21 +18,25 @@ const ScriptQuantity = require('../models/ScriptQuantity');
  * bare-exchange+wildcard) as the already-correct tradeController.js
  * immediate-fill path.
  */
-async function calculateBrokerage(trade, session) {
+/**
+ * @param {object} trade
+ * @param {object} [session]
+ * @param {{instrument?: object, rules?: object[]}} [preloaded] - bulk callers
+ *   (rollover) pass the instrument and the owner's rule set loaded once —
+ *   `rules` must be exactly what the lookups below would return (the user's
+ *   own rows, or the global rows when the user has none). Same matching.
+ */
+async function calculateBrokerage(trade, session, preloaded = null) {
   try {
-    const instrument = await KiteInstrument.findOne({ instrument_token: trade.instrument_token }).session(session).lean();
+    const instrument = preloaded?.instrument !== undefined
+      ? preloaded.instrument
+      : await KiteInstrument.findOne({ instrument_token: trade.instrument_token }).session(session).lean();
     const rawName = instrument?.raw_name || instrument?.name
       || (trade.tradingsymbol || '').replace(/[0-9]+[A-Z]+$/, '').trim() || null;
     const seg = instrument?.segment || trade.exchange || '';
     const userId = trade.user_id || null;
 
-    const userRules = userId
-      ? await BrokerageSettings.find({ user_id: userId, deleted_at: null }).session(session).lean()
-      : [];
-    const globalRules = userRules.length === 0
-      ? await BrokerageSettings.find({ user_id: null, deleted_at: null }).session(session).lean()
-      : [];
-    const rules = userRules.length > 0 ? userRules : globalRules;
+    const rules = preloaded?.rules || await loadBrokerageRules(userId, session);
 
     let rule = null;
     if (rawName && seg) rule = rules.find(r => r.script_name?.toUpperCase() === rawName.toUpperCase() && r.exchange_name === seg.toUpperCase());
@@ -65,4 +69,13 @@ async function calculateBrokerage(trade, session) {
   }
 }
 
-module.exports = { calculateBrokerage };
+/** The rule set calculateBrokerage matches against: the user's own rows, else the global rows. */
+async function loadBrokerageRules(userId, session) {
+  const userRules = userId
+    ? await BrokerageSettings.find({ user_id: userId, deleted_at: null }).session(session).lean()
+    : [];
+  if (userRules.length > 0) return userRules;
+  return BrokerageSettings.find({ user_id: null, deleted_at: null }).session(session).lean();
+}
+
+module.exports = { calculateBrokerage, loadBrokerageRules };

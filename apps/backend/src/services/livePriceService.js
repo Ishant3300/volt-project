@@ -531,6 +531,20 @@ class LivePriceService {
     }
   }
 
+  /** Make sure these tokens are on the Kite feed (e.g. a just-opened next contract). */
+  ensureSubscribed(tokens) {
+    let added = 0;
+    for (const t of tokens || []) {
+      const numToken = parseInt(t);
+      if (!isNaN(numToken) && !this.subscribedTokens.has(numToken)) {
+        this.subscribedTokens.add(numToken);
+        added++;
+      }
+    }
+    if (added) this._updateKiteSubscription();
+    return added;
+  }
+
   /**
    * Update Kite subscription with current tokens
    */
@@ -555,6 +569,16 @@ class LivePriceService {
     if (this.pendingTokensCache) {
       this.pendingTokensCache.forEach(t => this.subscribedTokens.add(t));
     }
+
+    // Next contracts in their rollover window (opened, old contract not cut
+    // yet) — rollover reopens at their live price even if nobody watches them.
+    try {
+      const expiryActionService = require('./expiryActionService');
+      expiryActionService.getRolloverTokens().forEach(t => {
+        const numToken = parseInt(t);
+        if (!isNaN(numToken)) this.subscribedTokens.add(numToken);
+      });
+    } catch (_) {}
 
     const tokens = Array.from(this.subscribedTokens);
     if (tokens.length === 0) {

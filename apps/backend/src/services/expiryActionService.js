@@ -37,6 +37,11 @@ const exactName = (name) => new RegExp(`^${escapeRegex(name)}$`, 'i');
  */
 const CONFIRM_WINDOW_MS = 9 * 60 * 60 * 1000;
 
+// Tokens of next contracts in their rollover window (OPEN done, matching CUT
+// not done yet) — kept on the live price feed (livePriceService) so rollover
+// always has a reopen price.
+let rolloverTokens = new Set();
+
 let lastRefreshAt = 0;
 let lastPlanErrors = [];
 
@@ -133,6 +138,11 @@ async function refreshPlan(now = new Date()) {
     }
   }
   try {
+    await refreshRolloverTokens();
+  } catch (e) {
+    console.error(`❌ [ExpiryActions] Rollover token refresh failed: ${e.message}`);
+  }
+  try {
     await closeNewTargetsUntilOpen(now);
   } catch (e) {
     console.error(`❌ [ExpiryActions] Closing new contracts failed: ${e.message}`);
@@ -141,6 +151,35 @@ async function refreshPlan(now = new Date()) {
   lastRefreshAt = Date.now();
   lastPlanErrors = errors;
   return { errors };
+}
+
+async function targetTokens(action) {
+  const tokens = [];
+  for (const t of action.targets || []) {
+    const day = new Date(t.expiry);
+    const rows = await KiteInstrument.find({
+      segment: { $in: action.segments }, instrument_type: 'FUT', name: exactName(t.name),
+      expiry: { $gte: day, $lt: addUtcDays(day, 1) }, deleted_at: null,
+    }).select('instrument_token').lean();
+    tokens.push(...rows.map((r) => r.instrument_token.toString()));
+  }
+  return tokens;
+}
+
+async function refreshRolloverTokens() {
+  const opens = await ExpiryAction.find({ kind: 'OPEN', status: 'done' }).lean();
+  const next = new Set();
+  for (const open of opens) {
+    const cut = await ExpiryAction.findOne({ kind: 'CUT', group_key: open.group_key, current_expiry: open.current_expiry }).select('status').lean();
+    if (cut && cut.status === 'done') continue;
+    if (!cut && new Date(open.current_expiry) < addUtcDays(new Date(), -1)) continue;
+    for (const token of await targetTokens(open)) next.add(token);
+  }
+  rolloverTokens = next;
+}
+
+function getRolloverTokens() {
+  return [...rolloverTokens];
 }
 
 /**
@@ -250,6 +289,10 @@ async function executeOpen(action) {
   await ExpiryAction.updateOne({ _id: action._id }, {
     $set: { status: 'done', executed_at: new Date(), 'result.contracts': enabled },
   });
+  // Put the new contracts on the live feed now — rollover needs their price.
+  const tokens = await targetTokens(action);
+  tokens.forEach((t) => rolloverTokens.add(t));
+  try { require('./livePriceService').ensureSubscribed(tokens); } catch (_) {}
   console.log(`🟢 [ExpiryActions] ${action.key}: opened next contracts (${enabled} enabled)`);
 }
 
@@ -537,6 +580,7 @@ async function publishAnnouncement({ message, push, adminId }) {
 }
 
 module.exports = {
+  getRolloverTokens,
   refreshPlan,
   runDue,
   list,
