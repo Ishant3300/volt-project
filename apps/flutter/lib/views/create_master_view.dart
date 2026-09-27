@@ -103,6 +103,37 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     'COMEX-FUT': <String>{},
   };
   final Map<String, List<String>> _availableGroupsByExchange = {};
+
+  // Group that picking in the Exchange Allow dropdown auto-ticked in
+  // _allottedGroups, per exchange — so changing the dropdown can un-tick
+  // it again, without ever touching a group the admin ticked by hand.
+  final Map<String, String> _autoAllotted = {};
+
+  /// The master's own group (Exchange Allow dropdown). Picking one also
+  /// ticks it in Allotted Groups (admin only — that section is admin-only),
+  /// so the common case is a single selection instead of the same group
+  /// twice. Only a real pick does this — the automatic 'Default' pre-fill
+  /// on a new master does NOT, since an exchange with no allotted groups
+  /// means "unrestricted" and must stay that way unless chosen.
+  void _setOwnGroup(String exchange, String? value) {
+    final isAdmin =
+        Provider.of<UserProfileProvider>(context, listen: false).isAdmin;
+    setState(() {
+      _scriptQuantityGroup[exchange] = value;
+      if (!isAdmin) return;
+      final allotted = _allottedGroups[exchange];
+      if (allotted == null) return;
+      final prevAuto = _autoAllotted[exchange];
+      if (prevAuto != null && prevAuto != value) {
+        allotted.remove(prevAuto);
+        _autoAllotted.remove(exchange);
+      }
+      if (value != null && !allotted.contains(value)) {
+        allotted.add(value);
+        _autoAllotted[exchange] = value;
+      }
+    });
+  }
   bool _isLoadingAvailableGroups = false;
 
   // This master's OWN single group per exchange (script_quantity_groups) —
@@ -1670,9 +1701,10 @@ class _CreateMasterViewState extends State<CreateMasterView> {
         _sectionLabel('ALLOTTED SCRIPT QUANTITY GROUPS'),
         const SizedBox(height: 6),
         const Text(
-          'Which group(s) this master may use for their own script quantity, '
-          'and hand out to their clients. Leave an exchange unchecked to '
-          'leave it unrestricted.',
+          'The group picked for this master above is ticked here '
+          'automatically. Tick extra groups only if they may also hand '
+          'those out to their clients. An exchange with nothing ticked stays '
+          'unrestricted.',
           style: TextStyle(
             color: kColorTextMuted,
             fontSize: kFontSizeNavLabel,
@@ -1729,6 +1761,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                           final isSelected = selected.contains(groupName);
                           return GestureDetector(
                             onTap: () => setState(() {
+                              if (_autoAllotted[exchange] == groupName) {
+                                _autoAllotted.remove(exchange);
+                              }
                               if (isSelected) {
                                 _allottedGroups[exchange]!.remove(groupName);
                               } else {
@@ -1942,8 +1977,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 borderRadius: BorderRadius.circular(12),
                 onChanged: groupOptions.isEmpty
                     ? null
-                    : (value) =>
-                        setState(() => _scriptQuantityGroup[exchange] = value),
+                    : (value) => _setOwnGroup(exchange, value),
                 items: groupOptions.map((name) {
                   return DropdownMenuItem<String>(
                       value: name,
