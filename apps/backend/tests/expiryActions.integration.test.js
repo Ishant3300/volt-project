@@ -18,6 +18,7 @@ const Trade = require('../src/models/Trade');
 const TradeWriteLease = require('../src/models/TradeWriteLease');
 const Transaction = require('../src/models/Transaction');
 const User = require('../src/models/User');
+const Watchlist = require('../src/models/Watchlist');
 const metricsEngine = require('../src/services/metricsEngine');
 const livePriceService = require('../src/services/livePriceService');
 const cronService = require('../src/services/cronService');
@@ -89,11 +90,11 @@ describeIntegration('contract expiry actions (real MongoDB)', () => {
     if (!process.env.MONGO_URI) throw new Error('MONGO_URI is required');
     await mongoose.connect(process.env.MONGO_URI, { dbName: databaseName, autoIndex: false, autoCreate: true, serverSelectionTimeoutMS: 30_000 });
     if (!mongoose.connection.name.startsWith('stkr_expiry_it_')) throw new Error(`Refusing to test against ${mongoose.connection.name}`);
-    for (const model of [ExpiryAction, KiteInstrument, Master, Trade, TradeWriteLease, Transaction, User]) await model.syncIndexes();
+    for (const model of [ExpiryAction, KiteInstrument, Master, Trade, TradeWriteLease, Transaction, User, Watchlist]) await model.syncIndexes();
   });
 
   beforeEach(async () => {
-    await Promise.all([ExpiryAction, KiteInstrument, Master, Trade, TradeWriteLease, Transaction, User].map((m) => m.deleteMany({})));
+    await Promise.all([ExpiryAction, KiteInstrument, Master, Trade, TradeWriteLease, Transaction, User, Watchlist].map((m) => m.deleteMany({})));
     resetCaches();
   });
 
@@ -122,6 +123,10 @@ describeIntegration('contract expiry actions (real MongoDB)', () => {
   test('CUT snapshots the close, waits for confirm, then closes at bid/ask and disables the contract', async () => {
     const { longUser, shortUser } = await seed();
     const cut = await ExpiryAction.create(baseAction('CUT', '2026-10-23T18:01:00Z'));
+    const [oldInst, nextInst] = await Promise.all([KiteInstrument.findOne({ instrument_token: '9101' }).lean(), KiteInstrument.findOne({ instrument_token: '9102' }).lean()]);
+    const watch = (owner, inst, order) => ({ kite_instrument_id: inst._id, instrument_token: inst.instrument_token, order, owner_id: owner._id, owner_type: 'User' });
+    // longUser watches only the old contract; shortUser already watches both.
+    await Watchlist.create([watch(longUser, oldInst, 3), watch(shortUser, oldInst, 1), watch(shortUser, nextInst, 2)]);
 
     // Just after the close: snapshot taken, but nothing closes without a confirm.
     await expiryActionService.runDue(new Date('2026-10-23T18:02:00Z'));
@@ -148,6 +153,12 @@ describeIntegration('contract expiry actions (real MongoDB)', () => {
     expect((await User.findById(longUser._id).lean()).wallet.MCX).toBe(100_000);
     expect((await User.findById(longUser._id).lean()).equity).toBe(100_040);
     expect((await KiteInstrument.findOne({ instrument_token: '9101' }).lean()).enabled).toBe(false);
+
+    // Watchlists: old contract moved to the next one in place, or dropped if already watched.
+    expect(a.result).toMatchObject({ watchlist_swapped: 1, watchlist_removed: 1 });
+    expect(await Watchlist.findOne({ owner_id: longUser._id, deleted_at: null }).lean()).toMatchObject({ instrument_token: '9102', order: 3 });
+    expect((await Watchlist.find({ owner_id: shortUser._id, deleted_at: null }).lean()).map((w) => w.instrument_token)).toEqual(['9102']);
+    expect(await Watchlist.countDocuments({ instrument_token: '9101', deleted_at: null })).toBe(0);
 
     // Re-running is harmless: nothing left open, no second close.
     await expiryActionService.transition(cut._id, 'pause', null).catch(() => {});

@@ -184,7 +184,7 @@ async function resolveCutInstruments(action) {
     instrument_type: 'FUT',
     expiry: { $gte: day, $lt: addUtcDays(day, 1) },
     deleted_at: null,
-  }).select('instrument_token tradingsymbol exchange segment last_price name').lean();
+  }).select('instrument_token tradingsymbol exchange segment last_price name expiry').lean();
   const names = new Set(action.names.map((n) => n.toUpperCase()));
   return rows.filter((r) => names.has(String(r.name).toUpperCase()));
 }
@@ -257,6 +257,46 @@ function notifyUser(userId, action) {
   } catch (_) {}
 }
 
+/**
+ * Every watchlist entry on a cut contract moves to that name's next
+ * contract, keeping its place in the list. Dropped instead when there is no
+ * next contract, or the owner already watches it. Apps show the change the
+ * next time their watchlist loads.
+ */
+async function swapWatchlistsToNextContract(instruments) {
+  const Watchlist = require('../models/Watchlist');
+  let swapped = 0;
+  let removed = 0;
+  for (const old of instruments) {
+    const oldToken = old.instrument_token.toString();
+    const entries = await Watchlist.find({ instrument_token: oldToken, deleted_at: null }).select('owner_id owner_type').lean();
+    if (entries.length === 0) continue;
+    const next = await KiteInstrument.findOne({
+      segment: old.segment,
+      instrument_type: 'FUT',
+      name: exactName(old.name),
+      expiry: { $gt: old.expiry },
+      deleted_at: null,
+    }).sort({ expiry: 1 }).select('_id instrument_token').lean();
+
+    for (const entry of entries) {
+      const alreadyWatching = next && await Watchlist.exists({
+        owner_id: entry.owner_id, owner_type: entry.owner_type, instrument_token: next.instrument_token.toString(), deleted_at: null,
+      });
+      if (next && !alreadyWatching) {
+        await Watchlist.updateOne({ _id: entry._id, deleted_at: null }, {
+          $set: { instrument_token: next.instrument_token.toString(), kite_instrument_id: next._id },
+        });
+        swapped++;
+      } else {
+        await Watchlist.updateOne({ _id: entry._id, deleted_at: null }, { $set: { deleted_at: new Date() } });
+        removed++;
+      }
+    }
+  }
+  return { swapped, removed };
+}
+
 async function executeCut(action) {
   let lease = null;
   try {
@@ -294,6 +334,9 @@ async function executeCut(action) {
       disabled = res.modifiedCount;
       invalidateSearchCache();
     }
+    // Watchlists move to the next contract even if some positions failed to
+    // close — the old contract is closed for trading either way.
+    const watch = action.continuous ? { swapped: 0, removed: 0 } : await swapWatchlistsToNextContract(instruments);
 
     const failures = [...result.failures, ...result.skipped].map((f) => ({ ...f, user_id: String(f.user_id) }));
     await ExpiryAction.updateOne({ _id: action._id }, {
@@ -301,10 +344,17 @@ async function executeCut(action) {
         status: failures.length ? 'failed' : 'done',
         executed_at: new Date(),
         error: failures.length ? `${failures.length} position(s) could not be closed — confirm again to retry` : null,
-        result: { contracts: disabled, open_positions: result.openPositions, positions_closed: result.squared, failures },
+        result: {
+          contracts: disabled,
+          open_positions: result.openPositions,
+          positions_closed: result.squared,
+          watchlist_swapped: watch.swapped,
+          watchlist_removed: watch.removed,
+          failures,
+        },
       },
     });
-    console.log(`🔴 [ExpiryActions] ${action.key}: closed ${result.squared}/${result.openPositions} position(s), ${disabled} contract(s) disabled, ${failures.length} failure(s)`);
+    console.log(`🔴 [ExpiryActions] ${action.key}: closed ${result.squared}/${result.openPositions} position(s), ${disabled} contract(s) disabled, watchlists ${watch.swapped} moved/${watch.removed} removed, ${failures.length} failure(s)`);
   } finally {
     await lease?.release();
   }

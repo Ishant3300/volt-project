@@ -45,6 +45,8 @@ const expiryActionSchema = new mongoose.Schema({
     contracts: { type: Number, default: 0 }, // enabled (OPEN) / disabled (CUT)
     open_positions: { type: Number, default: 0 },
     positions_closed: { type: Number, default: 0 },
+    watchlist_swapped: { type: Number, default: 0 }, // entries moved to the next contract
+    watchlist_removed: { type: Number, default: 0 }, // entries dropped (no next contract / already watched)
     failures: [{ _id: false, user_id: String, symbol: String, error: String }],
   },
   error: { type: String, default: null },
