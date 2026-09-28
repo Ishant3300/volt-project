@@ -83,11 +83,10 @@ const GROUPS = [
   {
     key: 'GIFT_NIFTY', label: 'GIFT NIFTY', exchangeLabel: 'GIFT NIFTY', segments: ['INDICES'],
     tradingsymbols: ['GIFT NIFTY'], continuous: true,
-    // Same timing as NSE futures (platform NSE close 15:40), by choice — even
-    // though NSE IX stops the expiring contract at 15:30 (circular 2129).
-    // The feed holds the expiring contract's quotes until 16:00, so a 15:41
-    // cut still prices at its last bid/ask.
-    calendar: 'NSE', open: null, cut: before(0), closeTime: '15:40',
+    // NSE IX stops the expiring contract at 15:30 IST (circular 2129) — the
+    // cut runs at 15:31, same moment as the automatic GIFT expiry close in
+    // cronService.js. The feed holds its quotes until 16:00.
+    calendar: 'NSE', open: null, cut: before(0), closeTime: '15:30',
   },
   {
     key: 'GLOBAL_FUT', label: 'GLOBAL futures', exchangeLabel: 'GLOBAL', segments: ['GLOBAL'],

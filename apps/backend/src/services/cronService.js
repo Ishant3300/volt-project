@@ -320,6 +320,23 @@ class CronService {
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(expirySquareOffMCX);
 
+        // ── GIFT NIFTY expiry close: 3:31 PM IST ─────────────────────────
+        // NSE IX stops the expiring NIFTY contract at 15:30 IST on expiry day
+        // (consolidated circular NSEIFSC/TRADE/2129, "Expiry Day - Trade
+        // timings 06.15 AM to 3.30 PM"), so open GIFT NIFTY positions close
+        // right then at its last bid/ask (giftNiftyFeedService holds the
+        // expiring contract's quotes until 16:00) — not with NSE at 3:46 PM.
+        const giftExpiryClose = cron.schedule('31 15 * * 1-5', async () => {
+            console.log('📊 [CRON] GIFT NIFTY expiry close (NSE IX 3:30 PM stop)...');
+            try {
+                await this.autoSquareOffExpiredPositions({ onlyExchanges: ['NSEIX'] });
+                console.log('✅ [CRON] GIFT NIFTY expiry close completed.');
+            } catch (error) {
+                console.error('❌ [CRON] Error during GIFT NIFTY expiry close:', error);
+            }
+        }, { timezone: 'Asia/Kolkata' });
+        this.jobs.push(giftExpiryClose);
+
         // ── Contract expiry rules (config/expiryRules.js) ────────────────
         // Plan refresh every 30 min (and once now) — also closes newly loaded
         // contracts until their open day — then every minute run
@@ -601,6 +618,8 @@ class CronService {
      * @param {Date} [options.now]
      * @param {string[]} [options.skipSegments] - e.g. GLOBAL/COMEX on the 3:46 PM
      *   run: on their expiry day those still trade for hours after NSE's close.
+     * @param {string[]} [options.onlyExchanges] - e.g. ['NSEIX'] for the 3:31 PM
+     *   GIFT NIFTY run, right after NSE IX stops the expiring contract.
      */
     async autoSquareOffExpiredPositions(options = {}) {
         const KiteInstrument = require('../models/KiteInstrument');
@@ -617,6 +636,7 @@ class CronService {
 
             const filter = { expiry: { $gte: today, $lt: tomorrow }, deleted_at: null };
             if (options.skipSegments?.length) filter.segment = { $nin: options.skipSegments };
+            if (options.onlyExchanges?.length) filter.exchange = { $in: options.onlyExchanges };
             const expiredInstruments = await KiteInstrument.find(filter)
                 .select('instrument_token tradingsymbol exchange last_price segment').lean();
 

@@ -201,6 +201,29 @@ describeIntegration('contract expiry actions (real MongoDB)', () => {
     expect(await Trade.countDocuments({ instrument_token: '9201' })).toBe(1); // GLOBAL untouched
   });
 
+  test('3:31 PM GIFT NIFTY run closes only NSE IX contracts expiring today, at the bid', async () => {
+    const { longUser } = await seed();
+    const now = new Date('2026-10-30T10:01:00Z'); // 15:31 IST
+    await KiteInstrument.create({
+      instrument_token: '291849', exchange_token: '2918499', tradingsymbol: 'GIFT NIFTY', name: 'GIFT NIFTY', raw_name: 'GIFT NIFTY',
+      last_price: 23000, expiry: d('2026-10-30'), strike: 0, tick_size: 0.5, lot_size: 1, instrument_type: 'EQ', segment: 'INDICES', exchange: 'NSEIX',
+    });
+    await Trade.create({
+      user_id: longUser._id, master_id: longUser.master_id, instrument_token: '291849', tradingsymbol: 'GIFT NIFTY', exchange: 'NSEIX',
+      transaction_type: 'BUY', quantity: 2, price: 22900, order_type: 'MARKET', status: 'completed',
+      executed_at: new Date('2026-10-20T06:00:00Z'), executed_price: 22900, executed_quantity: 2, pnl: 0,
+    });
+    metricsEngine._bidMap.set('291849', 23010);
+    metricsEngine._askMap.set('291849', 23011);
+
+    await cronService.autoSquareOffExpiredPositions({ now, onlyExchanges: ['NSEIX'] });
+
+    const closes = await Trade.find({ trade_type: 'margin_square_off' }).lean();
+    expect(closes.map((t) => [t.instrument_token, t.transaction_type, t.executed_price])).toEqual([['291849', 'SELL', 23010]]);
+    // The MCX contract expiring the same day is left for its own run.
+    expect(await Trade.countDocuments({ instrument_token: '9101', trade_type: 'margin_square_off' })).toBe(0);
+  });
+
   test('a contract loaded after the cutoff starts closed until its open day — once only', async () => {
     const { NEW_CONTRACTS_CLOSED_FROM } = require('../src/config/expiryRules');
     const idAt = (ms) => mongoose.Types.ObjectId.createFromTime(Math.floor((NEW_CONTRACTS_CLOSED_FROM.getTime() + ms) / 1000));
