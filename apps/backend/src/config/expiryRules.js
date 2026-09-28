@@ -91,6 +91,18 @@ const GROUPS = [
     calendar: 'NSE', open: { type: 'EXPIRY_WEEK_MONDAY' }, cut: before(0), closeTime: '15:30',
   },
   {
+    // NFO options — every underlying (NIFTY weekly, other index/stock
+    // monthly): only the current expiry is open; the next one opens 1
+    // working day before the current expires. Nothing further out is open —
+    // enforced (reconcile), incl. strikes the daily Kite sync adds later.
+    // No scheduled cut: open positions close on expiry day at 3:46 PM
+    // (cronService expiry close), as before.
+    key: 'NFO_OPT', label: 'NFO options', exchangeLabel: 'NSE', segments: ['NFO-OPT'],
+    names: null, instrumentTypes: ['CE', 'PE'], reconcile: true,
+    effectiveFrom: '2026-09-28', // takes effect at once (the 29 Sep → next expiry open is due today)
+    calendar: 'NSE', open: before(1), cut: null, closeTime: '15:40',
+  },
+  {
     key: 'GLOBAL_FUT', label: 'GLOBAL futures', exchangeLabel: 'GLOBAL', segments: ['GLOBAL'],
     names: null,
     calendar: 'WEEKDAYS', open: before(0), cut: before(0), closeTime: '23:30',

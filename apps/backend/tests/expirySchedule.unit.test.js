@@ -91,6 +91,20 @@ describe('planGroup against the real upcoming contracts', () => {
     expect(a['NSE_FUT|CUT|2026-10-27'].execute_at.toISOString()).toBe('2026-10-27T10:11:00.000Z'); // 15:41 IST
   });
 
+  test('NFO options: next expiry opens 1 working day before the current one; no scheduled cut', () => {
+    const g = group('NFO_OPT');
+    const opts = { ...OPTS, effectiveFrom: g.effectiveFrom };
+    const nifty = byKey(planGroup(g, ['2026-09-29', '2026-10-06', '2026-10-13', '2026-10-19'].map((e) => ({ name: 'NIFTY', expiry: d(e) })), NSE, opts));
+    expect(nifty['NFO_OPT|OPEN|2026-09-29']).toMatchObject({ action_date: '2026-09-28' });
+    expect(nifty['NFO_OPT|OPEN|2026-10-06']).toMatchObject({ action_date: '2026-10-05' });
+    expect(nifty['NFO_OPT|OPEN|2026-10-13']).toMatchObject({ action_date: '2026-10-12' });
+    // Expiry moved to Mon 19 Oct (20 Oct holiday): its next week opens Fri 16 Oct.
+    expect(nifty['NFO_OPT|OPEN|2026-10-19']).toBeUndefined(); // no further week known yet
+    expect(Object.keys(nifty).filter((k) => k.includes('|CUT|'))).toEqual([]);
+    const stock = byKey(planGroup(g, ['2026-09-29', '2026-10-27'].map((e) => ({ name: 'RELIANCE', expiry: d(e) })), NSE, opts));
+    expect(stock['NFO_OPT|OPEN|2026-09-29'].targets).toEqual([{ name: 'RELIANCE', expiry: d('2026-10-27') }]);
+  });
+
   test('GLOBAL futures open and cut on expiry day; GIFT NIFTY months follow NSE futures', () => {
     const g = byKey(planGroup(group('GLOBAL_FUT'), [
       { name: 'S&P 500', expiry: d('2026-12-18') }, { name: 'S&P 500', expiry: d('2027-03-19') },

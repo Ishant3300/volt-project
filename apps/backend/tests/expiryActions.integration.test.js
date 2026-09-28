@@ -252,6 +252,40 @@ describeIntegration('contract expiry actions (real MongoDB)', () => {
     expect((await KiteInstrument.findOne({ instrument_token: '9301' }).lean()).enabled).toBe(true);
   });
 
+  test('NFO options: only current + next stay open; the open step opens every strike of the next expiry', async () => {
+    const { GROUPS } = require('../src/config/expiryRules');
+    const g = GROUPS.find((x) => x.key === 'NFO_OPT');
+    const opt = (token, expiry, strike, type, enabled) => ({
+      instrument_token: token, exchange_token: `${token}9`, tradingsymbol: `NIFTY${token}${type}`, name: 'NIFTY', raw_name: 'NIFTY',
+      expiry: d(expiry), strike, tick_size: 0.05, lot_size: 65, instrument_type: type, segment: 'NFO-OPT', exchange: 'NFO', enabled,
+    });
+    await KiteInstrument.create([
+      opt('7001', '2026-09-29', 25000, 'CE', true),
+      opt('7002', '2026-10-06', 25000, 'CE', false), opt('7003', '2026-10-06', 25000, 'PE', false),
+      opt('7004', '2026-10-13', 25000, 'CE', true), // stray: far week open
+      opt('7005', '2026-10-13', 25100, 'PE', false),
+    ]);
+    const contracts = ['2026-09-29', '2026-10-06', '2026-10-13'].map((e) => ({ name: 'NIFTY', expiry: d(e) }));
+    const { reconcileOpenWindow, executeOpen } = expiryActionService._private;
+
+    // Before the open day (Fri 25 Sep): only the current week may be open.
+    expect(await reconcileOpenWindow(g, contracts, null, new Date('2026-09-25T04:00:00Z'))).toBe(1);
+    expect((await KiteInstrument.findOne({ instrument_token: '7004' }).lean()).enabled).toBe(false);
+
+    // Open day (Mon 28 Sep): the OPEN action opens both strikes of 6 Oct.
+    const open = await ExpiryAction.create({
+      key: 'NFO_OPT|OPEN|2026-09-29', group_key: 'NFO_OPT', group_label: 'NFO options', exchange_label: 'NSE', kind: 'OPEN',
+      segments: ['NFO-OPT'], names: ['NIFTY'], current_expiry: d('2026-09-29'), targets: [{ name: 'NIFTY', expiry: d('2026-10-06') }],
+      action_date: '2026-09-28', execute_at: new Date('2026-09-28T02:30:00Z'), status: 'running',
+    });
+    await executeOpen(await ExpiryAction.findById(open._id).lean());
+    const oct6 = await KiteInstrument.find({ expiry: d('2026-10-06') }).lean();
+    expect(oct6.map((i) => i.enabled)).toEqual([true, true]);
+    // …and the window rule keeps both current + next open, 13 Oct still closed.
+    expect(await reconcileOpenWindow(g, contracts, null, new Date('2026-09-28T05:00:00Z'))).toBe(0);
+    expect((await KiteInstrument.find({ expiry: d('2026-10-13') }).lean()).map((i) => i.enabled)).toEqual([false, false]);
+  });
+
   test('announcement text follows the circulated format', async () => {
     await ExpiryAction.create([
       baseAction('OPEN', '2026-10-22T02:30:00Z', { action_date: '2026-10-22', names: ['COPPER', 'ZINC'], targets: [{ name: 'COPPER', expiry: d('2026-11-30') }, { name: 'ZINC', expiry: d('2026-11-30') }] }),

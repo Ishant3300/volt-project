@@ -26,6 +26,8 @@ const { beginTradeWrite } = require('./tradeWriteFenceService');
 const { closeOpenPositions, bidAskPrice } = require('./positionCloseService');
 
 const groupByKey = new Map(GROUPS.map((g) => [g.key, g]));
+/** Contract types a rule group covers — futures unless it says otherwise (NFO options: CE/PE). */
+const typesOf = (group) => ({ $in: (group && group.instrumentTypes) || ['FUT'] });
 const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const exactName = (name) => new RegExp(`^${escapeRegex(name)}$`, 'i');
 
@@ -64,7 +66,7 @@ async function loadContracts(group, today) {
     return expiries.filter((e) => e >= today).map((expiry) => ({ name, expiry }));
   }
   const rows = await KiteInstrument.aggregate([
-    { $match: { segment: { $in: group.segments }, instrument_type: 'FUT', is_active: true, deleted_at: null, expiry: { $gte: today } } },
+    { $match: { segment: { $in: group.segments }, instrument_type: typesOf(group), is_active: true, deleted_at: null, expiry: { $gte: today } } },
     { $group: { _id: { name: '$name', expiry: '$expiry' } } },
   ]);
   const wanted = group.names ? new Set(group.names.map((n) => n.toUpperCase())) : null;
@@ -102,7 +104,7 @@ async function refreshPlan(now = new Date()) {
     try {
       const contracts = await loadContracts(group, today);
       const holidays = await loadHolidays(group.calendar, contracts);
-      const planned = planGroup(group, contracts, holidays, { effectiveFrom: EFFECTIVE_FROM, openTime: OPEN_TIME });
+      const planned = planGroup(group, contracts, holidays, { effectiveFrom: group.effectiveFrom || EFFECTIVE_FROM, openTime: OPEN_TIME });
       const keys = new Set(planned.map((a) => a.key));
 
       for (const a of planned) {
@@ -132,6 +134,7 @@ async function refreshPlan(now = new Date()) {
         { group_key: group.key, status: { $in: ['planned', 'confirmed', 'paused'] }, action_date: { $gte: todayKey }, key: { $nin: [...keys] } },
         { $set: { status: 'obsolete' } },
       );
+      if (group.reconcile) await reconcileOpenWindow(group, contracts, holidays, now);
     } catch (e) {
       console.error(`❌ [ExpiryActions] Planning failed for ${group.key}: ${e.message}`);
       errors.push({ group: group.key, label: group.label, error: e.message });
@@ -153,6 +156,58 @@ async function refreshPlan(now = new Date()) {
   return { errors };
 }
 
+/**
+ * Enforce "only current + next open" for a reconcile group (NFO options):
+ * per underlying, the current expiry and — from its open day, 1 working day
+ * before the current expires — the next one may be open; every strike in
+ * any later expiry is closed, including strikes the daily sync adds later.
+ * Never opens anything (the OPEN action does that) and never touches
+ * existing positions (a closed contract is closing-only).
+ */
+async function reconcileOpenWindow(group, contracts, holidays, now) {
+  const { workingDaysBefore } = require('./expirySchedule');
+  const today = toIndiaDateOnly(now);
+  const byName = new Map();
+  for (const c of contracts) {
+    const k = String(c.name);
+    if (!byName.has(k)) byName.set(k, new Set());
+    byName.get(k).add(dateKey(c.expiry));
+  }
+  // Names sharing the same allowed-expiry set share one update.
+  const byAllowed = new Map();
+  for (const [name, keys] of byName) {
+    const sorted = [...keys].sort();
+    const allowed = [sorted[0]];
+    if (sorted[1]) {
+      const openDay = workingDaysBefore(new Date(`${sorted[0]}T00:00:00Z`), group.open.days, holidays);
+      if (dateKey(today) >= dateKey(openDay)) allowed.push(sorted[1]);
+    }
+    const k = allowed.join(',');
+    if (!byAllowed.has(k)) byAllowed.set(k, { allowed, names: [] });
+    byAllowed.get(k).names.push(name);
+  }
+  let closed = 0;
+  for (const { allowed, names } of byAllowed.values()) {
+    const res = await KiteInstrument.updateMany(
+      {
+        segment: { $in: group.segments },
+        instrument_type: typesOf(group),
+        name: { $in: names },
+        expiry: { $gte: today, $nin: allowed.map((k) => new Date(`${k}T00:00:00Z`)) },
+        enabled: { $ne: false },
+        deleted_at: null,
+      },
+      { $set: { enabled: false, ban_reason: 'Opens for trading 1 working day before the previous expiry', banned_at: now } },
+    );
+    closed += res.modifiedCount;
+  }
+  if (closed) {
+    invalidateSearchCache();
+    console.log(`🔒 [ExpiryActions] ${group.label}: closed ${closed} contract(s) outside the current + next window`);
+  }
+  return closed;
+}
+
 async function targetTokens(action) {
   const tokens = [];
   for (const t of action.targets || []) {
@@ -172,7 +227,7 @@ async function refreshRolloverTokens() {
   // Any next contract that is open for trading — opened by the schedule OR
   // by hand (Expiry management → Open expiry): every enabled future in a
   // ruled segment that isn't the nearest expiry of its name.
-  const segments = [...new Set(GROUPS.filter((g) => !g.continuous).flatMap((g) => g.segments))];
+  const segments = [...new Set(GROUPS.filter((g) => !g.continuous && !g.instrumentTypes).flatMap((g) => g.segments))];
   const today = toIndiaDateOnly(new Date());
   const futures = await KiteInstrument.find({ segment: { $in: segments }, instrument_type: 'FUT', is_active: true, expiry: { $gte: today }, deleted_at: null })
     .select('instrument_token segment name expiry enabled').lean();
@@ -218,7 +273,7 @@ async function closeNewTargetsUntilOpen(now) {
         {
           _id: { $gt: cutoff },
           segment: { $in: action.segments },
-          instrument_type: 'FUT',
+          instrument_type: typesOf(groupByKey.get(action.group_key)),
           name: exactName(t.name),
           expiry: { $gte: day, $lt: addUtcDays(day, 1) },
           enabled: { $ne: false },
@@ -247,7 +302,7 @@ async function resolveCutInstruments(action) {
   const day = new Date(action.current_expiry);
   const rows = await KiteInstrument.find({
     segment: { $in: action.segments },
-    instrument_type: 'FUT',
+    instrument_type: typesOf(group),
     expiry: { $gte: day, $lt: addUtcDays(day, 1) },
     deleted_at: null,
   }).select('instrument_token tradingsymbol exchange segment last_price name expiry').lean();
@@ -293,7 +348,7 @@ async function executeOpen(action) {
     const res = await KiteInstrument.updateMany(
       {
         segment: { $in: action.segments },
-        instrument_type: 'FUT',
+        instrument_type: typesOf(groupByKey.get(action.group_key)),
         name: exactName(t.name),
         expiry: { $gte: day, $lt: addUtcDays(day, 1) },
         deleted_at: null,
@@ -604,5 +659,5 @@ module.exports = {
   transition,
   buildAnnouncement,
   publishAnnouncement,
-  _private: { formatDay, formatTime, captureSnapshot, executeCut, executeOpen, closeNewTargetsUntilOpen, refreshRolloverTokensForTest: refreshRolloverTokens },
+  _private: { reconcileOpenWindow, formatDay, formatTime, captureSnapshot, executeCut, executeOpen, closeNewTargetsUntilOpen, refreshRolloverTokensForTest: refreshRolloverTokens },
 };
