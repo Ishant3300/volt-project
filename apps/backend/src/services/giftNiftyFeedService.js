@@ -92,6 +92,35 @@ function listedExpiries(rows, now = new Date()) {
 
 const BROWSER_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 const NSEIX_URL = 'https://www.nseix.com/api/derivatives-watch?inst_type1=IDX&inst_type2=STK&type=live';
+
+/**
+ * Day fields for a GIFT tick, from the contract's own NSE IX row — the same
+ * open/high/low/close/change/change_percent a Kite tick carries, so the
+ * watchlist shows them (ticks used to carry only last/bid/ask, leaving the
+ * monthly contracts blank). NSE IX's OPEN/HIGH/LOW are the current session,
+ * CLOSE is the previous settlement (matches settlement_price), and change is
+ * last − close. A missing field is left out, so it never blanks a value.
+ */
+function dayFields(row, last) {
+  const num = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  const out = {};
+  const open = num(row.OPEN);
+  const high = num(row.HIGH);
+  const low = num(row.LOW);
+  const close = num(row.CLOSE);
+  if (open != null) out.open = open;
+  if (high != null) out.high = high;
+  if (low != null) out.low = low;
+  if (close != null) {
+    out.close = close;
+    out.change = Math.round((last - close) * 100) / 100;
+    out.change_percent = Math.max(-100, Math.min(1000, ((last - close) / close) * 100));
+  }
+  return out;
+}
 // Was 15s — average staleness of a periodic poll is ~half the interval, so a
 // 15s poll meant bid/ask could lag NSEIX's own feed by up to 15s and ~7.5s on
 // average, reported as a "3-5s delay" in practice. NSEIX showed no rate
@@ -128,7 +157,7 @@ class GiftNiftyFeedService {
     await require('./giftNiftyContracts').ensureContracts(expiries);
   }
 
-  /** Each monthly contract's own live bid/ask, from its own NSE IX row. */
+  /** Each monthly contract's own live bid/ask (and day OHLC/change), from its own NSE IX row. */
   _tickMonthlyContracts(rows, now = Date.now()) {
     const { contractToken, MONTHLY_FROM } = require('./giftNiftyContracts');
     const ticks = [];
@@ -142,7 +171,7 @@ class GiftNiftyFeedService {
       if (!Number.isNaN(ts.getTime()) && now - ts.getTime() > STALE_THRESHOLD_MS) continue;
       const last = Number(r.LASTPRICE);
       if (!Number.isFinite(last) || last <= 0) continue;
-      ticks.push({ instrument_token: contractToken(expiry), last_price: last, bid_price: Number(r.BIDPRICE) || last, ask_price: Number(r.ASKPRICE) || last });
+      ticks.push({ instrument_token: contractToken(expiry), last_price: last, bid_price: Number(r.BIDPRICE) || last, ask_price: Number(r.ASKPRICE) || last, ...dayFields(r, last) });
     }
     if (ticks.length === 0) return ticks;
     const metricsEngine = require('./metricsEngine');
@@ -305,6 +334,7 @@ class GiftNiftyFeedService {
           last_price: lastPrice,
           bid_price: bidPrice,
           ask_price: askPrice,
+          ...dayFields(row, lastPrice),
         }],
       });
     } catch (error) {
@@ -315,4 +345,4 @@ class GiftNiftyFeedService {
 
 module.exports = new GiftNiftyFeedService();
 module.exports.isGiftExpiryHalt = isGiftExpiryHalt;
-module.exports._private = { parseNseixDate, parseNseixTimestamp, isPastExpiry, listedExpiries, CONTINUOUS_RETIRE_AT };
+module.exports._private = { parseNseixDate, parseNseixTimestamp, isPastExpiry, listedExpiries, CONTINUOUS_RETIRE_AT, dayFields };

@@ -70,3 +70,20 @@ describe('GIFT NIFTY expiries from NSEIX', () => {
     expect(c).toMatchObject({ name: 'GIFT NIFTY', raw_name: 'GIFT NIFTY', segment: 'INDICES', exchange: 'NSEIX', instrument_type: 'FUT', enabled: false });
   });
 });
+
+describe('GIFT tick day fields (OHLC / change) from the NSEIX row', () => {
+  const { dayFields } = feed._private;
+  // Real NSEIX row, 28 Sep 2026 20:55 — Oct contract.
+  const oct = { OPEN: 23228, HIGH: 23237.5, LOW: 22829.5, CLOSE: 22876, CHANGE: -9.5, PERCHANGE: -0.04 };
+
+  test('open/high/low from the session, close = previous settlement, change = last - close', () => {
+    const f = dayFields(oct, 22866.5);
+    expect(f).toMatchObject({ open: 23228, high: 23237.5, low: 22829.5, close: 22876, change: -9.5 });
+    expect(f.change_percent).toBeCloseTo(-0.0415, 3);
+  });
+
+  test('missing / zero fields are left out, never sent as 0', () => {
+    expect(dayFields({ OPEN: 0, HIGH: '', LOW: undefined, CLOSE: null }, 22866.5)).toEqual({});
+    expect(dayFields({ HIGH: 23000 }, 22866.5)).toEqual({ high: 23000 });
+  });
+});
