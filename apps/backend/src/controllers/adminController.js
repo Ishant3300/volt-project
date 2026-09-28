@@ -10,6 +10,7 @@ const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
 const { applyWalletFunding } = require('./walletController');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
+const { masterScriptQtyGate } = require('../services/scriptQuantityGate');
 
 // Create User
 const createUser = async (req, res) => {
@@ -969,46 +970,10 @@ const createScriptQuantity = async (req, res) => {
     }
 
     if (req.master) {
-      let targetUser = null;
-      if (effectiveOwnerId !== req.master.id) {
-        if (effectiveOwnerType !== 'User') {
-          return res.status(403).json({ success: false, message: 'Not authorized to create for this owner type' });
-        }
-        targetUser = await User.findById(effectiveOwnerId);
-        if (!targetUser || targetUser.master_id.toString() !== req.master.id) {
-          return res.status(403).json({ success: false, message: 'Not authorized to create for this user' });
-        }
-      }
-
-      let ceilingLimit;
-      if (effectiveOwnerId === req.master.id) {
-        const adminGlobal = await ScriptQuantity.findOne({ owner_type: 'Admin', exchange_name, script_name, deleted_at: null }).lean();
-        if (!adminGlobal) {
-          return res.status(400).json({ success: false, message: 'Admin has not set a global limit for this script' });
-        }
-        ceilingLimit = adminGlobal.max_qty;
-      } else {
-        // Ceiling is the TARGET USER's own assigned Group for this exchange
-        // — not the master's own ScriptQuantity value (that was the bug:
-        // it checked whatever number happened to be on the master's own
-        // account, unrelated to which Group the user was actually
-        // assigned). A master can lower a user's limit within their
-        // group's max; raising above it requires switching the user to a
-        // different group first (see reseedUserScriptQuantityForExchange).
-        const normalizedExchange = exchange_name.toUpperCase();
-        const userExchange = targetUser.exchanges_allowed.find(ex => ex.exchange_name === normalizedExchange);
-        if (!userExchange || !userExchange.group_name) {
-          return res.status(400).json({ success: false, message: 'This user has no group assigned for this exchange' });
-        }
-        const groupLimit = await GroupedQuantity.findOne({ exchange_name: normalizedExchange, lot_name: userExchange.group_name, raw_name: script_name, deleted_at: null }).lean();
-        if (!groupLimit) {
-          return res.status(400).json({ success: false, message: `No limit found in group "${userExchange.group_name}" for this script` });
-        }
-        ceilingLimit = groupLimit.max_qty;
-      }
-
-      if (max_qty > ceilingLimit) {
-        return res.status(400).json({ success: false, message: `max_qty cannot exceed limit of ${ceilingLimit}` });
+      const gate = await masterScriptQtyGate(req.master.id, effectiveOwnerId, effectiveOwnerType, exchange_name, script_name);
+      if (gate.error) return res.status(gate.error.status).json({ success: false, message: gate.error.message });
+      if (max_qty > gate.ceiling) {
+        return res.status(400).json({ success: false, message: `max_qty cannot exceed limit of ${gate.ceiling}` });
       }
     }
 
@@ -1160,46 +1125,16 @@ const updateScriptQuantity = async (req, res) => {
     }
 
     if (req.master) {
-      let targetUser = null;
-      if (scriptQty.owner_id.toString() !== req.master.id) {
-        if (scriptQty.owner_type !== 'User') {
-          return res.status(403).json({ success: false, message: 'Not authorized to edit other masters' });
-        }
-        targetUser = await User.findById(scriptQty.owner_id);
-        if (!targetUser || targetUser.master_id.toString() !== req.master.id) {
-          return res.status(403).json({ success: false, message: 'Not authorized to edit this user' });
-        }
+      const ex = exchange_name || scriptQty.exchange_name;
+      const sc = script_name || scriptQty.script_name;
+      const gate = await masterScriptQtyGate(req.master.id, scriptQty.owner_id, scriptQty.owner_type, ex, sc);
+      // Not allowed at all → always refuse. A missing cap (no group/global
+      // limit) only matters when max_qty is being changed, as before.
+      if (gate.error && (gate.error.status === 403 || max_qty !== undefined)) {
+        return res.status(gate.error.status).json({ success: false, message: gate.error.message });
       }
-
-      if (max_qty !== undefined) {
-        let ceilingLimit;
-        const ex = exchange_name || scriptQty.exchange_name;
-        const sc = script_name || scriptQty.script_name;
-        if (scriptQty.owner_id.toString() === req.master.id) {
-          const adminGlobal = await ScriptQuantity.findOne({ owner_type: 'Admin', exchange_name: ex, script_name: sc, deleted_at: null }).lean();
-          if (!adminGlobal) {
-            return res.status(400).json({ success: false, message: 'Admin has not set a global limit for this script' });
-          }
-          ceilingLimit = adminGlobal.max_qty;
-        } else {
-          // Ceiling is the TARGET USER's own assigned Group for this
-          // exchange — not the master's own ScriptQuantity value. See the
-          // matching comment in createScriptQuantity for why.
-          const normalizedExchange = ex.toUpperCase();
-          const userExchange = targetUser.exchanges_allowed.find(e => e.exchange_name === normalizedExchange);
-          if (!userExchange || !userExchange.group_name) {
-            return res.status(400).json({ success: false, message: 'This user has no group assigned for this exchange' });
-          }
-          const groupLimit = await GroupedQuantity.findOne({ exchange_name: normalizedExchange, lot_name: userExchange.group_name, raw_name: sc, deleted_at: null }).lean();
-          if (!groupLimit) {
-            return res.status(400).json({ success: false, message: `No limit found in group "${userExchange.group_name}" for this script` });
-          }
-          ceilingLimit = groupLimit.max_qty;
-        }
-
-        if (max_qty > ceilingLimit) {
-          return res.status(400).json({ success: false, message: `max_qty cannot exceed limit of ${ceilingLimit}` });
-        }
+      if (max_qty !== undefined && max_qty > gate.ceiling) {
+        return res.status(400).json({ success: false, message: `max_qty cannot exceed limit of ${gate.ceiling}` });
       }
     }
 

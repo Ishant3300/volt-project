@@ -473,43 +473,14 @@ const bulkCreateScriptQuantity = async (req, res) => {
     const effectiveOwnerType = owner_id ? (owner_type || 'User') : (req.admin ? 'Admin' : 'Master');
 
     if (req.master) {
-      let targetUser = null;
-      if (effectiveOwnerId !== req.master.id) {
-        if (effectiveOwnerType !== 'User') {
-          return res.status(403).json({ success: false, message: 'Not authorized to create for this owner type' });
-        }
-        targetUser = await User.findById(effectiveOwnerId);
-        if (!targetUser || targetUser.master_id.toString() !== req.master.id) {
-          return res.status(403).json({ success: false, message: 'Not authorized to create for this user' });
-        }
-      }
-
-      // We only check against the first script for limit ceiling, as bulk applies the same limit.
-      const sampleScript = results[0]._id;
-      let ceilingLimit;
-      if (effectiveOwnerId === req.master.id) {
-        const adminGlobal = await ScriptQuantity.findOne({ owner_type: 'Admin', exchange_name: normalizedExchange, script_name: sampleScript, deleted_at: null }).lean();
-        if (!adminGlobal) {
-          return res.status(400).json({ success: false, message: 'Admin has not set global limits for this exchange' });
-        }
-        ceilingLimit = adminGlobal.max_qty;
-      } else {
-        // Ceiling is the TARGET USER's own assigned Group for this
-        // exchange — not the master's own ScriptQuantity value. See the
-        // matching fix in adminController.js's createScriptQuantity.
-        const userExchange = targetUser.exchanges_allowed.find(e => e.exchange_name === normalizedExchange);
-        if (!userExchange || !userExchange.group_name) {
-          return res.status(400).json({ success: false, message: 'This user has no group assigned for this exchange' });
-        }
-        const groupLimit = await GroupedQuantity.findOne({ exchange_name: normalizedExchange, lot_name: userExchange.group_name, raw_name: sampleScript, deleted_at: null }).lean();
-        if (!groupLimit) {
-          return res.status(400).json({ success: false, message: `No limit found in group "${userExchange.group_name}" for this script` });
-        }
-        ceilingLimit = groupLimit.max_qty;
-      }
-
-      if (default_max_qty > ceilingLimit) {
-        return res.status(400).json({ success: false, message: `max_qty cannot exceed limit of ${ceilingLimit}` });
+      // Same rule as the single create/update (services/scriptQuantityGate.js):
+      // self, any sub-broker below, or any client in the tree. We only check
+      // against the first script for the ceiling, as bulk applies one limit.
+      const { masterScriptQtyGate } = require('../services/scriptQuantityGate');
+      const gate = await masterScriptQtyGate(req.master.id, effectiveOwnerId, effectiveOwnerType, normalizedExchange, results[0]._id);
+      if (gate.error) return res.status(gate.error.status).json({ success: false, message: gate.error.message });
+      if (default_max_qty > gate.ceiling) {
+        return res.status(400).json({ success: false, message: `max_qty cannot exceed limit of ${gate.ceiling}` });
       }
     }
 
