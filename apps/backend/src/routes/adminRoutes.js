@@ -612,6 +612,19 @@ router.put('/instruments/expiry-toggle', authenticateAdmin, rejectIfAdminWatchOn
       searchService.invalidateCache();
     } catch (_) {}
 
+    // Opening a futures expiry by hand: put its contracts on the live feed
+    // right away (as the automatic OPEN does) so rollover into them has a
+    // price even if nobody is watching them yet. Futures only — an options
+    // expiry can exceed the Kite connection's token limit.
+    if (enabled !== false && (/-FUT$/.test(segment) || segment === 'GLOBAL')) {
+      try {
+        const opened = await KiteInstrument.find(filter).select('instrument_token').lean();
+        if (opened.length <= 1000) {
+          require('../services/livePriceService').ensureSubscribed(opened.map((i) => i.instrument_token));
+        }
+      } catch (_) {}
+    }
+
     res.json({
       success: true,
       message: `${result.modifiedCount} instrument(s) ${enabled ? 'enabled' : 'disabled'} for ${segment} expiry ${expiryDate.toISOString().slice(0, 10)}`,
