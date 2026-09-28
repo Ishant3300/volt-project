@@ -91,16 +91,19 @@ describe('planGroup against the real upcoming contracts', () => {
     expect(a['NSE_FUT|CUT|2026-10-27'].execute_at.toISOString()).toBe('2026-10-27T10:11:00.000Z'); // 15:41 IST
   });
 
-  test('GLOBAL futures open and cut on expiry day; GIFT NIFTY is cut only', () => {
+  test('GLOBAL futures open and cut on expiry day; GIFT NIFTY months follow NSE futures', () => {
     const g = byKey(planGroup(group('GLOBAL_FUT'), [
       { name: 'S&P 500', expiry: d('2026-12-18') }, { name: 'S&P 500', expiry: d('2027-03-19') },
     ], null, OPTS));
     expect(g['GLOBAL_FUT|OPEN|2026-12-18'].action_date).toBe('2026-12-18');
     expect(g['GLOBAL_FUT|CUT|2026-12-18'].action_date).toBe('2026-12-18');
 
-    const gift = planGroup(group('GIFT_NIFTY'), [{ name: 'GIFT NIFTY', expiry: d('2026-10-27') }], NSE, OPTS);
-    expect(gift.map((x) => x.kind)).toEqual(['CUT']);
-    expect(gift[0].action_date).toBe('2026-10-27');
-    expect(gift[0].execute_at.toISOString()).toBe('2026-10-27T10:01:00.000Z'); // 15:31 IST, right after NSE IX's 15:30 stop
+    const gift = byKey(planGroup(group('GIFT_NIFTY'), [
+      { name: 'GIFT NIFTY', expiry: d('2026-10-27') }, { name: 'GIFT NIFTY', expiry: d('2026-11-23') },
+    ], NSE, OPTS));
+    expect(gift['GIFT_NIFTY|OPEN|2026-10-27']).toMatchObject({ action_date: '2026-10-26' }); // Monday of expiry week
+    expect(gift['GIFT_NIFTY|OPEN|2026-10-27'].targets.map((t) => t.expiry)).toEqual([d('2026-11-23')]);
+    expect(gift['GIFT_NIFTY|CUT|2026-10-27'].action_date).toBe('2026-10-27');
+    expect(gift['GIFT_NIFTY|CUT|2026-10-27'].execute_at.toISOString()).toBe('2026-10-27T10:01:00.000Z'); // 15:31 IST, right after NSE IX's 15:30 stop
   });
 });

@@ -580,7 +580,9 @@ class LivePriceService {
       });
     } catch (_) {}
 
-    const tokens = Array.from(this.subscribedTokens);
+    // GIFT NIFTY monthly contracts are priced from NSE IX (giftNiftyFeedService),
+    // not Kite — their tokens (>= 9,900,000,000) never go to Kite.
+    const tokens = Array.from(this.subscribedTokens).filter(t => Number(t) < 9_900_000_000);
     if (tokens.length === 0) {
       console.log('📊 No tokens to subscribe');
       return;
@@ -957,7 +959,7 @@ class LivePriceService {
         const allTokens = new Set([
           ...Array.from(this.subscribedTokens).map(t => t.toString()),
           ...watchlistTokens.map(t => t.toString()),
-        ]);
+        ].filter(t => Number(t) < 9_900_000_000)); // NSE IX GIFT contracts: not Kite
 
         if (allTokens.size === 0) {
           console.log('📊 [refreshClosePrices] No tokens found, skipping.');
@@ -1100,7 +1102,7 @@ class LivePriceService {
         ...Array.from(this.subscribedTokens).map(t => t.toString()),
         ...watchlistTokens.map(t => t.toString()),
         ...positionTokens,
-      ]);
+      ].filter(t => Number(t) < 9_900_000_000)); // NSE IX GIFT contracts: not Kite
 
       if (allTokens.size === 0) {
         console.log('📊 [refreshSettlement] No relevant tokens, skipping.');

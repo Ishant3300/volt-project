@@ -11,8 +11,8 @@
  *   Crude           open 2, cut 1
  *   Natural gas     open 1, cut 1 (same day)
  *   NSE futures     open on the Monday of expiry week, cut on expiry day
- *   GIFT NIFTY      cut on expiry day (a single continuous instrument here —
- *                   the live feed rolls it itself, so there is nothing to open)
+ *   GIFT NIFTY      monthly contracts, like NSE futures: next month opens on the
+ *                   Monday of expiry week; cut when NSE IX stops it (3:30 PM)
  *   GLOBAL futures  open and cut on expiry day
  *   COMEX           same counts as the MCX counterpart
  * Opens run automatically; every cut needs an admin confirmation and then
@@ -81,12 +81,14 @@ const GROUPS = [
     calendar: 'NSE', open: { type: 'EXPIRY_WEEK_MONDAY' }, cut: before(0), closeTime: '15:40',
   },
   {
+    // Monthly contracts GIFTNIFTY26OCTFUT… (giftNiftyContracts.js), same
+    // timing as NSE futures: next month opens on the Monday of expiry week.
     key: 'GIFT_NIFTY', label: 'GIFT NIFTY', exchangeLabel: 'GIFT NIFTY', segments: ['INDICES'],
-    tradingsymbols: ['GIFT NIFTY'], continuous: true,
+    names: ['GIFT NIFTY'],
     // NSE IX stops the expiring contract at 15:30 IST (circular 2129) — the
     // cut runs at 15:31, same moment as the automatic GIFT expiry close in
     // cronService.js. The feed holds its quotes until 16:00.
-    calendar: 'NSE', open: null, cut: before(0), closeTime: '15:30',
+    calendar: 'NSE', open: { type: 'EXPIRY_WEEK_MONDAY' }, cut: before(0), closeTime: '15:30',
   },
   {
     key: 'GLOBAL_FUT', label: 'GLOBAL futures', exchangeLabel: 'GLOBAL', segments: ['GLOBAL'],

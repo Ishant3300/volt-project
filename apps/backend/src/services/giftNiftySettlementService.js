@@ -169,6 +169,25 @@ async function fetchAndApplyGiftNiftySettlement(targetDate, options = {}) {
   );
   console.log(`   ✅ [GiftNiftySettlement] GIFT NIFTY → ${settlementPrice} (${requestedKey}, near-month expiry).`);
 
+  // Monthly GIFTNIFTY…FUT contracts (giftNiftyContracts.js): each gets its
+  // OWN month's official settlement price from the same file.
+  const monthly = await KiteInstrument.find({ exchange: 'NSEIX', instrument_type: 'FUT', name: 'GIFT NIFTY', deleted_at: null })
+    .select('instrument_token tradingsymbol expiry').lean();
+  const futRows = rows.filter(r => r.instrumentType === 'FUTIDX' && r.symbol === 'NIFTY' && r.expiry);
+  const monthlyApplied = [];
+  for (const c of monthly) {
+    const row = futRows.find(r => dateKey(r.expiry) === dateKey(c.expiry));
+    if (!row) continue;
+    await KiteInstrument.updateOne({ instrument_token: c.instrument_token }, { $set: {
+      settlement_price: row.settlementPrice,
+      settlement_price_date: requestedDate,
+      settlement_price_source: 'NSEIX_OFFICIAL_DAILY_SETTLEMENT',
+      settlement_price_updated_at: updatedAt,
+    } });
+    monthlyApplied.push({ token: c.instrument_token.toString(), price: row.settlementPrice });
+    console.log(`   ✅ [GiftNiftySettlement] ${c.tradingsymbol} → ${row.settlementPrice} (${requestedKey}).`);
+  }
+
   if (options.applyToLivePrices !== false) {
     try {
       const livePriceService = require('./livePriceService');
@@ -177,6 +196,11 @@ async function fetchAndApplyGiftNiftySettlement(targetDate, options = {}) {
         livePriceService.latestPrices.set(token, settlementPrice);
         livePriceService.latestPrices.set(Number(token), settlementPrice);
         metricsEngine.onTick(token, settlementPrice, settlementPrice, settlementPrice);
+        for (const m of monthlyApplied) {
+          livePriceService.latestPrices.set(m.token, m.price);
+          livePriceService.latestPrices.set(Number(m.token), m.price);
+          metricsEngine.onTick(m.token, m.price, m.price, m.price);
+        }
         livePriceService._broadcastToClients({
           type: 'ticks',
           data: [{
@@ -186,7 +210,14 @@ async function fetchAndApplyGiftNiftySettlement(targetDate, options = {}) {
             ask_price: settlementPrice,
             close: settlementPrice,
             is_settlement: true,
-          }],
+          }, ...monthlyApplied.map(m => ({
+            instrument_token: m.token,
+            last_price: m.price,
+            bid_price: m.price,
+            ask_price: m.price,
+            close: m.price,
+            is_settlement: true,
+          }))],
         });
       }
     } catch (_) {
@@ -194,7 +225,7 @@ async function fetchAndApplyGiftNiftySettlement(targetDate, options = {}) {
     }
   }
 
-  return { updated: 1, settlementPrice, tradingDate: requestedKey };
+  return { updated: 1 + monthlyApplied.length, settlementPrice, monthly: monthlyApplied, tradingDate: requestedKey };
 }
 
 module.exports = {

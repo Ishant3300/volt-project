@@ -700,7 +700,7 @@ const placeTrade = async (req, res) => {
             // ever checked expiry at all. Date-only comparison (matches
             // fetchInstruments.js's own "expired" boundary) so trading is
             // still allowed through the end of the expiry day itself.
-            const instCheckExpiry = await KiteInstrument.findOne({ instrument_token }).select('enabled deleted_at expiry nse_banned ban_reason tradingsymbol').lean().session(session);
+            const instCheckExpiry = await KiteInstrument.findOne({ instrument_token }).select('enabled deleted_at expiry nse_banned ban_reason tradingsymbol exchange').lean().session(session);
             if (instCheckExpiry?.expiry) {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);

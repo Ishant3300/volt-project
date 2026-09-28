@@ -1,6 +1,7 @@
 const feed = require('../src/services/giftNiftyFeedService');
 
-const { parseNseixDate, isPastExpiry, listedExpiries } = feed._private;
+const { parseNseixDate, parseNseixTimestamp, isPastExpiry, listedExpiries } = feed._private;
+const contracts = require('../src/services/giftNiftyContracts');
 const d = (s) => new Date(`${s}T00:00:00.000Z`);
 const ist = (s) => new Date(`${s}+05:30`);
 // Shape of the real NSEIX derivatives-watch response (27 Sep 2026): each
@@ -41,13 +42,31 @@ describe('GIFT NIFTY expiries from NSEIX', () => {
     expect(feed._pickNearMonthFuture([], ist('2026-09-29T16:35:00'))).toBeNull();
   });
 
-  test('expiry day 3:30–4:00 PM is closing-only for GIFT NIFTY', () => {
-    const gift = { tradingsymbol: 'GIFT NIFTY', expiry: d('2026-09-29') };
+  test('expiry day 3:30–4:00 PM is closing-only for the expiring GIFT contract only', () => {
+    const gift = { tradingsymbol: 'GIFT NIFTY', exchange: 'NSEIX', expiry: d('2026-09-29') };
+    const octOnSepExpiry = { tradingsymbol: 'GIFTNIFTY26OCTFUT', exchange: 'NSEIX', expiry: d('2026-10-27') };
+    expect(feed.isGiftExpiryHalt(octOnSepExpiry, ist('2026-09-29T15:35:00'))).toBe(false); // next month trades on
+    expect(feed.isGiftExpiryHalt({ ...octOnSepExpiry }, ist('2026-10-27T15:35:00'))).toBe(true); // on its own expiry day
     expect(feed.isGiftExpiryHalt(gift, ist('2026-09-29T15:29:00'))).toBe(false);
     expect(feed.isGiftExpiryHalt(gift, ist('2026-09-29T15:30:00'))).toBe(true);
     expect(feed.isGiftExpiryHalt(gift, ist('2026-09-29T15:39:00'))).toBe(true);
     expect(feed.isGiftExpiryHalt(gift, ist('2026-09-29T16:00:00'))).toBe(false); // next month, session 2
     expect(feed.isGiftExpiryHalt(gift, ist('2026-09-28T15:35:00'))).toBe(false); // not expiry day
-    expect(feed.isGiftExpiryHalt({ tradingsymbol: 'NIFTY26SEPFUT', expiry: d('2026-09-29') }, ist('2026-09-29T15:35:00'))).toBe(false);
+    expect(feed.isGiftExpiryHalt({ tradingsymbol: 'NIFTY26SEPFUT', exchange: 'NFO', expiry: d('2026-09-29') }, ist('2026-09-29T15:35:00'))).toBe(false);
+  });
+
+  test('NSE IX timestamps are India time', () => {
+    expect(parseNseixTimestamp('28-Sep-2026 10:17:09').toISOString()).toBe('2026-09-28T04:47:09.000Z');
+    expect(Number.isNaN(parseNseixTimestamp('NA').getTime())).toBe(true);
+  });
+
+  test('monthly contracts: symbol like other futures, token outside the Kite range', () => {
+    expect(contracts.contractSymbol(d('2026-10-27'))).toBe('GIFTNIFTY26OCTFUT');
+    expect(contracts.contractSymbol(d('2027-01-26'))).toBe('GIFTNIFTY27JANFUT');
+    expect(contracts.contractToken(d('2026-10-27'))).toBe('9920261027');
+    expect(contracts.isGiftContractToken('9920261027')).toBe(true);
+    expect(contracts.isGiftContractToken('12468226')).toBe(false); // a Kite token
+    const c = contracts.buildContract(d('2026-11-23'), false);
+    expect(c).toMatchObject({ name: 'GIFT NIFTY', raw_name: 'GIFT NIFTY', segment: 'INDICES', exchange: 'NSEIX', instrument_type: 'FUT', enabled: false });
   });
 });

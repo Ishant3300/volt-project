@@ -30,6 +30,12 @@ const MONTHS = { JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5, JUL: 6, AUG: 7,
 // same time as NSE futures — config/expiryRules.js.)
 const EXPIRY_DAY_CUTOFF_MINUTE = 16 * 60;
 const EXPIRING_TRADING_END_MINUTE = (15 * 60) + 30;
+const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+// The continuous "GIFT NIFTY" instrument is closed for new trades once the
+// Sep 2026 contract it tracks has expired (29 Sep; its 3:31 PM close done) —
+// GIFT NIFTY trades as monthly contracts (giftNiftyContracts.js) from then.
+const CONTINUOUS_RETIRE_AT = new Date('2026-09-29T10:32:00.000Z'); // 29 Sep 2026 16:02 IST
+const CONTRACT_SYNC_MS = 10 * 60 * 1000;
 // Re-assert the stored near-month expiry at most this often — the daily
 // Kite instrument sync (fetchInstruments.js) rewrites GIFT NIFTY with
 // Kite's own, expiry-less record.
@@ -57,11 +63,20 @@ function isPastExpiry(expiry, now = new Date()) {
  * quote — so only closing orders are accepted then (tradeController).
  */
 function isGiftExpiryHalt(instrument, now = new Date()) {
-  if (!instrument || String(instrument.tradingsymbol || '').toUpperCase() !== 'GIFT NIFTY' || !instrument.expiry) return false;
+  // Any NSE IX GIFT NIFTY contract on its own expiry day — the continuous
+  // instrument or a monthly GIFTNIFTY…FUT; the next month is unaffected.
+  if (!instrument || String(instrument.exchange || '').toUpperCase() !== 'NSEIX' || !instrument.expiry) return false;
   const p = getIndiaDateTimeParts(now);
   const todayKey = `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
   const mins = p.hour * 60 + p.minute;
   return dateKey(instrument.expiry) === todayKey && mins >= EXPIRING_TRADING_END_MINUTE && mins < EXPIRY_DAY_CUTOFF_MINUTE;
+}
+
+/** NSEIX 'DD-Mon-YYYY HH:MM:SS' — India time — → absolute Date (invalid Date if unparseable). */
+function parseNseixTimestamp(value) {
+  const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{4}) (\d{2}):(\d{2}):(\d{2})$/.exec(String(value || '').trim());
+  if (!m || MONTHS[m[2].toUpperCase()] === undefined) return new Date(NaN);
+  return new Date(Date.UTC(Number(m[3]), MONTHS[m[2].toUpperCase()], Number(m[1]), Number(m[4]), Number(m[5]), Number(m[6])) - IST_OFFSET_MS);
 }
 
 /** NIFTY FUTIDX rows → sorted distinct expiries still trading as of `now`. */
@@ -99,6 +114,68 @@ class GiftNiftyFeedService {
     // the contract-expiry scheduler (expiryActionService) to plan GIFT NIFTY cuts.
     this._listedExpiries = [];
     this._listedAt = 0;
+    this._contractsSyncedAt = 0;
+    this._contractsKey = '';
+    this._continuousRetired = false;
+  }
+
+  /** Create monthly contracts NSE IX lists that don't exist yet (throttled). */
+  async _syncMonthlyContracts(expiries) {
+    const key = expiries.map((e) => dateKey(e)).join(',');
+    if (key === this._contractsKey && Date.now() - this._contractsSyncedAt < CONTRACT_SYNC_MS) return;
+    this._contractsKey = key;
+    this._contractsSyncedAt = Date.now();
+    await require('./giftNiftyContracts').ensureContracts(expiries);
+  }
+
+  /** Each monthly contract's own live bid/ask, from its own NSE IX row. */
+  _tickMonthlyContracts(rows, now = Date.now()) {
+    const { contractToken, MONTHLY_FROM } = require('./giftNiftyContracts');
+    const ticks = [];
+    const seen = new Set();
+    for (const r of rows) {
+      if (r.INSTRUMENTTYPE !== 'FUTIDX' || r.SYMBOL !== 'NIFTY') continue;
+      const expiry = parseNseixDate(r.EXPIRYDATE);
+      if (!expiry || dateKey(expiry) < MONTHLY_FROM || seen.has(dateKey(expiry))) continue;
+      seen.add(dateKey(expiry));
+      const ts = parseNseixTimestamp(r.TIMESTMP);
+      if (!Number.isNaN(ts.getTime()) && now - ts.getTime() > STALE_THRESHOLD_MS) continue;
+      const last = Number(r.LASTPRICE);
+      if (!Number.isFinite(last) || last <= 0) continue;
+      ticks.push({ instrument_token: contractToken(expiry), last_price: last, bid_price: Number(r.BIDPRICE) || last, ask_price: Number(r.ASKPRICE) || last });
+    }
+    if (ticks.length === 0) return ticks;
+    const metricsEngine = require('./metricsEngine');
+    const priceQueueService = require('./priceQueueService');
+    const lps = this.livePriceService;
+    for (const t of ticks) {
+      lps.latestPrices.set(t.instrument_token, t.last_price);
+      lps.latestPrices.set(Number(t.instrument_token), t.last_price);
+      metricsEngine.onTick(t.instrument_token, t.last_price, t.bid_price, t.ask_price);
+      // Pending limit/stop orders are matched off this, exactly as for Kite ticks.
+      priceQueueService.publishPriceUpdate(t.instrument_token, t.last_price);
+    }
+    lps._broadcastToClients({ type: 'ticks', data: ticks });
+    return ticks;
+  }
+
+  /** One-time: close the continuous instrument for new trades after its last month expired. */
+  async _retireContinuousIfDue(now = new Date()) {
+    if (this._continuousRetired || now < CONTINUOUS_RETIRE_AT) return;
+    this._continuousRetired = true;
+    const res = await KiteInstrument.collection.updateOne(
+      { instrument_token: this.instrumentToken, retired_to_monthly_at: { $exists: false } },
+      { $set: {
+        enabled: false,
+        ban_reason: 'GIFT NIFTY now trades as monthly contracts — search GIFTNIFTY (e.g. GIFTNIFTY26OCTFUT).',
+        banned_at: now,
+        retired_to_monthly_at: now,
+      } },
+    );
+    if (res.modifiedCount) {
+      console.log('🔒 [GiftNiftyFeed] Continuous "GIFT NIFTY" closed for new trades — monthly contracts from now on.');
+      try { require('./instrumentSearchService').invalidateCache(); } catch (_) {}
+    }
   }
 
   /** Listed GIFT NIFTY expiries (UTC-midnight Dates), freshest known. */
@@ -186,7 +263,12 @@ class GiftNiftyFeedService {
         // contract, valid even when there's no fresh quote (weekends, nights).
         await this._syncStoredExpiry(expiries[0])
           .catch((err) => console.warn(`⚠️  [GiftNiftyFeed] Failed to persist expiry: ${err.message}`));
+        await this._syncMonthlyContracts(expiries)
+          .catch((err) => console.warn(`⚠️  [GiftNiftyFeed] Monthly contract sync failed: ${err.message}`));
       }
+      this._tickMonthlyContracts(rows);
+      await this._retireContinuousIfDue()
+        .catch((err) => { this._continuousRetired = false; console.warn(`⚠️  [GiftNiftyFeed] Retire failed: ${err.message}`); });
       const row = this._pickNearMonthFuture(rows);
       if (!row) {
         console.warn('⚠️  [GiftNiftyFeed] No NIFTY FUTIDX row in NSEIX response.');
@@ -194,7 +276,7 @@ class GiftNiftyFeedService {
       }
 
       if (row.TIMESTMP && row.TIMESTMP !== 'NA') {
-        const tickAge = Date.now() - new Date(row.TIMESTMP.replace(/-/g, ' ')).getTime();
+        const tickAge = Date.now() - parseNseixTimestamp(row.TIMESTMP).getTime();
         if (Number.isFinite(tickAge) && tickAge > STALE_THRESHOLD_MS) {
           console.warn(`⚠️  [GiftNiftyFeed] NSEIX tick stale (${Math.round(tickAge / 1000)}s old) — skipping.`);
           return;
@@ -212,6 +294,9 @@ class GiftNiftyFeedService {
 
       const metricsEngine = require('./metricsEngine');
       metricsEngine.onTick(this.instrumentToken, lastPrice, bidPrice, askPrice);
+      // Pending limit/stop orders on GIFT NIFTY were never matched — only Kite
+      // ticks fed the order-matching queue (livePriceService). Same call here.
+      require('./priceQueueService').publishPriceUpdate(this.instrumentToken, lastPrice);
 
       lps._broadcastToClients({
         type: 'ticks',
@@ -230,4 +315,4 @@ class GiftNiftyFeedService {
 
 module.exports = new GiftNiftyFeedService();
 module.exports.isGiftExpiryHalt = isGiftExpiryHalt;
-module.exports._private = { parseNseixDate, isPastExpiry, listedExpiries };
+module.exports._private = { parseNseixDate, parseNseixTimestamp, isPastExpiry, listedExpiries, CONTINUOUS_RETIRE_AT };
