@@ -278,9 +278,13 @@ const createUser = async (req, res) => {
     // master in the caller's downline) when given, else the caller. That
     // master owns it end to end — its balance is debited, its account limit
     // and allotted groups apply, and its brokerage rates are copied/floored.
+    // Admin may create a client under ANY master (for_master_id required) —
+    // then it's exactly as if that master created it, funded by that master.
     const { resolveCreateParentId } = require('../services/masterHierarchyService');
-    const parentId = await resolveCreateParentId(req);
-    const actedByOther = parentId !== String(req.master.id);
+    const parentId = await resolveCreateParentId(req, { requireForAdmin: true });
+    const actedBy = req.admin ? { type: 'Admin', id: req.admin.id } : { type: 'Master', id: req.master.id };
+    const actedByOther = req.admin ? true : parentId !== String(req.master.id);
+    const walletActor = req.admin ? { type: 'Master', id: parentId } : undefined;
 
     await session.withTransaction(async () => {
       // Get parent master
@@ -377,7 +381,7 @@ const createUser = async (req, res) => {
         referenceModel: 'User',
         balanceBefore: prevMasterBalance,
         balanceAfter: parentMaster.equity,
-        metadata: { note: note || 'Deducted balance for new user creation', ...(actedByOther ? { acted_by: { type: 'Master', id: req.master.id } } : {}) }
+        metadata: { note: note || 'Deducted balance for new user creation', ...(actedByOther ? { acted_by: actedBy } : {}) }
       });
       await masterTx.save({ session });
 
@@ -417,7 +421,7 @@ const createUser = async (req, res) => {
       // (Requirement 5.3 — "rejected"). This wallet pool is independent of the
       // credits/equity debit above. No-op when req.body.wallet is absent.
       if (req.body.wallet) {
-        await applyWalletFunding({ req, targetType: 'User', targetId: user._id, walletMap: req.body.wallet, session });
+        await applyWalletFunding({ req, targetType: 'User', targetId: user._id, walletMap: req.body.wallet, session, actor: walletActor });
       }
 
       resultData = {

@@ -81,20 +81,24 @@ const createChildMaster = async (req, res) => {
     // a master in their downline, that master becomes the parent and owns it
     // end to end (its balance, add_master permission, account limit, sharing
     // and permission caps, and brokerage/script-quantity baseline).
-    let parentId = null;
-    if (isMaster) {
-      const { resolveCreateParentId } = require('../services/masterHierarchyService');
-      parentId = await resolveCreateParentId(req);
-    }
-    const actedByOther = isMaster && parentId !== String(req.master.id);
+    // Admin may name any master too (for_master_id) — then it's created
+    // exactly as if that master had created it; without one, admin creates
+    // a top-level master as before (parentId null).
+    const { resolveCreateParentId } = require('../services/masterHierarchyService');
+    const parentId = isAdmin || isMaster ? await resolveCreateParentId(req) : null;
+    const actedByOther = parentId != null && (isAdmin || parentId !== String(req.master.id));
+    const actedBy = isAdmin ? { type: 'Admin', id: req.admin.id } : { type: 'Master', id: req.master?.id };
+    // Who pays the inline wallet funding: the parent master when admin acts
+    // for one (funded like the master created it); otherwise the caller.
+    const walletActor = isAdmin && parentId ? { type: 'Master', id: parentId } : undefined;
 
     await session.withTransaction(async () => {
       let parentMaster = null;
 
-      if (isAdmin) {
+      if (isAdmin && !parentId) {
         adminId = req.admin.id;
         console.log('👑 Admin creating master, adminId:', adminId);
-      } else if (isMaster) {
+      } else if (parentId) {
         parentMaster = await Master.findById(parentId).session(session);
 
         if (!parentMaster) throw new Error('Parent master not found');
@@ -112,7 +116,7 @@ const createChildMaster = async (req, res) => {
         }
 
         adminId = parentMaster.admin_id;
-        console.log('👨‍💼 Master creating child master, parentId:', parentId, actedByOther ? `(on behalf, by ${req.master.id})` : '', 'adminId:', adminId);
+        console.log('👨‍💼 Master creating child master, parentId:', parentId, actedByOther ? `(on behalf, by ${actedBy.type} ${actedBy.id})` : '', 'adminId:', adminId);
       } else {
         throw new Error('Unauthorized');
       }
@@ -134,7 +138,7 @@ const createChildMaster = async (req, res) => {
       if (pnl_sharing < 0 || pnl_sharing > 100) throw new Error('P&L sharing must be between 0 and 100');
       if (brokerage_sharing < 0 || brokerage_sharing > 100) throw new Error('Brokerage sharing must be between 0 and 100');
 
-      if (isMaster && parentMaster) {
+      if (parentMaster) {
         if (parentMaster.pnl_sharing < pnl_sharing) {
           throw new Error(`Insufficient P&L sharing. Parent has: ${parentMaster.pnl_sharing}%, Requested: ${pnl_sharing}%`);
         }
@@ -143,7 +147,7 @@ const createChildMaster = async (req, res) => {
         }
       }
 
-      if (permissions && isMaster && parentMaster) {
+      if (permissions && parentMaster) {
         for (const [key, value] of Object.entries(permissions)) {
           if (value === true && parentMaster.permissions[key] !== true) {
             throw new Error(`Cannot grant permission '${key}' - parent master doesn't have this permission`);
@@ -223,7 +227,7 @@ const createChildMaster = async (req, res) => {
           referenceModel: 'Master',
           balanceBefore: prevMasterBalance,
           balanceAfter: parentMaster.equity,
-          metadata: { note: note || 'Deducted balance for new child master creation', ...(actedByOther ? { acted_by: { type: 'Master', id: req.master.id } } : {}) }
+          metadata: { note: note || 'Deducted balance for new child master creation', ...(actedByOther ? { acted_by: actedBy } : {}) }
         });
         await masterTx.save({ session });
       }
@@ -319,7 +323,7 @@ const createChildMaster = async (req, res) => {
       // INSUFFICIENT_WALLET and aborts the ENTIRE creation (Requirement 5.3). This
       // pool is independent of the credits/equity debit above. No-op when absent.
       if (req.body.wallet) {
-        await applyWalletFunding({ req, targetType: 'Master', targetId: childMaster._id, walletMap: req.body.wallet, session });
+        await applyWalletFunding({ req, targetType: 'Master', targetId: childMaster._id, walletMap: req.body.wallet, session, actor: walletActor });
       }
 
       resultData = { child_master: childMaster.toJSON() };

@@ -64,10 +64,36 @@ const getAdminHiddenMasterIds = async (admin) => {
  * owned by — and funded by — that master, not the one who pressed Create.
  * Throws an Error with `status: 403` if the target isn't in the caller's
  * downline.
+ *
+ * Admin caller: may create under ANY master (a sub-master or a client),
+ * exactly as if that master had created it — its balance/wallets fund it,
+ * its permissions, limits, sharing caps and groups apply. Returns null when
+ * admin gives no for_master_id (a top-level master, as before); with
+ * `requireForAdmin` (clients always need a master) that's a 400 instead.
+ * Acting on a master's books needs MASTER_EDIT_ANY, not watch-only, and the
+ * master must not be hidden from this admin (super admin: unrestricted).
  */
-async function resolveCreateParentId(req) {
-  const selfId = String(req.master.id);
+async function resolveCreateParentId(req, { requireForAdmin = false } = {}) {
   const forId = req.body && req.body.for_master_id ? String(req.body.for_master_id) : null;
+  if (req.admin) {
+    const fail = (status, message) => Object.assign(new Error(message), { status });
+    if (!forId) {
+      if (requireForAdmin) throw fail(400, 'Select the master this account belongs to');
+      return null;
+    }
+    if (!req.admin.isSuperAdmin) {
+      if (req.admin.watchOnly === true) throw fail(403, 'This action is not available in watch-only mode');
+      if (!(req.admin.permissions || []).includes('MASTER_EDIT_ANY')) throw fail(403, 'Missing required permission: MASTER_EDIT_ANY');
+      const hidden = await getAdminHiddenMasterIds(req.admin);
+      if (hidden.has(forId)) throw fail(403, 'Not authorized to create accounts for this master');
+    }
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(forId) || !(await Master.exists({ _id: forId, deleted_at: null }))) {
+      throw fail(404, 'Master not found');
+    }
+    return forId;
+  }
+  const selfId = String(req.master.id);
   if (!forId || forId === selfId) return selfId;
   const downline = await getAllSubMasterIds(selfId);
   if (!downline.includes(forId)) {

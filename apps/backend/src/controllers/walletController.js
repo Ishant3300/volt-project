@@ -110,8 +110,11 @@ function httpError(status, message) {
  *         when a master over-funds — the surrounding transaction (caller's, or
  *         this helper's own when none was passed) aborts as a whole.
  */
-async function applyWalletFunding({ req, targetType, targetId, walletMap, session = null }) {
-  const actor = resolveActor(req);
+async function applyWalletFunding({ req, targetType, targetId, walletMap, session = null, actor: actorOverride }) {
+  // actorOverride: admin creating an account ON BEHALF of a master passes
+  // that master here, so its pool funds the account (a transfer, exactly
+  // as if the master created it) instead of an admin grant.
+  const actor = actorOverride || resolveActor(req);
   if (!actor) {
     // Shouldn't happen on an authenticated route; guard so we never fund anonymously.
     throw httpError(401, 'Authentication required to fund a wallet');
