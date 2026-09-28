@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const { validateLogin } = require('../middlewares/validate');
-const { userLogin, adminLogin, masterLogin, userLogout, adminLogout, masterLogout, universalLogin, changePassword, getNotificationSettings, updateNotificationSettings, registerFcmToken, removeFcmToken, deleteAccount } = require('../controllers/authController');
+const { userLogin, adminLogin, masterLogin, userLogout, adminLogout, masterLogout, universalLogin, changePassword, getNotificationSettings, updateNotificationSettings, registerFcmToken, removeFcmToken } = require('../controllers/authController');
 const { authenticateUser, authenticateAdmin, authenticateMaster } = require('../middlewares/auth');
 const { authenticateAny } = require('../middlewares/auth');
 const { rejectIfInvestor } = require('../middlewares/rejectIfInvestor');
@@ -48,7 +48,14 @@ router.put('/notification-settings', authenticateAny, rejectIfInvestor, updateNo
 router.post('/fcm-token', authenticateAny, registerFcmToken);
 router.delete('/fcm-token', authenticateAny, removeFcmToken);
 
-// Delete account (any role — blocked in investor mode)
-router.delete('/account', authenticateAny, rejectIfInvestor, deleteAccount);
+// Self-service account deletion is switched OFF for every role (2026-09-28):
+// a client deleted their own funded account from the app, which hid it —
+// wallet and all — from their master's list with no notice. Accounts are
+// closed by their master/admin instead. (deleteAccount is kept in
+// authController.js, unused, in case this is ever re-enabled.)
+router.delete('/account', authenticateAny, (req, res) => res.status(403).json({
+  success: false,
+  message: 'Account deletion is not available in the app. Please contact your master or admin to close your account.',
+}));
 
 module.exports = router;
