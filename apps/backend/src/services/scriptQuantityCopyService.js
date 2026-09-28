@@ -67,6 +67,10 @@ async function copyFromGroupedQuantityToMaster(masterId, session, scriptQuantity
     const seen = new Set();
     for (const gq of groupedData) {
       if (picks.has(gq.exchange_name)) continue; // already handled explicitly above
+      // max_qty 0 now means "not tradable" (see tradeController's limit check) —
+      // only a group that is explicitly picked may block a script; this
+      // "first group found" fallback never copies a 0 (e.g. INDEX ONLY's).
+      if (!(Number(gq.max_qty) > 0)) continue;
       const key = `${gq.exchange_name}|${gq.raw_name}`;
       if (seen.has(key)) continue;
       seen.add(key);

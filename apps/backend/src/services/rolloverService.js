@@ -352,10 +352,17 @@ async function rolloverPositions({ targetUserId, tokens, actor }) {
         const p = plan[i];
         const ex = p.rawSegment === 'GLOBAL' ? 'INDICES' : p.rawSegment;
         const cfg = user.exchanges_allowed?.find((e) => (e.exchange_name || '').toUpperCase() === ex);
-        if (!(cfg?.turnover === true || cfg?.lot === true)) continue;
         const rawName = p.newInstrument.raw_name || p.newInstrument.name || null;
         const sq = (rawName && limitFor(ex, rawName)) || limitFor(ex, p.newInstrument.tradingsymbol);
         const limit = sq?.max_qty ?? null;
+        // max_qty 0 = script not tradable for this account (same rule as placeTrade) —
+        // the reopen would be a fresh position, so it's refused and the old one kept.
+        if (limit === 0) {
+          errors.push(rejection(p.token, p.oldInstrument.tradingsymbol, `${rawName || p.newInstrument.tradingsymbol} is not allowed for this account — no quantity allotted (max 0). Square it off instead of rolling over.`));
+          plan.splice(i, 1);
+          continue;
+        }
+        if (!(cfg?.turnover === true || cfg?.lot === true)) continue;
         if (limit === null || !(limit > 0)) continue;
         const absQty = Math.abs(p.expectedNet);
         const lotSize = sq?.lot_size || p.newInstrument.lot_size || 1;

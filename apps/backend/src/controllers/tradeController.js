@@ -206,6 +206,30 @@ async function _validateScriptQuantityLimit(user, instrument_token, transaction_
         }
     }
 
+    // max_qty 0 = no quantity allotted for this script: it is NOT tradable
+    // for the account (e.g. the INDEX ONLY group gives every script except
+    // NIFTY/BANKNIFTY a 0). Nothing may be opened or added; reducing or
+    // closing an existing position is always allowed. (Only a positive
+    // max_qty is a size cap below; a script with no row stays unlimited.)
+    if (limitValue === 0) {
+        const posAgg0 = await Trade.aggregate([
+            { $match: { user_id: user._id, instrument_token, status: 'completed', deleted_at: null } },
+            { $group: { _id: null,
+                total_buy_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'BUY'] }, '$executed_quantity', 0] } },
+                total_sell_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'SELL'] }, '$executed_quantity', 0] } }
+            }}
+        ]).session(session);
+        const net0 = posAgg0.length > 0 ? posAgg0[0].total_buy_qty - posAgg0[0].total_sell_qty : 0;
+        const after0 = transaction_type === 'BUY' ? net0 + quantity : net0 - quantity;
+        if (Math.abs(after0) > Math.abs(net0)) {
+            throw Object.assign(
+                new Error(`${instrumentRawName || tradingsymbol} is not allowed for this account — no quantity allotted (max 0). Existing positions can only be closed.`),
+                { status: 403 },
+            );
+        }
+        return { instrumentRawName };
+    }
+
     if (isTurnover) {
         // ── TURNOVER MODE: all limits are in raw quantity ──────────────────
 
@@ -2503,4 +2527,5 @@ module.exports = {
     autoSquareOffExpired,
     getInstrumentInfo,
     rolloverPositions,
+    _private: { _validateScriptQuantityLimit },
 };
