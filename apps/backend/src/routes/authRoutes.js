@@ -1,32 +1,26 @@
 const express = require('express');
 const router = express.Router();
-const rateLimit = require('express-rate-limit');
 const { validateLogin } = require('../middlewares/validate');
 const { userLogin, adminLogin, masterLogin, userLogout, adminLogout, masterLogout, universalLogin, changePassword, getNotificationSettings, updateNotificationSettings, registerFcmToken, removeFcmToken } = require('../controllers/authController');
 const { authenticateUser, authenticateAdmin, authenticateMaster } = require('../middlewares/auth');
 const { authenticateAny } = require('../middlewares/auth');
 const { rejectIfInvestor } = require('../middlewares/rejectIfInvestor');
 
-// Rate limiter for login endpoints — 10 attempts per 15 minutes per IP
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { success: false, message: 'Too many login attempts, please try again after 15 minutes' },
-});
+// Login attempt limiting (10 per 15 min per IP) switched OFF on the
+// business owner's request (2026-09-28). The global limiter in index.js
+// (200 requests/min per IP) still applies to every route, logins included.
 
 // User login
-router.post('/user/login', loginLimiter, validateLogin, userLogin);
+router.post('/user/login', validateLogin, userLogin);
 
 // Admin login
-router.post('/admin/login', loginLimiter, validateLogin, adminLogin);
+router.post('/admin/login', validateLogin, adminLogin);
 
 // Master login
-router.post('/master/login', loginLimiter, validateLogin, masterLogin);
+router.post('/master/login', validateLogin, masterLogin);
 
 // Universal login
-router.post('/login', loginLimiter, validateLogin, universalLogin);
+router.post('/login', validateLogin, universalLogin);
 
 // User logout (requires authentication)
 router.post('/user/logout', authenticateUser, userLogout);
