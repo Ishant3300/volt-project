@@ -335,11 +335,14 @@ function filterNearestExpiry(instruments) {
   return result;
 }
 
+const { platformSegment } = require('../src/utils/platformSegment');
+
 function buildInstrumentUpsertOperation(inst) {
   // Never copy Kite CSV last_price into an existing instrument. The daily CSV
   // normally contains zero and used to erase the weekend settlement CMP.
   const { instrument_token, lot_size, last_price: _ignoredCsvLastPrice, ...rest } = inst;
   const setFields = { ...rest };
+  if (setFields.segment) setFields.segment = platformSegment(setFields.segment); // SENSEX under NFO
   if (lot_size > 1) setFields.lot_size = lot_size;
 
   return {

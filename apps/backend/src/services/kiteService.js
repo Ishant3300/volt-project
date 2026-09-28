@@ -285,6 +285,7 @@ class KiteService {
           
           instrument.is_active = true;
           instrument.updated_at = new Date();
+          instrument.segment = require('../utils/platformSegment').platformSegment(instrument.segment); // SENSEX under NFO
           instruments.push(instrument);
         }
       }
