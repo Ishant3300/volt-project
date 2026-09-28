@@ -134,7 +134,14 @@ const loadInstrumentCache = async () => {
   return cacheLoadingPromise;
 };
 
+// Each build takes a generation number; only the newest build may publish,
+// so a slower, older build can never overwrite a newer one (e.g. two expiry
+// opens in quick succession would otherwise leave the second one missing
+// until some later rebuild).
+let buildGeneration = 0;
+
 const _buildAndSetCache = async () => {
+  const generation = ++buildGeneration;
   console.log('📦 [Search] Loading instruments into memory...');
   const startMs = Date.now();
   const today = new Date();
@@ -172,8 +179,12 @@ const _buildAndSetCache = async () => {
     return expiryDate >= today && expiryDate <= threeMonthsLater;
   });
 
-  instrumentList = instruments;
   const indexes = buildIndexes(instruments);
+  if (generation !== buildGeneration) {
+    console.log(`   ↩️  [Search] Discarded an outdated rebuild (a newer one is running)`);
+    return;
+  }
+  instrumentList = instruments;
   byUnderlying = indexes.uIdx;
   bySymbolPrefix = indexes.spIdx;
   categoryBuckets = indexes.cBuckets;
@@ -442,6 +453,11 @@ const smartSearch = async (query, category = 'ALL', limit = 10, page = 1) => {
 
 const getCategories = () => Object.keys(CATEGORIES);
 const clearCache = () => { instrumentList = null; cacheTimestamp = null; };
-const invalidateCache = () => { instrumentList = null; cacheTimestamp = null; _buildAndSetCache().catch(() => {}); };
+// Rebuild in the background while searches keep using the current list —
+// emptying it first made every search return nothing until the rebuild
+// finished. The new list is swapped in whole when ready.
+const invalidateCache = () => {
+  _buildAndSetCache().catch((e) => console.error(`❌ [Search] Rebuild failed: ${e.message}`));
+};
 
 module.exports = { smartSearch, loadInstrumentCache, clearCache, invalidateCache, getCategories, groupResults };
