@@ -169,6 +169,22 @@ async function targetTokens(action) {
 async function refreshRolloverTokens() {
   const opens = await ExpiryAction.find({ kind: 'OPEN', status: 'done' }).lean();
   const next = new Set();
+  // Any next contract that is open for trading — opened by the schedule OR
+  // by hand (Expiry management → Open expiry): every enabled future in a
+  // ruled segment that isn't the nearest expiry of its name.
+  const segments = [...new Set(GROUPS.filter((g) => !g.continuous).flatMap((g) => g.segments))];
+  const today = toIndiaDateOnly(new Date());
+  const futures = await KiteInstrument.find({ segment: { $in: segments }, instrument_type: 'FUT', is_active: true, expiry: { $gte: today }, deleted_at: null })
+    .select('instrument_token segment name expiry enabled').lean();
+  const nearest = new Map();
+  for (const f of futures) {
+    const k = `${f.segment}|${String(f.name).toUpperCase()}`;
+    if (!nearest.has(k) || f.expiry < nearest.get(k)) nearest.set(k, f.expiry);
+  }
+  for (const f of futures) {
+    const k = `${f.segment}|${String(f.name).toUpperCase()}`;
+    if (f.enabled !== false && f.expiry > nearest.get(k)) next.add(f.instrument_token.toString());
+  }
   for (const open of opens) {
     const cut = await ExpiryAction.findOne({ kind: 'CUT', group_key: open.group_key, current_expiry: open.current_expiry }).select('status').lean();
     if (cut && cut.status === 'done') continue;
@@ -176,6 +192,7 @@ async function refreshRolloverTokens() {
     for (const token of await targetTokens(open)) next.add(token);
   }
   rolloverTokens = next;
+  try { require('./livePriceService').ensureSubscribed([...next]); } catch (_) {}
 }
 
 function getRolloverTokens() {
@@ -587,5 +604,5 @@ module.exports = {
   transition,
   buildAnnouncement,
   publishAnnouncement,
-  _private: { formatDay, formatTime, captureSnapshot, executeCut, executeOpen, closeNewTargetsUntilOpen },
+  _private: { formatDay, formatTime, captureSnapshot, executeCut, executeOpen, closeNewTargetsUntilOpen, refreshRolloverTokensForTest: refreshRolloverTokens },
 };
