@@ -296,13 +296,13 @@ async function rolloverPositions({ targetUserId, tokens, actor }) {
       if (user.bet === false) return 'Trading is currently disabled for your account.';
       if (user.close_only === true) return 'Your account is in close-only mode. You can only close existing positions.';
       if (user.margin_call_blocked === true) return 'Trading is blocked: a margin square-off already closed all your positions. Contact your master/admin to add credit and resume.';
-      if (!user.margin_square_off && !(user.margin_square_off_percentage > 0)) {
-        const live = metricsEngine.getCachedMetrics(user._id.toString());
-        const credit = Number(user.credits || 0);
-        if (live && Number(live.m2m_pnl || 0) <= -credit) {
-          return `Trading is blocked: your live M2M loss (₹${Math.abs(live.m2m_pnl).toFixed(2)}) has reached your full credit (₹${credit.toFixed(2)}). You can only close existing positions until your master/admin adds credit.`;
-        }
-      }
+      // Not applied here: placeTrade's "live M2M loss has reached your full
+      // credit" block. With a negative balance new orders stay blocked
+      // (closing only), but Rollover is still allowed — it only moves an
+      // existing open position to the next contract at the same qty and
+      // side, never adds exposure. The wallet check on the reopen leg still
+      // applies (a position whose new contract the wallet can't cover is
+      // refused with the reason; the others still roll).
       return null;
     })();
 
