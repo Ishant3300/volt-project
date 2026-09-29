@@ -395,7 +395,14 @@ class KiteService {
           ],
           instrument_type: { $in: instrumentType ? [instrumentType] : ALLOWED_INSTRUMENT_TYPES },
           exchange: { $in: exchange ? [exchange] : ALLOWED_EXCHANGES },
-          expiry: { $gte: today }
+          expiry: { $gte: today },
+          // Tradable contracts only — same rule as the smart-search index and
+          // browse. Without it a contract closed for trading (e.g. GOLD Oct
+          // after its expiry close) was not just listed but, being the
+          // nearest expiry, shown INSTEAD of the open next contract.
+          enabled: { $ne: false },
+          nse_banned: { $ne: true },
+          deleted_at: null,
         };
 
         // Aggregation pipeline to get nearest expiry per symbol/strike combination

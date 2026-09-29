@@ -197,6 +197,17 @@ const addToWatchlist = async (req, res) => {
       });
     }
 
+    // A contract closed for trading (expiry close, admin ban) or in an NSE
+    // F&O ban can't be added — search already hides them; this stops the
+    // add itself (it used to go through). Admin may still watch anything.
+    if (!req.admin && (instrument.enabled === false || instrument.nse_banned === true)) {
+      return res.status(403).json({
+        success: false,
+        message: `${instrument.tradingsymbol} is closed for trading${instrument.ban_reason ? ` (${instrument.ban_reason})` : ''} and can't be added to the watchlist.`,
+        data: null,
+      });
+    }
+
     // Check if already in watchlist (by instrument_token to handle stale refs)
     const existing = await Watchlist.findOne({
       owner_id: userId,
