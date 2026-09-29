@@ -449,10 +449,14 @@ async function fetchInstruments() {
     }
 
     // Mark instruments no longer in Kite's feed as inactive
-    // Exclude synthetic tokens (9999xxx) and GLOBAL/SGX exchange instruments (manually seeded)
+    // Exclude synthetic tokens (9999xxx) and instruments that never come from
+    // Kite: GLOBAL/SGX (manually seeded) and NSEIX — the GIFT NIFTY monthly
+    // contracts, created and priced from NSE IX directly (giftNiftyContracts).
+    // Without NSEIX here every daily sync switched GIFTNIFTY26OCTFUT off,
+    // hiding it from search, browse and watchlists.
     const activeTokens = uniqueInstruments.map(i => i.instrument_token);
     const deactivated = await KiteInstrument.updateMany(
-      { instrument_token: { $nin: activeTokens, $not: /^9999/ }, exchange: { $nin: ['GLOBAL', 'SGX'] }, is_active: true },
+      { instrument_token: { $nin: activeTokens, $not: /^9999/ }, exchange: { $nin: ['GLOBAL', 'SGX', 'NSEIX'] }, is_active: true },
       { $set: { is_active: false } }
     );
 
