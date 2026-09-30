@@ -59,7 +59,12 @@ const getRejectionLog = async (req, res) => {
     } else if (role === 'user') {
       filter.user_id = new mongoose.Types.ObjectId(callerId);
     } else if (role === 'master') {
-      const childIds = await User.find({ master_id: callerId, deleted_at: null }).distinct('_id');
+      // The master's WHOLE tree (sub-brokers' clients too, any depth) — same
+      // scope as Trade Alert; direct clients only left a master whose
+      // clients all sit under sub-brokers with an empty log.
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      const subtree = await getAllSubMasterIds(callerId);
+      const childIds = await User.find({ master_id: { $in: subtree }, deleted_at: null }).distinct('_id');
       filter.user_id = { $in: childIds };
     } else {
       // admin without user_id: no user filter, except to exclude hidden masters' users.
