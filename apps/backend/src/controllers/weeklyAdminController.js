@@ -209,16 +209,30 @@ const getWeeklyAdminReport = async (req, res) => {
       const liveTrades = await Trade.find({
         user_id: { $in: usersNeedingLiveQuery },
         status: 'completed',
-        deleted_at: null,
-        // carry_forward is a synthetic settlement marker with no real
-        // brokerage — same exclusion as weeklyReportCache.js's cache path,
-        // kept consistent so a cache miss doesn't silently bill brokerage
-        // on a carried position's reopen leg that the cache path wouldn't.
-        trade_type: { $ne: 'carry_forward' },
-        executed_at: executedAtFilter
-      }).select('user_id instrument_token executed_price executed_quantity pnl brokerage_exempt').lean();
+        executed_at: executedAtFilter,
+        $or: [
+          // Current trades. carry_forward is a synthetic marker with no real
+          // brokerage — same exclusion as weeklyReportCache.js's cache path,
+          // kept consistent so a cache miss doesn't silently bill brokerage
+          // on a carried position's reopen leg that the cache path wouldn't.
+          { deleted_at: null, trade_type: { $ne: 'carry_forward' } },
+          // Trades of an already-SETTLED week. The weekly settlement archives
+          // every completed trade of the week (deleted_at + settlement_run_id,
+          // settlementService.js), so a date range reaching back past a
+          // settlement (This Month, Custom, Previous Week) used to lose all
+          // of those weeks — a month showed only the current week. Admin-
+          // deleted trades have no settlement_run_id and stay excluded.
+          // Settlement's own carry_forward close/reopen legs are included:
+          // the close leg's pnl is the week-end mark of a position held
+          // across settlement (the next week's P&L is measured from that
+          // price), so without it a month would lose that P&L. They carry
+          // no brokerage — marked brokerage_exempt below.
+          { deleted_at: { $ne: null }, settlement_run_id: { $ne: null } },
+        ],
+      }).select('user_id instrument_token executed_price executed_quantity pnl brokerage_exempt trade_type').lean();
 
       for (const t of liveTrades) {
+        if (t.trade_type === 'carry_forward') t.brokerage_exempt = true;
         const uid = t.user_id.toString();
         if (!tradesByUser[uid]) tradesByUser[uid] = [];
         tradesByUser[uid].push(t);
