@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# READ-ONLY daily health audit. Run by pm2 (daily-audit-am / -mid / -pm) on
-# trading days at 8:45 AM, 12:30 PM and 4:15 PM IST (pm2 cron in server UTC:
-# 03:15, 07:00, 10:45); writes ~/audit/<IST date>_<HHMM>.txt and
+# READ-ONLY daily health audit. Run by pm2 (daily-audit-am / -mid / -pm / -eve)
+# on trading days at 8:45 AM, 12:30 PM, 4:15 PM and 9:00 PM IST (pm2 cron in
+# server UTC: 03:15, 07:00, 10:45, 15:30); writes ~/audit/<IST date>_<HHMM>.txt and
 # keeps 45 days. Changes nothing on the system — only reads process state,
 # logs, the database and Redis (via scripts/healthAudit.js).
 set -u
