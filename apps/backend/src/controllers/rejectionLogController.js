@@ -23,11 +23,14 @@ const getRejectionLog = async (req, res) => {
     const role = req.admin ? 'admin' : req.master ? 'master' : 'user';
     const callerId = req.admin?.id || req.master?.id || req.user?.id;
 
-    // Base filter: cancelled/rejected OR soft-deleted
+    // Base filter: cancelled/rejected OR deleted by an admin. The weekly
+    // settlement also marks every completed trade of the week deleted
+    // (deleted_at + settlement_run_id — an archive, not a rejection), which
+    // flooded this log with ordinary settled trades; those are left out.
     const filter = {
       $or: [
         { status: { $in: ['cancelled', 'rejected'] } },
-        { deleted_at: { $ne: null } },
+        { deleted_at: { $ne: null }, settlement_run_id: null },
       ],
     };
 

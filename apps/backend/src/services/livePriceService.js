@@ -201,6 +201,24 @@ class LivePriceService {
     ws.authUserId = callerId;
     ws.role = callerRole;
     ws.isAdmin = callerRole === 'admin';
+    // Masters hidden from this admin (whole subtrees) — live trade alerts for
+    // their clients are not sent to this connection (metricsEngine
+    // .broadcastTradeAlert). Super admin / nothing hidden: null.
+    ws.hiddenMasterIds = null;
+    if (ws.isAdmin) {
+      try {
+        const Admin = require('../models/Admin');
+        const adminDoc = await Admin.findById(callerId).select('is_super_admin hidden_master_ids').lean();
+        const { getAdminHiddenMasterIds } = require('./masterHierarchyService');
+        const hidden = await getAdminHiddenMasterIds({
+          isSuperAdmin: !!adminDoc?.is_super_admin,
+          hiddenMasterIds: (adminDoc?.hidden_master_ids || []).map(String),
+        });
+        ws.hiddenMasterIds = hidden.size > 0 ? hidden : null;
+      } catch (_) {
+        ws.hiddenMasterIds = null;
+      }
+    }
 
     // Optional impersonation for the master/admin dashboards: view a specific
     // downstream account's live stream. Must be authorized against the caller's

@@ -40,6 +40,12 @@ const getTradeAlerts = async (req, res) => {
     if (!isAdmin) {
       const masterIds = await getAllSubMasterIds(callerId);
       userFilter.master_id = { $in: masterIds };
+    } else {
+      // A restricted admin never sees clients under masters hidden from them
+      // (same rule as the rejection log and every admin list).
+      const { resolveHiddenMasterIds } = require('../utils/adminVisibility');
+      const hidden = await resolveHiddenMasterIds(req);
+      if (hidden) userFilter.master_id = { $nin: [...hidden] };
     }
     const users = await User.find(userFilter).select('_id name username master_id').lean();
     const userIds = users.map((u) => u._id);

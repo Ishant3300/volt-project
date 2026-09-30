@@ -1303,11 +1303,13 @@ class MetricsEngine {
       const msg = { type: 'trade_alert', data: alertData };
 
       const cache = this._userCache.get(userId);
+      const chain = []; // the client's master and every master above it
       if (cache && cache.masterId) {
         let currentMasterId = cache.masterId;
         const visited = new Set();
         while (currentMasterId && !visited.has(currentMasterId)) {
           visited.add(currentMasterId);
+          chain.push(String(currentMasterId));
           this.livePriceService.broadcastToUser(currentMasterId, msg);
           currentMasterId = this._masterParentMap?.[currentMasterId] || null;
         }
@@ -1316,9 +1318,10 @@ class MetricsEngine {
       if (this.livePriceService.wss) {
         const raw = JSON.stringify(msg);
         this.livePriceService.wss.clients.forEach(client => {
-          if (client.readyState === 1 && client.isAdmin) {
-            client.send(raw);
-          }
+          if (client.readyState !== 1 || !client.isAdmin) return;
+          // Restricted admin: skip clients under a master hidden from them.
+          if (client.hiddenMasterIds && chain.some((id) => client.hiddenMasterIds.has(id))) return;
+          client.send(raw);
         });
       }
     } catch (e) {
