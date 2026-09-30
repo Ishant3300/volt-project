@@ -724,13 +724,25 @@ const placeTrade = async (req, res) => {
             // ever checked expiry at all. Date-only comparison (matches
             // fetchInstruments.js's own "expired" boundary) so trading is
             // still allowed through the end of the expiry day itself.
-            const instCheckExpiry = await KiteInstrument.findOne({ instrument_token }).select('enabled deleted_at expiry nse_banned ban_reason tradingsymbol exchange').lean().session(session);
+            const instCheckExpiry = await KiteInstrument.findOne({ instrument_token }).select('enabled deleted_at expiry nse_banned ban_reason tradingsymbol exchange segment').lean().session(session);
             if (instCheckExpiry?.expiry) {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 const expiryDate = new Date(instCheckExpiry.expiry);
                 if (expiryDate < today) {
                     throw new Error('This contract has expired and can no longer be traded.');
+                }
+            }
+
+            // ── NFO closing window: 3:20–3:40 PM IST MARKET orders only ──
+            // Pending NFO limit/stop-loss orders are cancelled at 3:20
+            // (cronService); masters and clients can't place a new one until
+            // 3:40. Segment from the contract itself, not the request body.
+            // Admin is not restricted.
+            if (!req.admin && order_type !== 'MARKET') {
+                const nfoWindow = require('../utils/nfoMarketOnlyWindow');
+                if (nfoWindow.isNfoMarketOnlyWindow(instCheckExpiry?.segment || segment)) {
+                    throw Object.assign(new Error(nfoWindow.MESSAGE), { status: 403 });
                 }
             }
 
@@ -1919,6 +1931,15 @@ const modifyTrade = async (req, res) => {
         }
         if (trade.order_type === 'MARKET') {
             return res.status(400).json({ success: false, message: 'MARKET orders execute immediately and cannot be modified.' });
+        }
+        // NFO closing window (3:20–3:40 PM IST): masters and clients can't
+        // modify a limit/stop-loss order either — same rule as placeTrade.
+        if (!req.admin) {
+            const nfoWindow = require('../utils/nfoMarketOnlyWindow');
+            const instSeg = trade.segment || (await KiteInstrument.findOne({ instrument_token: trade.instrument_token }).select('segment').lean())?.segment;
+            if (nfoWindow.isNfoMarketOnlyWindow(instSeg)) {
+                return res.status(403).json({ success: false, message: nfoWindow.MESSAGE });
+            }
         }
 
         const newPrice = newPriceRaw !== undefined ? Number(newPriceRaw) : trade.price;

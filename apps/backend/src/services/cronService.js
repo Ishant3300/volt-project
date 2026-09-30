@@ -413,6 +413,23 @@ class CronService {
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(intradaySquareOffCOMEX);
 
+        // ── NFO closing window: 3:20 PM IST ─────────────────────────────
+        // From 3:20 to 3:40 PM only MARKET orders are allowed in NFO-FUT /
+        // NFO-OPT (utils/nfoMarketOnlyWindow.js — placeTrade/modifyTrade
+        // refuse limit/stop-loss for masters and clients). Every pending NFO
+        // LIMIT / SL / SL-M order is cancelled at the start of the window.
+        const cancelPendingNFOWindow = cron.schedule('20 15 * * 1-5', async () => {
+            console.log('🗑️ [CRON] 3:20 PM NFO market-only window — cancelling pending NFO limit/stop-loss orders...');
+            try {
+                const { CANCEL_REMARK } = require('../utils/nfoMarketOnlyWindow');
+                const count = await this.cancelPendingOrdersBySegment(['NFO-FUT', 'NFO-OPT'], CANCEL_REMARK);
+                console.log(`✅ [CRON] Cancelled ${count} pending NFO order(s) for the 3:20-3:40 PM window.`);
+            } catch (error) {
+                console.error('❌ [CRON] Error cancelling NFO pending orders at 3:20 PM:', error);
+            }
+        }, { timezone: 'Asia/Kolkata' });
+        this.jobs.push(cancelPendingNFOWindow);
+
         // ── Auto-Cancel Pending Orders at Market Close ───────────────────
         // Cancels all unfilled limit/stop orders once the market closes.
         // Runs 1 minute after intraday square-off to avoid clashing.
@@ -533,7 +550,7 @@ class CronService {
      * Called at market close to clean up stale orders that won't fill until next day.
      * Returns the number of orders cancelled.
      */
-    async cancelPendingOrdersBySegment(segments) {
+    async cancelPendingOrdersBySegment(segments, remark = 'Auto-cancelled: market closed') {
         const Trade = require('../models/Trade');
         const KiteInstrument = require('../models/KiteInstrument');
         const orderBookService = require('./orderBookService');
@@ -562,7 +579,7 @@ class CronService {
         const ids = pendingOrders.map(o => o._id);
         await Trade.updateMany(
             { _id: { $in: ids }, status: 'pending', deleted_at: null },
-            { $set: { status: 'cancelled', remarks: 'Auto-cancelled: market closed' } }
+            { $set: { status: 'cancelled', remarks: remark } }
         );
 
         // Remove from Redis order book if available. Each removal is
