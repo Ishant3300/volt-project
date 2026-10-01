@@ -841,14 +841,33 @@ const placeTrade = async (req, res) => {
                 if (rawSegmentForAllow === 'GLOBAL') candidates.add('INDICES');
                 if (rawSegmentForAllow === 'INDICES') candidates.add('GLOBAL');
 
+                // Only a TICKED row grants the exchange (turnover or lot on) —
+                // a saved row with both off is "not allowed" (utils/exchangeAccess).
+                const { isUserExchangeRowAllowed } = require('../utils/exchangeAccess');
                 const hasAccess = (user.exchanges_allowed || []).some((ex) => {
+                    if (!isUserExchangeRowAllowed(ex)) return false;
                     const name = (ex.exchange_name || '').toUpperCase();
                     const normalized = name === 'INDICES' ? 'GLOBAL' : name;
                     return candidates.has(name) || candidates.has(normalized);
                 });
 
                 if (!hasAccess) {
-                    throw new Error(`Your account is not permitted to trade ${segment || exchange || 'this instrument'}. Contact your master/admin.`);
+                    // Not allowed on this exchange: closing/reducing an existing
+                    // position is still allowed (a position opened before the
+                    // exchange was switched off must never be trapped); opening
+                    // or adding is refused.
+                    const posAggAllow = await Trade.aggregate([
+                        { $match: { user_id: user._id, instrument_token, status: 'completed', deleted_at: null } },
+                        { $group: { _id: null,
+                            total_buy_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'BUY'] }, '$executed_quantity', 0] } },
+                            total_sell_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'SELL'] }, '$executed_quantity', 0] } }
+                        }}
+                    ]).session(session);
+                    const netAllow = posAggAllow.length > 0 ? posAggAllow[0].total_buy_qty - posAggAllow[0].total_sell_qty : 0;
+                    const isClosingAllow = (transaction_type === 'SELL' && netAllow > 0) || (transaction_type === 'BUY' && netAllow < 0);
+                    if (!isClosingAllow || quantity > Math.abs(netAllow)) {
+                        throw new Error(`Your account is not permitted to trade ${segment || exchange || 'this instrument'}. Contact your master/admin.${netAllow !== 0 ? ` You can only close your existing ${Math.abs(netAllow)} qty position.` : ''}`);
+                    }
                 }
             }
 

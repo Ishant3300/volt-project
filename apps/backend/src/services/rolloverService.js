@@ -328,7 +328,10 @@ async function rolloverPositions({ targetUserId, tokens, actor }) {
         const candidates = new Set([rawSegment]);
         if (rawSegment === 'GLOBAL') candidates.add('INDICES');
         if (rawSegment === 'INDICES') candidates.add('GLOBAL');
+        // Only a ticked row (turnover or lot on) grants the exchange.
+        const { isUserExchangeRowAllowed } = require('../utils/exchangeAccess');
         const hasAccess = (user.exchanges_allowed || []).some((ex) => {
+          if (!isUserExchangeRowAllowed(ex)) return false;
           const name = (ex.exchange_name || '').toUpperCase();
           return candidates.has(name) || candidates.has(name === 'INDICES' ? 'GLOBAL' : name);
         });

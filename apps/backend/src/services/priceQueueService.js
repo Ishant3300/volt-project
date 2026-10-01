@@ -312,7 +312,9 @@ async function executeMatchedOrder(match, livePrice, options = {}) {
       const allowCandidates = new Set([rawSegmentForAllow]);
       if (rawSegmentForAllow === 'GLOBAL') allowCandidates.add('INDICES');
       if (rawSegmentForAllow === 'INDICES') allowCandidates.add('GLOBAL');
-      const exchangeBlocked = !(gateUser?.exchanges_allowed || []).some((ex) => {
+      const exchangeBlocked = !isClosingForCloseOnly && !(gateUser?.exchanges_allowed || []).some((ex) => {
+        // Only a ticked row (turnover or lot on) grants the exchange.
+        if (!require('../utils/exchangeAccess').isUserExchangeRowAllowed(ex)) return false;
         const name = (ex.exchange_name || '').toUpperCase();
         const normalized = name === 'INDICES' ? 'GLOBAL' : name;
         return allowCandidates.has(name) || allowCandidates.has(normalized);

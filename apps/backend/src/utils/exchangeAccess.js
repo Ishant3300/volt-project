@@ -18,6 +18,17 @@
 const User = require('../models/User');
 const Master = require('../models/Master');
 
+/**
+ * A client's exchanges_allowed row only grants the exchange when it is
+ * actually ticked — turnover or lot on (same rule the create/edit screens
+ * show). A saved row with both off means NOT allowed: the web create form
+ * used to save a row for every exchange, ticked or not, and the presence of
+ * the row alone let the client trade it.
+ */
+function isUserExchangeRowAllowed(row) {
+  return !!row && (row.turnover === true || row.lot === true);
+}
+
 /** GLOBAL/INDICES are the same permission — see tradeController.js's identical note. */
 function normalizeExchangeName(name) {
   const upper = String(name || '').toUpperCase();
@@ -35,7 +46,7 @@ async function getAllowedExchangeSet(req) {
 
   if (req.user) {
     const doc = await User.findById(req.user.id).select('exchanges_allowed').lean();
-    const rows = doc?.exchanges_allowed || [];
+    const rows = (doc?.exchanges_allowed || []).filter(isUserExchangeRowAllowed);
     return new Set(rows.map((ex) => normalizeExchangeName(ex.exchange_name)));
   }
 
@@ -60,4 +71,4 @@ function isExchangeAllowed(allowedSet, segmentOrExchange) {
   return allowedSet.has(normalizeExchangeName(segmentOrExchange));
 }
 
-module.exports = { getAllowedExchangeSet, isExchangeAllowed, normalizeExchangeName };
+module.exports = { getAllowedExchangeSet, isExchangeAllowed, normalizeExchangeName, isUserExchangeRowAllowed };
