@@ -37,6 +37,20 @@ for p in json.load(sys.stdin):
   echo "INFO  last price-queue activity: ${last_tick_line:-none}"
   echo "INFO  Kite feed reconnect/close events today: $(grep "$D" "$L" | grep -ciE 'Kite WebSocket closed|Kite.*reconnect')"
   echo "INFO  GIFT feed warnings today (pre-open 5:30-7:00 AM IST is normal): $(grep -h "$D" "$E" "$L" 2>/dev/null | grep -cE 'GiftNiftyFeed.*(stale|Poll failed|No NIFTY)')"
+  # GIFT NIFTY right now. The feed logs "tick stale" on every 2s poll while NSE
+  # IX has no fresh quote and logs nothing while quotes are live; GIFT orders
+  # are refused while stale. Only a WARN inside NSE IX session hours
+  # (6:30 AM-3:40 PM, 4:35 PM-2:45 AM IST) — between sessions it's expected.
+  now_utc="$(date -u +%Y-%m-%dT%H:%M)"; prev_utc="$(date -u -d '1 minute ago' +%Y-%m-%dT%H:%M)"
+  gift_stale="$(grep -h -e "^$now_utc" -e "^$prev_utc" "$E" "$L" 2>/dev/null | grep 'GiftNiftyFeed' | grep 'tick stale' | tail -1 | grep -oE '[0-9]+s old')"
+  ist_min=$((10#$(TZ=Asia/Kolkata date +%H) * 60 + 10#$(TZ=Asia/Kolkata date +%M)))
+  if [ -z "$gift_stale" ]; then
+    echo "OK    GIFT NIFTY live quotes flowing"
+  elif [ "$ist_min" -ge 390 ] && [ "$ist_min" -lt 940 ] || [ "$ist_min" -ge 995 ] || [ "$ist_min" -lt 165 ]; then
+    echo "WARN  GIFT NIFTY not trading in session hours — no live NSE IX quote ($gift_stale); GIFT orders are refused until it resumes"
+  else
+    echo "INFO  GIFT NIFTY between sessions — no live quote ($gift_stale); GIFT orders refused until the next session"
+  fi
   stale="$(grep -h "$D" "$E" "$L" 2>/dev/null | grep -c 'STALE TICK SKIPPED')"
   if [ "$stale" -gt 0 ]; then echo "WARN  stale ticks skipped for order matching today: $stale"; else echo "OK    no stale ticks skipped for order matching"; fi
   echo "INFO  last order audit: $(grep 'OrderAudit' "$L" | tail -1 | sed 's/^.*\] //' | cut -c1-90)"
