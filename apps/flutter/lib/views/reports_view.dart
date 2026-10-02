@@ -551,6 +551,9 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
     }
     final from = _fromDate!.toIso8601String().split('T')[0];
     final to = _toDate!.toIso8601String().split('T')[0];
+    // Read before any await — the bill's `(username) name` for the own account.
+    final ownProfileUser =
+        Provider.of<UserProfileProvider>(context, listen: false).user;
 
     setState(() => _isLoading = true);
     try {
@@ -558,6 +561,10 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
       final token = await storage.getToken();
       final api = ApiService(backendUrl);
       String url = '/trade/report?from=$from&to=$to';
+      // Live M2M = the Live Bill: bill=1 adds each script's BF rows (the
+      // position carried in from last week), lot size and bill heading, and
+      // includes scripts that were only carried in.
+      if (_selectedMode == 1) url += '&bill=1';
       if (_selectedUser != null) {
         final uid = _selectedUser!['id'] ?? _selectedUser!['_id'] ?? '';
         url += '&user_id=$uid';
@@ -574,6 +581,21 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
           // For past date ranges, the backend already provides carry_forward data
           // with settlement prices — no live enrichment needed.
           if (_selectedMode == 1) {
+            // `(username) name` on the bill, like the reference.
+            final String? billUsername = _selectedUser != null
+                ? _selectedUser!['username']?.toString()
+                : ownProfileUser?.username;
+            final String billName = _selectedUser != null
+                ? (_selectedUser!['name'] ?? _selectedUser!['username'] ?? '')
+                    .toString()
+                : (ownProfileUser?.name ?? reportData['user_name'] ?? '')
+                    .toString();
+            reportData = {
+              ...reportData,
+              'account_label': billUsername != null && billUsername.isNotEmpty
+                  ? '($billUsername) $billName'
+                  : billName,
+            };
             final today = DateTime.now();
             final todayStart = DateTime(today.year, today.month, today.day);
             final isCurrentPeriod = !_toDate!.isBefore(todayStart);
@@ -762,27 +784,20 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
             ? (livePrice - avgEntryPrice) * openQty
             : (avgEntryPrice - livePrice) * openQty;
 
-        // LIVE row: shows the open position direction (not the closing trade)
-        // Long position → B Qty (you hold longs); Short → S Qty (you hold shorts)
+        // LIVE row (Live Bill reference format): the open position closed
+        // on paper at the live price, on the OPPOSITE side — a long shows
+        // as a Sell, a short as a Buy — so the script's rows net to its
+        // exact M2M. Not added to the script's Buy/Sell Qty totals.
         final liveRow = {
           'date': now.toIso8601String(),
           'type': 'LIVE',
-          'buy_qty': isLong ? openQty : 0, // Long  → show in Buy column
-          'sell_qty': isLong ? 0 : openQty, // Short → show in Sell column
+          'buy_qty': isLong ? 0 : openQty,
+          'sell_qty': isLong ? openQty : 0,
           'rate': livePrice,
           'brokerage': 0,
           'net': unrealizedPnl,
         };
         allTrades.add(liveRow);
-
-        // Adjust instrument totals to match open position direction
-        if (isLong) {
-          instr['total_buy_qty'] =
-              ((instr['total_buy_qty'] as num?)?.toDouble() ?? 0) + openQty;
-        } else {
-          instr['total_sell_qty'] =
-              ((instr['total_sell_qty'] as num?)?.toDouble() ?? 0) + openQty;
-        }
 
         // Adjust P&L to include unrealized
         final existingPnl = (instr['pnl'] as num?)?.toDouble() ?? 0;
