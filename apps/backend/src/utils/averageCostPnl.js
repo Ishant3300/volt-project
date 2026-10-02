@@ -10,6 +10,20 @@
  * means (one user's, or several merged), same as before extraction.
  */
 function computeAveragePricePnl(allTrades, seed) {
+  return runAverageCost(allTrades, seed).pnl;
+}
+
+/**
+ * The open position left after replaying `allTrades` onto `seed` with the
+ * same average-cost rules — e.g. the position carried INTO a report window
+ * from the fills before it. Does not touch the passed trades.
+ * @returns {{ totalBuyQty, totalBuyValue, totalSellQty, totalSellValue }}
+ */
+function averageCostState(allTrades, seed) {
+  return runAverageCost(allTrades.map((t) => ({ ...t })), seed).state;
+}
+
+function runAverageCost(allTrades, seed) {
   const sorted = [...allTrades].sort((a, b) => new Date(a.date) - new Date(b.date));
 
   let totalBuyQty = seed?.totalBuyQty || 0, totalBuyValue = seed?.totalBuyValue || 0;
@@ -66,7 +80,10 @@ function computeAveragePricePnl(allTrades, seed) {
     runningNet = isBuy ? runningNet + qty : runningNet - qty;
   }
 
-  return Math.round(totalPnl * 100) / 100;
+  return {
+    pnl: Math.round(totalPnl * 100) / 100,
+    state: { totalBuyQty, totalBuyValue, totalSellQty, totalSellValue },
+  };
 }
 
-module.exports = { computeAveragePricePnl };
+module.exports = { computeAveragePricePnl, averageCostState };

@@ -5,7 +5,7 @@ const KiteInstrument = require('../models/KiteInstrument');
 const SettlementHistory = require('../models/SettlementHistory');
 const mongoose = require('mongoose');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
-const { computeAveragePricePnl } = require('../utils/averageCostPnl');
+const { computeAveragePricePnl, averageCostState } = require('../utils/averageCostPnl');
 
 /**
  * GET /api/trade/report
@@ -370,24 +370,63 @@ const getTradeReport = async (req, res) => {
           latestPerUserInstrument[k] = t;
         }
       }
-      for (const t of Object.values(latestPerUserInstrument)) {
-        const qty = t.executed_quantity || 0;
-        if (qty <= 0) continue;
-        const key = `${t.exchange}::${t.tradingsymbol}`;
+      // The position carried INTO the window = that latest carry-forward PLUS
+      // every real fill after it and before fromDate that no settlement has
+      // folded into a carry-forward yet (live: deleted_at null). Previously
+      // those fills were dropped: confirmed real, account 266 was opened
+      // after Saturday's settlement with its positions entered as ordinary
+      // trades on 26-09 23:22 — no carry-forward, so the week started flat and
+      // every close was priced against nothing (NIFTY's 910 close: 0.00
+      // instead of -4,61,097). Same gap for a window starting mid-week.
+      const preWindowFills = await Trade.find({
+        ...cfUserFilter,
+        status: 'completed',
+        deleted_at: null,
+        trade_type: { $ne: 'carry_forward' },
+        executed_at: { $lt: fromDate },
+      }).sort({ executed_at: 1 }).lean();
+
+      const perUserInstrument = {};
+      for (const [k, marker] of Object.entries(latestPerUserInstrument)) {
+        perUserInstrument[k] = { ref: marker, marker, fills: [] };
+      }
+      for (const t of preWindowFills) {
+        const k = `${t.user_id}::${t.exchange}::${t.tradingsymbol}`;
+        const entry = perUserInstrument[k] || (perUserInstrument[k] = { ref: t, marker: null, fills: [] });
+        if (entry.marker && new Date(t.executed_at) <= new Date(entry.marker.executed_at)) continue;
+        entry.fills.push(t);
+      }
+
+      for (const { ref, marker, fills } of Object.values(perUserInstrument)) {
+        const markerQty = marker ? (marker.executed_quantity || 0) : 0;
+        const markerPrice = marker ? (marker.executed_price || 0) : 0;
+        const markerSeed = !marker || markerQty <= 0 ? null : marker.transaction_type === 'BUY'
+          ? { totalBuyQty: markerQty, totalBuyValue: markerQty * markerPrice, totalSellQty: 0, totalSellValue: 0 }
+          : { totalBuyQty: 0, totalBuyValue: 0, totalSellQty: markerQty, totalSellValue: markerQty * markerPrice };
+        const state = averageCostState(
+          fills.map((f) => ({
+            date: f.executed_at,
+            buy_qty: f.transaction_type === 'BUY' ? (f.executed_quantity || 0) : 0,
+            sell_qty: f.transaction_type === 'SELL' ? (f.executed_quantity || 0) : 0,
+            rate: f.executed_price || 0,
+          })),
+          markerSeed,
+        );
+        if (state.totalBuyQty <= 1e-9 && state.totalSellQty <= 1e-9) continue;
+
+        const key = `${ref.exchange}::${ref.tradingsymbol}`;
         if (!carryForwardSeeds[key]) {
           carryForwardSeeds[key] = { totalBuyQty: 0, totalBuyValue: 0, totalSellQty: 0, totalSellValue: 0 };
         }
-        const price = t.executed_price || 0;
+        carryForwardSeeds[key].totalBuyQty += state.totalBuyQty;
+        carryForwardSeeds[key].totalBuyValue += state.totalBuyValue;
+        carryForwardSeeds[key].totalSellQty += state.totalSellQty;
+        carryForwardSeeds[key].totalSellValue += state.totalSellValue;
+
+        const lastAt = fills.length > 0 ? fills[fills.length - 1].executed_at : marker.executed_at;
         const meta = carryForwardSeedMeta[key];
-        if (!meta || new Date(t.executed_at) > new Date(meta.date)) {
-          carryForwardSeedMeta[key] = { date: t.executed_at, exchange: t.exchange, tradingsymbol: t.tradingsymbol, instrument_token: t.instrument_token };
-        }
-        if (t.transaction_type === 'BUY') {
-          carryForwardSeeds[key].totalBuyQty += qty;
-          carryForwardSeeds[key].totalBuyValue += qty * price;
-        } else {
-          carryForwardSeeds[key].totalSellQty += qty;
-          carryForwardSeeds[key].totalSellValue += qty * price;
+        if (!meta || new Date(lastAt) > new Date(meta.date)) {
+          carryForwardSeedMeta[key] = { date: lastAt, exchange: ref.exchange, tradingsymbol: ref.tradingsymbol, instrument_token: ref.instrument_token };
         }
       }
     }
