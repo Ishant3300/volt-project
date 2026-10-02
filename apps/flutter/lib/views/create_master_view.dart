@@ -705,7 +705,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               final available = ownMaster.wallet[category] ?? 0;
               if (entered > available) {
                 _showSnack(
-                    '$category wallet amount exceeds ${_forMaster != null ? "${_forMaster!.username}'s" : 'your own'} available balance (${available.toStringAsFixed(2)}).',
+                    '${walletLabel(category)} wallet amount exceeds ${_forMaster != null ? "${_forMaster!.username}'s" : 'your own'} available balance (${available.toStringAsFixed(2)}).',
                     isError: true);
                 setState(() => _isSubmitting = false);
                 return;
@@ -2445,7 +2445,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               SizedBox(
                 width: 110,
                 child: Text(
-                  category,
+                  walletLabel(category),
                   style: const TextStyle(
                       color: kColorTextMuted,
                       fontSize: kFontSizeBodySmall,

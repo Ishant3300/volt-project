@@ -151,7 +151,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
       if (response.statusCode == 200 && body['success'] == true) {
         _showSnack(
           '${isAssign ? 'Assigned' : 'Withdrew'} ${amount.toStringAsFixed(2)} '
-          '${isAssign ? 'to' : 'from'} $_category',
+          '${isAssign ? 'to' : 'from'} ${walletLabel(_category ?? '')}',
           isError: false,
         );
         Navigator.pop(context, true);
@@ -295,7 +295,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Available ${_category ?? ''}',
+                      'Available ${walletLabel(_category ?? '')}',
                       style: const TextStyle(
                         color: kColorTextMuted,
                         fontSize: kFontSizeSheetLabel,
@@ -497,7 +497,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
           ),
         ),
         child: Text(
-          category,
+          walletLabel(category),
           style: TextStyle(
             color: selected ? Colors.white : kColorTextMuted,
             fontSize: kFontSizeBodySmall,

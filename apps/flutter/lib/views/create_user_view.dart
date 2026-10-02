@@ -821,7 +821,7 @@ class _CreateUserViewState extends State<CreateUserView> {
         final available = ownMaster.wallet[category] ?? 0;
         if (entered > available) {
           _showSnack(
-              '$category wallet amount exceeds $whose available balance (${available.toStringAsFixed(2)}).',
+              '${walletLabel(category)} wallet amount exceeds $whose available balance (${available.toStringAsFixed(2)}).',
               isError: true);
           return;
         }
@@ -1863,7 +1863,7 @@ class _CreateUserViewState extends State<CreateUserView> {
               SizedBox(
                 width: 100,
                 child: Text(
-                  category,
+                  walletLabel(category),
                   style: const TextStyle(
                       color: kColorTextMuted,
                       fontSize: kFontSizeBodySmall,

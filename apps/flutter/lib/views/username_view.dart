@@ -34,6 +34,7 @@ import '../pages/transaction_page.dart';
 import 'reports_view.dart';
 import 'manage_reports_view.dart';
 
+import '../utils/wallet_category.dart';
 class UsernameView extends StatefulWidget {
   final Master? master;
   final User? user;
@@ -1861,8 +1862,9 @@ class _UsernameViewState extends State<UsernameView> {
                       fontWeight: FontWeight.w600,
                       letterSpacing: 0.5)),
               const SizedBox(height: 8),
-              ...wallet.entries.map(
-                  (e) => _equityRow(e.key, (e.value as num?)?.toDouble() ?? 0)),
+              ...(wallet.entries.toList()
+                    ..sort((a, b) => walletOrder(a.key).compareTo(walletOrder(b.key))))
+                  .map((e) => _equityRow(walletLabel(e.key), (e.value as num?)?.toDouble() ?? 0)),
             ],
             const SizedBox(height: 8),
           ],

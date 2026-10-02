@@ -21,6 +21,7 @@ import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/utils/contants.dart';
 import 'package:stocker/utils/market_hours.dart';
 
+import '../utils/wallet_category.dart';
 class _NumberFormat {
   final double value;
   final String suffix;
@@ -1784,7 +1785,7 @@ class _OrdersPageState extends State<OrdersPage> {
           child: Consumer<TradeMetricsProvider>(
             builder: (context, provider, _) {
               // Order NSE, MCX, GLOBAL first; append any other keys after.
-              const order = ['NSE', 'MCX', 'COMEX', 'GLOBAL'];
+              const order = kWalletCategories;
               final entries = provider.wallet.entries.toList()
                 ..sort((a, b) {
                   final ia = order.indexOf(a.key);
@@ -1825,7 +1826,7 @@ class _OrdersPageState extends State<OrdersPage> {
                       )
                     else ...[
                       for (final e in entries)
-                        _buildWalletCategoryRow(e.key, e.value),
+                        _buildWalletCategoryRow(walletLabel(e.key), e.value),
                       const Divider(height: 1, color: Color(0xFFF1F5F9)),
                       _buildWalletCategoryRow('Total', total, isTotal: true),
                     ],
@@ -1850,7 +1851,7 @@ class _OrdersPageState extends State<OrdersPage> {
         return SafeArea(
           child: Builder(
             builder: (context) {
-              const order = ['NSE', 'MCX', 'COMEX', 'GLOBAL'];
+              const order = kWalletCategories;
               final entries = _masterWallet.entries.toList()
                 ..sort((a, b) {
                   final ia = order.indexOf(a.key);
@@ -1891,7 +1892,7 @@ class _OrdersPageState extends State<OrdersPage> {
                       )
                     else ...[
                       for (final e in entries)
-                        _buildWalletCategoryRow(e.key, e.value),
+                        _buildWalletCategoryRow(walletLabel(e.key), e.value),
                       const Divider(height: 1, color: Color(0xFFF1F5F9)),
                       _buildWalletCategoryRow('Total', total, isTotal: true),
                     ],
@@ -1917,7 +1918,7 @@ class _OrdersPageState extends State<OrdersPage> {
         return SafeArea(
           child: Builder(
             builder: (context) {
-              const order = ['NSE', 'MCX', 'COMEX', 'GLOBAL'];
+              const order = kWalletCategories;
               final entries = wallet.entries.toList()
                 ..sort((a, b) {
                   final ia = order.indexOf(a.key);
@@ -1958,7 +1959,7 @@ class _OrdersPageState extends State<OrdersPage> {
                       )
                     else ...[
                       for (final e in entries)
-                        _buildWalletCategoryRow(e.key, e.value),
+                        _buildWalletCategoryRow(walletLabel(e.key), e.value),
                       const Divider(height: 1, color: Color(0xFFF1F5F9)),
                       _buildWalletCategoryRow('Total', total, isTotal: true),
                     ],
