@@ -14,9 +14,42 @@ const { computeAveragePricePnl } = require('../utils/averageCostPnl');
  * Returns trades grouped by instrument with buy/sell sides,
  * per-instrument summary, and overall summary.
  */
+const BILL_MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+/** Live Bill script heading (reference format): `NIFTY 29SEP2026`, `NIFTY 25000 CE 29SEP2026`. */
+function billScriptName(tradingsymbol, ki) {
+  if (!ki || !ki.name) return tradingsymbol;
+  if (!ki.expiry) return ki.name;
+  const exp = new Date(ki.expiry);
+  if (Number.isNaN(exp.getTime())) return ki.name;
+  const expiry = `${String(exp.getUTCDate()).padStart(2, '0')}${BILL_MONTHS[exp.getUTCMonth()]}${exp.getUTCFullYear()}`;
+  if (ki.instrument_type === 'CE' || ki.instrument_type === 'PE') {
+    return `${ki.name} ${ki.strike || ''} ${ki.instrument_type} ${expiry}`.replace(/\s+/g, ' ');
+  }
+  return `${ki.name} ${expiry}`;
+}
+
+/** The Live Bill's BF rows: the position carried into the window (one row per side). */
+function billBfRows(seed, meta) {
+  if (!seed) return [];
+  const rows = [];
+  if (seed.totalBuyQty > 0) {
+    rows.push({ side: 'BUY', qty: seed.totalBuyQty, rate: seed.totalBuyValue / seed.totalBuyQty, date: meta ? meta.date : null });
+  }
+  if (seed.totalSellQty > 0) {
+    rows.push({ side: 'SELL', qty: seed.totalSellQty, rate: seed.totalSellValue / seed.totalSellQty, date: meta ? meta.date : null });
+  }
+  return rows;
+}
+
 const getTradeReport = async (req, res) => {
   try {
     const { from, to, user_id } = req.query;
+    // `bill=1` (mobile Live Bill): also return each instrument's BF rows,
+    // lot_size and bill_name, and include instruments that were only carried
+    // into the window (no trade in it) so their position still gets a bill
+    // section. Without it the response is exactly as before.
+    const billFormat = req.query.bill === '1' || req.query.bill === 'true';
     if (!from || !to) {
       return res.status(400).json({ success: false, message: 'from and to dates are required' });
     }
@@ -295,6 +328,7 @@ const getTradeReport = async (req, res) => {
     // toDate) further below.
     let cfTrades = [];
     const carryForwardSeeds = {}; // key: `${exchange}::${tradingsymbol}` -> {totalBuyQty, totalBuyValue, totalSellQty, totalSellValue}
+    const carryForwardSeedMeta = {}; // same key -> { date, exchange, tradingsymbol, instrument_token } of the latest seed record
     if (targetUserId) {
       const cfUserFilter = userScope.user_id ? { user_id: userScope.user_id } : { user_id: targetUserId };
       cfTrades = await Trade.find({
@@ -344,6 +378,10 @@ const getTradeReport = async (req, res) => {
           carryForwardSeeds[key] = { totalBuyQty: 0, totalBuyValue: 0, totalSellQty: 0, totalSellValue: 0 };
         }
         const price = t.executed_price || 0;
+        const meta = carryForwardSeedMeta[key];
+        if (!meta || new Date(t.executed_at) > new Date(meta.date)) {
+          carryForwardSeedMeta[key] = { date: t.executed_at, exchange: t.exchange, tradingsymbol: t.tradingsymbol, instrument_token: t.instrument_token };
+        }
         if (t.transaction_type === 'BUY') {
           carryForwardSeeds[key].totalBuyQty += qty;
           carryForwardSeeds[key].totalBuyValue += qty * price;
@@ -354,7 +392,21 @@ const getTradeReport = async (req, res) => {
       }
     }
 
-    const allTokens = [...new Set(trades.map(t => t.instrument_token))];
+    if (billFormat) {
+      for (const [key, meta] of Object.entries(carryForwardSeedMeta)) {
+        if (grouped[key]) continue;
+        grouped[key] = {
+          exchange: meta.exchange,
+          tradingsymbol: meta.tradingsymbol,
+          instrument_token: meta.instrument_token,
+          buys: [],
+          sells: [],
+          all_trades: [],
+        };
+      }
+    }
+
+    const allTokens = [...new Set([...trades.map(t => t.instrument_token), ...Object.values(grouped).map(g => g.instrument_token)])];
     const kiteInstruments = await KiteInstrument.find(
       { instrument_token: { $in: allTokens } },
       'instrument_token lot_size segment raw_name name expiry instrument_type strike'
@@ -491,6 +543,11 @@ const getTradeReport = async (req, res) => {
         pnl,
         brokerage,
         net_pnl: netPnl,
+        ...(billFormat ? {
+          lot_size: ki.lot_size || null,
+          bill_name: billScriptName(g.tradingsymbol, ki),
+          bf: billBfRows(carryForwardSeeds[key], carryForwardSeedMeta[key]),
+        } : {}),
       });
 
       // Carry forward: unmatched qty
@@ -764,4 +821,5 @@ function _getOrderTypeLabel(trade) {
   return 'NORMAL';
 }
 
-module.exports = { getTradeReport, getOpenPositions, getSettlementHistory };
+module.exports = {
+  _private: { billScriptName, billBfRows }, getTradeReport, getOpenPositions, getSettlementHistory };
