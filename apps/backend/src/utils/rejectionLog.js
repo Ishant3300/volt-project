@@ -15,6 +15,9 @@
  *    is built here from that code, never taken verbatim from the client.
  */
 
+/** placeTrade's refusal while GIFT NIFTY has no live NSE IX quote. */
+const GIFT_NOT_LIVE_MESSAGE = 'GIFT NIFTY is not trading right now — no live NSE IX price. Orders are paused until live prices resume.';
+
 const SERVER_REFUSAL_PATTERNS = [
   // already saved before
   'free margin',
@@ -39,6 +42,7 @@ const SERVER_REFUSAL_PATTERNS = [
   'would create a short position',
   'would exceed your open position', // pending-order overflow
   'Could not determine price for MARKET order',
+  GIFT_NOT_LIVE_MESSAGE,
 ];
 
 function isLoggableTradeRefusal(message) {
@@ -79,4 +83,5 @@ module.exports = {
   buildAppBlockRemark,
   APP_BLOCK_REASONS,
   SERVER_REFUSAL_PATTERNS,
+  GIFT_NOT_LIVE_MESSAGE,
 };

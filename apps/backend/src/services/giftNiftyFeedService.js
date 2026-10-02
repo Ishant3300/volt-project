@@ -146,6 +146,22 @@ class GiftNiftyFeedService {
     this._contractsSyncedAt = 0;
     this._contractsKey = '';
     this._continuousRetired = false;
+    // Per contract token: when its last FRESH NSE IX quote arrived (ms). No
+    // fresh quote for STALE_THRESHOLD_MS = NSE IX isn't trading (holiday,
+    // between sessions) or the feed is down; orders are refused then — see
+    // isQuoteLive and tradeController's GIFT check.
+    this._freshQuoteAt = new Map();
+  }
+
+  /** True while this GIFT contract has had a fresh NSE IX quote in the last 5 minutes. */
+  isQuoteLive(instrumentToken, now = Date.now()) {
+    const at = this._freshQuoteAt.get(String(instrumentToken));
+    return at != null && now - at <= STALE_THRESHOLD_MS;
+  }
+
+  /** When this GIFT contract last had a fresh quote (ms), or null. */
+  lastFreshQuoteAt(instrumentToken) {
+    return this._freshQuoteAt.get(String(instrumentToken)) ?? null;
   }
 
   /** Create monthly contracts NSE IX lists that don't exist yet (throttled). */
@@ -178,6 +194,7 @@ class GiftNiftyFeedService {
     const priceQueueService = require('./priceQueueService');
     const lps = this.livePriceService;
     for (const t of ticks) {
+      this._freshQuoteAt.set(String(t.instrument_token), now);
       lps.latestPrices.set(t.instrument_token, t.last_price);
       lps.latestPrices.set(Number(t.instrument_token), t.last_price);
       metricsEngine.onTick(t.instrument_token, t.last_price, t.bid_price, t.ask_price);
@@ -317,6 +334,7 @@ class GiftNiftyFeedService {
       const askPrice = Number(row.ASKPRICE) || lastPrice;
       if (!Number.isFinite(lastPrice) || lastPrice <= 0) return;
 
+      this._freshQuoteAt.set(String(this.instrumentToken), Date.now());
       const lps = this.livePriceService;
       lps.latestPrices.set(this.instrumentToken, lastPrice);
       lps.latestPrices.set(Number(this.instrumentToken), lastPrice);

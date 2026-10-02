@@ -18,7 +18,7 @@ const firebaseService = require('../services/firebaseService');
 const { beginTradeWrite, withTradeWriteLease } = require('../services/tradeWriteFenceService');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 const { calculateBrokerage } = require('../services/brokerageService');
-const { isLoggableTradeRefusal } = require('../utils/rejectionLog');
+const { isLoggableTradeRefusal, GIFT_NOT_LIVE_MESSAGE } = require('../utils/rejectionLog');
 
 const _getLivePricesFromKite = async (instrumentTokens) => {
     if (!instrumentTokens || instrumentTokens.length === 0) return new Map();
@@ -756,6 +756,14 @@ const placeTrade = async (req, res) => {
                 const instCheck = instCheckExpiry;
                 if (instCheck && instCheck.deleted_at) {
                     throw new Error('Admin has deactivated this script. Trading is not allowed.');
+                }
+                // GIFT NIFTY (NSE IX): with no fresh NSE IX quote for 5 minutes
+                // NSE IX isn't trading (holiday, between sessions) or the feed is
+                // down. The only price held is frozen (bid = ask = last), so no
+                // order may be placed against it — opening or closing.
+                if (String(instCheck?.exchange || '').toUpperCase() === 'NSEIX'
+                    && !require('../services/giftNiftyFeedService').isQuoteLive(instrument_token)) {
+                    throw Object.assign(new Error(GIFT_NOT_LIVE_MESSAGE), { status: 403 });
                 }
                 const isDisabled = instCheck && instCheck.enabled === false;
                 const isNseBanned = instCheck && instCheck.nse_banned === true;
