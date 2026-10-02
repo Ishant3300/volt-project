@@ -114,4 +114,85 @@ const getRejectionLog = async (req, res) => {
   }
 };
 
-module.exports = { getRejectionLog };
+const APP_REJECTION_DEDUP_MS = 10 * 1000;
+const APP_REJECTION_PER_MINUTE = 30;
+
+/**
+ * POST /api/trade/app-rejection
+ * A client's mobile app blocked an order before sending it (stale quote,
+ * market closed, lot/qty limit, ...). Saved as a rejected trade so it shows in
+ * the Rejection Log like a server-side refusal. Clients only; the remark is
+ * built server-side from a fixed reason code. Symbol/exchange come from the
+ * instrument record, not the request. A repeat of the same block within 10s
+ * is not stored again, and at most 30 are stored per user per minute.
+ * Always answers 200 for a well-formed request — the app fires and forgets.
+ *
+ * Body: { instrument_token, transaction_type, quantity, order_type, price, code, message }
+ */
+const recordAppRejection = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(403).json({ success: false, message: 'Clients only', data: null });
+    }
+    const { buildAppBlockRemark } = require('../utils/rejectionLog');
+    const KiteInstrument = require('../models/KiteInstrument');
+    const { instrument_token, transaction_type, quantity, order_type, price, code, message } = req.body || {};
+
+    const remarks = buildAppBlockRemark(code, message);
+    const side = String(transaction_type || '').toUpperCase();
+    const token = instrument_token != null ? String(instrument_token) : '';
+    if (!remarks || !['BUY', 'SELL'].includes(side) || !/^\d{1,20}$/.test(token)) {
+      return res.status(400).json({ success: false, message: 'Invalid app rejection', data: null });
+    }
+
+    const instrument = await KiteInstrument.findOne({ instrument_token: { $in: [token, Number(token)] } })
+      .select('tradingsymbol exchange').lean();
+    if (!instrument?.tradingsymbol || !Trade.schema.path('exchange').enumValues.includes(instrument.exchange)) {
+      return res.status(400).json({ success: false, message: 'Unknown instrument', data: null });
+    }
+
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+    const now = Date.now();
+    const recent = await Trade.find({
+      user_id: userId,
+      status: 'rejected',
+      remarks: /^Blocked in app:/,
+      createdAt: { $gte: new Date(now - 60 * 1000) },
+    }).select('instrument_token remarks createdAt').lean();
+    const duplicate = recent.some((t) => t.instrument_token === token && t.remarks === remarks
+      && now - new Date(t.createdAt).getTime() < APP_REJECTION_DEDUP_MS);
+    if (duplicate || recent.length >= APP_REJECTION_PER_MINUTE) {
+      return res.status(200).json({ success: true, message: 'Not stored (repeat)', data: null });
+    }
+
+    const rejUser = await User.findById(userId).select('master_id server_id').lean();
+    if (!rejUser) return res.status(404).json({ success: false, message: 'User not found', data: null });
+
+    const qty = Number(quantity);
+    const px = Number(price);
+    const type = String(order_type || 'MARKET').toUpperCase();
+    await Trade.create({
+      user_id: userId,
+      master_id: rejUser.master_id || null,
+      // same admin_id fallback as placeTrade's own rejection save
+      admin_id: rejUser.server_id || rejUser.master_id || userId,
+      instrument_token: token,
+      tradingsymbol: instrument.tradingsymbol,
+      exchange: instrument.exchange,
+      transaction_type: side,
+      order_type: ['MARKET', 'LIMIT', 'SL', 'SL-M'].includes(type) ? type : 'MARKET',
+      quantity: Number.isFinite(qty) && qty >= 0 ? qty : 0,
+      price: Number.isFinite(px) && px >= 0 ? px : 0,
+      executed_quantity: 0,
+      executed_price: 0,
+      status: 'rejected',
+      remarks,
+    });
+    console.log(`📝 [RejectionLog] App-side block saved for user ${req.user.id}: ${remarks.substring(0, 80)}`);
+    return res.status(201).json({ success: true, message: 'Saved', data: null });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
+  }
+};
+
+module.exports = { getRejectionLog, recordAppRejection };

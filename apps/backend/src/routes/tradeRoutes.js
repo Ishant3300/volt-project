@@ -7,7 +7,7 @@ const { rejectIfAdminWatchOnly } = require('../middlewares/rejectIfAdminWatchOnl
 const { validateTrade } = require('../middlewares/validate');
 const tradeController = require('../controllers/tradeController');
 const { getTradeReport, getOpenPositions, getSettlementHistory } = require('../controllers/tradeReportController');
-const { getRejectionLog } = require('../controllers/rejectionLogController');
+const { getRejectionLog, recordAppRejection } = require('../controllers/rejectionLogController');
 const { getUserwisePositions } = require('../controllers/userwisePositionController');
 const { getScriptQtyDetails, getAllLots, getInstrumentLimit } = require('../controllers/scriptQtyDetailController');
 const { getDeletedTrades } = require('../controllers/deletedTradeController');
@@ -24,6 +24,8 @@ router.delete('/:tradeId', rejectIfInvestor, rejectIfAdminWatchOnly, requireAdmi
 router.post('/metrics', rejectIfInvestor, tradeController.saveClientMetrics);
 router.post('/auto-squareoff-expired', rejectIfInvestor, tradeController.autoSquareOffExpired);
 router.post('/rollover', rejectIfInvestor, rejectIfAdminWatchOnly, tradeController.rolloverPositions);
+// Client app reports an order it blocked before sending (Rejection Log)
+router.post('/app-rejection', rejectIfInvestor, recordAppRejection);
 
 // Read operations — allowed in investor mode
 router.get('/metrics', tradeController.getAccountMetrics);

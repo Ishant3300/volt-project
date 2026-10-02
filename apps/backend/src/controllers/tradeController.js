@@ -18,6 +18,7 @@ const firebaseService = require('../services/firebaseService');
 const { beginTradeWrite, withTradeWriteLease } = require('../services/tradeWriteFenceService');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 const { calculateBrokerage } = require('../services/brokerageService');
+const { isLoggableTradeRefusal } = require('../utils/rejectionLog');
 
 const _getLivePricesFromKite = async (instrumentTokens) => {
     if (!instrumentTokens || instrumentTokens.length === 0) return new Map();
@@ -1579,17 +1580,9 @@ const placeTrade = async (req, res) => {
             error.status = 400;
         }
 
-        // Save rejected trade to rejection log for margin/FSL failures
-        const isRejectable = error.message.includes('free margin') ||
-            error.message.includes('Trade margin is not configured') ||
-            error.message.includes('Fresh Stop-Loss') ||
-            error.message.includes('close-only mode') ||
-            error.message.includes('Trading is currently disabled') ||
-            error.message.includes('Insufficient balance') ||
-            error.message.includes('Insufficient margin') ||
-            error.message.includes('wallet balance') ||
-            error.message.includes('exceeds') ||
-            error.message.includes('Option selling is not allowed');
+        // Save the client's refused order to the rejection log — every known
+        // business refusal (see utils/rejectionLog.js), not internal errors.
+        const isRejectable = isLoggableTradeRefusal(error.message);
 
         if (isRejectable && req.user) {
             try {
