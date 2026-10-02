@@ -8,7 +8,7 @@ const orderBookService = require('./orderBookService');
 const redisService = require('./redisService');
 const { calculateMargin } = require('./marginService');
 const walletService = require('./walletService');
-const { categoryForSegment } = require('../utils/walletCategory');
+const { categoryForSegment, categoryLabel } = require('../utils/walletCategory');
 const { computeWalletSplit } = require('../utils/walletSplit');
 const firebaseService = require('./firebaseService');
 const { beginTradeWrite } = require('./tradeWriteFenceService');
@@ -421,7 +421,7 @@ const processPendingOrders = async () => {
                         const walletEffectiveAvailable = walletAvailable + walletReleaseAmount;
                         if (walletOpeningQty > 0 && walletOpeningNotional > walletEffectiveAvailable) {
                             const walletShortfall = walletOpeningNotional - walletEffectiveAvailable;
-                            const walletRejectRemark = `Insufficient ${walletCategory} wallet balance at fill. Required ₹${walletOpeningNotional.toFixed(2)}, available ₹${walletEffectiveAvailable.toFixed(2)} (short ₹${walletShortfall.toFixed(2)}).`;
+                            const walletRejectRemark = `Insufficient ${categoryLabel(walletCategory)} wallet balance at fill. Required ₹${walletOpeningNotional.toFixed(2)}, available ₹${walletEffectiveAvailable.toFixed(2)} (short ₹${walletShortfall.toFixed(2)}).`;
                             freshTrade.status = 'rejected';
                             freshTrade.pnl = 0;
                             freshTrade.net_amount = 0;

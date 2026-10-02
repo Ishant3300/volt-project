@@ -16,7 +16,7 @@ const KiteInstrument = require('../models/KiteInstrument');
 const SettlementHistory = require('../models/SettlementHistory');
 const SettlementRun = require('../models/SettlementRun');
 const { dateRange, isWeekendInIndia, getLatestDueSettlementFriday, toIndiaDateOnly } = require('../utils/settlementDates');
-const { allowedCategories } = require('../utils/walletCategory');
+const { allowedCategories, CATEGORY_ORDER } = require('../utils/walletCategory');
 const { GLOBAL_INDEX_NAMES } = require('../constants/massiveInstruments');
 
 class MetricsEngine {
@@ -268,12 +268,9 @@ class MetricsEngine {
     try {
       // Normalize the wallet + allowed categories once so both cache branches
       // (flat/no-trades and the main aggregation) store identical shapes.
-      const walletBalances = {
-        NSE: Number(wallet?.NSE) || 0,
-        MCX: Number(wallet?.MCX) || 0,
-        COMEX: Number(wallet?.COMEX) || 0,
-        GLOBAL: Number(wallet?.GLOBAL) || 0,
-      };
+      const walletBalances = Object.fromEntries(
+        CATEGORY_ORDER.map((cat) => [cat, Number(wallet?.[cat]) || 0]),
+      );
       const allowedCats = allowedCategories(exchangesAllowed || []);
 
       const trades = await Trade.find({
@@ -524,7 +521,7 @@ class MetricsEngine {
     if (!cache) return null;
 
     const { credit, settledPnl, openPositions, fifoPnl, brokerage, wallet, allowedCategories: allowedCats } = cache;
-    const walletBalances = wallet || { NSE: 0, MCX: 0, COMEX: 0, GLOBAL: 0 };
+    const walletBalances = wallet || Object.fromEntries(CATEGORY_ORDER.map((cat) => [cat, 0]));
     const allowed = allowedCats || [];
 
     let totalFloating = 0;

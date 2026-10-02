@@ -14,7 +14,7 @@ const { beginTradeWrite } = require('./tradeWriteFenceService');
 const { calculateMargin } = require('./marginService');
 const { calculateBrokerage } = require('./brokerageService');
 const walletService = require('./walletService');
-const { categoryForSegment } = require('../utils/walletCategory');
+const { categoryForSegment, categoryLabel } = require('../utils/walletCategory');
 const { computeWalletSplit } = require('../utils/walletSplit');
 const firebaseService = require('./firebaseService');
 const metricsEngine = require('./metricsEngine');
@@ -406,7 +406,7 @@ async function executeMatchedOrder(match, livePrice, options = {}) {
       const walletEffectiveAvailable = walletAvailable + walletReleaseAmount;
       if (walletOpeningQty > 0 && walletOpeningNotional > walletEffectiveAvailable) {
         const walletShortfall = walletOpeningNotional - walletEffectiveAvailable;
-        const walletRejectRemark = `Insufficient ${walletCategory} wallet balance at fill. Required ₹${walletOpeningNotional.toFixed(2)}, available ₹${walletEffectiveAvailable.toFixed(2)} (short ₹${walletShortfall.toFixed(2)}).`;
+        const walletRejectRemark = `Insufficient ${categoryLabel(walletCategory)} wallet balance at fill. Required ₹${walletOpeningNotional.toFixed(2)}, available ₹${walletEffectiveAvailable.toFixed(2)} (short ₹${walletShortfall.toFixed(2)}).`;
         trade.status = 'rejected';
         trade.pnl = 0;
         trade.net_amount = 0;

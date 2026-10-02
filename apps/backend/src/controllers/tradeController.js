@@ -12,7 +12,7 @@ const Transaction = require('../models/Transaction');
 const orderBookService = require('../services/orderBookService');
 const { calculateMargin } = require('../services/marginService');
 const walletService = require('../services/walletService');
-const { categoryForSegment } = require('../utils/walletCategory');
+const { categoryForSegment, categoryLabel } = require('../utils/walletCategory');
 const { computeWalletSplit, computeFlatResetState } = require('../utils/walletSplit');
 const firebaseService = require('../services/firebaseService');
 const { beginTradeWrite, withTradeWriteLease } = require('../services/tradeWriteFenceService');
@@ -1272,7 +1272,12 @@ const placeTrade = async (req, res) => {
                 {
                     // Category is derived from the RAW segment (NOT normalizedExchange, which
                     // maps GLOBAL→INDICES for the legacy ScriptQuantity lookups).
-                    const walletCategory = categoryForSegment(segment || exchange || '');
+                    // The contract's own segment from the DB (instCheckExpiry, loaded
+                    // above), not the request body's `segment`: with NSE options on
+                    // their own NSEOPT pool, a client sending a wrong/missing segment
+                    // must not be able to charge the wrong wallet. Body value only as
+                    // a fallback for an instrument the DB doesn't know.
+                    const walletCategory = categoryForSegment(instCheckExpiry?.segment || segment || exchange || '');
 
                     const walletAvgBuy = flatResetState.totalBuyQty > 0
                         ? flatResetState.totalBuyValue / flatResetState.totalBuyQty : 0;
@@ -1581,9 +1586,9 @@ const placeTrade = async (req, res) => {
 
             if (availableAmt != null) {
                 const shortfall = Math.max(0, Math.round((requiredAmt - availableAmt) * 100) / 100);
-                error.message = `Insufficient ${walletCat} wallet balance. Required ₹${requiredAmt.toFixed(2)}, available ₹${availableAmt.toFixed(2)} (short ₹${shortfall.toFixed(2)}).`;
+                error.message = `Insufficient ${categoryLabel(walletCat)} wallet balance. Required ₹${requiredAmt.toFixed(2)}, available ₹${availableAmt.toFixed(2)} (short ₹${shortfall.toFixed(2)}).`;
             } else {
-                error.message = `Insufficient ${walletCat} wallet balance. Required ₹${requiredAmt.toFixed(2)}.`;
+                error.message = `Insufficient ${categoryLabel(walletCat)} wallet balance. Required ₹${requiredAmt.toFixed(2)}.`;
             }
             error.status = 400;
         }

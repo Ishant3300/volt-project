@@ -35,7 +35,7 @@ const walletService = require('./walletService');
 const { calculateBrokerage, loadBrokerageRules } = require('./brokerageService');
 const { resolveNextExpiryInstrument } = require('./rolloverInstrumentService');
 const { beginTradeWrite } = require('./tradeWriteFenceService');
-const { categoryForSegment } = require('../utils/walletCategory');
+const { categoryForSegment, categoryLabel } = require('../utils/walletCategory');
 const { computeFlatResetState } = require('../utils/walletSplit');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
@@ -216,7 +216,7 @@ async function rollBatch({ user, rules, placedBy, lease }, items, session, { sin
   if (!before) {
     if (!single) throw batchFallback('wallet short for the whole batch');
     const cat = Object.keys(blockNeed).find((c) => round2(blockNeed[c]) > 0) || '';
-    throw Object.assign(new Error(`Insufficient ${cat} wallet balance`), { code: walletService.INSUFFICIENT_WALLET, category: cat });
+    throw Object.assign(new Error(`Insufficient ${categoryLabel(cat)} wallet balance`), { code: walletService.INSUFFICIENT_WALLET, category: cat });
   }
 
   let balance = Number(before.equity || 0);

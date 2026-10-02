@@ -11,7 +11,7 @@ const CreditTransaction = require('../models/CreditTransaction');
 const KiteInstrument = require('../models/KiteInstrument');
 const { beginTradeWrite } = require('../services/tradeWriteFenceService');
 const walletService = require('../services/walletService');
-const { categoryForSegment } = require('../utils/walletCategory');
+const { categoryForSegment, categoryLabel } = require('../utils/walletCategory');
 const { applyWalletFunding } = require('./walletController');
 const { calculateBrokerage } = require('../services/brokerageService');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
@@ -447,7 +447,7 @@ const createUser = async (req, res) => {
     // aborts the create — surface it as a clear 400 naming the category.
     else if (error.code === 'INSUFFICIENT_WALLET') {
       statusCode = 400;
-      error.message = `Insufficient ${error.category} wallet balance to fund the new account.`;
+      error.message = `Insufficient ${categoryLabel(error.category)} wallet balance to fund the new account.`;
     }
 
     res.status(statusCode).json({
@@ -812,7 +812,7 @@ const updateUserDetails = async (req, res) => {
     if (error.code === 'INSUFFICIENT_WALLET') {
       return res.status(400).json({
         success: false,
-        message: `Insufficient ${error.category} wallet balance to fund the account.`,
+        message: `Insufficient ${categoryLabel(error.category)} wallet balance to fund the account.`,
         data: null
       });
     }

@@ -1,6 +1,7 @@
 'use strict';
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
+const { categoryLabel } = require('../utils/walletCategory');
 /**
  * walletController — HTTP surface for the category trade-wallet funding flow
  * (Requirements 5.1–5.7, design §9). These are thin controllers over the central
@@ -276,7 +277,7 @@ async function assign(req, res) {
     const wallet = await walletService.getAvailable(target_type, target_id);
     return res.status(200).json({
       success: true,
-      message: `Assigned ₹${amount} to ${category} wallet`,
+      message: `Assigned ₹${amount} to ${categoryLabel(category)} wallet`,
       data: { owner_type: target_type, owner_id: target_id, wallet },
     });
   } catch (err) {
@@ -325,7 +326,7 @@ async function withdraw(req, res) {
     const wallet = await walletService.getAvailable(target_type, target_id);
     return res.status(200).json({
       success: true,
-      message: `Withdrew ₹${amount} from ${category} wallet`,
+      message: `Withdrew ₹${amount} from ${categoryLabel(category)} wallet`,
       data: { owner_type: target_type, owner_id: target_id, wallet },
     });
   } catch (err) {

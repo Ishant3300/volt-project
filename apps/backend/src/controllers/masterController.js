@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const { categoryLabel } = require('../utils/walletCategory');
 const { escapeRegex } = require('../utils/escapeRegex');
 const Master = require('../models/Master');
 const Server = require('../models/Server');
@@ -237,7 +238,7 @@ const createMaster = async (req, res) => {
     if (error.code === 'INSUFFICIENT_WALLET') {
       return res.status(400).json({
         success: false,
-        message: `Insufficient ${error.category} wallet balance to fund the new account.`,
+        message: `Insufficient ${categoryLabel(error.category)} wallet balance to fund the new account.`,
         data: null
       });
     }
@@ -1415,7 +1416,7 @@ const updateMasterDetails = async (req, res) => {
     if (error.code === 'INSUFFICIENT_WALLET') {
       return res.status(400).json({
         success: false,
-        message: `Insufficient ${error.category} wallet balance to fund the account.`,
+        message: `Insufficient ${categoryLabel(error.category)} wallet balance to fund the account.`,
         data: null
       });
     }

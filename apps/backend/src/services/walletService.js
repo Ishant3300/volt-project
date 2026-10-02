@@ -33,13 +33,13 @@ const Master = require('../models/Master');
 const Transaction = require('../models/Transaction');
 const Trade = require('../models/Trade');
 const KiteInstrument = require('../models/KiteInstrument');
-const { categoryForSegment } = require('../utils/walletCategory');
+const { categoryForSegment, CATEGORY_ORDER } = require('../utils/walletCategory');
 
 /** Error `code` thrown when a guarded balance move cannot be covered. */
 const INSUFFICIENT_WALLET = 'INSUFFICIENT_WALLET';
 
-/** Valid category pools (matches the wallet sub-schema on User/Master). */
-const CATEGORIES = Object.freeze(['NSE', 'MCX', 'COMEX', 'GLOBAL']);
+/** Valid category pools (matches the wallet sub-schema on User/Master) — the single list in utils/walletCategory.js. */
+const CATEGORIES = CATEGORY_ORDER;
 
 /** Owner/target model discriminators that resolve to a Mongoose model. */
 const OWNER_MODELS = Object.freeze({ User, Master });
@@ -121,12 +121,9 @@ async function readWallet(Model, ownerId, session = null) {
   if (session) query = query.session(session);
   const doc = await query.lean();
   const wallet = (doc && doc.wallet) || {};
-  return {
-    NSE: Number(wallet.NSE) || 0,
-    MCX: Number(wallet.MCX) || 0,
-    COMEX: Number(wallet.COMEX) || 0,
-    GLOBAL: Number(wallet.GLOBAL) || 0,
-  };
+  // Every category, a missing one (e.g. NSEOPT on a document written before
+  // that pool existed) reading as 0.
+  return Object.fromEntries(CATEGORIES.map((cat) => [cat, Number(wallet[cat]) || 0]));
 }
 
 /**
@@ -529,12 +526,7 @@ async function withdraw(actor, targetModel, targetId, category, amount, session 
 async function getAvailable(ownerModel, ownerId, session = null) {
   const Model = resolveModel(ownerModel);
   const wallet = await readWallet(Model, ownerId, session);
-  return {
-    NSE: roundMoney(wallet.NSE),
-    MCX: roundMoney(wallet.MCX),
-    COMEX: roundMoney(wallet.COMEX),
-    GLOBAL: roundMoney(wallet.GLOBAL),
-  };
+  return Object.fromEntries(CATEGORIES.map((cat) => [cat, roundMoney(wallet[cat])]));
 }
 
 /**

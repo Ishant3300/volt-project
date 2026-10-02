@@ -1,20 +1,27 @@
 'use strict';
 
 // Validates: Requirement 2.2 (segment -> category mapping) and the
-// allowedCategories derivation used by migration / metrics / wallet funding.
+// allowedCategories derivation used by metrics / wallet funding.
+// NSE options have their own pool, NSEOPT ("NSE OPT"): option margin is
+// blocked/released only there, never from the NSE (futures) pool.
 
 const {
   CATEGORY,
+  CATEGORY_ORDER,
   categoryForSegment,
+  categoryLabel,
   allowedCategories,
 } = require('../src/utils/walletCategory');
+
+const ticked = (exchange_name) => ({ exchange_name, turnover: true, lot: false, group_name: '' });
 
 describe('categoryForSegment', () => {
   test.each([
     ['NFO-FUT', 'NSE'],
-    ['NFO-OPT', 'NSE'],
+    ['NFO-OPT', 'NSEOPT'],
     ['MCX-FUT', 'MCX'],
     ['MCX-OPT', 'MCX'],
+    ['COMEX-FUT', 'COMEX'],
     // "everything else" -> GLOBAL
     ['SGX', 'GLOBAL'],
     ['INDICES', 'GLOBAL'],
@@ -31,7 +38,7 @@ describe('categoryForSegment', () => {
   test('is case-insensitive and trims surrounding whitespace', () => {
     expect(categoryForSegment('nfo-fut')).toBe('NSE');
     expect(categoryForSegment('  mcx-opt  ')).toBe('MCX');
-    expect(categoryForSegment('Nfo-Opt')).toBe('NSE');
+    expect(categoryForSegment('Nfo-Opt')).toBe('NSEOPT');
   });
 
   test('defaults unknown / empty / nullish input to GLOBAL', () => {
@@ -41,8 +48,11 @@ describe('categoryForSegment', () => {
     expect(categoryForSegment('SOMETHING-NEW')).toBe('GLOBAL');
   });
 
-  test('exposes the canonical category constants', () => {
-    expect(CATEGORY).toEqual({ NSE: 'NSE', MCX: 'MCX', GLOBAL: 'GLOBAL' });
+  test('exposes the canonical category constants, order and labels', () => {
+    expect(CATEGORY).toEqual({ NSE: 'NSE', NSEOPT: 'NSEOPT', MCX: 'MCX', COMEX: 'COMEX', GLOBAL: 'GLOBAL' });
+    expect(CATEGORY_ORDER).toEqual(['NSE', 'NSEOPT', 'MCX', 'COMEX', 'GLOBAL']);
+    expect(categoryLabel('NSEOPT')).toBe('NSE OPT');
+    expect(categoryLabel('MCX')).toBe('MCX');
   });
 });
 
@@ -56,24 +66,37 @@ describe('allowedCategories', () => {
       { exchange_name: 'NFO-OPT', turnover: false, lot: true, group_name: '' },
       { exchange_name: 'MCX-OPT', turnover: false, lot: true, group_name: '' },
     ];
-    expect(allowedCategories(exchangesAllowed)).toEqual(['NSE', 'MCX']);
+    expect(allowedCategories(exchangesAllowed)).toEqual(['NSEOPT', 'MCX']);
+  });
+
+  test('NSE futures and NSE options are separate pools', () => {
+    expect(allowedCategories(['NFO-FUT', 'NFO-OPT'])).toEqual(['NSE', 'NSEOPT']);
+    expect(allowedCategories(['NFO-OPT'])).toEqual(['NSEOPT']);
+    expect(allowedCategories(['NFO-FUT'])).toEqual(['NSE']);
   });
 
   test('deduplicates categories that share a mapping', () => {
-    expect(allowedCategories(['NFO-FUT', 'NFO-OPT'])).toEqual(['NSE']);
     expect(allowedCategories(['MCX-FUT', 'MCX-OPT'])).toEqual(['MCX']);
   });
 
   test('returns categories in canonical order regardless of input order', () => {
-    expect(allowedCategories(['SGX', 'MCX-FUT', 'NFO-FUT'])).toEqual(['NSE', 'MCX', 'GLOBAL']);
+    expect(allowedCategories(['SGX', 'MCX-FUT', 'NFO-OPT', 'NFO-FUT'])).toEqual(['NSE', 'NSEOPT', 'MCX', 'GLOBAL']);
+  });
+
+  test('a User row only counts when ticked (turnover or lot on)', () => {
+    expect(allowedCategories([
+      { exchange_name: 'NFO-FUT', turnover: true, lot: false },
+      { exchange_name: 'NFO-OPT', turnover: false, lot: false },
+      { exchange_name: 'MCX-FUT' },
+    ])).toEqual(['NSE']);
   });
 
   test('ignores blank, null and malformed entries', () => {
-    expect(allowedCategories(['NFO-FUT', '', null, {}, { exchange_name: '  ' }])).toEqual(['NSE']);
+    expect(allowedCategories(['NFO-FUT', '', null, {}, { exchange_name: '  ', turnover: true }])).toEqual(['NSE']);
   });
 
   test('is case-insensitive for entry names', () => {
-    expect(allowedCategories(['nfo-fut', { exchange_name: 'mcx-opt' }])).toEqual(['NSE', 'MCX']);
+    expect(allowedCategories(['nfo-fut', ticked('mcx-opt'), ticked('nfo-opt')])).toEqual(['NSE', 'NSEOPT', 'MCX']);
   });
 
   test('returns an empty array for empty or non-array input', () => {

@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const { categoryLabel } = require('../utils/walletCategory');
 const Master = require('../models/Master');
 const Server = require('../models/Server');
 const Message = require('../models/Message');
@@ -353,7 +354,7 @@ const createChildMaster = async (req, res) => {
     // create — surface it as a clear 400 naming the category.
     else if (error.code === 'INSUFFICIENT_WALLET') {
       statusCode = 400;
-      error.message = `Insufficient ${error.category} wallet balance to fund the new account.`;
+      error.message = `Insufficient ${categoryLabel(error.category)} wallet balance to fund the new account.`;
     }
 
     res.status(statusCode).json({
@@ -756,7 +757,7 @@ const updateChildMasterDetails = async (req, res) => {
     if (error.code === 'INSUFFICIENT_WALLET') {
       return res.status(400).json({
         success: false,
-        message: `Insufficient ${error.category} wallet balance to fund the account.`,
+        message: `Insufficient ${categoryLabel(error.category)} wallet balance to fund the account.`,
         data: null
       });
     }
