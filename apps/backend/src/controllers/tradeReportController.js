@@ -867,8 +867,9 @@ function _getOrderTypeLabel(trade) {
 
   // Carry-forward from settlement
   if (tradeType === 'carry_forward') return 'CF';
-  // Settlement closing trade
-  if (tradeType === 'settlement_close') return 'SETTLEMENT';
+  // Settlement closing trade: the position is carried forward to next week
+  // (BF there at this same price) — shown as "CF" on the bill.
+  if (tradeType === 'settlement_close') return 'CF';
   // Placed by admin
   if (placedBy === 'ADMIN') return 'ADMIN';
   // Placed by master
