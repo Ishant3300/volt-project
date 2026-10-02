@@ -53,6 +53,31 @@ test('live becomes not-live 5 minutes after the last fresh quote', () => {
   expect(feed.isQuoteLive(OCT, t0 + 5.1 * 60e3)).toBe(false);
 });
 
+describe('after a restart with only a stale quote (holiday)', () => {
+  const metricsEngine = require('../src/services/metricsEngine');
+  const priceQueueService = require('../src/services/priceQueueService');
+  beforeEach(() => jest.clearAllMocks());
+
+  test('shows NSE IX last quote once, for display and position value only', () => {
+    const now = Date.now();
+    feed._tickMonthlyContracts([row(new Date(now - 7 * 3600e3), 22385)], now);
+    expect(feed.livePriceService.latestPrices.get(OCT)).toBe(22385);
+    expect(metricsEngine.onTick).toHaveBeenCalledWith(OCT, 22385, 22384.5, 22385.5);
+    expect(feed.livePriceService._broadcastToClients).toHaveBeenCalledTimes(1);
+    // never treated as live
+    expect(priceQueueService.publishPriceUpdate).not.toHaveBeenCalled();
+    expect(feed.isQuoteLive(OCT, now)).toBe(false);
+  });
+
+  test('is not re-sent on every poll once a price is held', () => {
+    const now = Date.now();
+    feed._tickMonthlyContracts([row(new Date(now - 7 * 3600e3))], now);
+    feed._tickMonthlyContracts([row(new Date(now - 7 * 3600e3))], now + 2000);
+    expect(metricsEngine.onTick).toHaveBeenCalledTimes(1);
+    expect(feed.livePriceService._broadcastToClients).toHaveBeenCalledTimes(1);
+  });
+});
+
 test('the refusal is saved to the Rejection Log', () => {
   expect(isLoggableTradeRefusal(GIFT_NOT_LIVE_MESSAGE)).toBe(true);
 });

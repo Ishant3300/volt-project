@@ -177,22 +177,42 @@ class GiftNiftyFeedService {
   _tickMonthlyContracts(rows, now = Date.now()) {
     const { contractToken, MONTHLY_FROM } = require('./giftNiftyContracts');
     const ticks = [];
+    const staleSeeds = [];
     const seen = new Set();
+    const lps = this.livePriceService;
     for (const r of rows) {
       if (r.INSTRUMENTTYPE !== 'FUTIDX' || r.SYMBOL !== 'NIFTY') continue;
       const expiry = parseNseixDate(r.EXPIRYDATE);
       if (!expiry || dateKey(expiry) < MONTHLY_FROM || seen.has(dateKey(expiry))) continue;
       seen.add(dateKey(expiry));
-      const ts = parseNseixTimestamp(r.TIMESTMP);
-      if (!Number.isNaN(ts.getTime()) && now - ts.getTime() > STALE_THRESHOLD_MS) continue;
       const last = Number(r.LASTPRICE);
       if (!Number.isFinite(last) || last <= 0) continue;
-      ticks.push({ instrument_token: contractToken(expiry), last_price: last, bid_price: Number(r.BIDPRICE) || last, ask_price: Number(r.ASKPRICE) || last, ...dayFields(r, last) });
+      const tick = { instrument_token: contractToken(expiry), last_price: last, bid_price: Number(r.BIDPRICE) || last, ask_price: Number(r.ASKPRICE) || last, ...dayFields(r, last) };
+      const ts = parseNseixTimestamp(r.TIMESTMP);
+      if (!Number.isNaN(ts.getTime()) && now - ts.getTime() > STALE_THRESHOLD_MS) {
+        // Stale quote (holiday, between sessions). The price lives only in
+        // memory (these contracts have no stored last_price), so after a
+        // restart nothing showed at all and open positions were valued at
+        // entry. Use NSE IX's last quote ONCE for display/valuation — never as
+        // live: no freshness mark (orders stay refused), no order matching.
+        if (!lps.latestPrices.has(tick.instrument_token)) staleSeeds.push(tick);
+        continue;
+      }
+      ticks.push(tick);
     }
-    if (ticks.length === 0) return ticks;
+    if (ticks.length === 0 && staleSeeds.length === 0) return ticks;
     const metricsEngine = require('./metricsEngine');
     const priceQueueService = require('./priceQueueService');
-    const lps = this.livePriceService;
+    for (const t of staleSeeds) {
+      lps.latestPrices.set(t.instrument_token, t.last_price);
+      lps.latestPrices.set(Number(t.instrument_token), t.last_price);
+      metricsEngine.onTick(t.instrument_token, t.last_price, t.bid_price, t.ask_price);
+    }
+    if (staleSeeds.length > 0) {
+      console.log(`📡 [GiftNiftyFeed] No live NSE IX quote — showing last quote for ${staleSeeds.map((t) => `${t.instrument_token}@${t.last_price}`).join(', ')} (orders stay paused)`);
+      lps._broadcastToClients({ type: 'ticks', data: staleSeeds });
+    }
+    if (ticks.length === 0) return ticks;
     for (const t of ticks) {
       this._freshQuoteAt.set(String(t.instrument_token), now);
       lps.latestPrices.set(t.instrument_token, t.last_price);
