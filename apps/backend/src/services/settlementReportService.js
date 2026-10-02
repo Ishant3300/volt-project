@@ -108,8 +108,13 @@ async function getAllUsersUnderMaster(masterId, allMasters) {
   return User.find({ master_id: { $in: subtreeIds }, deleted_at: null }).select('_id').lean();
 }
 
-/** One row's own {pnl, brokerage, total} for the range (+ opening if requested). */
-async function buildRow(username, userIds, from, to, withOpening) {
+/**
+ * One row's own {pnl, brokerage, total} for the range (+ opening if requested),
+ * with the account's identity: `username` (unchanged: username, else name),
+ * plus `id`, `name` and `type` ('User'/'Master') so the report and its export
+ * can show the name next to the user id.
+ */
+async function buildRow(account, type, userIds, from, to, withOpening) {
   let pnl = 0, brokerage = 0;
   for (const uid of userIds) {
     const range = await getUserPnlAndBrokerage(uid, from, to);
@@ -121,7 +126,15 @@ async function buildRow(username, userIds, from, to, withOpening) {
       brokerage += opening.brokerage;
     }
   }
-  return { username, pnl: r2(pnl), brokerage: r2(brokerage), total: r2(pnl - brokerage) };
+  return {
+    id: account._id ? account._id.toString() : null,
+    name: account.name || '',
+    username: account.username || account.name,
+    type,
+    pnl: r2(pnl),
+    brokerage: r2(brokerage),
+    total: r2(pnl - brokerage),
+  };
 }
 
 /**
@@ -143,7 +156,7 @@ async function buildSettlementReport(targetType, targetDoc, from, to, withOpenin
 
   if (targetType === 'User') {
     // A leaf user has no children — the row IS just their own result.
-    const row = await buildRow(targetDoc.username || targetDoc.name, [targetDoc._id], from, to, withOpening);
+    const row = await buildRow(targetDoc, 'User', [targetDoc._id], from, to, withOpening);
     rows.push(row);
   } else {
     const allMasters = await Master.find({ deleted_at: null }).select('_id master_id name username').lean();
@@ -158,11 +171,11 @@ async function buildSettlementReport(targetType, targetDoc, from, to, withOpenin
     }
 
     for (const u of directUsers) {
-      rows.push(await buildRow(u.username || u.name, [u._id], from, to, withOpening));
+      rows.push(await buildRow(u, 'User', [u._id], from, to, withOpening));
     }
     for (const m of directSubMasters) {
       const userIds = (await getAllUsersUnderMaster(m._id, allMasters)).map((u) => u._id);
-      rows.push(await buildRow(m.username || m.name, userIds, from, to, withOpening));
+      rows.push(await buildRow(m, 'Master', userIds, from, to, withOpening));
     }
   }
 

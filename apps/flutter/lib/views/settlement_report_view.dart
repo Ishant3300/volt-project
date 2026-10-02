@@ -332,14 +332,16 @@ class _SettlementReportViewState extends State<SettlementReportView> {
           pw.Table(
             border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
             columnWidths: const {
-              0: pw.FlexColumnWidth(2),
-              1: pw.FlexColumnWidth(1.2),
+              0: pw.FlexColumnWidth(1.3),
+              1: pw.FlexColumnWidth(2),
               2: pw.FlexColumnWidth(1.2),
               3: pw.FlexColumnWidth(1.2),
+              4: pw.FlexColumnWidth(1.2),
             },
             children: [
               pw.TableRow(children: [
-                _pdfCell('Username', bold: true),
+                _pdfCell('User ID', bold: true),
+                _pdfCell('Name', bold: true),
                 _pdfCell('P&L', bold: true),
                 _pdfCell('Brk', bold: true),
                 _pdfCell('Total', bold: true),
@@ -347,12 +349,14 @@ class _SettlementReportViewState extends State<SettlementReportView> {
               for (final r in rows)
                 pw.TableRow(children: [
                   _pdfCell('${r['username'] ?? ''}'),
+                  _pdfCell('${r['name'] ?? ''}'),
                   _pdfCell(fmt.format((r['pnl'] as num?)?.toDouble() ?? 0)),
                   _pdfCell(fmt.format((r['brokerage'] as num?)?.toDouble() ?? 0)),
                   _pdfCell(fmt.format((r['total'] as num?)?.toDouble() ?? 0)),
                 ]),
               pw.TableRow(children: [
                 _pdfCell('TOTAL', bold: true),
+                _pdfCell(''),
                 _pdfCell(fmt.format(sumPnl), bold: true),
                 _pdfCell(fmt.format(sumBrk), bold: true),
                 _pdfCell(fmt.format(sumTotal), bold: true),
@@ -785,7 +789,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 6),
       child: Row(children: [
-        Expanded(child: Text('Username', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF8E8E93), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
+        Expanded(child: Text('User ID / Name', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF8E8E93), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
         Expanded(child: Text('P&L', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF8E8E93), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
         Expanded(child: Text('Brk', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF8E8E93), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
         Expanded(child: Text('Total', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF8E8E93), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
@@ -798,11 +802,18 @@ class _SettlementReportViewState extends State<SettlementReportView> {
     final brk = (r['brokerage'] as num?)?.toDouble() ?? 0;
     final total = (r['total'] as num?)?.toDouble() ?? 0;
     final username = '${r['username'] ?? ''}';
+    final name = '${r['name'] ?? ''}';
     return Container(
       decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFD1D1D6), width: 0.5))),
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(children: [
-        Expanded(child: Text(username, textAlign: TextAlign.center, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily))),
+        Expanded(
+          child: Column(children: [
+            Text(username, textAlign: TextAlign.center, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily)),
+            if (name.isNotEmpty && name != username)
+              Text(name, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF8E8E93), fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
+          ]),
+        ),
         Expanded(child: Text(pnl.toStringAsFixed(2), textAlign: TextAlign.center, style: TextStyle(color: pnl >= 0 ? kColorBuy : kColorSell, fontSize: kFontSizeBody, fontFamily: kFontFamily))),
         Expanded(child: Text(brk.toStringAsFixed(2), textAlign: TextAlign.center, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily))),
         Expanded(child: Text(total.toStringAsFixed(2), textAlign: TextAlign.center, style: TextStyle(color: total >= 0 ? kColorBuy : kColorSell, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
