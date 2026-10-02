@@ -180,6 +180,12 @@ const getTradeReport = async (req, res) => {
     }).lean();
 
     const ledgerRows = [];
+    // Fills of these SAME settlement periods dated before the window — e.g.
+    // an account's opening trades entered after the previous settlement
+    // (266) once this period has itself been settled. They are not shown,
+    // but are replayed into the carried-in position below, exactly as their
+    // live originals were before settlement archived them.
+    const preWindowLedgerFills = [];
     const seenSourceTradeIds = new Set();
     for (const s of snapshots) {
       for (const f of (s.fills || [])) {
@@ -188,6 +194,19 @@ const getTradeReport = async (req, res) => {
         if (sourceTradeId) seenSourceTradeIds.add(sourceTradeId);
         if (!f.executed_at) continue;
         const at = new Date(f.executed_at);
+        if (at < fromDate && f.trade_type !== 'carry_forward') {
+          preWindowLedgerFills.push({
+            user_id: s.user_id,
+            exchange: s.exchange,
+            tradingsymbol: s.tradingsymbol,
+            instrument_token: s.instrument_token,
+            transaction_type: f.transaction_type,
+            executed_quantity: f.executed_quantity || 0,
+            executed_price: f.executed_price || 0,
+            executed_at: at,
+          });
+          continue;
+        }
         if (at < fromDate || at > toDate) continue;
         // Only carry_forward is a synthetic marker (represented via the Carry
         // Forward section, not as a fill) — margin_square_off is a real,
@@ -385,6 +404,8 @@ const getTradeReport = async (req, res) => {
         trade_type: { $ne: 'carry_forward' },
         executed_at: { $lt: fromDate },
       }).sort({ executed_at: 1 }).lean();
+      preWindowFills.push(...preWindowLedgerFills);
+      preWindowFills.sort((a, b) => new Date(a.executed_at) - new Date(b.executed_at));
 
       const perUserInstrument = {};
       for (const [k, marker] of Object.entries(latestPerUserInstrument)) {

@@ -747,7 +747,12 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
       final key = '$exchange::$symbol';
 
       final openPos = openPosMap[key];
-      if (openPos == null) {
+      // Settled inside this window (a settlement_close row): the position
+      // open now is the next period's re-open at the settlement price — the
+      // bill already closed it at settlement, so no LIVE row.
+      final settledInWindow = ((instr['all_trades'] as List?) ?? [])
+          .any((t) => t is Map && t['trade_type'] == 'settlement_close');
+      if (openPos == null || settledInWindow) {
         instruments[i] = instr;
         continue; // No open position for this instrument
       }
