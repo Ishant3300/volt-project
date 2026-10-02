@@ -492,6 +492,30 @@ class _TradeCardPageState extends State<TradeCardPage> {
     });
   }
 
+  /// Reports an order this screen blocked before sending it, so it shows in
+  /// the Rejection Log (who, when, which script, why). Clients only — admin
+  /// and master blocks are their own UI. Fire-and-forget: never awaited and
+  /// never changes what the user sees.
+  void _reportBlocked(
+      String code, String message, String transactionType, double price) {
+    final profile = Provider.of<UserProfileProvider>(context, listen: false);
+    if (profile.isAdmin || profile.isMaster) return;
+    final orderType = _selectedTab == 1
+        ? 'LIMIT'
+        : _selectedTab == 2
+            ? 'SL'
+            : 'MARKET';
+    _tradeService.reportBlockedOrder(
+      instrumentToken: widget.item.instrument.instrumentToken,
+      transactionType: transactionType,
+      quantity: _actualQuantity,
+      orderType: orderType,
+      price: price,
+      code: code,
+      message: message,
+    );
+  }
+
   Future<void> _handleTrade(String transactionType, double currentPrice) async {
     if (_isLoading) return;
     if (!mounted) return;
@@ -533,6 +557,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
             backgroundColor: kColorSell,
           ),
         );
+        _reportBlocked('MARKET_CLOSED', MarketHours.getMarketStatusMessage(exchange: ex, tradingsymbol: sym), transactionType, currentPrice);
         return;
       }
     }
@@ -565,6 +590,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
           backgroundColor: kColorSell,
         ),
       );
+      _reportBlocked('STALE_QUOTE', 'Low volume — price hasn\'t updated recently. Trade blocked until a fresh quote arrives.', transactionType, currentPrice);
       return;
     }
 
@@ -577,6 +603,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
             backgroundColor: kColorSell,
           ),
         );
+        _reportBlocked('MIN_QTY', 'Minimum order is 1 lot', transactionType, currentPrice);
         return;
       }
       if (_lotCount > _lotLimitInfo!.maxLots) {
@@ -587,6 +614,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
             backgroundColor: kColorSell,
           ),
         );
+        _reportBlocked('MAX_LOTS', 'You are allowed max ${_lotLimitInfo!.maxLots} lots for this instrument (requested $_lotCount)', transactionType, currentPrice);
         return;
       }
     }
@@ -600,6 +628,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
             backgroundColor: kColorSell,
           ),
         );
+        _reportBlocked('MIN_QTY', 'Quantity must be at least 1', transactionType, currentPrice);
         return;
       }
       if (_quantity > _lotLimitInfo!.maxQty) {
@@ -610,6 +639,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
             backgroundColor: kColorSell,
           ),
         );
+        _reportBlocked('MAX_QTY', 'Maximum allowed quantity is ${_lotLimitInfo!.maxQty} for this instrument (requested $_quantity)', transactionType, currentPrice);
         return;
       }
     }
@@ -631,6 +661,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
           backgroundColor: Colors.red,
         ),
       );
+      _reportBlocked('OPTION_SELL', optionSellError, transactionType, currentPrice);
       return;
     }
 
@@ -674,6 +705,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
               backgroundColor: kColorSell,
             ),
           );
+          _reportBlocked('LIMIT_PRICE', 'Buy price ₹${tradePrice.toStringAsFixed(2)} cannot be above CMP ₹${cmp.toStringAsFixed(2)}', transactionType, tradePrice);
           return;
         }
         if (transactionType == 'SELL' && tradePrice < cmp) {
@@ -684,6 +716,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
               backgroundColor: kColorSell,
             ),
           );
+          _reportBlocked('LIMIT_PRICE', 'Sell price ₹${tradePrice.toStringAsFixed(2)} cannot be below CMP ₹${cmp.toStringAsFixed(2)}', transactionType, tradePrice);
           return;
         }
       }
@@ -700,6 +733,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
           backgroundColor: kColorSell,
         ),
       );
+      _reportBlocked('CIRCUIT', 'Price ${tradePrice.toStringAsFixed(2)} exceeds upper circuit limit ${upper.toStringAsFixed(2)}', transactionType, tradePrice);
       return;
     }
     if (lower != null && tradePrice < lower) {
@@ -710,6 +744,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
           backgroundColor: kColorSell,
         ),
       );
+      _reportBlocked('CIRCUIT', 'Price ${tradePrice.toStringAsFixed(2)} is below lower circuit limit ${lower.toStringAsFixed(2)}', transactionType, tradePrice);
       return;
     }
 

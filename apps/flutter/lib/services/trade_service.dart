@@ -109,6 +109,38 @@ class TradeService {
     return null;
   }
 
+  /// Tells the server the app blocked an order before sending it, so it
+  /// appears in the Rejection Log (POST /trade/app-rejection). Clients only;
+  /// fire-and-forget — any failure is ignored and never affects the UI.
+  Future<void> reportBlockedOrder({
+    required String instrumentToken,
+    required String transactionType,
+    required int quantity,
+    required String orderType,
+    required double price,
+    required String code,
+    required String message,
+  }) async {
+    try {
+      final token = await _storage.getToken();
+      await _apiService.post(
+        '/trade/app-rejection',
+        {
+          'instrument_token': instrumentToken,
+          'transaction_type': transactionType.toUpperCase(),
+          'quantity': quantity,
+          'order_type': orderType.toUpperCase(),
+          'price': price,
+          'code': code,
+          'message': message,
+        },
+        token: token,
+      );
+    } catch (e) {
+      log('Could not report blocked order: $e');
+    }
+  }
+
   /// Places a new trade.
   /// Returns a tuple of (success, message).
   Future<(bool, String)> placeTrade({
