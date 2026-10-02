@@ -314,6 +314,17 @@ class MetricsEngine {
         // re-derives brokerage from the rate rules rather than trusting t.brokerage,
         // so without this check an exempted trade's brokerage silently came back
         // anyway the moment metrics were recomputed.
+        // System closes (trade_type 'margin_square_off': margin square-off,
+        // master square-off, contract-expiry auto-close) DO charge brokerage —
+        // each computes and stores it when it closes, and the bill, trade
+        // report and settlement all charge that stored amount. Skipping them
+        // here left the live M2M short by exactly that brokerage (account
+        // 266: 3,407.55 on its GIFT expiry close). Use what was actually
+        // charged rather than re-deriving it.
+        if (t.trade_type === 'margin_square_off' && !t.brokerage_exempt) {
+          totalBrokerage += Number(t.brokerage) || 0;
+        }
+
         if (t.trade_type !== 'carry_forward' && t.trade_type !== 'margin_square_off' && !t.brokerage_exempt) {
           // Brokerage calculation (same 4-level fallback as Flutter)
           const ki = this._kiteMap[token] || {};

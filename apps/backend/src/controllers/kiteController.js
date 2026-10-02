@@ -190,7 +190,9 @@ const getInstrumentsInfo = async (req, res) => {
       const KiteInstrument = require('../models/KiteInstrument');
       const instruments = await KiteInstrument.find(
         { instrument_token: { $in: tokens } },
-        'instrument_token lot_size segment name raw_name'
+        // expiry/instrument_type/strike/tradingsymbol: the Live Bill's script
+        // heading ("NIFTY 29SEP2026") — additive, existing readers unaffected.
+        'instrument_token lot_size segment name raw_name expiry instrument_type strike tradingsymbol'
       ).lean();
       return res.status(200).json({
         success: true,
