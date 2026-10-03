@@ -174,29 +174,21 @@ const getWeeklyAdminReport = async (req, res) => {
 
     // 5. Load trades for all users in scope.
     //
-    // Default (no date_from/date_to override) means "current week" — the
-    // exact window weeklyReportCache.js keeps precomputed per user, updated
-    // the instant each trade completes (see metricsEngine.onTradeExecuted).
-    // Only that default case can use the cache; an explicit historical
-    // range always needs a live query, since the cache only ever tracks
-    // the current week.
+    // Always the live query below — including the default "current week"
+    // (no date_from/date_to), which the mobile app uses. That default used
+    // to read weeklyReportCache.js's per-user aggregate instead, which only
+    // holds live, non-carry_forward trades: once the weekly settlement ran,
+    // the P&L booked by its close leg (a position held into settlement,
+    // marked at the settlement price) was missing, and with the position
+    // re-opened at that same price M2M was 0 too — so the loss vanished
+    // from the mobile report until Monday (169299 / client 465282, week of
+    // 28 Sep: mobile -6,52,397 vs web -12,32,547.10). The web always sends
+    // dates and already used this live path; the default now gets exactly
+    // the same trades (currentWeekStart() is the same Monday 00:00 the web
+    // sends as date_from), so mobile and web agree.
     const allUserIds = allUsers.map(u => u._id);
     const tradesByUser = {};
-    const usersNeedingLiveQuery = [];
-
-    if (!date_from && !date_to) {
-      const weeklyReportCache = require('../services/weeklyReportCache');
-      await Promise.all(allUserIds.map(async (uid) => {
-        const cached = await weeklyReportCache.getUserWeeklyTrades(uid.toString());
-        if (cached) {
-          tradesByUser[uid.toString()] = cached;
-        } else {
-          usersNeedingLiveQuery.push(uid);
-        }
-      }));
-    } else {
-      usersNeedingLiveQuery.push(...allUserIds);
-    }
+    const usersNeedingLiveQuery = [...allUserIds];
     _mark('3_cacheLookup');
     _timings.cacheHits = allUserIds.length - usersNeedingLiveQuery.length;
     _timings.cacheMisses = usersNeedingLiveQuery.length;
