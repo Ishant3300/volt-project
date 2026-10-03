@@ -316,26 +316,25 @@ const getWeeklyAdminReport = async (req, res) => {
     // see _topmostMasterId's history). That layer is gone: the caller's own
     // clearance is now split by the caller's own ceiling instead of an
     // ancestor's rate, so only the caller's own scope is needed.
+    //
+    // Rules come from a shared, briefly cached copy (_getBrokerageRuleIndex)
+    // instead of a fresh query per request: every call used to pull the
+    // rules for its whole scope — ~88k rows / 26 MB for admin — and with
+    // several ledger screens polling, that alone took 130-200s per call and
+    // throttled the database. Same rows (deleted_at: null), same per-owner
+    // order, filtered to the same owners as the old query — the formulas
+    // below receive exactly what they did before.
     const brkSettingsOwnerIds = [...allUserIds, ...allScopeMasterIds];
-    const allBrkSettings = await BrokerageSettings.find({
-      $or: [
-        { user_id: { $in: brkSettingsOwnerIds }, deleted_at: null },
-        { user_id: null, deleted_at: null }
-      ]
-    }).lean();
+    const ruleIndex = await _getBrokerageRuleIndex();
     _mark('6_brokerageSettings');
 
-    // Group brokerage rules by user_id
+    // Group brokerage rules by user_id (only the owners in this report's scope)
     const brkRulesByUser = {};   // userId → rules[]
-    const globalBrkRules = [];
-    for (const r of allBrkSettings) {
-      if (!r.user_id) {
-        globalBrkRules.push(r);
-      } else {
-        const uid = r.user_id.toString();
-        if (!brkRulesByUser[uid]) brkRulesByUser[uid] = [];
-        brkRulesByUser[uid].push(r);
-      }
+    const globalBrkRules = ruleIndex.global;
+    for (const id of brkSettingsOwnerIds) {
+      const uid = id.toString();
+      const rules = ruleIndex.byOwner.get(uid);
+      if (rules) brkRulesByUser[uid] = rules;
     }
 
     // Caller's rules (for caller brokerage base clearance calculation).
@@ -979,6 +978,54 @@ function _sumTotals(data) {
 
 const _r2 = (n) => Math.round(n * 100) / 100;
 
+/**
+ * Shared copy of every live brokerage rule, grouped by owner — what each
+ * report used to query on its own. Reloaded at most once per
+ * BRK_RULES_TTL_MS; while a reload runs, callers keep getting the previous
+ * copy (a rate change shows in this report within about a minute). Only
+ * the very first request after a restart waits for the load, and concurrent
+ * requests share one load instead of each starting their own. Only the
+ * fields the report reads are fetched (_findRule / the brokerage sums:
+ * user_id, type, exchange_name, script_name, brk_value), in natural order
+ * so each owner's rules keep the same order find() returned before.
+ */
+const BRK_RULES_TTL_MS = 60 * 1000;
+const _brkRuleCache = { index: null, loadedAt: 0, loading: null };
+
+function _loadBrokerageRuleIndex() {
+  if (!_brkRuleCache.loading) {
+    _brkRuleCache.loading = BrokerageSettings.find({ deleted_at: null })
+      .select('user_id type exchange_name script_name brk_value')
+      .lean()
+      .then((rows) => {
+        const byOwner = new Map();
+        const global = [];
+        for (const r of rows) {
+          if (!r.user_id) {
+            global.push(r);
+          } else {
+            const uid = r.user_id.toString();
+            if (!byOwner.has(uid)) byOwner.set(uid, []);
+            byOwner.get(uid).push(r);
+          }
+        }
+        _brkRuleCache.index = { byOwner, global };
+        _brkRuleCache.loadedAt = Date.now();
+        return _brkRuleCache.index;
+      })
+      .finally(() => { _brkRuleCache.loading = null; });
+  }
+  return _brkRuleCache.loading;
+}
+
+async function _getBrokerageRuleIndex() {
+  if (!_brkRuleCache.index) return _loadBrokerageRuleIndex();
+  if (Date.now() - _brkRuleCache.loadedAt > BRK_RULES_TTL_MS) {
+    _loadBrokerageRuleIndex().catch((e) => console.error('[WeeklyAdminReport] brokerage rule reload failed:', e.message));
+  }
+  return _brkRuleCache.index;
+}
+
 module.exports = {
   getWeeklyAdminReport,
   _private: {
@@ -988,5 +1035,7 @@ module.exports = {
     _clearanceForRules,
     _getUserBrokerageAndTurnoverBatched,
     _findRule,
+    /** Tests: drop the shared brokerage-rule copy so each test reads its own mocked rules. */
+    _resetBrokerageRuleCache: () => { _brkRuleCache.index = null; _brkRuleCache.loadedAt = 0; _brkRuleCache.loading = null; },
   },
 };

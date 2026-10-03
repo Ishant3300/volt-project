@@ -36,7 +36,7 @@ const MasterBaseRate = require('../src/models/MasterBaseRate');
 const weeklyReportCache = require('../src/services/weeklyReportCache');
 const metricsEngine = require('../src/services/metricsEngine');
 const { resolveHiddenMasterIds } = require('../src/utils/adminVisibility');
-const { getWeeklyAdminReport } = require('../src/controllers/weeklyAdminController');
+const { getWeeklyAdminReport, _private: { _resetBrokerageRuleCache } } = require('../src/controllers/weeklyAdminController');
 
 function makeRes() {
   const res = {};
@@ -59,6 +59,7 @@ const GRANDCHILD_M = 'grandchildM'; // childM's own child — 2 tiers below the 
 const DEEP_USER = 'deepUser'; // grandchildM's own user — 3 tiers below the caller
 
 beforeEach(() => {
+  _resetBrokerageRuleCache();
   jest.clearAllMocks();
 
   Master.find.mockReturnValue(
