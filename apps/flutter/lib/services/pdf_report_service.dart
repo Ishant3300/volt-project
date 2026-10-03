@@ -594,7 +594,7 @@ class PdfReportService {
     content.add(_billFooterBox(
       'Total Brokerage: ${_billMoney(grandBrokerage)}',
       'Final Bill Amt :  ',
-      '${_billMoney(grandNet)} Rs',
+      _billMoney(grandNet),
       grandNet >= 0 ? _billBlue : _billRed,
     ));
     content.add(pw.SizedBox(height: 6));
