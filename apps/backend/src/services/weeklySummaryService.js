@@ -157,12 +157,25 @@ async function snapshotWeeklyLedger() {
 
   console.log(`📒 [LEDGER] Snapshotting ${weekStart.toISOString()} → ${weekEnd.toISOString()}`);
 
+  // Same trade set as the weekly admin report (weeklyAdminController's live
+  // query), so the Ledger adds exactly the week's report Total P&L. This
+  // used to read only `deleted_at: null` trades — but the Saturday weekly
+  // settlement archives every trade of the week (deleted_at +
+  // settlement_run_id) before this Sunday snapshot runs, so almost the
+  // whole week was skipped and nearly every account got ~0 added (first
+  // run, week of 21 Sep: only 8 accounts non-zero). Archived-by-settlement
+  // trades are counted, incl. the settlement close leg (P&L of a position
+  // held into settlement); admin-deleted trades (no settlement_run_id) and
+  // the live carry_forward reopen marker stay excluded.
   const tradeAgg = await Trade.aggregate([
     {
       $match: {
         status: 'completed',
-        deleted_at: null,
         executed_at: { $gte: weekStart, $lte: weekEnd },
+        $or: [
+          { deleted_at: null, trade_type: { $ne: 'carry_forward' } },
+          { deleted_at: { $ne: null }, settlement_run_id: { $ne: null } },
+        ],
       }
     },
     { $group: { _id: '$user_id', grossPnl: { $sum: '$pnl' } } },
