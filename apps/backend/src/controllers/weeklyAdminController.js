@@ -440,11 +440,10 @@ const getWeeklyAdminReport = async (req, res) => {
     const availableExchanges = [...new Set(kiteInstruments.map((k) => k.exchange).filter(Boolean))].sort();
     const availableScripts = [...new Set(kiteInstruments.map((k) => k.raw_name).filter(Boolean))].sort();
 
-    // Purely additive — attaches the permanent Ledger column's running total
-    // (User.ledger_balance / Master.ledger_balance, written weekly by
-    // weeklySummaryService.js's snapshotWeeklyLedger()) to each row already
-    // built above. Touches no existing field and no sharing/cascade formula.
-    await _attachLedgerBalances(data);
+    // Purely additive — attaches the Ledger column (all-time Total P&L, see
+    // _attachLedgerBalances) to each row already built above. Touches no
+    // existing field and no sharing/cascade formula.
+    await _attachLedgerBalances(data, { masterChildrenMap, usersByMaster, metricsEngine });
 
     res.json({
       success: true,
@@ -925,20 +924,59 @@ function _getUserBrokerageAndTurnoverBatched(userId, tradesByUser, brkRulesByUse
  * to each already-built report row, in place. Read-only, one batched query
  * per role — does not affect any other field on these rows.
  */
-async function _attachLedgerBalances(data) {
-  const userIds = data.filter((d) => d.type === 'user').map((d) => d.id);
-  const masterIds = data.filter((d) => d.type === 'master').map((d) => d.id);
-
-  const [users, masters] = await Promise.all([
-    userIds.length ? User.find({ _id: { $in: userIds } }).select('_id ledger_balance').lean() : [],
-    masterIds.length ? Master.find({ _id: { $in: masterIds } }).select('_id ledger_balance').lean() : [],
-  ]);
-  const balanceById = new Map();
-  for (const u of users) balanceById.set(u._id.toString(), u.ledger_balance || 0);
-  for (const m of masters) balanceById.set(m._id.toString(), m.ledger_balance || 0);
-
+async function _attachLedgerBalances(data, { masterChildrenMap, usersByMaster, metricsEngine }) {
+  // The Ledger column is the ALL-TIME Total P&L — from account creation to
+  // now, no date filter, independent of the report's own date range. It
+  // used to show User/Master.ledger_balance, a running total the Sunday
+  // snapshot added to each week; that snapshot missed every settled trade,
+  // so the column sat at ~0. Now computed live: every completed trade's
+  // pnl (live trades + those archived by a weekly settlement, incl. its
+  // close leg; admin-deleted trades and the live carry_forward reopen
+  // marker excluded — the same selection as the report itself) plus the
+  // current open-position M2M. Same sign as total_pnl (-(realised + m2m)).
+  // A master row sums its whole downline. Touches no other field.
+  // Original _id values from the loaded user docs, for the query below.
+  const userIdValue = new Map();
+  for (const list of Object.values(usersByMaster)) {
+    for (const u of list) userIdValue.set(u._id.toString(), u._id);
+  }
+  const userIdsForRow = new Map();
+  const allUserIds = new Set();
   for (const row of data) {
-    row.ledger_balance = balanceById.get(row.id) ?? 0;
+    let ids;
+    if (row.type === 'user') {
+      ids = [row.id];
+    } else {
+      ids = [];
+      for (const mid of _getAllSubMasterIdsBatched(row.id, masterChildrenMap)) {
+        for (const u of usersByMaster[mid] || []) ids.push(u._id.toString());
+      }
+    }
+    userIdsForRow.set(row, ids);
+    ids.forEach((id) => allUserIds.add(id));
+  }
+
+  const pnlByUser = new Map();
+  if (allUserIds.size > 0) {
+    const agg = await Trade.aggregate([
+      {
+        $match: {
+          user_id: { $in: [...allUserIds].map((id) => userIdValue.get(id) ?? id) },
+          status: 'completed',
+          $or: [
+            { deleted_at: null, trade_type: { $ne: 'carry_forward' } },
+            { deleted_at: { $ne: null }, settlement_run_id: { $ne: null } },
+          ],
+        },
+      },
+      { $group: { _id: '$user_id', pnl: { $sum: '$pnl' } } },
+    ]);
+    for (const r of agg) pnlByUser.set(r._id.toString(), r.pnl || 0);
+  }
+
+  const userTotal = (id) => -((pnlByUser.get(id) || 0) + (metricsEngine.getCachedMetrics(id)?.position_pnl || 0));
+  for (const row of data) {
+    row.ledger_balance = _r2(userIdsForRow.get(row).reduce((s, id) => s + userTotal(id), 0));
   }
 }
 

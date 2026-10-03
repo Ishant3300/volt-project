@@ -17,7 +17,7 @@
 //
 // All models/services the handler touches are mocked — no DB.
 
-jest.mock('../src/models/Trade', () => ({ find: jest.fn() }));
+jest.mock('../src/models/Trade', () => ({ find: jest.fn(), aggregate: jest.fn(async () => []) }));
 jest.mock('../src/models/User', () => ({ find: jest.fn() }));
 jest.mock('../src/models/Master', () => ({ find: jest.fn(), findById: jest.fn() }));
 jest.mock('../src/models/BrokerageSettings', () => ({ find: jest.fn() }));
