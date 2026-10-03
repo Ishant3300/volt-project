@@ -29,6 +29,20 @@ function billScriptName(tradingsymbol, ki) {
   return `${ki.name} ${expiry}`;
 }
 
+/**
+ * The IST calendar date ('YYYY-MM-DD') of the Monday after `date` — the
+ * start of the next trading week. A settlement's weekend re-open is only part
+ * of a window whose last day reaches it: a bill ending on the weekend right
+ * after settlement stops at the CF close.
+ */
+function nextMondayIstDateAfter(date) {
+  const ist = new Date(new Date(date).getTime() + 330 * 60 * 1000); // wall-clock IST in UTC fields
+  const d = new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate()));
+  do d.setUTCDate(d.getUTCDate() + 1);
+  while (d.getUTCDay() !== 1);
+  return d.toISOString().slice(0, 10);
+}
+
 /** The Live Bill's BF rows: the position carried into the window (one row per side). */
 function billBfRows(seed, meta) {
   if (!seed) return [];
@@ -449,6 +463,71 @@ const getTradeReport = async (req, res) => {
         if (!meta || new Date(lastAt) > new Date(meta.date)) {
           carryForwardSeedMeta[key] = { date: lastAt, exchange: ref.exchange, tradingsymbol: ref.tradingsymbol, instrument_token: ref.instrument_token };
         }
+      }
+    }
+
+    // ── Settlement re-opens INSIDE the window (a multi-week window crossing a
+    // settlement) ── each settlement closes every open position at the
+    // settlement price (the CF close leg above, at settlement time T) and
+    // re-opens it at the same price (a carry_forward record at T+1ms). The
+    // close was already in all_trades but the re-open never was, so every
+    // trade after a mid-window settlement was priced against a flat position:
+    // user90 21 Sep-04 Oct came to -5,99,746.56 instead of the sum of its two
+    // weeks, -11,73,844.56. The re-open now goes in as a 'BF' row right after
+    // the close (no brokerage, no P&L of its own). The settlement's own
+    // close-side record (archived at the instant it was written) is skipped.
+    // Only when the window reaches the next trading week — a bill ending on
+    // the weekend right after settlement stops at the CF close.
+    if (targetUserId) {
+      const touched = new Set();
+      // The window's last calendar day as picked: toDate is that day's
+      // 23:59:59.999 in server (UTC) time — which is already 05:29 IST of the
+      // NEXT day, so compare calendar dates, not instants.
+      const lastDay = toDate.toISOString().slice(0, 10);
+      for (const t of cfTrades) {
+        const at = new Date(t.executed_at);
+        if (at <= fromDate || at > toDate) continue;
+        if (t.deleted_at && new Date(t.deleted_at).getTime() === at.getTime()) continue;
+        // Weekend re-open (the normal Saturday settlement): only once the
+        // window reaches Monday. A late settlement committed on a weekday
+        // (real: 11-14 Sep committed Monday 09:37) re-opens in that same
+        // trading week, so it always applies.
+        const istDay = new Date(at.getTime() + 330 * 60 * 1000).getUTCDay();
+        if ((istDay === 6 || istDay === 0) && lastDay < nextMondayIstDateAfter(at)) continue;
+        const qty = t.executed_quantity || 0;
+        if (qty <= 0) continue;
+        const key = `${t.exchange}::${t.tradingsymbol}`;
+        if (!grouped[key]) {
+          grouped[key] = {
+            exchange: t.exchange,
+            tradingsymbol: t.tradingsymbol,
+            instrument_token: t.instrument_token,
+            buys: [],
+            sells: [],
+            all_trades: [],
+          };
+        }
+        grouped[key].all_trades.push({
+          date: t.executed_at,
+          type: t.transaction_type,
+          trade_type: 'carry_forward',
+          order_type: 'MARKET',
+          placed_by: 'SYSTEM',
+          buy_qty: t.transaction_type === 'BUY' ? qty : 0,
+          sell_qty: t.transaction_type === 'SELL' ? qty : 0,
+          rate: t.executed_price || 0,
+          brokerage: 0,
+          brokerage_exempt: true,
+          pnl: 0,
+          order_type_label: 'BF',
+          _is_reopen: true,
+        });
+        touched.add(key);
+      }
+      // Keep each touched instrument's rows chronological (the app renders
+      // all_trades in order; P&L sorts its own copy).
+      for (const key of touched) {
+        grouped[key].all_trades.sort((a, b) => new Date(a.date) - new Date(b.date));
       }
     }
 

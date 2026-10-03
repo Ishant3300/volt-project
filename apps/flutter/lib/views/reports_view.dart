@@ -750,8 +750,12 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
       // Settled inside this window (a settlement_close row): the position
       // open now is the next period's re-open at the settlement price — the
       // bill already closed it at settlement, so no LIVE row.
-      final settledInWindow = ((instr['all_trades'] as List?) ?? [])
-          .any((t) => t is Map && t['trade_type'] == 'settlement_close');
+      // Last event a settlement close, with no re-open after it in this
+      // window (a multi-week bill re-opens it as BF and continues).
+      final windowTrades = (instr['all_trades'] as List?) ?? [];
+      final settledInWindow = windowTrades.isNotEmpty &&
+          windowTrades.last is Map &&
+          (windowTrades.last as Map)['trade_type'] == 'settlement_close';
       if (openPos == null || settledInWindow) {
         instruments[i] = instr;
         continue; // No open position for this instrument

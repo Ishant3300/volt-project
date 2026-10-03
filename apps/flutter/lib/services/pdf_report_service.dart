@@ -493,8 +493,10 @@ class PdfReportService {
         } else {
           final isBuy = type == 'BUY' || (type != 'SELL' && bQty > 0);
           final label = (t['order_type_label'] ?? '').toString();
+          // A settlement re-open inside the window (multi-week bill) comes
+          // as label 'BF' — a carry-in, not a trade: no turnover.
           rows.add((
-            kind: 'TRADE',
+            kind: label == 'BF' ? 'BF' : 'TRADE',
             time: _billDateTime.format(_parseToIST(t['date'])),
             type: label.isNotEmpty ? label : (isBuy ? 'Buy' : 'Sell'),
             isBuy: isBuy,
