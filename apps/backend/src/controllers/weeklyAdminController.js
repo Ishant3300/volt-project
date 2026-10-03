@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Master = require('../models/Master');
 const BrokerageSettings = require('../models/BrokerageSettings');
 const KiteInstrument = require('../models/KiteInstrument');
+const SettlementHistory = require('../models/SettlementHistory');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 /**
@@ -927,18 +928,22 @@ function _getUserBrokerageAndTurnoverBatched(userId, tradesByUser, brkRulesByUse
 async function _attachLedgerBalances(data, { masterChildrenMap, usersByMaster, metricsEngine }) {
   // The Ledger column is the ALL-TIME Net P&L (P&L after brokerage) — from
   // account creation to now, no date filter, independent of the report's
-  // own date range. It
-  // used to show User/Master.ledger_balance, a running total the Sunday
-  // snapshot added to each week; that snapshot missed every settled trade,
-  // so the column sat at ~0. Now computed live: every completed trade's
-  // pnl (live trades + those archived by a weekly settlement, incl. its
-  // close leg; admin-deleted trades and the live carry_forward reopen
-  // marker excluded — the same selection as the report itself) plus the
-  // current open-position M2M, minus the brokerage billed on those trades
-  // (trade.brokerage; settlement carry_forward legs and brokerage_exempt
-  // trades bill none, same exclusion as the report's Brokerage column).
-  // House sign, like total_pnl: -(realised + m2m) + brokerage — a client's
-  // loss and the brokerage they paid are both positive for the house.
+  // own date range. (It used to show User/Master.ledger_balance, a running
+  // total the Sunday snapshot added weekly; that snapshot missed every
+  // settled trade, so the column sat at ~0.) Computed live, from what was
+  // actually charged:
+  //   settled  = sum of every SettlementHistory row's net_pnl (P&L minus the
+  //              brokerage the weekly settlement charged — the same amounts
+  //              that went into User.settled_pnl)
+  //   live     = trades since the last settlement (deleted_at null, not the
+  //              carry_forward reopen marker): pnl minus their billed
+  //              brokerage (exempt trades bill none)
+  //   floating = current open-position M2M
+  // Settled weeks use the settlement's brokerage, not each trade's stored
+  // value: the settlement prices every fill at the rate in force when it
+  // runs (975459's GIFT NIFTY rate went 3 -> 6 mid-week; settled at 6).
+  // House sign, like total_pnl: -(settled + live + floating) — a client's
+  // loss and the brokerage they paid are positive for the house.
   // A master row sums its whole downline. Touches no other field.
   // Original _id values from the loaded user docs, for the query below.
   const userIdValue = new Map();
@@ -961,42 +966,35 @@ async function _attachLedgerBalances(data, { masterChildrenMap, usersByMaster, m
     ids.forEach((id) => allUserIds.add(id));
   }
 
-  const pnlByUser = new Map();
+  const settledByUser = new Map();
+  const liveByUser = new Map();
   if (allUserIds.size > 0) {
-    const agg = await Trade.aggregate([
-      {
-        $match: {
-          user_id: { $in: [...allUserIds].map((id) => userIdValue.get(id) ?? id) },
-          status: 'completed',
-          $or: [
-            { deleted_at: null, trade_type: { $ne: 'carry_forward' } },
-            { deleted_at: { $ne: null }, settlement_run_id: { $ne: null } },
-          ],
-        },
-      },
-      {
-        $group: {
-          _id: '$user_id',
-          pnl: { $sum: '$pnl' },
-          brokerage: {
-            $sum: {
-              $cond: [
-                { $or: [{ $eq: ['$brokerage_exempt', true] }, { $eq: ['$trade_type', 'carry_forward'] }] },
-                0,
-                { $ifNull: ['$brokerage', 0] },
-              ],
-            },
+    const ids = [...allUserIds].map((id) => userIdValue.get(id) ?? id);
+    const [settled, live] = await Promise.all([
+      SettlementHistory.aggregate([
+        { $match: { user_id: { $in: ids } } },
+        { $group: { _id: '$user_id', net: { $sum: '$net_pnl' } } },
+      ]),
+      Trade.aggregate([
+        { $match: { user_id: { $in: ids }, status: 'completed', deleted_at: null, trade_type: { $ne: 'carry_forward' } } },
+        {
+          $group: {
+            _id: '$user_id',
+            pnl: { $sum: '$pnl' },
+            brokerage: { $sum: { $cond: [{ $eq: ['$brokerage_exempt', true] }, 0, { $ifNull: ['$brokerage', 0] }] } },
           },
         },
-      },
+      ]),
     ]);
-    for (const r of agg) pnlByUser.set(r._id.toString(), { pnl: r.pnl || 0, brokerage: r.brokerage || 0 });
+    for (const r of settled) settledByUser.set(r._id.toString(), r.net || 0);
+    for (const r of live) liveByUser.set(r._id.toString(), (r.pnl || 0) - (r.brokerage || 0));
   }
 
-  const userTotal = (id) => {
-    const t = pnlByUser.get(id) || { pnl: 0, brokerage: 0 };
-    return -(t.pnl + (metricsEngine.getCachedMetrics(id)?.position_pnl || 0)) + t.brokerage;
-  };
+  const userTotal = (id) => -(
+    (settledByUser.get(id) || 0)
+    + (liveByUser.get(id) || 0)
+    + (metricsEngine.getCachedMetrics(id)?.position_pnl || 0)
+  );
   for (const row of data) {
     row.ledger_balance = _r2(userIdsForRow.get(row).reduce((s, id) => s + userTotal(id), 0));
   }

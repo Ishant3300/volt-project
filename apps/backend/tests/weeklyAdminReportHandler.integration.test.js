@@ -23,6 +23,7 @@ jest.mock('../src/models/Master', () => ({ find: jest.fn(), findById: jest.fn() 
 jest.mock('../src/models/BrokerageSettings', () => ({ find: jest.fn() }));
 jest.mock('../src/models/KiteInstrument', () => ({ find: jest.fn() }));
 jest.mock('../src/models/MasterBaseRate', () => ({ find: jest.fn() }));
+jest.mock('../src/models/SettlementHistory', () => ({ aggregate: jest.fn(async () => []) }));
 jest.mock('../src/services/weeklyReportCache', () => ({ getUserWeeklyTrades: jest.fn() }));
 jest.mock('../src/services/metricsEngine', () => ({ getCachedMetrics: jest.fn() }));
 jest.mock('../src/utils/adminVisibility', () => ({ resolveHiddenMasterIds: jest.fn() }));
