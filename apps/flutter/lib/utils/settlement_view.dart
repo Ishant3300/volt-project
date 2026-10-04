@@ -112,8 +112,10 @@ SettlementView buildMasterSettlementView(Map<String, dynamic> body, Map<String, 
         drill: {'type': isMaster ? 'master' : 'user', 'id': id, 'name': name, 'username': username},
         active: _d(row['realised_pnl']) != 0 || _d(row['m2m_pnl']) != 0 || _d(row['brokerage']) != 0));
   }
-  lines.add(_line('my-brk', 'my_brokerage', 'My Brokerage', 0, 0, _d(t['caller_brk'])));
-  lines.add(_line('my-pnl', 'my_pnl', 'My Profit/Loss', 0, 0, _d(t['caller_profit'])));
+  // The kept amounts also sit in their own column (Brk / P&L), so each
+  // section's P&L and Brk TOTALs add up like its Total column does.
+  lines.add(_line('my-brk', 'my_brokerage', 'My Brokerage', 0, _d(t['caller_brk']), _d(t['caller_brk'])));
+  lines.add(_line('my-pnl', 'my_pnl', 'My Profit/Loss', _d(t['caller_profit']), 0, _d(t['caller_profit'])));
   lines.add(_line('admin', 'admin', 'Admin', _d(t['owed_upward_pnl']), _d(t['owed_upward_brk']), _d(t['total_owed_upward'])));
   return _split(lines, _d(t['caller_brk']) + _d(t['caller_profit']));
 }
@@ -123,8 +125,8 @@ SettlementView buildClientSettlementView(Map<String, dynamic>? row) {
   if (row == null) return SettlementView.empty;
   final (pnl, brk) = _handedUp(row);
   return _split([
-    _line('my-brk', 'my_brokerage', 'My Brokerage', 0, 0, -brk),
-    _line('my-pnl', 'my_pnl', 'My Profit/Loss', 0, 0, -pnl),
+    _line('my-brk', 'my_brokerage', 'My Brokerage', 0, -brk, -brk),
+    _line('my-pnl', 'my_pnl', 'My Profit/Loss', -pnl, 0, -pnl),
     _line('admin', 'admin', 'Admin', pnl, brk, pnl + brk),
   ], -(pnl + brk));
 }

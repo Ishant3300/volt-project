@@ -32,16 +32,17 @@ void main() {
     expect(v.header, 2055.9);
     expect(v.profit.map((l) => [l.label, l.pnl, l.brokerage, l.total]).toList(), [
       ['viral', 31495.6, -8812.49, 22683.11],
-      ['My Brokerage', 0, 0, 5205.46],
+      ['My Brokerage', 0, 5205.46, 5205.46],
     ]);
     expect(v.profit.first.sub, '(592725 - C - 0.00)');
     expect(v.loss.map((l) => [l.label, l.pnl, l.brokerage, l.total]).toList(), [
       ['Admin', -28346.04, 3607.03, -24739.01],
-      ['My Profit/Loss', 0, 0, -3149.56],
+      ['My Profit/Loss', -3149.56, 0, -3149.56],
     ]);
     final all = [...v.profit, ...v.loss].fold<double>(0, (s, l) => s + l.total);
     expect(all.abs() < 0.005, true);
-    expect(sectionTotals(v.profit), (31495.6, -8812.49, 27888.57));
+    expect(sectionTotals(v.profit), (31495.6, -3607.03, 27888.57));
+    expect(sectionTotals(v.loss), (-31495.6, 3607.03, -27888.57));
   });
 
   test('client view: viral', () {
@@ -52,7 +53,7 @@ void main() {
     ]);
     expect(v.loss.map((l) => [l.label, l.pnl, l.brokerage, l.total]).toList(), [
       ['Admin', -31495.6, 8812.49, -22683.11],
-      ['My Brokerage', 0, 0, -8812.49],
+      ['My Brokerage', 0, -8812.49, -8812.49],
     ]);
   });
 
