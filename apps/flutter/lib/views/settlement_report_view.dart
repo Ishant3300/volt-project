@@ -15,22 +15,20 @@ import '../providers/user_profile_provider.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
+import '../utils/settlement_view.dart';
 
-/// Settlement Report — GET /master/settlement-report. Lists whoever is
-/// selected (a specific client/sub-master under the viewer, or the
-/// viewer's own team by default) with each of THEIR own direct
-/// clients/sub-masters' own P&L, brokerage, and net total for the picked
-/// date range, split into who profited and who lost. Every real row's
-/// P&L/Brk/Total is deliberately raw — no sharing-cascade or
-/// house-perspective sign flip, that account's own real result, as the
-/// backend computes it (settlementReportService.js).
+/// Settlement Report — the reference terminal's layout: one account's view of
+/// the period, as PROFIT / LOSS sections of each direct child (what it hands
+/// over after its own share), My Brokerage / My Profit/Loss (what this
+/// account keeps) and Admin (what it passes up), with "Total Profit & Loss" =
+/// My Brokerage + My Profit/Loss. Tapping a child row opens that child's own
+/// view (Back returns).
 ///
-/// The caller's own post-cut share appears as three extra ROWS —
-/// "Admin" (what flows PAST the caller further up the chain), "My
-/// Profit/Loss", and "My Brokerage" — bucketed into Profit or Loss by
-/// their own sign, same as every real row (see _rowsWithCascade). The top
-/// "Total Profit & Loss" tile is the caller's own combined net
-/// (caller_total_pnl), not the raw sum of every row.
+/// Every figure comes from GET /master/weekly-admin-report — the same sharing
+/// engine as the ledger — regrouped by utils/settlement_view.dart; nothing is
+/// computed here. A master's view is that report "as" the master
+/// (as_master_id); a client's view is its row in its master's report.
+/// "With Opening: Yes" widens the period to start from the first trade.
 class SettlementReportView extends StatefulWidget {
   final Master? master;
   final User? user;
@@ -57,9 +55,15 @@ class _SettlementReportViewState extends State<SettlementReportView> {
   DateTime? _customFrom;
   DateTime? _customTo;
 
-  // Target entity (a user or a sub-master under the viewer)
-  List<Map<String, dynamic>> _entities = []; // {id, name, username, type: 'User'|'Master'}
-  Map<String, dynamic>? _selectedEntity;
+  // Accounts for the dropdown: {id, name, username, type: 'User'|'Master', pnl_sharing, master_id}
+  List<Map<String, dynamic>> _entities = [];
+
+  // Drill-down path — the last entry is the account being viewed:
+  // {kind: 'self'|'master'|'user', id, name, username, master_id (user only)}
+  List<Map<String, dynamic>> _path = [
+    {'kind': 'self'}
+  ];
+  Map<String, dynamic> get _scope => _path.last;
 
   // With Opening
   bool _withOpening = false;
@@ -67,27 +71,34 @@ class _SettlementReportViewState extends State<SettlementReportView> {
   bool _profitExpanded = true;
   bool _lossExpanded = true;
 
+  /// GET /master/weekly-admin-report body for the current scope.
   Map<String, dynamic>? _report;
+
+  /// "With Opening" reaches back to the first trade.
+  static const _openingFrom = '2000-01-01';
 
   final SecureStorageService _storage = SecureStorageService();
 
   @override
   void initState() {
     super.initState();
+    // Opened from an account's page: start on that account's view.
     if (widget.user != null) {
-      _selectedEntity = {
-        'id': widget.user!.id,
-        'name': widget.user!.name,
-        'username': widget.user!.username,
-        'type': 'User',
-      };
+      _path = [
+        {'kind': 'self'},
+        {
+          'kind': 'user',
+          'id': widget.user!.id,
+          'name': widget.user!.name,
+          'username': widget.user!.username,
+          'master_id': widget.user!.masterId,
+        },
+      ];
     } else if (widget.master != null) {
-      _selectedEntity = {
-        'id': widget.master!.id,
-        'name': widget.master!.name,
-        'username': widget.master!.username,
-        'type': 'Master',
-      };
+      _path = [
+        {'kind': 'self'},
+        {'kind': 'master', 'id': widget.master!.id, 'name': widget.master!.name, 'username': widget.master!.username},
+      ];
     }
     _fetchEntities();
     _fetchReport();
@@ -107,8 +118,8 @@ class _SettlementReportViewState extends State<SettlementReportView> {
       case 'previous_week':
         final thisMonday = _mondayOf(now);
         final prevMonday = thisMonday.subtract(const Duration(days: 7));
-        final prevSunday = thisMonday.subtract(const Duration(seconds: 1));
-        return (prevMonday, prevSunday);
+        final prevSaturday = thisMonday.subtract(const Duration(days: 2));
+        return (prevMonday, prevSaturday);
       case 'custom':
         final from = _customFrom ?? _mondayOf(now);
         final to = _customTo ?? now;
@@ -144,7 +155,15 @@ class _SettlementReportViewState extends State<SettlementReportView> {
         final nested = body['data'];
         final List list = nested is Map ? (nested['users'] ?? []) : (nested ?? []);
         for (final u in list) {
-          merged.add({'id': u['id'] ?? u['_id'], 'name': u['name'], 'username': u['username'], 'type': 'User'});
+          final mid = u['master_id'];
+          merged.add({
+            'id': u['id'] ?? u['_id'],
+            'name': u['name'],
+            'username': u['username'],
+            'type': 'User',
+            'pnl_sharing': (u['pnl_sharing'] as num?)?.toDouble() ?? 0.0,
+            'master_id': mid is Map ? (mid['id'] ?? mid['_id'])?.toString() : mid?.toString(),
+          });
         }
       }
       if (results[1].statusCode == 200) {
@@ -152,13 +171,30 @@ class _SettlementReportViewState extends State<SettlementReportView> {
         final nested = body['data'];
         final List list = nested is Map ? (nested['masters'] ?? []) : (nested ?? []);
         for (final m in list) {
-          merged.add({'id': m['id'] ?? m['_id'], 'name': m['name'], 'username': m['username'], 'type': 'Master'});
+          merged.add({
+            'id': m['id'] ?? m['_id'],
+            'name': m['name'],
+            'username': m['username'],
+            'type': 'Master',
+            'pnl_sharing': (m['pnl_sharing'] as num?)?.toDouble() ?? 0.0,
+          });
         }
       }
       if (mounted) setState(() => _entities = merged);
     } catch (_) {
       // Non-fatal — the dropdown just stays empty/pre-selected; the report itself can still load.
     }
+  }
+
+  /// as_master_id for the current scope: a master's own report, or a client's master's report.
+  String? get _asMasterId {
+    final s = _scope;
+    if (s['kind'] == 'master') return '${s['id']}';
+    if (s['kind'] == 'user') {
+      final m = s['master_id']?.toString();
+      return (m == null || m.isEmpty) ? null : m;
+    }
+    return null;
   }
 
   Future<void> _fetchReport() async {
@@ -169,28 +205,26 @@ class _SettlementReportViewState extends State<SettlementReportView> {
     try {
       final (from, to) = _resolveRange();
       final token = await _storage.getToken();
-      var url = '/master/settlement-report?from=${_fmtIso(from)}&to=${_fmtIso(to)}'
-          '&with_opening=$_withOpening';
-      if (_selectedEntity != null) {
-        url += '&target_id=${_selectedEntity!['id']}';
-      }
-      final res = await ApiService(backendUrl).get(url, token: token);
-      if (res.statusCode == 200) {
-        final body = jsonDecode(res.body);
-        if (body['success'] == true) {
-          setState(() {
-            _report = Map<String, dynamic>.from(body['data'] ?? {});
-            _isLoading = false;
-          });
-        } else {
-          setState(() {
-            _error = body['message'] ?? 'Failed to load report';
-            _isLoading = false;
-          });
-        }
+      // Same date handling as the web report: the backend applies date_to as
+      // midnight UTC with $lte, so a past To day is sent as the next day; a
+      // range ending today sends none.
+      final today = _fmtIso(DateTime.now());
+      final toIso = _fmtIso(to);
+      final params = <String>[
+        'date_from=${_withOpening ? _openingFrom : _fmtIso(from)}',
+        if (toIso.compareTo(today) < 0) 'date_to=${_fmtIso(DateTime(to.year, to.month, to.day).add(const Duration(days: 1)))}',
+        if (_asMasterId != null) 'as_master_id=$_asMasterId',
+      ];
+      final res = await ApiService(backendUrl).get('/master/weekly-admin-report?${params.join('&')}', token: token);
+      final body = jsonDecode(res.body);
+      if (res.statusCode == 200 && body['success'] == true) {
+        setState(() {
+          _report = Map<String, dynamic>.from(body);
+          _isLoading = false;
+        });
       } else {
         setState(() {
-          _error = 'Failed to load report';
+          _error = body['message'] ?? 'Failed to load report';
           _isLoading = false;
         });
       }
@@ -202,56 +236,52 @@ class _SettlementReportViewState extends State<SettlementReportView> {
     }
   }
 
-  // The caller's own post-cut share, broken out as three extra line-items
-  // (bucketed into Profit/Loss by their own sign, same as every real row)
-  // instead of extra columns — matches the reference terminal's own layout
-  // and the web portal's identical restructuring. Summed across EVERY real
-  // row regardless of which section it's in: these represent what the
-  // caller keeps/passes on from their WHOLE downline's combined result, not
-  // a per-section figure. `username` (not `name`) carries the label since
-  // _dataRow/_pdfCell only ever render `r['username']`.
-  (List<Map<String, dynamic>>, List<Map<String, dynamic>>) _rowsWithCascade(
-      List<Map<String, dynamic>> profit, List<Map<String, dynamic>> loss) {
-    final all = [...profit, ...loss];
-    final hasCascade = all.any((r) => r['caller_total'] != null);
-    if (!hasCascade) return (profit, loss);
-
-    double sum(num? Function(Map<String, dynamic>) get) =>
-        all.fold(0.0, (s, r) => s + (get(r)?.toDouble() ?? 0));
-
-    final admin = <String, dynamic>{
-      'id': 'admin',
-      'username': 'Admin',
-      'pnl': sum((r) => r['owed_upward_pnl'] as num?),
-      'brokerage': sum((r) => r['owed_upward_brokerage'] as num?),
-      'total': sum((r) => r['owed_upward_total'] as num?),
+  /// The rows on screen, regrouped from the report (utils/settlement_view.dart).
+  SettlementView get _view {
+    final report = _report;
+    if (report == null) return SettlementView.empty;
+    if (_scope['kind'] == 'user') {
+      final rows = List.from(report['data'] ?? []);
+      final row = rows.cast<Map>().where((r) => '${r['id']}' == '${_scope['id']}').firstOrNull;
+      return buildClientSettlementView(row == null ? null : Map<String, dynamic>.from(row));
+    }
+    final sharing = <String, double>{
+      for (final e in _entities) '${e['id']}': (e['pnl_sharing'] as double?) ?? 0.0,
     };
-    final myPnl = <String, dynamic>{
-      'id': 'my-pnl',
-      'username': 'My Profit/Loss',
-      'pnl': 0.0,
-      'brokerage': 0.0,
-      'total': sum((r) => r['caller_pnl'] as num?),
-    };
-    final myBrokerage = <String, dynamic>{
-      'id': 'my-brokerage',
-      'username': 'My Brokerage',
-      'pnl': 0.0,
-      'brokerage': 0.0,
-      'total': sum((r) => r['caller_brokerage'] as num?),
-    };
+    return buildMasterSettlementView(report, sharing);
+  }
 
-    // Skip a line-item that's genuinely zero across the board (e.g.
-    // "Admin" when the caller IS Admin — nothing ever flows past them)
-    // rather than clutter every report with a permanent 0.00 row.
-    final synthetic = [admin, myPnl, myBrokerage]
-        .where((r) => (r['pnl'] as double) != 0 || (r['brokerage'] as double) != 0 || (r['total'] as double) != 0)
-        .toList();
+  String get _viewerName {
+    final s = _scope;
+    if (s['kind'] != 'self') return '${s['username'] ?? ''}';
+    final profile = context.read<UserProfileProvider>();
+    return profile.master?.username ?? profile.user?.username ?? 'My account';
+  }
 
-    return (
-      [...profit, ...synthetic.where((r) => (r['total'] as double) >= 0)],
-      [...loss, ...synthetic.where((r) => (r['total'] as double) < 0)],
-    );
+  void _drill(SettlementLine l) {
+    final d = l.drill;
+    if (d == null) return;
+    final Map<String, dynamic> next;
+    if (d['type'] == 'master') {
+      next = {'kind': 'master', 'id': d['id'], 'name': d['name'], 'username': d['username']};
+    } else {
+      // A client's figures sit in its master's report — the one on screen now.
+      final profile = context.read<UserProfileProvider>();
+      next = {
+        'kind': 'user',
+        'id': d['id'],
+        'name': d['name'],
+        'username': d['username'],
+        'master_id': _asMasterId ?? (profile.isMaster ? profile.master?.id : null),
+      };
+    }
+    setState(() => _path = [..._path, next]);
+    _fetchReport();
+  }
+
+  void _goTo(int index) {
+    setState(() => _path = _path.sublist(0, index + 1));
+    _fetchReport();
   }
 
   void _reset() {
@@ -259,7 +289,9 @@ class _SettlementReportViewState extends State<SettlementReportView> {
       _selectedRange = 'this_week';
       _customFrom = null;
       _customTo = null;
-      _selectedEntity = null;
+      _path = [
+        {'kind': 'self'}
+      ];
       _withOpening = false;
     });
     _fetchReport();
@@ -296,8 +328,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
       final pdf = _buildPdf(_report!);
       final bytes = await pdf.save();
       if (!mounted) return;
-      final targetName = _report!['target']?['name'] ?? _report!['target']?['username'] ?? 'Settlement';
-      await _showPdfOptionsSheet(bytes, targetName);
+      await _showPdfOptionsSheet(bytes, _viewerName);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not generate PDF: $e')));
@@ -309,20 +340,11 @@ class _SettlementReportViewState extends State<SettlementReportView> {
 
   pw.Document _buildPdf(Map<String, dynamic> report) {
     final fmt = NumberFormat('#,##0.00');
-    final (profit, loss) = _rowsWithCascade(
-      List<Map<String, dynamic>>.from(report['profit'] ?? []),
-      List<Map<String, dynamic>>.from(report['loss'] ?? []),
-    );
-    final totalPnl = (report['caller_total_pnl'] as num?)?.toDouble() ?? (report['total_pnl'] as num?)?.toDouble() ?? 0;
-    final targetName = report['target']?['name'] ?? report['target']?['username'] ?? '';
+    final view = _view;
+    final targetName = _viewerName;
 
-    pw.Widget table(String title, List<Map<String, dynamic>> rows) {
-      double sumPnl = 0, sumBrk = 0, sumTotal = 0;
-      for (final r in rows) {
-        sumPnl += (r['pnl'] as num?)?.toDouble() ?? 0;
-        sumBrk += (r['brokerage'] as num?)?.toDouble() ?? 0;
-        sumTotal += (r['total'] as num?)?.toDouble() ?? 0;
-      }
+    pw.Widget table(String title, List<SettlementLine> rows) {
+      final (sumPnl, sumBrk, sumTotal) = sectionTotals(rows);
       return pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
@@ -332,31 +354,27 @@ class _SettlementReportViewState extends State<SettlementReportView> {
           pw.Table(
             border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
             columnWidths: const {
-              0: pw.FlexColumnWidth(1.3),
-              1: pw.FlexColumnWidth(2),
+              0: pw.FlexColumnWidth(2.6),
+              1: pw.FlexColumnWidth(1.2),
               2: pw.FlexColumnWidth(1.2),
               3: pw.FlexColumnWidth(1.2),
-              4: pw.FlexColumnWidth(1.2),
             },
             children: [
               pw.TableRow(children: [
-                _pdfCell('User ID', bold: true),
-                _pdfCell('Name', bold: true),
+                _pdfCell('Username', bold: true),
                 _pdfCell('P&L', bold: true),
                 _pdfCell('Brk', bold: true),
                 _pdfCell('Total', bold: true),
               ]),
               for (final r in rows)
                 pw.TableRow(children: [
-                  _pdfCell('${r['username'] ?? ''}'),
-                  _pdfCell('${r['name'] ?? ''}'),
-                  _pdfCell(fmt.format((r['pnl'] as num?)?.toDouble() ?? 0)),
-                  _pdfCell(fmt.format((r['brokerage'] as num?)?.toDouble() ?? 0)),
-                  _pdfCell(fmt.format((r['total'] as num?)?.toDouble() ?? 0)),
+                  _pdfCell(r.sub == null ? r.label : '${r.label}\n${r.sub}'),
+                  _pdfCell(fmt.format(r.pnl)),
+                  _pdfCell(fmt.format(r.brokerage)),
+                  _pdfCell(fmt.format(r.total)),
                 ]),
               pw.TableRow(children: [
                 _pdfCell('TOTAL', bold: true),
-                _pdfCell(''),
                 _pdfCell(fmt.format(sumPnl), bold: true),
                 _pdfCell(fmt.format(sumBrk), bold: true),
                 _pdfCell(fmt.format(sumTotal), bold: true),
@@ -376,12 +394,12 @@ class _SettlementReportViewState extends State<SettlementReportView> {
           children: [
             pw.Text('Settlement Report', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
             pw.SizedBox(height: 2),
-            pw.Text('$targetName', style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700)),
+            pw.Text(targetName, style: const pw.TextStyle(fontSize: 11, color: PdfColors.grey700)),
             pw.SizedBox(height: 8),
-            pw.Text('Total Profit & Loss: ${fmt.format(totalPnl)}',
+            pw.Text('Total Profit & Loss: ${fmt.format(view.header)}',
                 style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
-            if (profit.isNotEmpty) table('PROFIT', profit),
-            if (loss.isNotEmpty) table('LOSS', loss),
+            if (view.profit.isNotEmpty) table('PROFIT', view.profit),
+            if (view.loss.isNotEmpty) table('LOSS', view.loss),
           ],
         ),
       ),
@@ -536,17 +554,15 @@ class _SettlementReportViewState extends State<SettlementReportView> {
                         ),
                       )
                     else if (_report != null) ...[
-                      _buildTotalBar(),
-                      const SizedBox(height: 12),
+                      if (_path.length > 1) ...[_buildPathBar(), const SizedBox(height: 8)],
                       Builder(builder: (_) {
-                        final (profitRows, lossRows) = _rowsWithCascade(
-                          List<Map<String, dynamic>>.from(_report!['profit'] ?? []),
-                          List<Map<String, dynamic>>.from(_report!['loss'] ?? []),
-                        );
+                        final view = _view;
                         return Column(children: [
-                          _buildSection('PROFIT', profitRows, true),
+                          _buildTotalBar(view.header),
                           const SizedBox(height: 12),
-                          _buildSection('LOSS', lossRows, false),
+                          _buildSection('PROFIT', view.profit, true),
+                          const SizedBox(height: 12),
+                          _buildSection('LOSS', view.loss, false),
                         ]);
                       }),
                       const SizedBox(height: 24),
@@ -605,25 +621,31 @@ class _SettlementReportViewState extends State<SettlementReportView> {
         ],
         const SizedBox(height: 8),
 
-        // Entity dropdown — user or sub-master under the viewer.
+        // Account dropdown — whose view is shown (me, or a client/sub-master under me).
         _buildDropdown(
-          _selectedEntity != null ? '${_selectedEntity!['type']}:${_selectedEntity!['id']}' : '__self__',
+          _path.length > 1 ? '${_path[1]['kind'] == 'user' ? 'User' : 'Master'}:${_path[1]['id']}' : '__self__',
           ['__self__', ..._entities.map((e) => '${e['type']}:${e['id']}')],
           (v) {
             setState(() {
-              if (v == '__self__') {
-                _selectedEntity = null;
-              } else {
-                _selectedEntity = _entities.firstWhere(
-                  (e) => '${e['type']}:${e['id']}' == v,
-                  orElse: () => <String, dynamic>{},
-                );
+              if (v == null || v == '__self__') {
+                _path = [
+                  {'kind': 'self'}
+                ];
+                return;
               }
+              final e = _entities.firstWhere((x) => '${x['type']}:${x['id']}' == v, orElse: () => <String, dynamic>{});
+              if (e.isEmpty) return;
+              _path = [
+                {'kind': 'self'},
+                e['type'] == 'Master'
+                    ? {'kind': 'master', 'id': '${e['id']}', 'name': e['name'], 'username': e['username']}
+                    : {'kind': 'user', 'id': '${e['id']}', 'name': e['name'], 'username': e['username'], 'master_id': e['master_id']},
+              ];
             });
           },
           displayMap: {
-            '__self__': 'My own team',
-            for (final e in _entities) '${e['type']}:${e['id']}': '${e['name'] ?? e['username']}',
+            '__self__': '${_selfLabel()} (me)',
+            for (final e in _entities) '${e['type']}:${e['id']}': '${e['username']} — ${e['name'] ?? ''} (${e['type'] == 'Master' ? 'M' : 'C'})',
           },
         ),
         const SizedBox(height: 12),
@@ -665,6 +687,42 @@ class _SettlementReportViewState extends State<SettlementReportView> {
     );
   }
 
+  String _selfLabel() {
+    final profile = context.read<UserProfileProvider>();
+    return profile.master?.username ?? profile.user?.username ?? 'My account';
+  }
+
+  /// Back + the drill-down path (me › gm11 › gm22 …); tapping a step returns to it.
+  Widget _buildPathBar() {
+    return Wrap(crossAxisAlignment: WrapCrossAlignment.center, spacing: 6, runSpacing: 4, children: [
+      GestureDetector(
+        onTap: () => _goTo(_path.length - 2),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFC7C7CC))),
+          child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.arrow_back_ios_new, size: 12, color: kBrandPrimary),
+            SizedBox(width: 4),
+            Text('Back', style: TextStyle(color: kBrandPrimary, fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+          ]),
+        ),
+      ),
+      for (var i = 0; i < _path.length; i++)
+        GestureDetector(
+          onTap: i == _path.length - 1 ? null : () => _goTo(i),
+          child: Text(
+            '${i > 0 ? '› ' : ''}${_path[i]['kind'] == 'self' ? _selfLabel() : _path[i]['username']}',
+            style: TextStyle(
+              color: i == _path.length - 1 ? kColorTextPrimary : kBrandPrimary,
+              fontSize: kFontSizeCaption,
+              fontFamily: kFontFamily,
+              fontWeight: i == _path.length - 1 ? kFontWeightSemiBold : kFontWeightRegular,
+            ),
+          ),
+        ),
+    ]);
+  }
+
   Widget _radioOption(String label, bool value) {
     return GestureDetector(
       onTap: () {
@@ -703,14 +761,9 @@ class _SettlementReportViewState extends State<SettlementReportView> {
     );
   }
 
-  Widget _buildTotalBar() {
-    // The caller's own combined net (caller_total_pnl — "My Profit/Loss" +
-    // "My Brokerage" combined below), not the raw sum of every row's total —
-    // matches the reference terminal's own top tile and the web portal's
-    // identical fix. Falls back to the raw total only if caller identity
-    // isn't known (shouldn't happen in practice, but keeps the tile from
-    // going blank).
-    final totalPnl = (_report!['caller_total_pnl'] as num?)?.toDouble() ?? (_report!['total_pnl'] as num?)?.toDouble() ?? 0;
+  Widget _buildTotalBar(double totalPnl) {
+    // This account's own result — My Brokerage + My Profit/Loss, shown rounded
+    // like the reference.
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(color: const Color(0xFFE5E5EA), borderRadius: BorderRadius.circular(8)),
@@ -736,17 +789,12 @@ class _SettlementReportViewState extends State<SettlementReportView> {
     );
   }
 
-  Widget _buildSection(String title, List<Map<String, dynamic>> rows, bool isProfit) {
+  Widget _buildSection(String title, List<SettlementLine> rows, bool isProfit) {
     final expanded = isProfit ? _profitExpanded : _lossExpanded;
     final headerColor = isProfit ? const Color(0xFFE8F2FE) : const Color(0xFFFCE9E9);
     final titleColor = isProfit ? const Color(0xFF1B74E4) : const Color(0xFFD9362A);
 
-    double sumPnl = 0, sumBrk = 0, sumTotal = 0;
-    for (final r in rows) {
-      sumPnl += (r['pnl'] as num?)?.toDouble() ?? 0;
-      sumBrk += (r['brokerage'] as num?)?.toDouble() ?? 0;
-      sumTotal += (r['total'] as num?)?.toDouble() ?? 0;
-    }
+    final (sumPnl, sumBrk, sumTotal) = sectionTotals(rows);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -789,7 +837,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 6),
       child: Row(children: [
-        Expanded(child: Text('User ID / Name', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF8E8E93), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
+        Expanded(child: Text('Username', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF8E8E93), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
         Expanded(child: Text('P&L', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF8E8E93), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
         Expanded(child: Text('Brk', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF8E8E93), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
         Expanded(child: Text('Total', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF8E8E93), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
@@ -797,28 +845,30 @@ class _SettlementReportViewState extends State<SettlementReportView> {
     );
   }
 
-  Widget _dataRow(Map<String, dynamic> r) {
-    final pnl = (r['pnl'] as num?)?.toDouble() ?? 0;
-    final brk = (r['brokerage'] as num?)?.toDouble() ?? 0;
-    final total = (r['total'] as num?)?.toDouble() ?? 0;
-    final username = '${r['username'] ?? ''}';
-    final name = '${r['name'] ?? ''}';
-    return Container(
+  Widget _dataRow(SettlementLine r) {
+    final row = Container(
       decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFD1D1D6), width: 0.5))),
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(children: [
         Expanded(
           child: Column(children: [
-            Text(username, textAlign: TextAlign.center, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily)),
-            if (name.isNotEmpty && name != username)
-              Text(name, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF8E8E93), fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
+            Text(r.label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: r.kind == 'admin' ? kColorSell : kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily)),
+            if (r.sub != null)
+              Text(r.sub!, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF8E8E93), fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
           ]),
         ),
-        Expanded(child: Text(pnl.toStringAsFixed(2), textAlign: TextAlign.center, style: TextStyle(color: pnl >= 0 ? kColorBuy : kColorSell, fontSize: kFontSizeBody, fontFamily: kFontFamily))),
-        Expanded(child: Text(brk.toStringAsFixed(2), textAlign: TextAlign.center, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily))),
-        Expanded(child: Text(total.toStringAsFixed(2), textAlign: TextAlign.center, style: TextStyle(color: total >= 0 ? kColorBuy : kColorSell, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
+        Expanded(child: Text(r.pnl.toStringAsFixed(2), textAlign: TextAlign.center, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily))),
+        Expanded(child: Text(r.brokerage.toStringAsFixed(2), textAlign: TextAlign.center, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily))),
+        Expanded(child: Text(r.total.toStringAsFixed(2), textAlign: TextAlign.center, style: TextStyle(color: r.total >= 0 ? kColorBuy : kColorSell, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
       ]),
     );
+    // A downline row opens that account's own view.
+    if (r.drill == null) return row;
+    return InkWell(onTap: () => _drill(r), child: row);
   }
 
   Widget _totalRow(double sumPnl, double sumBrk, double sumTotal) {
