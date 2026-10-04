@@ -33,6 +33,10 @@ class SettlementLine {
   /// A downline row opens that account's own view: {type: 'master'|'user', id, name, username}.
   final Map<String, String>? drill;
 
+  /// A downline account that traded in the period — shown even when nothing of
+  /// it reaches the viewer (e.g. a 100%-sharing master seen by admin).
+  final bool active;
+
   const SettlementLine({
     required this.key,
     required this.kind,
@@ -43,6 +47,7 @@ class SettlementLine {
     required this.brokerage,
     required this.total,
     this.drill,
+    this.active = false,
   });
 }
 
@@ -65,7 +70,7 @@ double _d(dynamic v) => (v as num?)?.toDouble() ?? 0.0;
     );
 
 SettlementLine _line(String key, String kind, String label, double pnl, double brokerage, double total,
-        {String? sub, String? username, Map<String, String>? drill}) =>
+        {String? sub, String? username, Map<String, String>? drill, bool active = false}) =>
     SettlementLine(
       key: key,
       kind: kind,
@@ -76,11 +81,14 @@ SettlementLine _line(String key, String kind, String label, double pnl, double b
       brokerage: _r2(brokerage),
       total: _r2(total),
       drill: drill,
+      active: active,
     );
 
 SettlementView _split(List<SettlementLine> lines, double header) {
-  // A row that is zero across the board is left out, like the reference.
-  final shown = lines.where((l) => l.pnl != 0 || l.brokerage != 0 || l.total != 0).toList();
+  // A row that is zero across the board is left out — except a downline
+  // account that did trade (a 100%-sharing master hands nothing to the
+  // viewer, but must stay visible to be opened).
+  final shown = lines.where((l) => l.pnl != 0 || l.brokerage != 0 || l.total != 0 || l.active).toList();
   final profit = shown.where((l) => l.total >= 0).toList()..sort((a, b) => b.total.compareTo(a.total));
   final loss = shown.where((l) => l.total < 0).toList()..sort((a, b) => a.total.compareTo(b.total));
   return SettlementView(_r2(header), profit, loss);
@@ -101,7 +109,8 @@ SettlementView buildMasterSettlementView(Map<String, dynamic> body, Map<String, 
     lines.add(_line('d-$id', 'downline', name.isNotEmpty ? name : username, -pnl, -brk, -(pnl + brk),
         sub: '($username - ${isMaster ? 'M' : 'C'} - ${share.toStringAsFixed(2)})',
         username: username,
-        drill: {'type': isMaster ? 'master' : 'user', 'id': id, 'name': name, 'username': username}));
+        drill: {'type': isMaster ? 'master' : 'user', 'id': id, 'name': name, 'username': username},
+        active: _d(row['realised_pnl']) != 0 || _d(row['m2m_pnl']) != 0 || _d(row['brokerage']) != 0));
   }
   lines.add(_line('my-brk', 'my_brokerage', 'My Brokerage', 0, 0, _d(t['caller_brk'])));
   lines.add(_line('my-pnl', 'my_pnl', 'My Profit/Loss', 0, 0, _d(t['caller_profit'])));

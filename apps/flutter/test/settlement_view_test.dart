@@ -56,6 +56,22 @@ void main() {
     ]);
   });
 
+  test('a traded downline account stays visible when nothing reaches the viewer (harry seen by admin)', () {
+    final v = buildMasterSettlementView({
+      'data': [
+        {'id': 'harry', 'name': 'harry', 'username': '839276', 'type': 'master', 'realised_pnl': -2428329.8, 'brokerage': 143492.03,
+         'caller_profit': 0.0, 'owed_upward_pnl': 0.0, 'caller_brk': 0.0, 'owed_upward_brk': 0.0},
+        {'id': 'idle', 'name': 'idle', 'username': '000001', 'type': 'master', 'realised_pnl': 0.0, 'brokerage': 0.0,
+         'caller_profit': 0.0, 'owed_upward_pnl': 0.0, 'caller_brk': 0.0, 'owed_upward_brk': 0.0},
+      ],
+      'totals': {'caller_brk': 0.0, 'caller_profit': 0.0, 'owed_upward_pnl': 0.0, 'owed_upward_brk': 0.0, 'total_owed_upward': 0.0},
+    }, {'harry': 100});
+    expect(v.profit.map((l) => [l.label, l.sub, l.total]).toList(), [
+      ['harry', '(839276 - M - 100.00)', 0],
+    ]);
+    expect(v.loss, isEmpty);
+  });
+
   test('zero rows are left out (top account: Admin)', () {
     final v = buildMasterSettlementView({
       'data': [],
