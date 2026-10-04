@@ -560,6 +560,10 @@ function _getUserEntryBatched(userDoc, metricsEngine, callerMaster, callerId, ca
     // Purely additive: reuses the callerClearance already computed above
     // for caller_brk/owed_upward_brk, doesn't touch the sharing math.
     broker_brokerage: _r2(callerClearance),
+    // Display-only — this row account's own master's base on its volume.
+    // For a client that master IS the caller, so it equals broker_brokerage.
+    // Feeds the ledger's "Total MTM" column only.
+    own_brokerage: _r2(callerClearance),
     caller_brk: _r2(callerBrk),
     // Net of BOTH realised and floating — was previously just -grossPnl,
     // silently ignoring m2m_pnl entirely, so "total" wasn't actually the
@@ -702,6 +706,10 @@ function _getAggregatedEntryBatched(masterId, masterDoc, metricsEngine, callerId
     // callerClearance already computed above for owed_upward_brk. Purely
     // additive, doesn't touch the sharing math.
     broker_brokerage: _r2(callerClearance),
+    // Display-only — this master's OWN base: its own configured rate on its
+    // whole downline's volume (masterClearance, already computed above for
+    // the pool split). Feeds the ledger's "Total MTM" column only.
+    own_brokerage: _r2(masterClearance),
     caller_brk: _r2(callerBrk),
     // Net of BOTH realised and floating. caller_profit's own basis differs
     // by caller role — see the callerProfitBasis comment in the loop above:
