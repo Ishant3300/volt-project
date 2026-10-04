@@ -88,9 +88,20 @@ SettlementView _split(List<SettlementLine> lines, double header) {
   // A row that is zero across the board is left out — except a downline
   // account that did trade (a 100%-sharing master hands nothing to the
   // viewer, but must stay visible to be opened).
-  final shown = lines.where((l) => l.pnl != 0 || l.brokerage != 0 || l.total != 0 || l.active).toList();
-  final profit = shown.where((l) => l.total >= 0).toList()..sort((a, b) => b.total.compareTo(a.total));
-  final loss = shown.where((l) => l.total < 0).toList()..sort((a, b) => a.total.compareTo(b.total));
+  // My Brokerage / My Profit/Loss always show, even at 0.00 (e.g. a 0% P&L
+  // sharing master keeps no P&L — the row says so).
+  final shown = lines
+      .where((l) =>
+          l.kind == 'my_brokerage' || l.kind == 'my_pnl' || l.pnl != 0 || l.brokerage != 0 || l.total != 0 || l.active)
+      .toList();
+  // Own rows (Admin / My Brokerage / My Profit/Loss) first, then the
+  // downline — each group by amount (largest first) — so the own rows are
+  // never interleaved between clients.
+  int group(SettlementLine l) => l.kind == 'downline' ? 1 : 0;
+  final profit = shown.where((l) => l.total >= 0).toList()
+    ..sort((a, b) => group(a) != group(b) ? group(a) - group(b) : b.total.compareTo(a.total));
+  final loss = shown.where((l) => l.total < 0).toList()
+    ..sort((a, b) => group(a) != group(b) ? group(a) - group(b) : a.total.compareTo(b.total));
   return SettlementView(_r2(header), profit, loss);
 }
 

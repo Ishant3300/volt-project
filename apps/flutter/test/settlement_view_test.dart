@@ -31,10 +31,10 @@ void main() {
     final v = buildMasterSettlementView(vijayReport, {'viral': 0});
     expect(v.header, 2055.9);
     expect(v.profit.map((l) => [l.label, l.pnl, l.brokerage, l.total]).toList(), [
-      ['viral', 31495.6, -8812.49, 22683.11],
       ['My Brokerage', 0, 5205.46, 5205.46],
+      ['viral', 31495.6, -8812.49, 22683.11],
     ]);
-    expect(v.profit.first.sub, '(592725 - C - 0.00)');
+    expect(v.profit.last.sub, '(592725 - C - 0.00)');
     expect(v.loss.map((l) => [l.label, l.pnl, l.brokerage, l.total]).toList(), [
       ['Admin', -28346.04, 3607.03, -24739.01],
       ['My Profit/Loss', -3149.56, 0, -3149.56],
@@ -68,6 +68,8 @@ void main() {
       'totals': {'caller_brk': 0.0, 'caller_profit': 0.0, 'owed_upward_pnl': 0.0, 'owed_upward_brk': 0.0, 'total_owed_upward': 0.0},
     }, {'harry': 100});
     expect(v.profit.map((l) => [l.label, l.sub, l.total]).toList(), [
+      ['My Brokerage', null, 0],
+      ['My Profit/Loss', null, 0],
       ['harry', '(839276 - M - 100.00)', 0],
     ]);
     expect(v.loss, isEmpty);
@@ -78,7 +80,18 @@ void main() {
       'data': [],
       'totals': {'caller_brk': 10.0, 'caller_profit': 0.0, 'owed_upward_pnl': 0.0, 'owed_upward_brk': 0.0, 'total_owed_upward': 0.0},
     }, {});
-    expect(v.profit.map((l) => l.label).toList(), ['My Brokerage']);
+    expect(v.profit.map((l) => l.label).toList(), ['My Brokerage', 'My Profit/Loss']);
     expect(v.loss, isEmpty);
+  });
+
+  test('own rows come before the downline, never between clients (PR100 view)', () {
+    final v = buildMasterSettlementView({
+      'data': [
+        {'id': 'c291', 'name': '291', 'username': '287580', 'type': 'user', 'caller_profit': -153480.0, 'owed_upward_pnl': 0.0, 'caller_brk': 1600.0, 'owed_upward_brk': 800.0},
+        {'id': 'c262', 'name': '262', 'username': '209098', 'type': 'user', 'caller_profit': -12130.0, 'owed_upward_pnl': 0.0, 'caller_brk': 800.0, 'owed_upward_brk': 200.0},
+      ],
+      'totals': {'caller_brk': 17864.77, 'caller_profit': 0.0, 'owed_upward_pnl': 1066937.1, 'owed_upward_brk': 9274.49, 'total_owed_upward': 1076211.59},
+    }, {});
+    expect(v.profit.map((l) => l.label).toList(), ['Admin', 'My Brokerage', 'My Profit/Loss', '291', '262']);
   });
 }
