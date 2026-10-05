@@ -75,20 +75,75 @@ async function loadContracts(group, today) {
     .filter((c) => c.name && (!wanted || wanted.has(String(c.name).toUpperCase())));
 }
 
+/** Calendar years a contract's open/cut dates can fall in. */
+function yearsNeeded(contract) {
+  const expiry = new Date(contract.expiry);
+  const years = [expiry.getUTCFullYear()];
+  // A January expiry's open/cut can count back into December.
+  if (expiry.getUTCMonth() === 0) years.push(expiry.getUTCFullYear() - 1);
+  return years;
+}
+
+/**
+ * Holidays for every year the contracts need. A year whose calendar can't be
+ * loaded (e.g. mcxindia.com refusing the request and no verified fallback for
+ * that year yet) no longer fails the whole group: it is returned in
+ * `unavailable`, and refreshPlan plans every contract that doesn't need it.
+ */
 async function loadHolidays(calendar, contracts) {
-  if (calendar === 'WEEKDAYS') return null;
+  if (calendar === 'WEEKDAYS') return { holidays: null, unavailable: new Map() };
   const years = new Set();
-  for (const c of contracts) {
-    const expiry = new Date(c.expiry);
-    years.add(expiry.getUTCFullYear());
-    // A January expiry's open/cut can count back into December.
-    if (expiry.getUTCMonth() === 0) years.add(expiry.getUTCFullYear() - 1);
-  }
+  for (const c of contracts) for (const y of yearsNeeded(c)) years.add(y);
   const all = new Set();
+  const unavailable = new Map(); // year -> error message
   for (const y of years) {
-    for (const key of await getHolidays(calendar, y)) all.add(key);
+    try {
+      for (const key of await getHolidays(calendar, y)) all.add(key);
+    } catch (e) {
+      unavailable.set(y, e.message);
+    }
   }
-  return all;
+  return { holidays: all, unavailable };
+}
+
+/**
+ * Keep a contract the planner had to skip (its calendar year unavailable)
+ * closed, the same way closeNewTargetsUntilOpen keeps a not-yet-open target
+ * closed: only contracts loaded after NEW_CONTRACTS_CLOSED_FROM, only if
+ * still enabled, and never a name's nearest contract (the one trading now).
+ * Without this a newly listed far month stayed tradable — GOLDM27JANFUT on
+ * 5 Oct 2026, when the 2027 MCX calendar couldn't be fetched.
+ */
+async function closeSkippedContracts(group, skipped, allContracts, now) {
+  const nearest = new Map(); // NAME -> earliest expiry ms
+  for (const c of allContracts) {
+    const k = String(c.name).toUpperCase();
+    const t = new Date(c.expiry).getTime();
+    if (!nearest.has(k) || t < nearest.get(k)) nearest.set(k, t);
+  }
+  const cutoff = mongoose.Types.ObjectId.createFromTime(Math.floor(NEW_CONTRACTS_CLOSED_FROM.getTime() / 1000));
+  let closed = 0;
+  for (const c of skipped) {
+    if (new Date(c.expiry).getTime() === nearest.get(String(c.name).toUpperCase())) continue;
+    const day = new Date(c.expiry);
+    const res = await KiteInstrument.updateMany(
+      {
+        _id: { $gt: cutoff },
+        segment: { $in: group.segments },
+        instrument_type: typesOf(group),
+        name: exactName(c.name),
+        expiry: { $gte: day, $lt: addUtcDays(day, 1) },
+        enabled: { $ne: false },
+        deleted_at: null,
+      },
+      { $set: { enabled: false, ban_reason: 'Opens once its trading calendar is available', banned_at: now } },
+    );
+    closed += res.modifiedCount;
+  }
+  if (closed) {
+    invalidateSearchCache();
+    console.log(`🔒 [ExpiryActions] ${group.key}: ${closed} contract(s) kept closed until their trading calendar is available`);
+  }
 }
 
 /**
@@ -102,8 +157,18 @@ async function refreshPlan(now = new Date()) {
 
   for (const group of GROUPS) {
     try {
-      const contracts = await loadContracts(group, today);
-      const holidays = await loadHolidays(group.calendar, contracts);
+      const allContracts = await loadContracts(group, today);
+      const { holidays, unavailable } = await loadHolidays(group.calendar, allContracts);
+      // Contracts whose open/cut needs a calendar year that couldn't be
+      // loaded are left out of this plan (and kept closed); every other
+      // contract of the group is planned as usual.
+      const contracts = allContracts.filter((c) => !yearsNeeded(c).some((y) => unavailable.has(y)));
+      if (unavailable.size > 0) {
+        const skipped = allContracts.filter((c) => !contracts.includes(c));
+        const why = [...unavailable].map(([y, msg]) => `${y}: ${msg}`).join('; ');
+        console.warn(`⚠️  [ExpiryActions] ${group.key}: ${skipped.length} contract(s) not planned yet — calendar unavailable (${why}): ${skipped.map((c) => `${c.name} ${dateKey(c.expiry)}`).join(', ')}`);
+        await closeSkippedContracts(group, skipped, allContracts, now);
+      }
       const planned = planGroup(group, contracts, holidays, { effectiveFrom: group.effectiveFrom || EFFECTIVE_FROM, openTime: OPEN_TIME });
       const keys = new Set(planned.map((a) => a.key));
 
