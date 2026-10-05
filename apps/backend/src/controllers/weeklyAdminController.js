@@ -69,6 +69,16 @@ const getWeeklyAdminReport = async (req, res) => {
     executedAtFilter.$gte = date_from ? new Date(date_from) : currentWeekStart();
     if (date_to) executedAtFilter.$lte = new Date(date_to);
 
+    // Open-position M2M is the LIVE mark (metricsEngine), so it belongs only
+    // to a period that reaches today. A past period (date_to before now —
+    // e.g. "Previous Week") ended at its settlement, whose close leg already
+    // booked those positions at the settlement price; adding today's live M2M
+    // made a settled week's figures move with the market. Past periods get
+    // m2m 0; the current period is unchanged. (The all-time Ledger column
+    // still uses live M2M — it runs to now.)
+    const rangeReachesNow = !date_to || new Date(date_to) > new Date();
+    const periodMetrics = rangeReachesNow ? metricsEngine : { getCachedMetrics: () => null };
+
     // ═══════════════════════════════════════════════════════════════════════
     // PHASE 1: Batch-load ALL data upfront (~6 DB queries total)
     // ═══════════════════════════════════════════════════════════════════════
@@ -375,7 +385,7 @@ const getWeeklyAdminReport = async (req, res) => {
         // downline-facing rate of their own to fall back on instead.
         const masterOwnRules = brkRulesByUser[master._id.toString()] || globalBrkRules;
         const entry = _getAggregatedEntryBatched(
-          master._id.toString(), master, metricsEngine, callerId, 'admin',
+          master._id.toString(), master, periodMetrics, callerId, 'admin',
           masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, callerRules,
           masterOwnRules
         );
@@ -385,7 +395,7 @@ const getWeeklyAdminReport = async (req, res) => {
         // (and purely additive alongside) total_caller above, which is what
         // the real caller (admin, here) keeps. See _computeOwnDownlineTotalCaller.
         entry.downline_mtm = _computeOwnDownlineTotalCaller(
-          master._id.toString(), master, metricsEngine,
+          master._id.toString(), master, periodMetrics,
           masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules,
           masterOwnRules
         );
@@ -399,7 +409,7 @@ const getWeeklyAdminReport = async (req, res) => {
         // callerRules (this report's caller's own rate).
         const masterOwnRules = brkRulesByUser[cm._id.toString()] || globalBrkRules;
         const entry = _getAggregatedEntryBatched(
-          cm._id.toString(), cm, metricsEngine, callerId, 'master',
+          cm._id.toString(), cm, periodMetrics, callerId, 'master',
           masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, callerRules,
           masterOwnRules
         );
@@ -409,7 +419,7 @@ const getWeeklyAdminReport = async (req, res) => {
         // from THEIR OWN downline, independent of total_caller (what the
         // real caller keeps from this row).
         entry.downline_mtm = _computeOwnDownlineTotalCaller(
-          cm._id.toString(), cm, metricsEngine,
+          cm._id.toString(), cm, periodMetrics,
           masterMap, masterChildrenMap, usersByMaster, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules,
           masterOwnRules
         );
@@ -420,7 +430,7 @@ const getWeeklyAdminReport = async (req, res) => {
       const directUsers = usersByMaster[callerId] || [];
       for (const u of directUsers) {
         const entry = _getUserEntryBatched(
-          u, metricsEngine, callerMaster, callerId, 'master',
+          u, periodMetrics, callerMaster, callerId, 'master',
           masterMap, tradesByUser, kiteMap, brkRulesByUser, globalBrkRules, callerRules
         );
         data.push(entry);

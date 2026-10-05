@@ -277,3 +277,21 @@ describe('a 30-tier hierarchy computes correctly end-to-end through the real HTT
     expect(row.caller_brk + row.owed_upward_brk).toBeCloseTo(incomingPool, 1);
   });
 });
+
+describe('live M2M only for a period that reaches today', () => {
+  test('a past period (date_to before now) ignores the live open-position M2M; the current period keeps it', async () => {
+    metricsEngine.getCachedMetrics.mockReturnValue({ position_pnl: 1234 });
+
+    const past = makeRes();
+    await getWeeklyAdminReport({ master: { id: MASTER_A }, admin: null, query: { date_from: '2026-09-28', date_to: '2026-10-04' } }, past);
+    const pastRow = past.json.mock.calls[0][0].data.find((r) => r.id === CHILD_M);
+    expect(pastRow.m2m_pnl).toBe(0);
+    expect(pastRow.realised_pnl).toBe(5000);
+
+    const now = makeRes();
+    await getWeeklyAdminReport({ master: { id: MASTER_A }, admin: null, query: {} }, now);
+    const nowRow = now.json.mock.calls[0][0].data.find((r) => r.id === CHILD_M);
+    expect(nowRow.m2m_pnl).toBe(1234);
+    expect(nowRow.realised_pnl).toBe(5000);
+  });
+});
