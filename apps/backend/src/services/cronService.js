@@ -469,7 +469,24 @@ class CronService {
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(cancelPendingCOMEX);
 
-        // GLOBAL/INDICES: no fixed close — skip for now (24hr market)
+        // GIFT NIFTY (NSE IX): 2:47 AM IST, Tue–Sat — right after the night
+        // session ends (2:45 AM) for each Mon–Fri trading day, so a pending
+        // GIFT order lives through that trading day's day and night sessions
+        // and is cancelled at its close, like every other segment. Selected
+        // by exchange, not segment: GIFT's segment (INDICES) is shared with
+        // the 24h GLOBAL indices, which must NOT be cancelled.
+        const cancelPendingGIFT = cron.schedule('47 2 * * 2-6', async () => {
+            console.log('🗑️ [CRON] Cancelling pending orders (GIFT NIFTY night-session close)...');
+            try {
+                const count = await this.cancelPendingOrdersForInstruments({ exchange: 'NSEIX' });
+                console.log(`✅ [CRON] Cancelled ${count} pending GIFT NIFTY order(s).`);
+            } catch (error) {
+                console.error('❌ [CRON] Error cancelling GIFT NIFTY pending orders:', error);
+            }
+        }, { timezone: 'Asia/Kolkata' });
+        this.jobs.push(cancelPendingGIFT);
+
+        // GLOBAL indices: no fixed close — skip for now (24hr market)
 
         // Weekend carry-forward is handled by settlementService.js (durable,
         // transactional). The old weekendCarryForwardService module was removed.
@@ -551,15 +568,20 @@ class CronService {
      * Returns the number of orders cancelled.
      */
     async cancelPendingOrdersBySegment(segments, remark = 'Auto-cancelled: market closed') {
+        const segmentsUpper = segments.map(s => s.toUpperCase());
+        return this.cancelPendingOrdersForInstruments({ segment: { $in: segmentsUpper } }, remark);
+    }
+
+    /** Cancels every pending order on the active instruments matching `instrumentMatch` (e.g. { exchange: 'NSEIX' }). */
+    async cancelPendingOrdersForInstruments(instrumentMatch, remark = 'Auto-cancelled: market closed') {
         const Trade = require('../models/Trade');
         const KiteInstrument = require('../models/KiteInstrument');
         const orderBookService = require('./orderBookService');
         const redisService = require('./redisService');
 
-        // Get all instrument tokens for the given segments
-        const segmentsUpper = segments.map(s => s.toUpperCase());
+        // Get all instrument tokens matching the filter
         const instruments = await KiteInstrument.find({
-            segment: { $in: segmentsUpper },
+            ...instrumentMatch,
             is_active: true,
             deleted_at: null,
         }).select('instrument_token').lean();
