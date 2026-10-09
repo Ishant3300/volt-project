@@ -761,8 +761,11 @@ const placeTrade = async (req, res) => {
                 // NSE IX isn't trading (holiday, between sessions) or the feed is
                 // down. The only price held is frozen (bid = ask = last), so no
                 // order may be placed against it — opening or closing.
+                // Also refused for the whole NSE IX break (15:40–16:05 IST):
+                // right after 15:40 the last quote is still "fresh".
                 if (String(instCheck?.exchange || '').toUpperCase() === 'NSEIX'
-                    && !require('../services/giftNiftyFeedService').isQuoteLive(instrument_token)) {
+                    && (!require('../services/giftNiftyFeedService').isQuoteLive(instrument_token)
+                        || require('../services/giftNiftyFeedService').isGiftSessionBreak())) {
                     throw Object.assign(new Error(GIFT_NOT_LIVE_MESSAGE), { status: 403 });
                 }
                 const isDisabled = instCheck && instCheck.enabled === false;

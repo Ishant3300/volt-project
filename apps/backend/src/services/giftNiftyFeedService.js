@@ -72,6 +72,26 @@ function isGiftExpiryHalt(instrument, now = new Date()) {
   return dateKey(instrument.expiry) === todayKey && mins >= EXPIRING_TRADING_END_MINUTE && mins < EXPIRY_DAY_CUTOFF_MINUTE;
 }
 
+// NSE IX session break: session 1 ends 15:40 IST, session 2 opens 16:05 IST
+// (NSEIFSC/TRADE/2543). No GIFT NIFTY trading in between.
+const SESSION_BREAK_START_MINUTE = (15 * 60) + 40;
+const SESSION_BREAK_END_MINUTE = (16 * 60) + 5;
+
+/**
+ * True during the NSE IX break between session 1 and session 2 (15:40–16:05
+ * IST, Mon–Fri). The last quote is still under 5 minutes old for the first
+ * minutes of the break, so isQuoteLive alone let a market order fill at the
+ * closing price after NSE IX had stopped; tradeController refuses GIFT
+ * orders for the whole break.
+ */
+function isGiftSessionBreak(now = new Date()) {
+  const p = getIndiaDateTimeParts(now);
+  const weekday = new Date(Date.UTC(p.year, p.month - 1, p.day)).getUTCDay(); // 0 = Sun
+  if (weekday === 0 || weekday === 6) return false;
+  const mins = p.hour * 60 + p.minute;
+  return mins >= SESSION_BREAK_START_MINUTE && mins < SESSION_BREAK_END_MINUTE;
+}
+
 /** NSEIX 'DD-Mon-YYYY HH:MM:SS' — India time — → absolute Date (invalid Date if unparseable). */
 function parseNseixTimestamp(value) {
   const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{4}) (\d{2}):(\d{2}):(\d{2})$/.exec(String(value || '').trim());
@@ -383,4 +403,5 @@ class GiftNiftyFeedService {
 
 module.exports = new GiftNiftyFeedService();
 module.exports.isGiftExpiryHalt = isGiftExpiryHalt;
+module.exports.isGiftSessionBreak = isGiftSessionBreak;
 module.exports._private = { parseNseixDate, parseNseixTimestamp, isPastExpiry, listedExpiries, CONTINUOUS_RETIRE_AT, dayFields };
