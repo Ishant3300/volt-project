@@ -237,10 +237,12 @@ class CronService {
         this.jobs.push(mcxBhavcopyJob);
 
         // ── Atomic Weekend Settlement ───────────────────────────────────
-        // Retry hourly after the 1:00 AM MCX fetch on Saturday. The durable
-        // period key guarantees that only one worker can commit the week; later
-        // invocations are no-ops after success and retries after price failures.
-        const weekendSettlementJob = cron.schedule('30 1-5 * * 6', async () => {
+        // Saturday 02:50 IST — after GIFT NIFTY's night session closes (02:45)
+        // so its ATP is final (settlementService refuses to start a new week
+        // earlier) — then hourly retries 03:30-05:30 if a price wasn't ready.
+        // The durable period key guarantees that only one worker can commit
+        // the week; later invocations are no-ops after success.
+        const runWeekendSettlement = async () => {
             console.log('[CRON] Checking Saturday weekly settlement...');
             try {
                 const settlementService = require('./settlementService');
@@ -257,8 +259,11 @@ class CronService {
             } catch (error) {
                 console.error(`[CRON] Weekend settlement error: ${error.message}`);
             }
-        }, { timezone: 'Asia/Kolkata' });
+        };
+        const weekendSettlementJob = cron.schedule('50 2 * * 6', runWeekendSettlement, { timezone: 'Asia/Kolkata' });
         this.jobs.push(weekendSettlementJob);
+        const weekendSettlementRetryJob = cron.schedule('30 3-5 * * 6', runWeekendSettlement, { timezone: 'Asia/Kolkata' });
+        this.jobs.push(weekendSettlementRetryJob);
 
         // Recover a run stranded by process restart, network failure, or a crash
         // after DB commit. Recovery uses the run's stored trading date rather

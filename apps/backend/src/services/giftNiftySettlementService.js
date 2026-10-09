@@ -228,7 +228,108 @@ async function fetchAndApplyGiftNiftySettlement(targetDate, options = {}) {
   return { updated: 1 + monthlyApplied.length, settlementPrice, monthly: monthlyApplied, tradingDate: requestedKey };
 }
 
+/* ------------------------------------------------------------------ ATP -- */
+
+const LIVE_URL = 'https://www.nseix.com/api/derivatives-watch?inst_type1=IDX&inst_type2=STK&type=live';
+const ATP_SOURCE = 'NSEIX_ATP_SESSION_CLOSE';
+const SESSION2_OPEN_MINUTE = (16 * 60) + 5; // NSE IX session 2 opens 16:05 IST
+
+/**
+ * Weekly settlement price for GIFT NIFTY = NSE IX's own ATP (average traded
+ * price) at the close of the night session that follows the settlement's NSE
+ * price date — read at 02:50 IST Saturday, after the 02:45 close (business
+ * decision, 9 Oct 2026). Replaces the official Daily Settlement Price file for
+ * settlement: that file is published ~16:15 on the trading day and never
+ * includes the night session.
+ *
+ * Each NIFTY FUTIDX row on NSE IX's live derivatives watch carries `ATP` and
+ * `TIMESTMP` (its last trade, India time). A row is accepted only if its
+ * TIMESTMP is after session 2 opened on `priceDate` (16:05 IST) — i.e. the
+ * ATP is from that night session, not an older day. Each monthly
+ * GIFTNIFTY…FUT contract gets its own month's ATP; the continuous
+ * "GIFT NIFTY" instrument gets the near month's, as the DSP path did.
+ * Nothing valid → nothing written and an error thrown, so settlement waits
+ * (its price check fails) instead of settling GIFT at another price.
+ */
+async function fetchAndApplyGiftNiftyAtp(priceDate, options = {}) {
+  const feed = require('./giftNiftyFeedService');
+  const { parseNseixTimestamp } = feed._private;
+  const requestedDate = toIndiaDateOnly(priceDate);
+  const requestedKey = dateKey(requestedDate);
+  // Session 2 open on the price date, as an absolute time.
+  const session2Open = new Date(requestedDate.getTime() + SESSION2_OPEN_MINUTE * 60 * 1000 - (330 * 60 * 1000));
+
+  const res = await axios.get(LIVE_URL, { timeout: 15000, headers: { 'User-Agent': BROWSER_UA } });
+  const rows = res.data && Array.isArray(res.data.data) ? res.data.data : [];
+  const futures = rows
+    .filter((r) => r.INSTRUMENTTYPE === 'FUTIDX' && r.SYMBOL === 'NIFTY')
+    .map((r) => ({
+      expiry: parseNseixDate(r.EXPIRYDATE),
+      atp: Number(r.ATP),
+      ts: parseNseixTimestamp(r.TIMESTMP),
+      raw: { ATP: r.ATP, TIMESTMP: r.TIMESTMP, EXPIRYDATE: r.EXPIRYDATE },
+    }))
+    .filter((r) => r.expiry && r.atp > 0 && !Number.isNaN(r.ts.getTime()) && r.ts > session2Open);
+  if (futures.length === 0) {
+    throw new Error(`No NSE IX ATP from the ${requestedKey} night session (rows: ${JSON.stringify(rows.filter((r) => r.SYMBOL === 'NIFTY' && r.INSTRUMENTTYPE === 'FUTIDX').map((r) => ({ EXPIRYDATE: r.EXPIRYDATE, ATP: r.ATP, TIMESTMP: r.TIMESTMP })))})`);
+  }
+
+  const updatedAt = new Date();
+  const fields = (price) => ({
+    settlement_price: price,
+    settlement_price_date: requestedDate,
+    settlement_price_source: ATP_SOURCE,
+    settlement_price_updated_at: updatedAt,
+  });
+  const applied = [];
+
+  const monthly = await KiteInstrument.find({ exchange: 'NSEIX', instrument_type: 'FUT', name: 'GIFT NIFTY', deleted_at: null })
+    .select('instrument_token tradingsymbol expiry').lean();
+  for (const c of monthly) {
+    const row = futures.find((r) => dateKey(r.expiry) === dateKey(c.expiry));
+    if (!row) continue;
+    await KiteInstrument.updateOne({ instrument_token: c.instrument_token }, { $set: fields(row.atp) });
+    applied.push({ token: c.instrument_token.toString(), symbol: c.tradingsymbol, price: row.atp, ...row.raw });
+    console.log(`   ✅ [GiftNiftySettlement] ${c.tradingsymbol} → ATP ${row.atp} (night session of ${requestedKey}, last trade ${row.raw.TIMESTMP}).`);
+  }
+  const near = futures.reduce((a, r) => (!a || r.expiry < a.expiry ? r : a), null);
+  const continuous = await KiteInstrument.findOne({
+    exchange: 'NSEIX',
+    $or: [{ tradingsymbol: 'GIFT NIFTY' }, { name: 'GIFT NIFTY' }, { display_name: 'GIFT NIFTY' }],
+    instrument_type: { $ne: 'FUT' },
+    is_active: true,
+  }).select('instrument_token').lean();
+  if (continuous && near) {
+    await KiteInstrument.updateOne({ instrument_token: continuous.instrument_token }, { $set: fields(near.atp) });
+    applied.push({ token: continuous.instrument_token.toString(), symbol: 'GIFT NIFTY', price: near.atp, ...near.raw });
+  }
+  if (applied.length === 0) throw new Error('NSE IX ATP read, but no GIFT NIFTY contract matched its expiries');
+
+  if (options.applyToLivePrices !== false) {
+    try {
+      const livePriceService = require('./livePriceService');
+      const metricsEngine = require('./metricsEngine');
+      if (livePriceService && livePriceService._broadcastToClients) {
+        for (const a of applied) {
+          livePriceService.latestPrices.set(a.token, a.price);
+          livePriceService.latestPrices.set(Number(a.token), a.price);
+          metricsEngine.onTick(a.token, a.price, a.price, a.price);
+        }
+        livePriceService._broadcastToClients({
+          type: 'ticks',
+          data: applied.map((a) => ({ instrument_token: a.token, last_price: a.price, bid_price: a.price, ask_price: a.price, close: a.price, is_settlement: true })),
+        });
+      }
+    } catch (_) {
+      console.log('   Broadcast skipped (standalone mode or no clients connected).');
+    }
+  }
+  return { updated: applied.length, applied, tradingDate: requestedKey, source: ATP_SOURCE };
+}
+
 module.exports = {
   fetchAndApplyGiftNiftySettlement,
+  fetchAndApplyGiftNiftyAtp,
+  ATP_SOURCE,
   _private: { parseDailySettlementCsv, parseNseixDate, pickNearMonthRow },
 };

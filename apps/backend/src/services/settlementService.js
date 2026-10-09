@@ -23,6 +23,7 @@ const User = require('../models/User');
 const {
   dateKey,
   dateRange,
+  getIndiaDateTimeParts,
   getLatestDueSettlementFriday,
   indiaDayRangeUtc,
   isWeekendInIndia,
@@ -219,9 +220,22 @@ function hasOfficialSettlementAuthority(instrument) {
     return source.startsWith('MASSIVE_OFFICIAL_SESSION_');
   }
   if (instrument?.exchange === 'NSEIX') {
-    return source.startsWith('NSEIX_OFFICIAL_');
+    // GIFT NIFTY settles at NSE IX's ATP at the night-session close
+    // (giftNiftySettlementService.fetchAndApplyGiftNiftyAtp) — the official
+    // daily settlement file (NSEIX_OFFICIAL_*) is no longer accepted, so a
+    // failed ATP read makes settlement wait rather than use that price.
+    return source.startsWith('NSEIX_ATP_');
   }
   return false;
+}
+
+// Earliest start of a new weekly run: Saturday 02:50 IST (see runSettlement).
+const SETTLEMENT_EARLIEST_START_MINUTE = (2 * 60) + 50;
+
+function isBeforeEarliestStart(now = new Date()) {
+  const p = getIndiaDateTimeParts(now);
+  const weekday = new Date(Date.UTC(p.year, p.month - 1, p.day)).getUTCDay(); // 6 = Saturday
+  return weekday === 6 && (p.hour * 60 + p.minute) < SETTLEMENT_EARLIEST_START_MINUTE;
 }
 
 async function inspectLegacySettlement({ historyRunId, periodKey }) {
@@ -839,6 +853,20 @@ async function runSettlement(options = {}) {
     // The logical Friday is local and deterministic. Materialize it before any
     // network calendar lookup can fail so startup can never continue unfenced.
     tradingDate = getLatestDueSettlementFriday(now);
+    // A new weekly run doesn't start before Saturday 02:50 IST — after GIFT
+    // NIFTY's night session closes (02:45), so its ATP is final and the week
+    // includes that session's trades. Applies to every trigger (cron,
+    // recovery, admin). A run that already exists for this period isn't
+    // affected (recovery of an in-flight run continues as before).
+    if (!(await SettlementRun.exists({ period_key: dateKey(tradingDate) })) && isBeforeEarliestStart(now)) {
+      return {
+        success: false,
+        started: false,
+        waiting: true,
+        message: 'Weekly settlement starts after GIFT NIFTY closes - from 02:50 IST Saturday.',
+        periodKey: dateKey(tradingDate),
+      };
+    }
     const existing = await SettlementRun.findOne({ period_key: dateKey(tradingDate) })
       .select('price_dates price_dates_resolved')
       .lean();
@@ -960,15 +988,16 @@ async function executeOwnedRun(context) {
         console.error(`[Settlement] Massive settlement price fetch failed: ${err.message}`);
       }
 
-      // GIFT NIFTY (NSEIX) — same rationale as the Massive fetch above: fetch
-      // inline so a run doesn't depend on the daily cron having already fired
-      // first. Non-fatal: a transient NSEIX fetch failure shouldn't block the
-      // rest of settlement.
+      // GIFT NIFTY (NSEIX) — settles at NSE IX's ATP at the night-session
+      // close (read now, after 02:45; settlement doesn't start before 02:50
+      // Saturday — see SETTLEMENT_EARLIEST_START). A failed read is logged
+      // here; with no ATP price the price check below refuses GIFT positions
+      // and the run waits for the next attempt.
       try {
-        const { fetchAndApplyGiftNiftySettlement } = require('./giftNiftySettlementService');
-        await fetchAndApplyGiftNiftySettlement(run.price_dates.nse, { applyToLivePrices: applySettlementPrices });
+        const { fetchAndApplyGiftNiftyAtp } = require('./giftNiftySettlementService');
+        await fetchAndApplyGiftNiftyAtp(run.price_dates.nse, { applyToLivePrices: applySettlementPrices });
       } catch (err) {
-        console.error(`[Settlement] GIFT NIFTY settlement price fetch failed: ${err.message}`);
+        console.error(`[Settlement] GIFT NIFTY ATP read failed: ${err.message}`);
       }
       broadcastProgress();
     }
@@ -1940,6 +1969,8 @@ module.exports = {
   resetState,
   runSettlement,
   _private: {
+    isBeforeEarliestStart,
+    hasOfficialSettlementAuthority,
     acquireSettlementRun,
     adoptLegacySettlement,
     buildPositionGroups,
