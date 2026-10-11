@@ -228,7 +228,7 @@ async function executeMatchedOrder(match, livePrice, options = {}) {
       //    segment, so categoryForSegment('NFO')→GLOBAL / ('MCX')→GLOBAL would be
       //    wrong. Resolving from segment maps 'NFO-FUT'→NSE, 'MCX-FUT'→MCX, etc.
       const walletInstrument = await KiteInstrument.findOne({ instrument_token: trade.instrument_token })
-        .select('segment enabled deleted_at instrument_type nse_banned ban_reason').session(session).lean();
+        .select('segment enabled deleted_at instrument_type nse_banned ban_reason raw_name name lot_size').session(session).lean();
       const walletCategory = categoryForSegment(walletInstrument?.segment || trade.exchange || '');
 
       const { closingQty: walletClosingQty, openingQty: walletOpeningQty } =
@@ -320,7 +320,14 @@ async function executeMatchedOrder(match, livePrice, options = {}) {
         return allowCandidates.has(name) || allowCandidates.has(normalized);
       });
 
-      if (betBlocked || closeOnlyBlocked || marginCallFullyBlocked || marginCallLiveBlocked || exchangeBlocked) {
+      // Per-script position cap at FILL time — the placement-time check alone
+      // let a pending order fill past the client's max (see
+      // services/positionLimitService.js for the real INOXWIND case).
+      const positionLimitRemark = await require('./positionLimitService').positionLimitRejection({
+        trade, previousNetQty, instrument: walletInstrument, user: gateUser, session,
+      });
+
+      if (betBlocked || closeOnlyBlocked || marginCallFullyBlocked || marginCallLiveBlocked || exchangeBlocked || positionLimitRemark) {
         const userGateRejectRemark = betBlocked
           ? 'Trading is currently disabled for your account.'
           : closeOnlyBlocked
@@ -329,7 +336,9 @@ async function executeMatchedOrder(match, livePrice, options = {}) {
           ? 'Trading is blocked: a margin square-off already closed all your positions. Contact your master/admin to add credit and resume.'
           : marginCallLiveBlocked
           ? 'Trading is blocked: your live M2M loss has reached your full credit. You can only close existing positions until your master/admin adds credit.'
-          : `Your account is not permitted to trade ${rawSegmentForAllow || 'this instrument'}. Contact your master/admin.`;
+          : exchangeBlocked
+          ? `Your account is not permitted to trade ${rawSegmentForAllow || 'this instrument'}. Contact your master/admin.`
+          : positionLimitRemark;
         trade.status = 'rejected';
         trade.pnl = 0;
         trade.net_amount = 0;

@@ -248,7 +248,7 @@ const processPendingOrders = async () => {
                         //    `freshTrade.exchange` (which carries no segment), so 'NFO-FUT'
                         //    maps to NSE and 'MCX-FUT' to MCX rather than GLOBAL.
                         const walletInstrument = await KiteInstrument.findOne({ instrument_token: freshTrade.instrument_token })
-                            .select('segment enabled deleted_at instrument_type nse_banned ban_reason').session(session).lean();
+                            .select('segment enabled deleted_at instrument_type nse_banned ban_reason raw_name name lot_size').session(session).lean();
                         const walletCategory = categoryForSegment(walletInstrument?.segment || freshTrade.exchange || '');
 
                         const { closingQty: walletClosingQty, openingQty: walletOpeningQty } =
@@ -335,7 +335,13 @@ const processPendingOrders = async () => {
                             return allowCandidates.has(name) || allowCandidates.has(normalized);
                         });
 
-                        if (betBlocked || closeOnlyBlocked || marginCallFullyBlocked || marginCallLiveBlocked || exchangeBlocked) {
+                        // Per-script position cap at FILL time — mirrors priceQueueService
+                        // (see services/positionLimitService.js).
+                        const positionLimitRemark = await require('./positionLimitService').positionLimitRejection({
+                            trade: freshTrade, previousNetQty: prevNetQtyCheck, instrument: walletInstrument, user: gateUser, session,
+                        });
+
+                        if (betBlocked || closeOnlyBlocked || marginCallFullyBlocked || marginCallLiveBlocked || exchangeBlocked || positionLimitRemark) {
                             const userGateRejectRemark = betBlocked
                                 ? 'Trading is currently disabled for your account.'
                                 : closeOnlyBlocked
@@ -344,7 +350,9 @@ const processPendingOrders = async () => {
                                 ? 'Trading is blocked: a margin square-off already closed all your positions. Contact your master/admin to add credit and resume.'
                                 : marginCallLiveBlocked
                                 ? 'Trading is blocked: your live M2M loss has reached your full credit. You can only close existing positions until your master/admin adds credit.'
-                                : `Your account is not permitted to trade ${rawSegmentForAllow || 'this instrument'}. Contact your master/admin.`;
+                                : exchangeBlocked
+                                ? `Your account is not permitted to trade ${rawSegmentForAllow || 'this instrument'}. Contact your master/admin.`
+                                : positionLimitRemark;
                             freshTrade.status = 'rejected';
                             freshTrade.pnl = 0;
                             freshTrade.net_amount = 0;

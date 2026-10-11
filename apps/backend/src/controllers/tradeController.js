@@ -160,7 +160,7 @@ async function _validateBidAskSpread(instrument_token, price, order_type) {
  * a fresh order at that quantity would. Returns instrumentRawName since
  * callers need it for the FSL/High-Low checks that follow.
  */
-async function _validateScriptQuantityLimit(user, instrument_token, transaction_type, quantity, segment, exchange, tradingsymbol, session) {
+async function _validateScriptQuantityLimit(user, instrument_token, transaction_type, quantity, segment, exchange, tradingsymbol, session, excludeTradeId = null) {
     // Use segment if provided (e.g. NFO-FUT) — more specific than exchange (NFO).
     // This is critical: exchanges_allowed stores NFO-FUT not NFO.
     const rawSegment = (segment || exchange || '').toUpperCase();
@@ -207,6 +207,29 @@ async function _validateScriptQuantityLimit(user, instrument_token, transaction_
         }
     }
 
+    // Pending orders on the SAME side for this script count toward the cap:
+    // each of them may still fill, so the position this order could end up
+    // in is current + pending + this order. Without this a client stayed
+    // under the cap order by order but went past it once pending orders
+    // filled (real case, client 313738 INOXWIND, max 1500: holding 1000, a
+    // pending BUY 500 LIMIT plus a BUY 500 MARKET -> 2000). Opposite-side
+    // pending orders are not netted off (they might never fill). The order
+    // being modified (modifyTrade) is excluded — its new size is `quantity`.
+    // The fill-time re-check is services/positionLimitService.js.
+    // (Skipped when the script has no limit row — no cap to check.)
+    let pendingSameSide = 0;
+    if (limitValue !== null) {
+        const pendingMatch = { user_id: user._id, instrument_token, transaction_type, status: 'pending', deleted_at: null };
+        if (excludeTradeId) pendingMatch._id = { $ne: excludeTradeId };
+        const pendingAgg = await Trade.aggregate([
+            { $match: pendingMatch },
+            { $group: { _id: null, qty: { $sum: '$quantity' } } },
+        ]).session(session);
+        pendingSameSide = pendingAgg.length > 0 ? Number(pendingAgg[0].qty) || 0 : 0;
+    }
+    const capQuantity = quantity + pendingSameSide;
+    const pendingNote = pendingSameSide > 0 ? `, Pending orders: ${pendingSameSide} qty` : '';
+
     // max_qty 0 = no quantity allotted for this script: it is NOT tradable
     // for the account (e.g. the INDEX ONLY group gives every script except
     // NIFTY/BANKNIFTY a 0). Nothing may be opened or added; reducing or
@@ -221,7 +244,7 @@ async function _validateScriptQuantityLimit(user, instrument_token, transaction_
             }}
         ]).session(session);
         const net0 = posAgg0.length > 0 ? posAgg0[0].total_buy_qty - posAgg0[0].total_sell_qty : 0;
-        const after0 = transaction_type === 'BUY' ? net0 + quantity : net0 - quantity;
+        const after0 = transaction_type === 'BUY' ? net0 + capQuantity : net0 - capQuantity;
         if (Math.abs(after0) > Math.abs(net0)) {
             throw Object.assign(
                 new Error(`${instrumentRawName || tradingsymbol} is not allowed for this account — no quantity allotted (max 0). Existing positions can only be closed.`),
@@ -266,17 +289,17 @@ async function _validateScriptQuantityLimit(user, instrument_token, transaction_
             ]).session(session);
 
             const currentNetQty = posAgg.length > 0 ? posAgg[0].total_buy_qty - posAgg[0].total_sell_qty : 0;
-            // Calculate what net position would be after this trade
-            const afterNetQty = transaction_type === 'BUY' ? currentNetQty + quantity : currentNetQty - quantity;
+            // Net position after this trade AND every same-side pending order fills
+            const afterNetQty = transaction_type === 'BUY' ? currentNetQty + capQuantity : currentNetQty - capQuantity;
             const absAfter = Math.abs(afterNetQty);
             const absCurrent = Math.abs(currentNetQty);
 
             // Only block if the trade is INCREASING the position size beyond the limit
             // Closing/reducing trades are always allowed
             if (absAfter > absCurrent && absAfter > limitValue) {
-                const remainingQty = Math.max(0, limitValue - absCurrent);
+                const remainingQty = Math.max(0, limitValue - absCurrent - pendingSameSide);
                 throw new Error(
-                    `Order exceeds maximum position limit. Max: ${limitValue} qty, Current: ${absCurrent} qty, Remaining: ${remainingQty} qty, Requested: ${quantity} qty.`
+                    `Order exceeds maximum position limit. Max: ${limitValue} qty, Current: ${absCurrent} qty${pendingNote}, Remaining: ${remainingQty} qty, Requested: ${quantity} qty.`
                 );
             }
         }
@@ -318,16 +341,17 @@ async function _validateScriptQuantityLimit(user, instrument_token, transaction_
 
             const currentNetQty = posAgg.length > 0 ? posAgg[0].total_buy_qty - posAgg[0].total_sell_qty : 0;
             const currentLots = Math.floor(Math.abs(currentNetQty) / lotSize);
-            // Calculate what net position would be after this trade
-            const afterNetQty = transaction_type === 'BUY' ? currentNetQty + quantity : currentNetQty - quantity;
+            // Net position after this trade AND every same-side pending order fills
+            const afterNetQty = transaction_type === 'BUY' ? currentNetQty + capQuantity : currentNetQty - capQuantity;
             const afterLots = Math.ceil(Math.abs(afterNetQty) / lotSize);
+            const pendingLots = Math.ceil(pendingSameSide / lotSize);
 
             // Only block if the trade is INCREASING the position size beyond the limit
             // Closing/reducing trades are always allowed
             if (afterLots > currentLots && afterLots > limitValue) {
-                const remainingLots = Math.max(0, limitValue - currentLots);
+                const remainingLots = Math.max(0, limitValue - currentLots - pendingLots);
                 throw new Error(
-                    `Order exceeds maximum position limit. Max: ${limitValue} lot(s), Current: ${currentLots} lot(s), Remaining: ${remainingLots} lot(s), Requested: ${requestedLots} lot(s).`
+                    `Order exceeds maximum position limit. Max: ${limitValue} lot(s), Current: ${currentLots} lot(s)${pendingSameSide > 0 ? `, Pending orders: ${pendingLots} lot(s)` : ''}, Remaining: ${remainingLots} lot(s), Requested: ${requestedLots} lot(s).`
                 );
             }
         }
@@ -1999,7 +2023,7 @@ const modifyTrade = async (req, res) => {
                 instrumentRawName = kiteInstForName?.raw_name || kiteInstForName?.name || null;
             } else {
                 ({ instrumentRawName } = await _validateScriptQuantityLimit(
-                    user, trade.instrument_token, trade.transaction_type, newQuantity, trade.segment, trade.exchange, trade.tradingsymbol, null
+                    user, trade.instrument_token, trade.transaction_type, newQuantity, trade.segment, trade.exchange, trade.tradingsymbol, null, trade._id
                 ));
             }
             await _validateFreshStoplossPriceOffset(isAdmin, user, trade.instrument_token, trade.order_type, trade.transaction_type, newPrice, trade.segment, trade.exchange, instrumentRawName);
