@@ -247,7 +247,7 @@ function checkNginx() {
 }
 
 // ------------------------------------------------------- database events ----
-let names = { users: new Map(), byUsername: new Map(), masters: new Map(), admins: new Map(), privileged: new Set(), at: 0 };
+let names = { users: new Map(), byUsername: new Map(), mastersByUsername: new Map(), adminsByUsername: new Map(), masters: new Map(), admins: new Map(), privileged: new Set(), at: 0 };
 async function refreshNames(d) {
   if (Date.now() - names.at < 10 * MIN) return;
   const [users, masters, admins] = await Promise.all([
@@ -258,6 +258,8 @@ async function refreshNames(d) {
   names = {
     users: new Map(users.map((u) => [String(u._id), u])),
     byUsername: new Map(users.map((u) => [String(u.username), u])),
+    mastersByUsername: new Map(masters.map((m) => [String(m.username), m])),
+    adminsByUsername: new Map(admins.map((a) => [String(a.username), a])),
     masters: new Map(masters.map((m) => [String(m._id), m])),
     admins: new Map(admins.map((a) => [String(a._id), a])),
     privileged: new Set([...masters.map((m) => String(m.username)), ...admins.map((a) => String(a.username))]),
@@ -273,6 +275,36 @@ function who(id) {
   }
   const m = names.masters.get(String(id));
   return m ? `master ${m.username} ${m.name || ''}`.trim() : String(id);
+}
+
+/** [account line, reason line, IP line] for a failed sign-in, in plain words. */
+const ipNotes = new Map();
+async function explainLoginFailure(d, a) {
+  const user = String(a.username || '').trim();
+  const client = names.byUsername.get(user);
+  const master = names.mastersByUsername.get(user);
+  const admin = names.adminsByUsername.get(user);
+  const accountId = client?._id || master?._id || admin?._id || null;
+  const account = !user ? 'empty username' : client ? who(client._id) : master ? `master ${master.username} ${master.name || ''}`.trim() : admin ? `admin ${admin.username}` : `"${user}" — no such account`;
+  const r = String(a.reason || '');
+  const reason = !user ? 'no username entered'
+    : /invalid credentials/i.test(r) ? (accountId ? 'wrong password' : "username doesn't exist")
+    : /password is required/i.test(r) ? 'no password entered'
+    : /username is required/i.test(r) ? 'no username entered'
+    : /inactive|deactivated|suspended|blocked|disabled/i.test(r) ? `account blocked/inactive (${r})`
+    : /totp|2fa|otp/i.test(r) ? 'wrong 2FA code'
+    : r || `refused (${a.status})`;
+  const key = `${a.ip}|${accountId || ''}`;
+  let note = ipNotes.get(key);
+  if (!note || Date.now() - note.at > 10 * MIN) {
+    const since = new Date(Date.now() - 60 * 24 * 60 * MIN);
+    const adminIp = await d.collection('loginhistories').countDocuments({ userModel: 'Admin', ip_address: a.ip, createdAt: { $gte: since } });
+    const ownIp = accountId ? await d.collection('loginhistories').countDocuments({ userId: accountId, ip_address: a.ip, createdAt: { $gte: since } }) : 0;
+    note = { at: Date.now(), text: adminIp ? 'office/admin IP (admin has logged in from it)' : ownIp ? "this account's usual IP" : accountId ? 'new IP for this account' : 'IP not seen with any admin login' };
+    ipNotes.set(key, note);
+    if (ipNotes.size > 2000) ipNotes.clear();
+  }
+  return [account, `Reason: ${reason}`, `From ${a.ip} — ${note.text}`];
 }
 
 /** New docs since the last cycle (first run: start from now). */
@@ -329,18 +361,21 @@ async function checkEvents() {
     }
   }
 
-  // Failed logins.
+  // Failed logins — with whose account it is (or that none exists), the
+  // plain reason, and what the IP is (office/admin, the account's usual, new).
   for (const a of await newDocs(d, 'loginattempts')) {
     const user = String(a.username || '').trim();
+    const why = await explainLoginFailure(d, a);
     if (user && (a.route === 'admin' || a.route === 'master' || names.privileged.has(user))) {
-      raise(`lf-priv:${user}`, 'warning', 'Failed login on an admin/master account', [`${user} from ${a.ip}: ${a.reason}`], { cooldownMs: 15 * MIN });
+      raise(`lf-priv:${user}`, 'warning', 'Failed login on an admin/master account', why, { cooldownMs: 15 * MIN });
     }
-    if (user && hit(`lf-user:${user}`, 10 * MIN, a).length >= 3) {
-      raise(`lf-user:${user}`, 'warning', 'Repeated failed logins', [`${names.byUsername.has(user) ? who(names.byUsername.get(user)._id) : user}: 3+ failures in 10 min`, `last from ${a.ip}: ${a.reason}`], { cooldownMs: 30 * MIN });
+    const perUser = user ? hit(`lf-user:${user}`, 10 * MIN, a) : [];
+    if (perUser.length >= 3) {
+      raise(`lf-user:${user}`, 'warning', 'Repeated failed logins', [...why, `${perUser.length} failures in 10 min`], { cooldownMs: 30 * MIN });
     }
     const perIp = hit(`lf-ip:${a.ip}`, 10 * MIN, user);
     const distinct = new Set(perIp.map((x) => x.item).filter(Boolean));
-    if (distinct.size >= 3) raise(`lf-ip:${a.ip}`, 'critical', 'Possible password guessing', [`${a.ip} failed on ${distinct.size} accounts in 10 min: ${[...distinct].slice(0, 6).join(', ')}`], { cooldownMs: 30 * MIN });
+    if (distinct.size >= 3) raise(`lf-ip:${a.ip}`, 'critical', 'Possible password guessing', [`${a.ip} failed on ${distinct.size} accounts in 10 min: ${[...distinct].slice(0, 6).join(', ')}`, why[2]], { cooldownMs: 30 * MIN });
   }
 
   // Successful logins: admin from a new IP; success right after failures.
