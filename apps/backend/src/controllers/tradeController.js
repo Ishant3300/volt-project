@@ -1658,6 +1658,25 @@ const placeTrade = async (req, res) => {
         else if (error.message.includes('Trade margin is not configured')) statusCode = 400;
         else if (error.message.includes('Fresh Stop-Loss')) statusCode = 400;
 
+        // Anything that isn't a known business refusal never reaches the
+        // Rejection Log — keep a record for the watchdog (fire-and-forget).
+        if (!isRejectable) {
+            const { recordServerEvent } = require('../utils/eventLog');
+            recordServerEvent({
+                kind: 'order_error',
+                userId: req.body?.user_id || req.user?.id || null,
+                callerRole: req.admin ? 'admin' : req.master ? 'master' : req.user ? 'user' : '',
+                status: statusCode,
+                message: error.message,
+                context: {
+                    symbol: String(req.body?.tradingsymbol || '').slice(0, 60),
+                    side: String(req.body?.transaction_type || '').slice(0, 8),
+                    quantity: Number(req.body?.quantity) || 0,
+                    order_type: String(req.body?.order_type || '').slice(0, 8),
+                },
+            });
+        }
+
         res.status(statusCode).json({
             success: false,
             message: sanitizeErrorMessage(error),

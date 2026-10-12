@@ -79,3 +79,7 @@ else echo "RESULT: everything running smoothly" >> "$REPORT"; fi
 ln -sf "$REPORT" "$OUTDIR/latest.txt"
 find "$OUTDIR" -name '20*.txt' -mtime +45 -delete 2>/dev/null
 tail -1 "$REPORT"
+
+# Send the short version (header, FAIL/WARN lines, result) to the watchdog's
+# Telegram chat; dry mode (~/watchdog/outbox.log) until a bot token is set.
+cd "$APP" && node scripts/watchdog/notify.js --audit "$REPORT" >/dev/null 2>&1 || true

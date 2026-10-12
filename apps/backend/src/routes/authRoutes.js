@@ -5,22 +5,29 @@ const { userLogin, adminLogin, masterLogin, userLogout, adminLogout, masterLogou
 const { authenticateUser, authenticateAdmin, authenticateMaster } = require('../middlewares/auth');
 const { authenticateAny } = require('../middlewares/auth');
 const { rejectIfInvestor } = require('../middlewares/rejectIfInvestor');
+// Failed sign-ins -> LoginAttempt (monitoring); see the middleware.
+const { trackLoginAttempt } = require('../middlewares/trackLoginAttempt');
+const { recordClientEvents } = require('../controllers/clientEventController');
 
 // Login attempt limiting (10 per 15 min per IP) switched OFF on the
 // business owner's request (2026-09-28). The global limiter in index.js
 // (200 requests/min per IP) still applies to every route, logins included.
 
 // User login
-router.post('/user/login', validateLogin, userLogin);
+router.post('/user/login', trackLoginAttempt('user'), validateLogin, userLogin);
 
 // Admin login
-router.post('/admin/login', validateLogin, adminLogin);
+router.post('/admin/login', trackLoginAttempt('admin'), validateLogin, adminLogin);
 
 // Master login
-router.post('/master/login', validateLogin, masterLogin);
+router.post('/master/login', trackLoginAttempt('master'), validateLogin, masterLogin);
 
 // Universal login
-router.post('/login', validateLogin, universalLogin);
+router.post('/login', trackLoginAttempt('universal'), validateLogin, universalLogin);
+
+// Web/app problem reports (order refused on screen, crash, failed request) —
+// signed in or not; see clientEventController.js. Read by the watchdog.
+router.post('/client-events', recordClientEvents);
 
 // User logout (requires authentication)
 router.post('/user/logout', authenticateUser, userLogout);
