@@ -454,6 +454,72 @@ async function _validateFreshStoplossOpenPosition(isAdmin, user, instrument_toke
 }
 
 /**
+ * Fresh Stop-Loss: the configured FreshStoplossLimit row for an instrument
+ * (GLOBAL is stored as INDICES), or null.
+ */
+async function _findFreshStoplossLimit(instrument_token, segment, exchange, instrumentRawName) {
+    const FreshStoplossLimit = require('../models/FreshStoplossLimit');
+    let fslSegment = (segment || '').toUpperCase();
+    if (!fslSegment || fslSegment === exchange?.toUpperCase()) {
+        const kiteInstFSL = await KiteInstrument.findOne({ instrument_token }).select('segment').lean();
+        if (kiteInstFSL?.segment) fslSegment = kiteInstFSL.segment.toUpperCase();
+    }
+    const normalizedSeg = fslSegment === 'GLOBAL' ? 'INDICES' : (fslSegment || exchange || '').toUpperCase();
+    return FreshStoplossLimit.findOne({ exchange_name: normalizedSeg, raw_name: instrumentRawName, deleted_at: null });
+}
+
+/**
+ * Fresh Stop-Loss hold time: a position may not be closed IN PROFIT within
+ * time_minutes of its last opening fill — MARKET, LIMIT, SL and SL-M alike
+ * (see utils/freshStoplossHold.js). Loss closes are always allowed. Gated on a
+ * configured row AND the user's fresh_stoploss toggle. Shared between
+ * placeTrade and modifyTrade (a pending close moved to a profit price).
+ */
+async function _validateFreshStoplossHoldTime(isAdmin, user, instrument_token, order_type, transaction_type, price, segment, exchange, instrumentRawName, session) {
+    if (isAdmin || !instrumentRawName) return;
+    const fslLimit = await _findFreshStoplossLimit(instrument_token, segment, exchange, instrumentRawName);
+    if (!(fslLimit && user.fresh_stoploss === true && fslLimit.time_minutes > 0)) return;
+
+    const { closesInProfit, holdTimeRejection } = require('../utils/freshStoplossHold');
+    const metricsEngFSL = require('../services/metricsEngine');
+    const livePriceSvc = require('../services/livePriceService');
+    const tokenStr = instrument_token.toString();
+    const tokenInt = parseInt(instrument_token);
+    const ltpFSL = metricsEngFSL._ltpMap?.get(tokenStr)
+        || livePriceSvc.latestPrices?.get(tokenStr)
+        || livePriceSvc.latestPrices?.get(tokenInt)
+        || null;
+    const bidFSL = metricsEngFSL._bidMap?.get(tokenStr) || ltpFSL;
+    const askFSL = metricsEngFSL._askMap?.get(tokenStr) || ltpFSL;
+
+    // Flat-reset average (computeFlatResetState) — a stale average from an
+    // earlier, already-closed round trip must not gate a live order.
+    let prevTradesQuery = Trade.find({ user_id: user._id, instrument_token, status: 'completed', deleted_at: null })
+        .select('transaction_type executed_quantity executed_price executed_at createdAt')
+        .sort({ executed_at: 1, createdAt: 1 });
+    if (session) prevTradesQuery = prevTradesQuery.session(session);
+    const stateFSL = computeFlatResetState(await prevTradesQuery.lean());
+
+    const inProfit = closesInProfit({ orderType: order_type, transactionType: transaction_type, price: Number(price), state: stateFSL, bid: bidFSL, ask: askFSL });
+    console.log(`🔒 [FSL] hold check: instrument=${instrumentRawName}, type=${order_type} ${transaction_type}, price=${price}, time_minutes=${fslLimit.time_minutes}, netQty=${stateFSL.netQty}, bid=${bidFSL}, ask=${askFSL}, inProfit=${inProfit}`);
+    if (!inProfit) return;
+
+    // The clock starts at the last fill on the position's own side, whatever
+    // its order type (was MARKET only — a LIMIT-opened position had no hold).
+    const oppositeType = transaction_type === 'SELL' ? 'BUY' : 'SELL';
+    let lastOpeningQuery = Trade.findOne({
+        user_id: user._id, instrument_token,
+        transaction_type: oppositeType,
+        status: 'completed', deleted_at: null
+    }).sort({ executed_at: -1 });
+    if (session) lastOpeningQuery = lastOpeningQuery.session(session);
+    const lastOpeningTrade = await lastOpeningQuery;
+
+    const rejection = holdTimeRejection({ lastOpenedAt: lastOpeningTrade?.executed_at, timeMinutes: fslLimit.time_minutes });
+    if (rejection) throw new Error(rejection);
+}
+
+/**
  * High-Low Trade Limit check — independent of the FSL limit above. Runs for
  * ALL LIMIT orders from non-admin users. Shared between placeTrade and
  * modifyTrade.
@@ -984,90 +1050,9 @@ const placeTrade = async (req, res) => {
                 ));
             }
 
-            // ── Fresh Stop-Loss: MARKET-order time restriction ──────────────
-            // Stays inline (not extracted) — modify never applies to MARKET
-            // orders, so this half has no shared caller. The price-offset
-            // half (LIMIT/SL/SL-M) is extracted below into
-            // _validateFreshStoplossPriceOffset, shared with modifyTrade.
-            if (!req.admin && instrumentRawName && order_type === 'MARKET') {
-                const FreshStoplossLimit = require('../models/FreshStoplossLimit');
-                let fslSegment = (segment || '').toUpperCase();
-                if (!fslSegment || fslSegment === exchange?.toUpperCase()) {
-                    const kiteInstFSL = await KiteInstrument.findOne({ instrument_token }).select('segment').lean();
-                    if (kiteInstFSL?.segment) fslSegment = kiteInstFSL.segment.toUpperCase();
-                }
-                const normalizedSeg = fslSegment === 'GLOBAL' ? 'INDICES' : (fslSegment || exchange || '').toUpperCase();
-
-                const fslLimit = await FreshStoplossLimit.findOne({
-                    exchange_name: normalizedSeg,
-                    raw_name: instrumentRawName,
-                    deleted_at: null
-                });
-
-                // Only restrict closing if the position is in PROFIT. Loss positions can close anytime.
-                if (fslLimit && user.fresh_stoploss === true && fslLimit.time_minutes > 0) {
-                    const metricsEngFSL = require('../services/metricsEngine');
-                    const livePriceSvc = require('../services/livePriceService');
-                    const tokenStr = instrument_token.toString();
-                    const tokenInt = parseInt(instrument_token);
-                    const ltpFSL = metricsEngFSL._ltpMap?.get(tokenStr)
-                        || livePriceSvc.latestPrices?.get(tokenStr)
-                        || livePriceSvc.latestPrices?.get(tokenInt)
-                        || null;
-                    const bidFSL = metricsEngFSL._bidMap?.get(tokenStr) || ltpFSL;
-                    const askFSL = metricsEngFSL._askMap?.get(tokenStr) || ltpFSL;
-
-                    console.log(`🔒 [FSL] Checking time restriction: instrument=${instrumentRawName}, segment=${normalizedSeg}, time_minutes=${fslLimit.time_minutes}, cmp=${ltpFSL}`);
-                    // Flat-reset average (computeFlatResetState) instead of a plain
-                    // unbounded aggregate — this decides whether a real order gets
-                    // BLOCKED or ALLOWED, so a stale average from an earlier, already-
-                    // closed round trip this week could wrongly gate a live order, not
-                    // just show a wrong number after the fact.
-                    const prevTradesFSL = await Trade.find({ user_id: user._id, instrument_token, status: 'completed', deleted_at: null })
-                        .select('transaction_type executed_quantity executed_price executed_at createdAt')
-                        .sort({ executed_at: 1, createdAt: 1 })
-                        .session(session)
-                        .lean();
-                    const stateFSL = computeFlatResetState(prevTradesFSL);
-
-                    const currentNetQty = stateFSL.netQty;
-                    const isClosing = (transaction_type === 'SELL' && currentNetQty > 0) ||
-                                      (transaction_type === 'BUY' && currentNetQty < 0);
-
-                    if (isClosing) {
-                        // Check if position is in profit using bid/ask (same as orders page)
-                        // BUY position: profit if bid > avg buy (exit = sell at bid)
-                        // SELL position: profit if ask < avg sell (exit = buy at ask)
-                        let positionInProfit = false;
-                        const avgBuyFSL = stateFSL.totalBuyQty > 0 ? stateFSL.totalBuyValue / stateFSL.totalBuyQty : 0;
-                        const avgSellFSL = stateFSL.totalSellQty > 0 ? stateFSL.totalSellValue / stateFSL.totalSellQty : 0;
-                        if (currentNetQty > 0 && bidFSL && bidFSL > 0) {
-                            positionInProfit = bidFSL > avgBuyFSL;
-                        } else if (currentNetQty < 0 && askFSL && askFSL > 0) {
-                            positionInProfit = askFSL < avgSellFSL;
-                        }
-
-                        console.log(`🔒 [FSL] netQty=${currentNetQty}, isClosing=${isClosing}, positionInProfit=${positionInProfit}, bid=${bidFSL}, ask=${askFSL}, ltp=${ltpFSL}, avgBuy=${avgBuyFSL}, avgSell=${avgSellFSL}`);
-                        if (positionInProfit) {
-                            const oppositeType = transaction_type === 'SELL' ? 'BUY' : 'SELL';
-                            const lastOpeningTrade = await Trade.findOne({
-                                user_id: user._id, instrument_token,
-                                transaction_type: oppositeType, order_type: 'MARKET',
-                                status: 'completed', deleted_at: null
-                            }).sort({ executed_at: -1 }).session(session);
-
-                            if (lastOpeningTrade && lastOpeningTrade.executed_at) {
-                                const elapsedMs = Date.now() - lastOpeningTrade.executed_at.getTime();
-                                const requiredMs = fslLimit.time_minutes * 60 * 1000;
-                                if (elapsedMs < requiredMs) {
-                                    const remainingMins = Math.ceil((requiredMs - elapsedMs) / 60000);
-                                    throw new Error(`Fresh Stop-Loss: Cannot close this position for ${remainingMins} more minute(s). Time restriction: ${fslLimit.time_minutes} minutes.`);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            // ── Fresh Stop-Loss: hold time — no closing IN PROFIT within
+            // time_minutes of the last opening fill (every order type) ──
+            await _validateFreshStoplossHoldTime(!!req.admin, user, instrument_token, order_type, transaction_type, price, segment, exchange, instrumentRawName, session);
 
             // ── Fresh Stop-Loss: price-offset restriction (LIMIT/SL/SL-M) ──
             await _validateFreshStoplossPriceOffset(!!req.admin, user, instrument_token, order_type, transaction_type, price, segment, exchange, instrumentRawName);
@@ -2036,6 +2021,7 @@ const modifyTrade = async (req, res) => {
                     user, trade.instrument_token, trade.transaction_type, newQuantity, trade.segment, trade.exchange, trade.tradingsymbol, null, trade._id
                 ));
             }
+            await _validateFreshStoplossHoldTime(isAdmin, user, trade.instrument_token, trade.order_type, trade.transaction_type, newPrice, trade.segment, trade.exchange, instrumentRawName, null);
             await _validateFreshStoplossPriceOffset(isAdmin, user, trade.instrument_token, trade.order_type, trade.transaction_type, newPrice, trade.segment, trade.exchange, instrumentRawName);
             await _validateFreshStoplossOpenPosition(isAdmin, user, trade.instrument_token, trade.order_type, trade.transaction_type, null);
             const adminCanCustomPrice = isAdmin && (req.admin.isSuperAdmin || (req.admin.permissions || []).includes('TRADE_CUSTOM'));
