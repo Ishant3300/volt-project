@@ -659,6 +659,7 @@ class LivePriceService {
       }
 
       if (ticks.length > 0) {
+        this._lastRealTickAt = Date.now(); // real prices, not heartbeats (watchdog feed check)
         // Update latest prices map
         const liveTicks = [];
         ticks.forEach(t => {

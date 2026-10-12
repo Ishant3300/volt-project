@@ -32,6 +32,7 @@ require('dotenv').config({ path: path.join(APP, '.env') });
 const { MongoClient, ObjectId } = require(path.join(APP, 'node_modules', 'mongoose')).mongo;
 const lib = require('./lib');
 const telegram = require('./telegram');
+const extra = require('./extra');
 
 const DIR = path.join(os.homedir(), 'watchdog');
 const STATE_FILE = path.join(DIR, 'state.json');
@@ -245,7 +246,7 @@ function checkNginx() {
 }
 
 // ------------------------------------------------------- database events ----
-let names = { users: new Map(), byUsername: new Map(), masters: new Map(), privileged: new Set(), at: 0 };
+let names = { users: new Map(), byUsername: new Map(), masters: new Map(), admins: new Map(), privileged: new Set(), at: 0 };
 async function refreshNames(d) {
   if (Date.now() - names.at < 10 * MIN) return;
   const [users, masters, admins] = await Promise.all([
@@ -257,6 +258,7 @@ async function refreshNames(d) {
     users: new Map(users.map((u) => [String(u._id), u])),
     byUsername: new Map(users.map((u) => [String(u.username), u])),
     masters: new Map(masters.map((m) => [String(m._id), m])),
+    admins: new Map(admins.map((a) => [String(a._id), a])),
     privileged: new Set([...masters.map((m) => String(m.username)), ...admins.map((a) => String(a.username))]),
     at: Date.now(),
   };
@@ -273,8 +275,8 @@ function who(id) {
 }
 
 /** New docs since the last cycle (first run: start from now). */
-async function newDocs(d, coll, filter = {}, projection) {
-  const lastKey = `id:${coll}`;
+async function newDocs(d, coll, filter = {}, projection, cursor = coll) {
+  const lastKey = `id:${cursor}`;
   if (!state.last[lastKey]) {
     state.last[lastKey] = ObjectId.createFromTime(Math.floor(Date.now() / 1000)).toHexString();
     return [];
@@ -355,7 +357,7 @@ async function checkEvents() {
   }
 
   // Server refusals saved to the Rejection Log (incl. app-side blocks).
-  for (const t of await newDocs(d, 'trades', { status: 'rejected' }, { user_id: 1, tradingsymbol: 1, transaction_type: 1, quantity: 1, remarks: 1 })) {
+  for (const t of await newDocs(d, 'trades', { status: 'rejected' }, { user_id: 1, tradingsymbol: 1, transaction_type: 1, quantity: 1, remarks: 1 }, 'trades-rejected')) {
     const list = hit(`rej:${t.user_id}`, 5 * MIN, t);
     if (list.length >= 3) {
       const reasons = new Map();
@@ -375,9 +377,11 @@ async function checkEvents() {
   }
 
   // Margin square-offs.
-  for (const t of await newDocs(d, 'trades', { trade_type: 'margin_square_off' }, { user_id: 1, tradingsymbol: 1, quantity: 1 })) {
+  for (const t of await newDocs(d, 'trades', { trade_type: 'margin_square_off' }, { user_id: 1, tradingsymbol: 1, quantity: 1 }, 'trades-msq')) {
     raise(`msq:${t.user_id}`, 'warning', 'Margin square-off executed', [who(t.user_id), `${t.tradingsymbol} ${t.quantity}`], { cooldownMs: 30 * MIN });
   }
+
+  await extra.events(ctx(d));
 
   // Every 5 minutes: negative wallets, settlement runs.
   if (Date.now() - (state.last.slowAt || 0) > 5 * MIN) {
@@ -436,6 +440,11 @@ async function maybeDigest() {
   }
 }
 
+/** What the extra checks (extra.js) need from here. */
+function ctx(d) {
+  return { d, state, raise, clear, send: (t) => telegram.send(t), lib, who, names, hit, newDocs, inMaintenance, MIN };
+}
+
 // ----------------------------------------------------------------- main ----
 async function cycle() {
   const apps = pm2List();
@@ -444,7 +453,9 @@ async function cycle() {
   await checkApi();
   checkLogs(env);
   checkNginx();
+  try { await extra.internal(ctx(mongo ? mongo.db('stocker') : null)); } catch (e) { console.error('[watchdog] internal check:', e.message); }
   if (await checkDb()) {
+    try { await extra.slow(ctx(await db())); } catch (e) { console.error('[watchdog] slow checks:', e.message); }
     try { await checkEvents(); } catch (e) { raise('watchdog-events', 'info', 'Watchdog could not read events', [e.message.slice(0, 200)], { cooldownMs: 60 * MIN }); }
     try { await maybeDigest(); } catch (_) { /* next cycle */ }
   }

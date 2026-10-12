@@ -29,6 +29,9 @@ router.post('/login', trackLoginAttempt('universal'), validateLogin, universalLo
 // signed in or not; see clientEventController.js. Read by the watchdog.
 router.post('/client-events', recordClientEvents);
 
+// Live in-memory state for the watchdog on this server only (key + no proxy); 404 otherwise.
+router.get('/internal-health', require('../controllers/internalHealthController').internalHealth);
+
 // User logout (requires authentication)
 router.post('/user/logout', authenticateUser, userLogout);
 
