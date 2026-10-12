@@ -851,11 +851,21 @@ const placeTrade = async (req, res) => {
                     ? posAggForCloseOnly[0].total_buy_qty - posAggForCloseOnly[0].total_sell_qty
                     : 0;
 
-                const isClosing = (transaction_type === 'SELL' && currentNetQty > 0) ||
-                                  (transaction_type === 'BUY' && currentNetQty < 0);
-
-                if (!isClosing) {
-                    throw new Error('Your account is in close-only mode. You can only close existing positions.');
+                // Reduce only: this order plus the account's other pending
+                // orders on the same side may not exceed the open position
+                // (an oversized order used to flip it into a fresh position).
+                const pendingCloseAgg = await Trade.aggregate([
+                    { $match: { user_id: user._id, instrument_token, transaction_type, status: 'pending', deleted_at: null } },
+                    { $group: { _id: null, qty: { $sum: '$quantity' } } },
+                ]).session(session);
+                const closeOnlyMessage = require('../utils/closeOnly').closeOnlyRejection({
+                    currentNetQty,
+                    transactionType: transaction_type,
+                    quantity,
+                    pendingSameSide: pendingCloseAgg.length > 0 ? Number(pendingCloseAgg[0].qty) || 0 : 0,
+                });
+                if (closeOnlyMessage) {
+                    throw new Error(closeOnlyMessage);
                 }
             }
 

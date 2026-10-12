@@ -306,7 +306,9 @@ const processPendingOrders = async () => {
                         const isClosingForCloseOnly = (freshTrade.transaction_type === 'SELL' && prevNetQtyCheck > 0)
                             || (freshTrade.transaction_type === 'BUY' && prevNetQtyCheck < 0);
                         const betBlocked = gateUser?.bet === false;
-                        const closeOnlyBlocked = gateUser?.close_only === true && !isClosingForCloseOnly;
+                        // Reduce only — a fill may not take the position through zero (utils/closeOnly.js).
+                        const closeOnlyBlocked = gateUser?.close_only === true
+                            && !!require('../utils/closeOnly').closeOnlyRejection({ currentNetQty: prevNetQtyCheck, transactionType: freshTrade.transaction_type, quantity: freshTrade.quantity });
 
                         // Margin-call gate at FILL time — mirrors placeTrade's
                         // placement-time checks and priceQueueService's fill gate.

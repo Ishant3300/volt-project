@@ -288,7 +288,9 @@ async function executeMatchedOrder(match, livePrice, options = {}) {
       const isClosingForCloseOnly = (trade.transaction_type === 'SELL' && previousNetQty > 0)
         || (trade.transaction_type === 'BUY' && previousNetQty < 0);
       const betBlocked = gateUser?.bet === false;
-      const closeOnlyBlocked = gateUser?.close_only === true && !isClosingForCloseOnly;
+      // Reduce only — a fill may not take the position through zero (utils/closeOnly.js).
+      const closeOnlyBlocked = gateUser?.close_only === true
+        && !!require('../utils/closeOnly').closeOnlyRejection({ currentNetQty: previousNetQty, transactionType: trade.transaction_type, quantity: trade.quantity });
 
       // Margin-call gate at FILL time — mirrors placeTrade's placement-time
       // checks (tradeController.js). See margin_call_blocked's own comment
