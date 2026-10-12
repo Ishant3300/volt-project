@@ -921,4 +921,16 @@ router.get('/profile', authenticateAdmin, async (req, res) => {
   }
 });
 
+// ==================== BROKERS (introducing-broker share tracking, admin only) ====================
+// Tracking only — see brokerController.js. Static paths before /brokers/:id.
+const brokerCtl = require('../controllers/brokerController');
+router.get('/brokers', authenticateAdmin, brokerCtl.listBrokers);
+router.get('/brokers/earnings', authenticateAdmin, brokerCtl.getEarnings);
+router.get('/brokers/client-rates/:userId', authenticateAdmin, brokerCtl.clientRates);
+router.put('/brokers/links/:linkId/end', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.endLink);
+router.post('/brokers', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.createBroker);
+router.put('/brokers/:id', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.updateBroker);
+router.delete('/brokers/:id', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.deleteBroker);
+router.post('/brokers/:id/links', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.addLink);
+
 module.exports = router;
