@@ -15,7 +15,8 @@
  *   nginx    bursts of 5xx, secret-file probes that got an answer, floods
  *   events   web/app order blocks + crashes + failed requests (ClientEvent),
  *            failed logins (LoginAttempt), admin logins from a new IP,
- *            repeated client rejections, internal order errors (ServerEvent),
+ *            EVERY rejected or blocked order (server, app, web, internal
+ *            errors) within ~5 s, grouped per check,
  *            margin square-offs, negative wallets, settlement runs
  *   digests  trading-day summaries at 15:45 and 23:35 IST
  *
@@ -300,6 +301,9 @@ function hit(key, windowMs, item) {
 async function checkEvents() {
   const d = await db();
   await refreshNames(d);
+  // Every refused / blocked order this cycle (server, app, web) -> one message.
+  const rejections = [];
+  const orderText = (x) => [x.symbol, x.side, x.quantity, x.order_type].filter((v) => v !== undefined && v !== null && v !== '').join(' ');
 
   // Web / app problems the server never saw as an order.
   for (const e of await newDocs(d, 'clientevents')) {
@@ -307,15 +311,8 @@ async function checkEvents() {
     const src = e.source === 'app' ? 'App' : 'Web';
     const ctx = e.context || {};
     if (e.kind === 'order_block' || e.kind === 'order_rejected') {
-      const key = `cb:${target}:${e.code}:${lib.signature(e.message)}`;
-      const list = hit(key, 5 * MIN, e);
-      if (list.length >= 2) {
-        raise(key, 'warning', e.kind === 'order_block' ? `${src} order blocked before reaching the server` : `${src} order refused by the server`, [
-          `${who(target)}${e.account_role && e.account_role !== 'user' ? ` (placed by ${e.account_role})` : ''}`,
-          [ctx.symbol, ctx.side, ctx.quantity, ctx.order_type].filter(Boolean).join(' '),
-          `"${e.message}" — ${list.length}× in 5 min`,
-        ], { cooldownMs: 30 * MIN });
-      }
+      const by = e.account_role && e.account_role !== 'user' ? ` (placed by ${e.account_role})` : '';
+      rejections.push(`[${src.toLowerCase()}${e.kind === 'order_block' ? ' blocked' : ''}] ${who(target)}${by} · ${orderText(ctx)} · ${e.message}`);
     } else if (e.kind === 'js_error' || e.kind === 'crash') {
       const sig = `ce:${e.source}:${lib.signature(e.message)}`;
       const known = state.signatures[sig];
@@ -357,14 +354,11 @@ async function checkEvents() {
   }
 
   // Server refusals saved to the Rejection Log (incl. app-side blocks).
-  for (const t of await newDocs(d, 'trades', { status: 'rejected' }, { user_id: 1, tradingsymbol: 1, transaction_type: 1, quantity: 1, remarks: 1 }, 'trades-rejected')) {
-    const list = hit(`rej:${t.user_id}`, 5 * MIN, t);
-    if (list.length >= 3) {
-      const reasons = new Map();
-      for (const x of list) reasons.set(String(x.item.remarks || '').slice(0, 140), (reasons.get(String(x.item.remarks || '').slice(0, 140)) || 0) + 1);
-      const [top] = [...reasons.entries()].sort((a, b) => b[1] - a[1]);
-      raise(`rej:${t.user_id}`, 'warning', 'Client keeps getting refused', [who(t.user_id), `${list.length} refusals in 5 min, mostly: ${top[0]} (${top[1]}×)`, lib.isRuleRefusal(top[0]) ? 'A client rule/limit — check the account settings.' : 'Not a normal rule refusal — check the server.'], { cooldownMs: 30 * MIN });
-    }
+  for (const t of await newDocs(d, 'trades', { status: 'rejected' }, { user_id: 1, tradingsymbol: 1, transaction_type: 1, quantity: 1, order_type: 1, remarks: 1 }, 'trades-rejected')) {
+    const remarks = String(t.remarks || '');
+    const inApp = remarks.startsWith('Blocked in app:');
+    const tag = inApp ? '[app blocked]' : lib.isRuleRefusal(remarks) ? '[server]' : '[server ⚠ unusual]';
+    rejections.push(`${tag} ${who(t.user_id)} · ${orderText({ symbol: t.tradingsymbol, side: t.transaction_type, quantity: t.quantity, order_type: t.order_type })} · ${remarks.replace(/^Blocked in app:\s*/, '').slice(0, 220)}`);
     if (/stale quote/i.test(t.remarks || '') && hit('stale-app', 5 * MIN, t).length >= 5) {
       raise('stale-app', 'warning', 'Many app stale-price blocks', ['5+ clients blocked by the 25 s stale-price check in 5 min — feed or app connection problem.'], { cooldownMs: 30 * MIN });
     }
@@ -373,7 +367,13 @@ async function checkEvents() {
   // Internal order failures (not business refusals).
   for (const s of await newDocs(d, 'serverevents')) {
     const ctx = s.context || {};
-    raise(`se:${lib.signature(s.message)}`, 'warning', 'Order failed on a server error', [who(s.user_id), [ctx.symbol, ctx.side, ctx.quantity, ctx.order_type].filter(Boolean).join(' '), `${s.status}: ${s.message}`], { cooldownMs: 15 * MIN });
+    rejections.push(`[‼ server error ${s.status}] ${who(s.user_id)}${s.caller_role && s.caller_role !== 'user' ? ` (placed by ${s.caller_role})` : ''} · ${orderText(ctx)} · ${s.message}`);
+  }
+
+  if (rejections.length) {
+    const lines = rejections.slice(0, 20);
+    if (rejections.length > 20) lines.push(`…and ${rejections.length - 20} more (see the Rejection Log)`);
+    telegram.send(lib.formatAlert('warning', `Rejected order${rejections.length > 1 ? `s (${rejections.length})` : ''}`, lines));
   }
 
   // Margin square-offs.
