@@ -6,7 +6,7 @@
  * the trading backend, so it can't slow it down or take it down. READ-ONLY:
  * it reads pm2 state, the backend + nginx logs, the server, and the database,
  * and sends alerts / summaries to Telegram (telegram.js; dry mode without a
- * token). Every 30 s:
+ * token). Every 30 s (events every 5 s):
  *
  *   server   backend down / restarted / crash-loop, memory, CPU, disk, RAM,
  *            the public API answering, database ping
@@ -37,6 +37,7 @@ const DIR = path.join(os.homedir(), 'watchdog');
 const STATE_FILE = path.join(DIR, 'state.json');
 const MAINT_FILE = path.join(DIR, 'maintenance-until');
 const CYCLE_MS = 30_000;
+const EVENT_MS = 5_000;
 const API_URL = process.env.WATCHDOG_API_URL || 'https://apexlive-api.mynpe.in/';
 const NGINX_LOG = '/var/log/nginx/access.log';
 const MIN = 60_000;
@@ -454,10 +455,23 @@ async function main() {
   if (lib.shouldSend(state.sent, 'watchdog-start', 'info', Date.now(), 60 * MIN)) {
     telegram.send(lib.formatAlert('info', 'Watchdog started', [`watching ${os.hostname()} every ${CYCLE_MS / 1000} s${telegram.configured() ? '' : ' (dry mode — no Telegram token yet)'}`]));
   }
+  // Server / logs / nginx every 30 s; logins, orders and web/app reports every
+  // 5 s (small indexed reads of new documents only) so those alerts are quick.
+  let lastFull = 0;
   for (;;) {
     const started = Date.now();
-    try { await cycle(); } catch (e) { console.error('[watchdog] cycle failed:', e.message); }
-    await new Promise((r) => setTimeout(r, Math.max(1000, CYCLE_MS - (Date.now() - started))));
+    try {
+      if (started - lastFull >= CYCLE_MS) {
+        lastFull = started;
+        await cycle();
+      } else if (!state.active['db-down']) {
+        await checkEvents();
+        saveState();
+      }
+    } catch (e) {
+      console.error('[watchdog] cycle failed:', e.message);
+    }
+    await new Promise((r) => setTimeout(r, Math.max(500, EVENT_MS - (Date.now() - started))));
   }
 }
 
