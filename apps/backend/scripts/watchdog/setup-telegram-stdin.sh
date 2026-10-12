@@ -12,26 +12,29 @@ TOKEN="$(printf '%s' "$TOKEN" | tr -d '\r\n ')"
 if ! curl -sf "https://api.telegram.org/bot${TOKEN}/getMe" >/dev/null; then
   echo "Telegram did not accept that token (revoked or mistyped?). Nothing changed."; exit 1
 fi
-echo "Token OK. Now send /start in your Telegram alert group (bot already added). Waiting up to 3 minutes..."
+echo "Token OK. Now send /start to the bot (in your private chat with it, or in a group with it). Waiting up to 3 minutes..."
 CHAT=""
 for _ in $(seq 1 36); do
   CHAT="$(curl -s "https://api.telegram.org/bot${TOKEN}/getUpdates" | python3 -c '
 import sys, json
-best = None
+group = private = None
 for u in json.load(sys.stdin).get("result", []):
     m = u.get("message") or u.get("my_chat_member") or {}
     c = m.get("chat") or {}
     if c.get("type") in ("group", "supergroup"):
-        best = (u["update_id"], c["id"], c.get("title") or "")
+        group = (c["id"], c.get("title") or "group")
+    elif c.get("type") == "private":
+        private = (c["id"], "private chat with " + (c.get("first_name") or c.get("username") or "you"))
+best = group or private
 if best:
-    print(f"{best[1]}\t{best[2]}")
+    print(f"{best[0]}\t{best[1]}")
 ')"
   [ -n "$CHAT" ] && break
   sleep 5
 done
-[ -n "$CHAT" ] || { echo "No group message seen in 3 minutes. Add the bot to the group, send /start there, and run this again. Nothing changed."; exit 1; }
+[ -n "$CHAT" ] || { echo "No message seen in 3 minutes. Send /start to the bot (group or private chat) and run this again. Nothing changed."; exit 1; }
 CHAT_ID="$(printf '%s' "$CHAT" | cut -f1)"
-echo "Found group: $(printf '%s' "$CHAT" | cut -f2)"
+echo "Found: $(printf '%s' "$CHAT" | cut -f2)"
 cp .env ".env.bak-telegram-$(date +%s)"
 grep -v '^TELEGRAM_BOT_TOKEN=\|^TELEGRAM_CHAT_ID=' .env > .env.tmp || true
 printf 'TELEGRAM_BOT_TOKEN=%s\nTELEGRAM_CHAT_ID=%s\n' "$TOKEN" "$CHAT_ID" >> .env.tmp
