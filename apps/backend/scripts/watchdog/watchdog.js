@@ -453,8 +453,11 @@ async function cycle() {
   await checkApi();
   checkLogs(env);
   checkNginx();
-  try { await extra.internal(ctx(mongo ? mongo.db('stocker') : null)); } catch (e) { console.error('[watchdog] internal check:', e.message); }
-  if (await checkDb()) {
+  const dbOk = await checkDb();
+  // Names first, so every alert below shows "username name [master]", not ids.
+  if (dbOk) { try { await refreshNames(await db()); } catch (_) { /* labels fall back to ids */ } }
+  try { await extra.internal(ctx(dbOk ? await db() : null)); } catch (e) { console.error('[watchdog] internal check:', e.message); }
+  if (dbOk) {
     try { await extra.slow(ctx(await db())); } catch (e) { console.error('[watchdog] slow checks:', e.message); }
     try { await checkEvents(); } catch (e) { raise('watchdog-events', 'info', 'Watchdog could not read events', [e.message.slice(0, 200)], { cooldownMs: 60 * MIN }); }
     try { await maybeDigest(); } catch (_) { /* next cycle */ }

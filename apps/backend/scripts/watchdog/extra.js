@@ -87,7 +87,10 @@ async function internal(c) {
 
   if (h.event_loop_lag_ms > 500) raise('loop-lag', 'warning', 'Backend responding slowly', [`event loop delayed ${h.event_loop_lag_ms} ms`], { cooldownMs: 15 * MIN });
 
-  // Client loss / margin risk (live M2M from memory).
+  // Client loss / margin risk (live M2M from memory). First run after a
+  // restart only records who is already high (they were alerted before).
+  const firstMargin = !state.marginHigh;
+  state.marginHigh = state.marginHigh || {};
   for (const m of h.metrics || []) {
     if (!(m.credit > 0)) continue;
     const lossPct = m.m2m_pnl < 0 ? (-m.m2m_pnl / m.credit) * 100 : 0;
@@ -96,10 +99,15 @@ async function internal(c) {
     } else if (lossPct >= LOSS_PCT()) {
       raise(`loss:${m.user_id}`, 'warning', 'Client big loss', [who(m.user_id), `M2M ${rupees(m.m2m_pnl)} = ${Math.round(lossPct)}% of credit ${rupees(m.credit)}`], { cooldownMs: 2 * 60 * MIN });
     }
+    // Once when a client crosses the threshold; again only after dropping
+    // below 80% and crossing again (many clients carry at 95%+ all week).
     const usedPct = m.margin_used > 0 ? (m.margin_used / (m.margin_used + Math.max(0, m.equity))) * 100 : 0;
     if (usedPct >= MARGIN_PCT() && m.open_positions > 0) {
-      raise(`margin:${m.user_id}`, 'warning', 'Client margin almost fully used', [who(m.user_id), `${Math.round(usedPct)}% of trade wallet blocked (margin ${rupees(m.margin_used)}, free ${rupees(m.equity)})`], { cooldownMs: 2 * 60 * MIN });
-    }
+      if (!state.marginHigh[m.user_id]) {
+        state.marginHigh[m.user_id] = true;
+        if (!firstMargin) raise(`margin:${m.user_id}:${now}`, 'warning', 'Client margin almost fully used', [who(m.user_id), `${Math.round(usedPct)}% of trade wallet blocked (margin ${rupees(m.margin_used)}, free ${rupees(m.equity)})`], { cooldownMs: 0 });
+      }
+    } else if (usedPct < 80) delete state.marginHigh[m.user_id];
   }
 
   // Pending orders already crossed but not filled (3 checks in a row ≈ 1.5 min).
