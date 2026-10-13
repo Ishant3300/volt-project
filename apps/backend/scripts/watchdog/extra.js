@@ -414,6 +414,24 @@ async function kite() {
   return kiteSvc;
 }
 
+/**
+ * A LIMIT/SL fill at the very edge of a fast-moving minute: the minute moved
+ * more than SPIKE_MIN_PCT (0.5%) and the fill sits in the outer 10% of that
+ * minute's range on the client's good side (buy near the low, sell near the
+ * high). Returns { rangePct, edgePct, volShare } or null.
+ */
+const SPIKE_MIN_PCT = () => num(process.env.WATCHDOG_SPIKE_PCT, 0.5);
+function spikeCatch(f, own) {
+  if (!own || !['LIMIT', 'SL', 'SL-M'].includes(f.ot)) return null;
+  const range = own.high - own.low;
+  if (!(range > 0)) return null;
+  const rangePct = (range / own.open) * 100;
+  if (rangePct < SPIKE_MIN_PCT()) return null;
+  const edge = f.side === 'BUY' ? (f.price - own.low) / range : (own.high - f.price) / range;
+  if (edge > 0.1) return null;
+  return { rangePct, edgePct: Math.max(0, edge) * 100 + 0.0001, volShare: own.volume > 0 ? (Number(f.qty) / own.volume) * 100 : null };
+}
+
 async function fillCheck(c) {
   const { d, state, raise, lib, who } = c;
   state.fillQueue = state.fillQueue || [];
@@ -465,7 +483,21 @@ async function fillCheck(c) {
       const win = state.fillWindow || (state.fillWindow = { checked: 0, better: [], worse: 0 });
       st.checked++;
       win.checked++;
-      if (f.price >= low - tol && f.price <= high + tol) continue;
+      if (f.price >= low - tol && f.price <= high + tol) {
+        // Inside the range — but a LIMIT/SL filled at the very edge of a fast
+        // minute "caught the spike": the exchange traded little there, we
+        // filled the whole order.
+        const spike = spikeCatch(f, own);
+        if (spike) {
+          st.spikes = (st.spikes || 0) + 1;
+          win.spikes = win.spikes || [];
+          if (win.spikes.length < 60) {
+            win.spikes.push({ user: f.user, line: `${f.sym} ${f.side} ${f.qty} ${f.ot} @ ${f.price} at ${istStr(f.at).slice(11)} · minute ${own.low}–${own.high} (${spike.rangePct.toFixed(2)}% move), fill in the outer ${Math.round(spike.edgePct)}% · exchange volume ${own.volume}${spike.volShare != null ? ` (client qty = ${Math.round(spike.volShare)}% of it)` : ''}`,
+              spike, fill: { id: f.id, token: f.token, sym: f.sym, side: f.side, qty: f.qty, ot: f.ot, price: f.price, at: f.at } });
+          }
+        }
+        continue;
+      }
       const better = (f.side === 'BUY' && f.price < low) || (f.side === 'SELL' && f.price > high);
       const gap = f.price < low ? low - f.price : f.price - high;
       if (!better) { st.worse++; win.worse++; continue; }
@@ -496,6 +528,7 @@ async function fillReport(c) {
   const prevMark = [...FILL_REPORT_MINUTES].reverse().find((x) => x < m) ?? 555;
   const win = state.fillWindow || { checked: 0, better: [], worse: 0 };
   state.fillWindow = { checked: 0, better: [], worse: 0 };
+  win.spikes = win.spikes || [];
   if (!win.checked && !win.better.length) return; // nothing traded on Kite exchanges this hour
   const total = win.better.reduce((s2, b) => s2 + b.value, 0);
   const lines = [
@@ -504,10 +537,12 @@ async function fillReport(c) {
     ...win.better.slice(0, 20).map((b) => `• ${who(b.user)} · ${b.line} · ${rupees(b.value)}`),
     win.better.length > 20 ? `…and ${win.better.length - 20} more` : '',
     win.worse ? `Worse than the market: ${win.worse} (normal for market orders in a thin minute)` : '',
+    win.spikes.length ? `Caught a spike edge (LIMIT/SL filled at the extreme of a fast minute): ${win.spikes.length}` : '',
+    ...win.spikes.slice(0, 15).map((b) => `• ${who(b.user)} · ${b.line}`),
   ];
-  send(lib.formatAlert(win.better.length ? 'warning' : 'info', `Fill check ${hhmm(prevMark)}–${hhmm(m)}`, lines));
-  // One forwardable image per fill (max 10 per report): exchange minutes ±12 min + the trade.
-  const withFill = win.better.filter((b) => b.fill).slice(0, 10);
+  send(lib.formatAlert(win.better.length || win.spikes.length ? 'warning' : 'info', `Fill check ${hhmm(prevMark)}–${hhmm(m)}`, lines));
+  // One forwardable image per flagged fill (max 10 per report): exchange minutes ±12 min + the trade.
+  const withFill = [...win.better, ...win.spikes].filter((b) => b.fill).slice(0, 10);
   if (withFill.length) await sendFillImages(c, withFill);
 }
 
@@ -522,16 +557,17 @@ async function sendFillImages(c, list) {
     await new Promise((r) => setTimeout(r, 350));
     if (!candles.length) continue;
     const u = c.names.users.get(String(b.user));
-    items.push({ b, fill: { ...f, client: u ? `${u.username} ${u.name || ''}`.trim() : who(b.user) }, candles });
+    items.push({ b, fill: { ...f, client: u ? `${u.username} ${u.name || ''}`.trim() : who(b.user), spike: b.spike || null }, candles });
   }
   if (!items.length) return;
   const { renderFillImages } = require('./fillImage');
   const pngs = await renderFillImages(items);
   pngs.forEach((png, i) => {
     const it = items[i];
+    const tail = it.b.spike ? 'Filled at the extreme of a fast minute' : `${rupees(it.b.value)} better than any traded price`;
     c.sendPhoto(png, lib.escapeHtml(`${who(it.b.user)}
 ${it.b.line}
-${rupees(it.b.value)} better than any traded price`), `fill-${it.fill.sym}-${it.fill.id}.png`);
+${tail}`), `fill-${it.fill.sym}-${it.fill.id}.png`);
   });
 }
 
@@ -553,4 +589,4 @@ async function slow(c) {
   if (p.day >= 1 && p.day <= 5 && p.hhmm >= '23:40' && !state.digests[`collusion ${p.ymd}`]) { state.digests[`collusion ${p.ymd}`] = true; await collusion(c); }
 }
 
-module.exports = { internal, events, slow, sendFillImages, _test: { certDaysLeft } };
+module.exports = { internal, events, slow, sendFillImages, _test: { certDaysLeft, spikeCatch } };
