@@ -80,9 +80,12 @@ async function internal(c) {
   // Kite login before the open (08:50-09:00 IST, trading days).
   if (p.day >= 1 && p.day <= 5 && p.minutes >= 530 && p.minutes < 540 && !state.digests[`kite-am ${p.ymd}`]) {
     state.digests[`kite-am ${p.ymd}`] = true;
-    const tok = c.d ? await c.d.collection('kiteaccesstokens').find({}).sort({ createdAt: -1 }).limit(1).toArray() : [];
-    const valid = tok[0] && (!tok[0].expires_at || new Date(tok[0].expires_at) > new Date());
-    if (!valid || !h.kite.connected) raise(`kite-am:${p.ymd}`, 'critical', 'Kite not ready before the open', [valid ? 'Login valid, but the price feed is not connected.' : 'No valid Kite login — prices will not start at 09:00.'], { cooldownMs: 60 * MIN });
+    // Judged from the live feed: an accepted login keeps the Kite socket open
+    // and messages (ticks or heartbeats) arriving; a rejected one closes it.
+    const lastMsgS = h.kite.last_message_at ? Math.round((now - h.kite.last_message_at) / 1000) : null;
+    if (!h.kite.connected || lastMsgS == null || lastMsgS > 60) {
+      raise(`kite-am:${p.ymd}`, 'critical', 'Kite not ready before the open', [h.kite.connected ? `Connected, but nothing received from Kite for ${lastMsgS ?? '?'} s.` : 'Kite price feed not connected — the login may have failed; prices will not start at 09:00.'], { cooldownMs: 60 * MIN });
+    }
   }
 
   if (h.event_loop_lag_ms > 500) raise('loop-lag', 'warning', 'Backend responding slowly', [`event loop delayed ${h.event_loop_lag_ms} ms`], { cooldownMs: 15 * MIN });
