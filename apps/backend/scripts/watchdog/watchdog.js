@@ -229,7 +229,9 @@ function checkNginx() {
   for (const raw of lines) {
     const l = lib.parseNginxLine(raw);
     if (!l) continue;
-    if (l.status >= 500) {
+    // Order refusals come back 500 for some business rules (High-Low) — each
+    // failed order is already reported with its real reason via ServerEvent.
+    if (l.status >= 500 && !(l.method === 'POST' && l.path.split('?')[0] === '/api/trade' && l.status === 500)) {
       s5++;
       const p = `${l.method} ${l.path.split('?')[0]} ${l.status}`;
       paths5.set(p, (paths5.get(p) || 0) + 1);

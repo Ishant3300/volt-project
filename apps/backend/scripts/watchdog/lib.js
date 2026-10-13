@@ -104,7 +104,7 @@ function formatAlert(severity, title, lines = []) {
 }
 
 /** Rule-based (client's own) refusal vs anything else. */
-const RULE_REFUSAL = /wallet balance|Insufficient|breakup|exceeds|close-only|Fresh Stop-Loss|Price restriction|not allowed for this account|not permitted to trade|Trading is (currently disabled|blocked)|contract has expired|Only market orders|Cannot open new positions|cannot open new positions|deactivated this script|short position|would exceed your open position|Option selling|Blocked in app|GIFT NIFTY is not trading|limit price|Maximum allowed|allowed max/i;
+const RULE_REFUSAL = /wallet balance|Insufficient|breakup|exceeds|close-only|Fresh Stop-Loss|Price restriction|High-Low restriction|not allowed for this account|not permitted to trade|Trading is (currently disabled|blocked)|contract has expired|Only market orders|Cannot open new positions|cannot open new positions|deactivated this script|short position|would exceed your open position|Option selling|Blocked in app|GIFT NIFTY is not trading|limit price|Maximum allowed|allowed max/i;
 const isRuleRefusal = (message) => RULE_REFUSAL.test(String(message || ''));
 
 module.exports = {
