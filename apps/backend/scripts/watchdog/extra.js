@@ -21,6 +21,7 @@
  * WATCHDOG_BIG_ORDER (1000000 = ₹10 lakh), WATCHDOG_DB_LIMIT_GB (10).
  */
 const http = require('http');
+const path = require('path');
 const tls = require('tls');
 const { execFileSync } = require('child_process');
 
@@ -383,8 +384,127 @@ async function collusion(c) {
     ...pairs(copy, 3).map((x) => `   ${x}`),
     `Scalping (5+ closes within 2 min): ${scalpers.length ? '' : 'none'}`,
     ...scalpers.slice(0, 5).map(([u, n]) => `   ${who(u)}: ${n}`),
+    ...(() => {
+      const st = (c.state.fillStats || {})[p.ymd];
+      if (!st) return ['Fills vs exchange: not checked today'];
+      const g = Object.entries(st.gain).sort((a, b) => b[1] - a[1]);
+      return [`Fills better than the market: ${st.better} of ${st.checked} checked${g.length ? '' : ''}`, ...g.slice(0, 5).map(([u, v]) => `   ${who(u)}: ${rupees(v)}`)];
+    })(),
   ];
   send(lib.formatAlert('info', `Collusion check ${p.ymd}`, lines));
+}
+
+// ------------------------------------------------------------ fill check ----
+// Every client fill vs the exchange's own 1-minute candle (Kite historical, the
+// same data as the terminal's Market Movement window). A fill outside the
+// [low, high] of its minute and the minutes either side never traded on the
+// exchange: "better than the market" (client gained) goes into the hourly
+// report (fillReport); "worse" is counted. Checked ~2.5 min after the fill,
+// once those candles are complete. GIFT NIFTY / global (not on Kite) skipped.
+const APP = path.resolve(__dirname, '..', '..');
+const KITE_EXCHANGES = ['NFO', 'MCX', 'NSE', 'BFO', 'BSE', 'CDS'];
+const IST_MS = 5.5 * 3600_000;
+const istStr = (ms) => new Date(ms + IST_MS).toISOString().replace('T', ' ').slice(0, 19);
+let kiteSvc = null;
+async function kite() {
+  if (kiteSvc) return kiteSvc;
+  const mongoose = require(path.join(APP, 'node_modules', 'mongoose'));
+  if (mongoose.connection.readyState !== 1) await mongoose.connect(process.env.MONGO_URI, { maxPoolSize: 2 });
+  kiteSvc = require(path.join(APP, 'src', 'services', 'kiteService')); // reads the stored Kite login itself
+  return kiteSvc;
+}
+
+async function fillCheck(c) {
+  const { d, state, raise, lib, who } = c;
+  state.fillQueue = state.fillQueue || [];
+  for (const t of await c.newDocs(d, 'trades', { status: 'completed', placed_by: { $in: ['USER', 'MASTER'] }, exchange: { $in: KITE_EXCHANGES }, trade_type: { $ne: 'carry_forward' } },
+    { user_id: 1, instrument_token: 1, tradingsymbol: 1, transaction_type: 1, order_type: 1, executed_price: 1, executed_quantity: 1, quantity: 1, executed_at: 1 }, 'trades-fillcheck')) {
+    if (!(t.executed_price > 0) || !t.executed_at) continue;
+    state.fillQueue.push({ id: String(t._id), token: String(t.instrument_token), sym: t.tradingsymbol, side: t.transaction_type, ot: t.order_type, price: t.executed_price, qty: t.executed_quantity ?? t.quantity, at: new Date(t.executed_at).getTime(), user: String(t.user_id), tries: 0 });
+  }
+  if (state.fillQueue.length > 3000) state.fillQueue = state.fillQueue.slice(-3000);
+  const now = Date.now();
+  const ready = state.fillQueue.filter((f) => now - f.at >= 150_000);
+  if (!ready.length) return;
+  const groups = new Map();
+  for (const f of ready) {
+    const k = `${f.token}|${istStr(f.at).slice(0, 10)}`;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(f);
+  }
+  const ks = await kite();
+  const done = new Set();
+  const p = lib.istParts();
+  state.fillStats = state.fillStats || {};
+  for (const k of Object.keys(state.fillStats)) if (k < p.ymd) delete state.fillStats[k];
+  let calls = 0;
+  for (const [, list] of groups) {
+    if (calls >= 20) break; // the rest next minute (Kite allows 3 requests/s)
+    const ts = list.map((f) => f.at);
+    let candles = [];
+    try {
+      calls++;
+      candles = (await ks.getHistoricalData(list[0].token, 'minute', `${istStr(Math.min(...ts) - 120_000).slice(0, 16)}:00`, `${istStr(Math.max(...ts) + 120_000).slice(0, 16)}:00`, { silent: true })) || [];
+    } catch (_) { candles = []; }
+    await new Promise((r) => setTimeout(r, 350));
+    const byMin = new Map(candles.map((cd) => [String(cd.date).slice(0, 16), cd]));
+    for (const f of list) {
+      const key = (ms) => istStr(ms).slice(0, 16).replace(' ', 'T');
+      const own = byMin.get(key(f.at));
+      if (!own) {
+        if (++f.tries >= 5) done.add(f.id); // no candle after ~5 min: give up on this one
+        continue;
+      }
+      done.add(f.id);
+      const cs = [byMin.get(key(f.at - 60_000)), own, byMin.get(key(f.at + 60_000))].filter(Boolean);
+      const low = Math.min(...cs.map((x) => x.low));
+      const high = Math.max(...cs.map((x) => x.high));
+      const tol = Math.max(0.05, f.price * 0.0002);
+      const day = istStr(f.at).slice(0, 10);
+      const st = state.fillStats[day] || (state.fillStats[day] = { checked: 0, better: 0, worse: 0, gain: {} });
+      const win = state.fillWindow || (state.fillWindow = { checked: 0, better: [], worse: 0 });
+      st.checked++;
+      win.checked++;
+      if (f.price >= low - tol && f.price <= high + tol) continue;
+      const better = (f.side === 'BUY' && f.price < low) || (f.side === 'SELL' && f.price > high);
+      const gap = f.price < low ? low - f.price : f.price - high;
+      if (!better) { st.worse++; win.worse++; continue; }
+      st.better++;
+      st.gain[f.user] = (st.gain[f.user] || 0) + gap * f.qty;
+      if (win.better.length < 60) {
+        win.better.push({ user: f.user, line: `${f.sym} ${f.side} ${f.qty} ${f.ot} @ ${f.price} at ${istStr(f.at).slice(11)} · exchange ${own.low}–${own.high} (±1 min ${low}–${high})`, value: gap * f.qty });
+      }
+    }
+  }
+  state.fillQueue = state.fillQueue.filter((f) => !done.has(f.id));
+}
+
+// Hourly report of the fill check, trading days: 10:15, 11:15 … 23:15 (each
+// covering the hour before) and 23:35 after MCX closes. Lists every fill
+// better than the market with the client and ₹; counts the rest.
+const FILL_REPORT_MINUTES = [...Array.from({ length: 14 }, (_, i) => 615 + i * 60), 1415];
+function fillReport(c) {
+  const { state, lib, who, send } = c;
+  const p = lib.istParts();
+  if (p.day < 1 || p.day > 5) return;
+  const due = FILL_REPORT_MINUTES.filter((m) => p.minutes >= m + 3 && !state.digests[`fillrep ${p.ymd} ${m}`]);
+  if (!due.length) return;
+  for (const m of due) state.digests[`fillrep ${p.ymd} ${m}`] = true;
+  const m = due[due.length - 1];
+  const hhmm = (x) => `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`;
+  const prevMark = [...FILL_REPORT_MINUTES].reverse().find((x) => x < m) ?? 555;
+  const win = state.fillWindow || { checked: 0, better: [], worse: 0 };
+  state.fillWindow = { checked: 0, better: [], worse: 0 };
+  if (!win.checked && !win.better.length) return; // nothing traded on Kite exchanges this hour
+  const total = win.better.reduce((s2, b) => s2 + b.value, 0);
+  const lines = [
+    `Checked ${win.checked} fill(s) against the exchange's 1-minute candles.`,
+    win.better.length ? `Better than the market: ${win.better.length} — ${rupees(total)} in clients' favour` : '✅ No fill better than the market.',
+    ...win.better.slice(0, 20).map((b) => `• ${who(b.user)} · ${b.line} · ${rupees(b.value)}`),
+    win.better.length > 20 ? `…and ${win.better.length - 20} more` : '',
+    win.worse ? `Worse than the market: ${win.worse} (normal for market orders in a thin minute)` : '',
+  ];
+  send(lib.formatAlert(win.better.length ? 'warning' : 'info', `Fill check ${hhmm(prevMark)}–${hhmm(m)}`, lines));
 }
 
 async function slow(c) {
@@ -398,6 +518,8 @@ async function slow(c) {
   if (due('slow:expiry', 5 * MIN)) await expiry(c);
   if (due('slow:weekly', 5 * MIN)) await weekly(c);
   if (due('slow:db', 30 * MIN)) await dbLimits(c);
+  if (due('slow:fills', 60_000)) { try { await fillCheck(c); } catch (e) { console.error('[watchdog] fill check:', e.message); } }
+  try { fillReport(c); } catch (e) { console.error('[watchdog] fill report:', e.message); }
   const p = lib.istParts();
   if (p.hhmm >= '10:05' && !state.digests[`ssl ${p.ymd}`]) { state.digests[`ssl ${p.ymd}`] = true; await ssl(c); }
   if (p.day >= 1 && p.day <= 5 && p.hhmm >= '23:40' && !state.digests[`collusion ${p.ymd}`]) { state.digests[`collusion ${p.ymd}`] = true; await collusion(c); }

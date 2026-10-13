@@ -471,6 +471,7 @@ async function maybeDigest() {
       rejected.length ? `Most refused: ${top(clients, 3).map(([u, n]) => `${who(u)} (${n})`).join(', ')}` : '',
       `Web/app reports: ${ce.length ? ce.map((x) => `${x._id.s} ${x._id.k} ${x.n}`).join(', ') : 'none'}`,
       `Failed logins: ${lf} · internal order errors: ${se} · backend errors: ${errorsToday}`,
+      (() => { const st = (state.fillStats || {})[p.ymd]; return st ? `Fills vs exchange candles: ${st.checked} checked · ${st.better} better than market · ${st.worse} worse` : ''; })(),
       `Backend restarts today: ${state.lastRestarts != null && state.restartsAtDayStart != null ? state.lastRestarts - state.restartsAtDayStart : '?'}`,
     ];
     telegram.send(lib.formatAlert('info', `Day summary ${p.ymd} ${at} IST`, lines));
