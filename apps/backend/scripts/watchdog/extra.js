@@ -492,7 +492,7 @@ async function fillCheck(c) {
           st.spikes = (st.spikes || 0) + 1;
           win.spikes = win.spikes || [];
           if (win.spikes.length < 60) {
-            win.spikes.push({ user: f.user, line: `${f.sym} ${f.side} ${f.qty} ${f.ot} @ ${f.price} at ${istStr(f.at).slice(11)} · minute ${own.low}–${own.high} (${spike.rangePct.toFixed(2)}% move), fill in the outer ${Math.round(spike.edgePct)}% · exchange volume ${own.volume}${spike.volShare != null ? ` (client qty = ${Math.round(spike.volShare)}% of it)` : ''}`,
+            win.spikes.push({ user: f.user, line: `${f.sym} ${f.side} ${f.qty} ${f.ot} @ ${f.price} at ${istStr(f.at).slice(11)} · minute ${own.low}–${own.high} (${spike.rangePct.toFixed(2)}% move), fill in the outer ${Math.round(spike.edgePct)}% · exchange volume ${own.volume}${spike.volShare != null ? ` (client qty = ${spike.volShare < 10 ? spike.volShare.toFixed(1) : Math.round(spike.volShare)}% of it)` : ''}`,
               spike, fill: { id: f.id, token: f.token, sym: f.sym, side: f.side, qty: f.qty, ot: f.ot, price: f.price, at: f.at } });
           }
         }

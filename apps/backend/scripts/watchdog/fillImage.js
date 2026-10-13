@@ -55,7 +55,7 @@ function fillHtml(f, candles) {
     <p>Executed: ${esc(day)}, ${esc(secs)} IST &nbsp;&nbsp; Trade ID: ${esc(f.id)}</p>
     ${own ? `<p>Exchange at ${hm12(fillMin)} ${ampm(fillMin)}: Low ${n2(own.low)} – High ${n2(own.high)} &nbsp;(${buy ? 'lowest' : 'highest'} within ±1 min: ${n2(buy ? lowNear : highNear)})</p>` : ''}
     ${f.spike ? `<p class="red">Filled at the ${buy ? 'low' : 'high'} edge of a fast minute: the exchange moved ${f.spike.rangePct.toFixed(2)}% in that minute and this ${esc(f.ot)} order filled within the outer ${Math.max(1, Math.round(f.spike.edgePct))}% of the range.</p>
-    <p class="red">Exchange volume that minute: ${esc(own ? own.volume : '-')}${f.spike.volShare != null ? ` — this order alone = ${Math.round(f.spike.volShare)}% of it` : ''}.</p>` : ''}
+    <p class="red">Exchange volume that minute: ${esc(own ? own.volume : '-')}${f.spike.volShare != null ? ` — this order alone = ${f.spike.volShare < 10 ? f.spike.volShare.toFixed(1) : Math.round(f.spike.volShare)}% of it` : ''}.</p>` : ''}
     ${!f.spike && gap > 0 ? `<p class="red">The fill price ₹${n2(f.price)} never traded on the exchange in this period — ₹${n2(gap)} ${buy ? 'below the lowest' : 'above the highest'} traded price.</p>
     <p class="red">Difference: ₹${n2(gap)} × ${esc(f.qty)} = ₹${n2(gap * Number(f.qty))}</p>` : ''}
   </div></body></html>`;
