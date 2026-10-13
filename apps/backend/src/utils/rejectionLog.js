@@ -42,6 +42,8 @@ const SERVER_REFUSAL_PATTERNS = [
   'would create a short position',
   'would exceed your open position', // pending-order overflow
   'Could not determine price for MARKET order',
+  'High-Low restriction', // limit inside the day range with High/low trade limit off
+  'Price restriction', // Fresh Stop-Loss price offset
   GIFT_NOT_LIVE_MESSAGE,
 ];
 
