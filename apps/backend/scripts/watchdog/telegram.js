@@ -18,15 +18,34 @@ let busy = false;
 
 const configured = () => Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID);
 
-function post(text) {
+function post(item) {
   return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ chat_id: process.env.TELEGRAM_CHAT_ID, text, parse_mode: 'HTML', disable_web_page_preview: true });
+    let body;
+    let headers;
+    let method = 'sendMessage';
+    if (item.photo) {
+      // multipart/form-data: chat_id, caption, photo (PNG)
+      method = 'sendPhoto';
+      const b = `----wd${Date.now().toString(16)}`;
+      const CRLF = '\r\n';
+      const field = (name, value) => `--${b}${CRLF}Content-Disposition: form-data; name="${name}"${CRLF}${CRLF}${value}${CRLF}`;
+      body = Buffer.concat([
+        Buffer.from(field('chat_id', process.env.TELEGRAM_CHAT_ID) + field('parse_mode', 'HTML') + field('caption', item.text || '')),
+        Buffer.from(`--${b}${CRLF}Content-Disposition: form-data; name="photo"; filename="${item.filename || 'fill.png'}"${CRLF}Content-Type: image/png${CRLF}${CRLF}`),
+        item.photo,
+        Buffer.from(`${CRLF}--${b}--${CRLF}`),
+      ]);
+      headers = { 'Content-Type': `multipart/form-data; boundary=${b}`, 'Content-Length': body.length };
+    } else {
+      body = JSON.stringify({ chat_id: process.env.TELEGRAM_CHAT_ID, text: item.text, parse_mode: 'HTML', disable_web_page_preview: true });
+      headers = { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) };
+    }
     const req = https.request({
       hostname: 'api.telegram.org',
-      path: `/bot${process.env.TELEGRAM_BOT_TOKEN}/sendMessage`,
+      path: `/bot${process.env.TELEGRAM_BOT_TOKEN}/${method}`,
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
-      timeout: 15000,
+      headers,
+      timeout: 30000,
     }, (res) => {
       let data = '';
       res.on('data', (c) => { data += c; });
@@ -52,17 +71,17 @@ async function drain() {
     while (queue.length) {
       const item = queue[0];
       if (!configured()) {
-        writeOutbox(item.text, ' (dry mode)');
+        writeOutbox(item.photo ? `[photo ${item.filename || ''} ${item.photo.length} bytes] ${item.text || ''}` : item.text, ' (dry mode)');
         queue.shift();
         continue;
       }
       try {
-        await post(item.text);
+        await post(item);
         queue.shift();
       } catch (err) {
         item.tries = (item.tries || 0) + 1;
         if (item.tries >= 4) {
-          writeOutbox(item.text, ` (send failed: ${String(err.message).replace(/bot\d+:[\w-]+/g, 'bot<token>')})`);
+          writeOutbox(item.photo ? `[photo ${item.filename || ''}] ${item.text || ''}` : item.text, ` (send failed: ${String(err.message).replace(/bot\d+:[\w-]+/g, 'bot<token>')})`);
           queue.shift();
         } else {
           await new Promise((r) => setTimeout(r, 5000 * item.tries));
@@ -82,4 +101,11 @@ function send(text) {
   return drain();
 }
 
-module.exports = { send, configured, OUTBOX };
+/** Queue a photo (PNG buffer) with an HTML caption (max ~1000 chars). */
+function sendPhoto(photo, caption, filename) {
+  if (queue.length > 200) queue.splice(0, queue.length - 200);
+  queue.push({ photo, text: String(caption || '').slice(0, 1000), filename });
+  return drain();
+}
+
+module.exports = { send, sendPhoto, configured, OUTBOX };

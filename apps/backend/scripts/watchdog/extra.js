@@ -472,7 +472,8 @@ async function fillCheck(c) {
       st.better++;
       st.gain[f.user] = (st.gain[f.user] || 0) + gap * f.qty;
       if (win.better.length < 60) {
-        win.better.push({ user: f.user, line: `${f.sym} ${f.side} ${f.qty} ${f.ot} @ ${f.price} at ${istStr(f.at).slice(11)} · exchange ${own.low}–${own.high} (±1 min ${low}–${high})`, value: gap * f.qty });
+        win.better.push({ user: f.user, line: `${f.sym} ${f.side} ${f.qty} ${f.ot} @ ${f.price} at ${istStr(f.at).slice(11)} · exchange ${own.low}–${own.high} (±1 min ${low}–${high})`, value: gap * f.qty,
+          fill: { id: f.id, token: f.token, sym: f.sym, side: f.side, qty: f.qty, ot: f.ot, price: f.price, at: f.at } });
       }
     }
   }
@@ -483,7 +484,7 @@ async function fillCheck(c) {
 // covering the hour before) and 23:35 after MCX closes. Lists every fill
 // better than the market with the client and ₹; counts the rest.
 const FILL_REPORT_MINUTES = [...Array.from({ length: 14 }, (_, i) => 615 + i * 60), 1415];
-function fillReport(c) {
+async function fillReport(c) {
   const { state, lib, who, send } = c;
   const p = lib.istParts();
   if (p.day < 1 || p.day > 5) return;
@@ -505,6 +506,33 @@ function fillReport(c) {
     win.worse ? `Worse than the market: ${win.worse} (normal for market orders in a thin minute)` : '',
   ];
   send(lib.formatAlert(win.better.length ? 'warning' : 'info', `Fill check ${hhmm(prevMark)}–${hhmm(m)}`, lines));
+  // One forwardable image per fill (max 10 per report): exchange minutes ±12 min + the trade.
+  const withFill = win.better.filter((b) => b.fill).slice(0, 10);
+  if (withFill.length) await sendFillImages(c, withFill);
+}
+
+async function sendFillImages(c, list) {
+  const { who, lib } = c;
+  const ks = await kite();
+  const items = [];
+  for (const b of list) {
+    const f = b.fill;
+    let candles = [];
+    try { candles = (await ks.getHistoricalData(f.token, 'minute', `${istStr(f.at - 12 * 60_000).slice(0, 16)}:00`, `${istStr(f.at + 12 * 60_000).slice(0, 16)}:00`, { silent: true })) || []; } catch (_) { /* skip */ }
+    await new Promise((r) => setTimeout(r, 350));
+    if (!candles.length) continue;
+    const u = c.names.users.get(String(b.user));
+    items.push({ b, fill: { ...f, client: u ? `${u.username} ${u.name || ''}`.trim() : who(b.user) }, candles });
+  }
+  if (!items.length) return;
+  const { renderFillImages } = require('./fillImage');
+  const pngs = await renderFillImages(items);
+  pngs.forEach((png, i) => {
+    const it = items[i];
+    c.sendPhoto(png, lib.escapeHtml(`${who(it.b.user)}
+${it.b.line}
+${rupees(it.b.value)} better than any traded price`), `fill-${it.fill.sym}-${it.fill.id}.png`);
+  });
 }
 
 async function slow(c) {
@@ -519,10 +547,10 @@ async function slow(c) {
   if (due('slow:weekly', 5 * MIN)) await weekly(c);
   if (due('slow:db', 30 * MIN)) await dbLimits(c);
   if (due('slow:fills', 60_000)) { try { await fillCheck(c); } catch (e) { console.error('[watchdog] fill check:', e.message); } }
-  try { fillReport(c); } catch (e) { console.error('[watchdog] fill report:', e.message); }
+  try { await fillReport(c); } catch (e) { console.error('[watchdog] fill report:', e.message); }
   const p = lib.istParts();
   if (p.hhmm >= '10:05' && !state.digests[`ssl ${p.ymd}`]) { state.digests[`ssl ${p.ymd}`] = true; await ssl(c); }
   if (p.day >= 1 && p.day <= 5 && p.hhmm >= '23:40' && !state.digests[`collusion ${p.ymd}`]) { state.digests[`collusion ${p.ymd}`] = true; await collusion(c); }
 }
 
-module.exports = { internal, events, slow, _test: { certDaysLeft } };
+module.exports = { internal, events, slow, sendFillImages, _test: { certDaysLeft } };

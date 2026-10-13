@@ -480,7 +480,7 @@ async function maybeDigest() {
 
 /** What the extra checks (extra.js) need from here. */
 function ctx(d) {
-  return { d, state, raise, clear, send: (t) => telegram.send(t), lib, who, names, hit, newDocs, inMaintenance, MIN };
+  return { d, state, raise, clear, send: (t) => telegram.send(t), sendPhoto: (p, cap, fn) => telegram.sendPhoto(p, cap, fn), lib, who, names, hit, newDocs, inMaintenance, MIN };
 }
 
 // ----------------------------------------------------------------- main ----
