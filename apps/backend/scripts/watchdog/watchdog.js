@@ -206,17 +206,20 @@ function checkLogs(env) {
     }
   }
   const { ymd } = lib.istParts();
+  const newKinds = [];
   for (const f of found.values()) {
     if (f.generic) {
       const sig = f.key.slice(4);
       const known = state.signatures[sig];
       state.signatures[sig] = { lastSeen: Date.now(), today: (known && known.day === ymd ? known.today : 0) + f.count, day: ymd };
-      if (!known) raise(f.key, 'warning', 'New kind of backend error', [`${f.count}× ${f.samples[0]}`], { cooldownMs: 24 * 60 * MIN });
+      if (!known) newKinds.push(`${f.count}× ${f.samples[0]}`);
       else if (f.count >= 20) raise(`${f.key}:burst`, 'warning', 'Backend error repeating', [`${f.count}× in 30 s: ${f.samples[0]}`]);
       continue;
     }
     raise(f.key, f.severity, f.title, [`${f.count}× in the last 30 s`, ...f.samples]);
   }
+  // All new error kinds of this check in one message.
+  if (newKinds.length) telegram.send(lib.formatAlert('warning', `New kind of backend error${newKinds.length > 1 ? ` (${newKinds.length})` : ''}`, newKinds.slice(0, 8)));
   // forget error kinds not seen for 14 days
   for (const [sig, v] of Object.entries(state.signatures)) if (Date.now() - v.lastSeen > 14 * 24 * 60 * MIN) delete state.signatures[sig];
 }

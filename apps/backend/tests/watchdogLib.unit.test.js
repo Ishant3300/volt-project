@@ -111,3 +111,19 @@ describe('client events', () => {
     expect(ce.allow('k', 5)).toBe(0);
   });
 });
+
+describe('multi-line error dumps', () => {
+  test('only the first line of a dumped error counts', () => {
+    const l = require('../scripts/watchdog/lib');
+    const lines = [
+      ['2026-10-13T10:58:57: ❌ Error fetching historical data: AxiosError: Request failed with status code 400', true],
+      ['2026-10-13T10:58:57:   isAxiosError: true,', false],
+      ['2026-10-13T10:58:57: _hadError: false,', false],
+      ['2026-10-13T10:58:57:     at settle (/x/axios.cjs:1:1)', false],
+      ['2026-10-13T10:58:57: }', false],
+      ['2026-10-13T10:58:57:   "message": "invalid token",', false],
+      ['2026-10-13T10:58:57: [BSE] ⚠️ Download failed: Parse Error', true],
+    ];
+    for (const [line, alert] of lines) expect(Boolean(l.classifyLogLine(line, true))).toBe(alert);
+  });
+});

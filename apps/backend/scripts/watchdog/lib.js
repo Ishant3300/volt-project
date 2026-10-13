@@ -60,10 +60,15 @@ const RULES = [
  * a generic error grouped by its signature.
  */
 function classifyLogLine(line, isErrLog) {
-  const text = String(line || '').replace(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z?:\s*/, '');
+  // pm2 writes "<timestamp>: <text>" — strip exactly that, keeping the text's
+  // own indentation (continuation lines of a dump are indented).
+  const text = String(line || '').replace(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z?: ?/, '');
   if (!text.trim()) return null;
   for (const r of RULES) if (r.re.test(text)) return { severity: r.severity, key: r.key, title: r.title, line: text.slice(0, 300) };
   if (NOISE.some((n) => n.test(text))) return null;
+  // Continuation of a multi-line dump (object properties, stack frames,
+  // braces) — only an error's first line counts.
+  if (/^\s/.test(text) || /^[}\])]/.test(text) || /^\{\s*$/.test(text) || /^['"]?[\w$]+['"]?:\s.*[,{[]\s*$/.test(text)) return null;
   if (isErrLog && /Error|❌/.test(text)) {
     return { severity: 'warning', key: `err:${signature(text)}`, title: 'Backend error', line: text.slice(0, 300), generic: true };
   }
