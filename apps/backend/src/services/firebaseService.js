@@ -179,8 +179,10 @@ const sendNotification = async (userId, notificationType, { title, body, data = 
     });
 
     if (invalidTokens.length > 0) {
-      account.fcm_tokens = account.fcm_tokens.filter(t => !invalidTokens.includes(t));
-      await account.save();
+      // One atomic $pull, not a document save: two notifications to the same
+      // account at once used to clash on the document version ("No matching
+      // document found ... modifiedPaths fcm_tokens") and drop the cleanup.
+      await account.constructor.updateOne({ _id: account._id }, { $pull: { fcm_tokens: { $in: invalidTokens } } });
       console.log(`🧹 [Firebase] Removed ${invalidTokens.length} invalid token(s) for user ${userId}`);
     }
 

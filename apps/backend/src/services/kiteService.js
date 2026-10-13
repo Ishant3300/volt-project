@@ -662,6 +662,9 @@ class KiteService {
    * @param {string} toDate - End date (YYYY-MM-DD)
    */
   async getHistoricalData(instrumentToken, interval, fromDate, toDate, { silent = false } = {}) {
+    // Synthetic tokens (>= 9,900,000,000: GIFT NIFTY from NSE IX, Massive-fed
+    // global futures) aren't Kite instruments — Kite answers 400 "invalid token".
+    if (Number(instrumentToken) >= 9_900_000_000) return [];
     try {
       const accessToken = await this.getStoredAccessToken();
       if (!accessToken) {

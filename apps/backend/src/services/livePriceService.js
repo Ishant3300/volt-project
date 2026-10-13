@@ -78,7 +78,8 @@ class LivePriceService {
       ws.on('message', (message) => {
         try {
           const data = JSON.parse(message);
-          console.log('📩 Received from client:', JSON.stringify(data));
+          // Never log the auth token itself (a client's login would be readable from the log).
+          console.log('📩 Received from client:', JSON.stringify(data && data.token ? { ...data, token: '<redacted>' } : data));
           this._handleClientMessage(ws, data);
         } catch (e) {
           console.log('❌ Invalid message from client:', e.message);

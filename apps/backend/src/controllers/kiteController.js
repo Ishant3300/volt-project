@@ -574,16 +574,26 @@ const getOptionChain = async (req, res) => {
       const accessToken = await kiteService.getStoredAccessToken();
       if (accessToken && options.length > 0) {
         // Kite quote API expects exchange:tradingsymbol format, NOT instrument_token
-        const batchSize = 100;
+        // Kite's LTP call takes up to 1000 instruments; batches of 100 sent back
+        // to back hit its rate limit (429) on big chains. On a 429, wait and retry.
+        const batchSize = 1000;
         const instrumentKeys = options.map(o => `${o.exchange}:${o.tradingsymbol}`);
         
         for (let i = 0; i < instrumentKeys.length; i += batchSize) {
           const batch = instrumentKeys.slice(i, i + batchSize);
-          try {
-            const quotes = await kiteService.getMarketQuotes(batch, 'ltp');
-            liveQuotes = { ...liveQuotes, ...quotes };
-          } catch (quoteError) {
-            console.log(`   ⚠️  Failed to fetch quotes for batch ${i}: ${quoteError.message}`);
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+              const quotes = await kiteService.getMarketQuotes(batch, 'ltp');
+              liveQuotes = { ...liveQuotes, ...quotes };
+              break;
+            } catch (quoteError) {
+              const limited = /429/.test(quoteError.message || '');
+              if (!limited || attempt === 3) {
+                console.log(`   ⚠️  Failed to fetch quotes for batch ${i}: ${quoteError.message}`);
+                break;
+              }
+              await new Promise((r) => setTimeout(r, 1100 * attempt));
+            }
           }
         }
         console.log(`   ✅ Fetched live quotes for ${Object.keys(liveQuotes).length} options`);
