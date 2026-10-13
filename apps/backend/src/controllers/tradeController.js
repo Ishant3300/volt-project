@@ -475,12 +475,12 @@ async function _findFreshStoplossLimit(instrument_token, segment, exchange, inst
  * configured row AND the user's fresh_stoploss toggle. Shared between
  * placeTrade and modifyTrade (a pending close moved to a profit price).
  */
-async function _validateFreshStoplossHoldTime(isAdmin, user, instrument_token, order_type, transaction_type, price, segment, exchange, instrumentRawName, session) {
+async function _validateFreshStoplossHoldTime(isAdmin, user, instrument_token, order_type, transaction_type, price, segment, exchange, instrumentRawName, session, quantity) {
     if (isAdmin || !instrumentRawName) return;
     const fslLimit = await _findFreshStoplossLimit(instrument_token, segment, exchange, instrumentRawName);
     if (!(fslLimit && user.fresh_stoploss === true && fslLimit.time_minutes > 0)) return;
 
-    const { closesInProfit, holdTimeRejection } = require('../utils/freshStoplossHold');
+    const { closesInProfit, openLots, lotHoldRejection } = require('../utils/freshStoplossHold');
     const metricsEngFSL = require('../services/metricsEngine');
     const livePriceSvc = require('../services/livePriceService');
     const tokenStr = instrument_token.toString();
@@ -498,24 +498,17 @@ async function _validateFreshStoplossHoldTime(isAdmin, user, instrument_token, o
         .select('transaction_type executed_quantity executed_price executed_at createdAt')
         .sort({ executed_at: 1, createdAt: 1 });
     if (session) prevTradesQuery = prevTradesQuery.session(session);
-    const stateFSL = computeFlatResetState(await prevTradesQuery.lean());
+    const prevFills = await prevTradesQuery.lean();
+    const stateFSL = computeFlatResetState(prevFills);
 
     const inProfit = closesInProfit({ orderType: order_type, transactionType: transaction_type, price: Number(price), state: stateFSL, bid: bidFSL, ask: askFSL });
     console.log(`🔒 [FSL] hold check: instrument=${instrumentRawName}, type=${order_type} ${transaction_type}, price=${price}, time_minutes=${fslLimit.time_minutes}, netQty=${stateFSL.netQty}, bid=${bidFSL}, ask=${askFSL}, inProfit=${inProfit}`);
     if (!inProfit) return;
 
-    // The clock starts at the last fill on the position's own side, whatever
-    // its order type (was MARKET only — a LIMIT-opened position had no hold).
-    const oppositeType = transaction_type === 'SELL' ? 'BUY' : 'SELL';
-    let lastOpeningQuery = Trade.findOne({
-        user_id: user._id, instrument_token,
-        transaction_type: oppositeType,
-        status: 'completed', deleted_at: null
-    }).sort({ executed_at: -1 });
-    if (session) lastOpeningQuery = lastOpeningQuery.session(session);
-    const lastOpeningTrade = await lastOpeningQuery;
-
-    const rejection = holdTimeRejection({ lastOpenedAt: lastOpeningTrade?.executed_at, timeMinutes: fslLimit.time_minutes });
+    // Only quantity opened within the hold is locked (oldest lots close
+    // first). Was: the whole position from its last opening fill, so adding
+    // one lot locked lots held for hours (GBN5 GOLD, 13 Oct).
+    const rejection = lotHoldRejection({ lots: openLots(prevFills), closeQuantity: Number(quantity), timeMinutes: fslLimit.time_minutes });
     if (rejection) throw new Error(rejection);
 }
 
@@ -1052,7 +1045,7 @@ const placeTrade = async (req, res) => {
 
             // ── Fresh Stop-Loss: hold time — no closing IN PROFIT within
             // time_minutes of the last opening fill (every order type) ──
-            await _validateFreshStoplossHoldTime(!!req.admin, user, instrument_token, order_type, transaction_type, price, segment, exchange, instrumentRawName, session);
+            await _validateFreshStoplossHoldTime(!!req.admin, user, instrument_token, order_type, transaction_type, price, segment, exchange, instrumentRawName, session, quantity);
 
             // ── Fresh Stop-Loss: price-offset restriction (LIMIT/SL/SL-M) ──
             await _validateFreshStoplossPriceOffset(!!req.admin, user, instrument_token, order_type, transaction_type, price, segment, exchange, instrumentRawName);
@@ -2040,7 +2033,7 @@ const modifyTrade = async (req, res) => {
                     user, trade.instrument_token, trade.transaction_type, newQuantity, trade.segment, trade.exchange, trade.tradingsymbol, null, trade._id
                 ));
             }
-            await _validateFreshStoplossHoldTime(isAdmin, user, trade.instrument_token, trade.order_type, trade.transaction_type, newPrice, trade.segment, trade.exchange, instrumentRawName, null);
+            await _validateFreshStoplossHoldTime(isAdmin, user, trade.instrument_token, trade.order_type, trade.transaction_type, newPrice, trade.segment, trade.exchange, instrumentRawName, null, newQuantity);
             await _validateFreshStoplossPriceOffset(isAdmin, user, trade.instrument_token, trade.order_type, trade.transaction_type, newPrice, trade.segment, trade.exchange, instrumentRawName);
             await _validateFreshStoplossOpenPosition(isAdmin, user, trade.instrument_token, trade.order_type, trade.transaction_type, null);
             const adminCanCustomPrice = isAdmin && (req.admin.isSuperAdmin || (req.admin.permissions || []).includes('TRADE_CUSTOM'));

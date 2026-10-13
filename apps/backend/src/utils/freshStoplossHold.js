@@ -43,4 +43,62 @@ function holdTimeRejection({ lastOpenedAt, timeMinutes, now = Date.now() }) {
   return `Fresh Stop-Loss: Cannot close this position for ${remainingMins} more minute(s). Time restriction: ${timeMinutes} minutes.`;
 }
 
-module.exports = { closesInProfit, holdTimeRejection };
+/**
+ * The open position's lots, oldest first (FIFO): [{ qty, openedAt }]. Built
+ * from the instrument's completed fills in execution order; a close consumes
+ * the oldest lots, so what is left is exactly the quantity still held and
+ * when each part of it was bought (or sold short).
+ */
+function openLots(fills) {
+  const lots = [];
+  let side = 0;
+  for (const f of fills) {
+    const sg = f.transaction_type === 'BUY' ? 1 : -1;
+    let qty = Number(f.executed_quantity ?? f.quantity) || 0;
+    const at = f.executed_at || f.createdAt;
+    while (qty > 0 && lots.length && side !== sg) {
+      const m = Math.min(qty, lots[0].qty);
+      lots[0].qty -= m;
+      qty -= m;
+      if (lots[0].qty === 0) lots.shift();
+    }
+    if (!lots.length) side = 0;
+    if (qty > 0) {
+      side = sg;
+      lots.push({ qty, openedAt: at });
+    }
+  }
+  return lots;
+}
+
+/**
+ * Lot-aware hold: only quantity opened within the last `timeMinutes` is held.
+ * Closing up to the "aged" quantity (lots older than the hold) is allowed; an
+ * add no longer locks lots the client has held for longer. Closes consume the
+ * oldest lots first. Returns the rejection message or null.
+ */
+function lotHoldRejection({ lots, closeQuantity, timeMinutes, now = Date.now() }) {
+  if (!(timeMinutes > 0) || !Array.isArray(lots) || !lots.length) return null;
+  const requiredMs = timeMinutes * 60 * 1000;
+  const openedMs = (l) => new Date(l.openedAt).getTime();
+  const isAged = (l) => now - openedMs(l) >= requiredMs;
+  const held = lots.reduce((s, l) => s + l.qty, 0);
+  // Only the closing part counts — quantity beyond the position opens the other side.
+  const need = Math.min(Number(closeQuantity) || 0, held);
+  const aged = lots.filter(isAged).reduce((s, l) => s + l.qty, 0);
+  if (need <= aged) return null;
+  // Fresh lots age oldest-first: wait for the one that covers the quantity asked.
+  let covered = aged;
+  let releaseAt = now + requiredMs;
+  for (const l of lots) {
+    if (isAged(l)) continue;
+    covered += l.qty;
+    if (covered >= need) { releaseAt = openedMs(l) + requiredMs; break; }
+  }
+  const remainingMins = Math.max(1, Math.ceil((releaseAt - now) / 60000));
+  return aged > 0
+    ? `Fresh Stop-Loss: Cannot close more than ${aged} qty for ${remainingMins} more minute(s) — the rest was opened in the last ${timeMinutes} minutes. Time restriction: ${timeMinutes} minutes.`
+    : `Fresh Stop-Loss: Cannot close this position for ${remainingMins} more minute(s). Time restriction: ${timeMinutes} minutes.`;
+}
+
+module.exports = { closesInProfit, holdTimeRejection, openLots, lotHoldRejection };
