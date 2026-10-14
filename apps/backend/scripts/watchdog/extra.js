@@ -282,7 +282,7 @@ async function staffOrders(c) {
 }
 
 async function events(c) {
-  const { d, raise, send, lib, who, hit, MIN } = c;
+  const { d, raise, send, lib, who, hit, newDocs, MIN } = c;
 
   await auditEvents(c);
   await staffOrders(c);
