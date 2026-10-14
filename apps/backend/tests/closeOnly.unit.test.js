@@ -33,3 +33,23 @@ test('pending same-side orders count: two sells cannot add up past the position'
   expect(check(750, 'SELL', 250, 500)).toBeNull();
   expect(check(750, 'SELL', 300, 500)).toContain('At most 250');
 });
+
+// Same reduce-only rule now guards the live loss block (M2M loss >= credit,
+// auto square-off off) — Circuit, 14 Oct 2026: long SILVER 150.
+describe('loss >= credit block uses reduce-only', () => {
+  const { closeOnlyRejection, CLOSE_ONLY_MESSAGE } = require('../src/utils/closeOnly');
+  test('closing part or all of the position is allowed', () => {
+    expect(closeOnlyRejection({ currentNetQty: 150, transactionType: 'SELL', quantity: 150 })).toBeNull();
+    expect(closeOnlyRejection({ currentNetQty: 150, transactionType: 'SELL', quantity: 30 })).toBeNull();
+  });
+  test('selling more than held (a flip into a new short) is refused', () => {
+    expect(closeOnlyRejection({ currentNetQty: 150, transactionType: 'SELL', quantity: 300 })).toMatch(/At most 150 qty can be sold/);
+  });
+  test('pending closing orders count', () => {
+    expect(closeOnlyRejection({ currentNetQty: 150, transactionType: 'SELL', quantity: 150, pendingSameSide: 150 })).toMatch(/At most 0 qty/);
+  });
+  test('adding or opening is refused with the base message', () => {
+    expect(closeOnlyRejection({ currentNetQty: 150, transactionType: 'BUY', quantity: 30 })).toBe(CLOSE_ONLY_MESSAGE);
+    expect(closeOnlyRejection({ currentNetQty: 0, transactionType: 'SELL', quantity: 30 })).toBe(CLOSE_ONLY_MESSAGE);
+  });
+});

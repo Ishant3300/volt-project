@@ -789,10 +789,24 @@ const placeTrade = async (req, res) => {
                         const currentNetQtyForMarginCall = posAggForMarginCall.length > 0
                             ? posAggForMarginCall[0].total_buy_qty - posAggForMarginCall[0].total_sell_qty
                             : 0;
-                        const isClosingForMarginCall = (transaction_type === 'SELL' && currentNetQtyForMarginCall > 0)
-                            || (transaction_type === 'BUY' && currentNetQtyForMarginCall < 0);
-                        if (!isClosingForMarginCall) {
-                            throw new Error(`Trading is blocked: your live M2M loss (₹${Math.abs(liveMetricsForMarginCall.m2m_pnl).toFixed(2)}) has reached your full credit (₹${creditForMarginCall.toFixed(2)}). You can only close existing positions until your master/admin adds credit.`);
+                        // Reduce only, same as close-only (utils/closeOnly.js): this
+                        // order plus the account's other pending orders on the same
+                        // side may not exceed the open position — a direction-only
+                        // check let an oversized "close" flip into a fresh position.
+                        const pendingForMarginCall = await Trade.aggregate([
+                            { $match: { user_id: user._id, instrument_token, transaction_type, status: 'pending', deleted_at: null } },
+                            { $group: { _id: null, qty: { $sum: '$quantity' } } },
+                        ]).session(session);
+                        const { closeOnlyRejection, CLOSE_ONLY_MESSAGE } = require('../utils/closeOnly');
+                        const reduceOnly = closeOnlyRejection({
+                            currentNetQty: currentNetQtyForMarginCall,
+                            transactionType: transaction_type,
+                            quantity,
+                            pendingSameSide: pendingForMarginCall.length > 0 ? Number(pendingForMarginCall[0].qty) || 0 : 0,
+                        });
+                        if (reduceOnly) {
+                            const detail = reduceOnly !== CLOSE_ONLY_MESSAGE ? ` ${reduceOnly.slice(CLOSE_ONLY_MESSAGE.length).trim()}` : '';
+                            throw new Error(`Trading is blocked: your live M2M loss (₹${Math.abs(liveMetricsForMarginCall.m2m_pnl).toFixed(2)}) has reached your full credit (₹${creditForMarginCall.toFixed(2)}). You can only close existing positions until your master/admin adds credit.${detail}`);
                         }
                     }
                 }

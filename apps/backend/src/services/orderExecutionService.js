@@ -320,7 +320,7 @@ const processPendingOrders = async () => {
                             const creditForMarginCall = Number(gateUser?.credits || 0);
                             marginCallLiveBlocked = !!liveMetricsForMarginCall
                                 && Number(liveMetricsForMarginCall.m2m_pnl || 0) <= -creditForMarginCall
-                                && !isClosingForCloseOnly;
+                                && !!require('../utils/closeOnly').closeOnlyRejection({ currentNetQty: prevNetQtyCheck, transactionType: freshTrade.transaction_type, quantity: freshTrade.quantity }); // reduce only at fill
                         }
 
                         // Exchange-permission gate — mirrors placeTrade's placement-time

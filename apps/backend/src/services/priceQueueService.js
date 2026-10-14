@@ -302,9 +302,10 @@ async function executeMatchedOrder(match, livePrice, options = {}) {
         const metricsEngineForMarginCall = require('./metricsEngine');
         const liveMetricsForMarginCall = metricsEngineForMarginCall.getCachedMetrics(trade.user_id.toString());
         const creditForMarginCall = Number(gateUser?.credits || 0);
+        // Reduce only at fill too: a "closing" fill may not go through zero.
         marginCallLiveBlocked = !!liveMetricsForMarginCall
           && Number(liveMetricsForMarginCall.m2m_pnl || 0) <= -creditForMarginCall
-          && !isClosingForCloseOnly;
+          && !!require('../utils/closeOnly').closeOnlyRejection({ currentNetQty: previousNetQty, transactionType: trade.transaction_type, quantity: trade.quantity });
       }
 
       // Exchange-permission gate — mirrors placeTrade's placement-time check.
