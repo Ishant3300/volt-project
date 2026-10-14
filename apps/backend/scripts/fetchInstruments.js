@@ -175,7 +175,7 @@ function generateDisplayName(instrument) {
 /**
  * Parse CSV and filter instruments based on the allowed raw_name set.
  */
-function parseAndFilterInstruments(csvText, allowedNames) {
+function parseAndFilterInstruments(csvText, allowedNames, nfoOnlyNames = new Set()) {
   const lines = csvText.trim().split('\n');
   const headers = lines[0].split(',').map(h => h.trim());
   
@@ -220,7 +220,8 @@ function parseAndFilterInstruments(csvText, allowedNames) {
 
     // Filter: only keep instruments whose name matches the allowed list
     const instName = (instrument.name || '').toUpperCase().trim();
-    if (!allowedNames.has(instName)) {
+    // nfoOnlyNames: stocks added automatically (auto_added_nfo.csv) — NFO only
+    if (!allowedNames.has(instName) && !(nfoOnlyNames.has(instName) && instrument.exchange === 'NFO')) {
       stats.filtered++;
       continue;
     }
@@ -358,6 +359,54 @@ function buildInstrumentUpsertOperation(inst) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// NEW NFO STOCKS
+// ══════════════════════════════════════════════════════════════════════════════
+
+function notifyTelegram(text) {
+  try {
+    require('child_process').spawnSync(process.execPath, [path.join(__dirname, 'watchdog/notify.js'), '--text', text], { cwd: path.join(__dirname, '..'), timeout: 30000 });
+  } catch (e) { console.error('   Telegram notify failed:', e.message); }
+}
+
+/**
+ * Returns the NFO-only names to import (earlier auto-added ones plus any
+ * added now). A name is added only once all its settings are in place.
+ */
+async function addNewNfoStocks(csvData, allowedNames) {
+  const svc = require('../src/services/newNfoStockService');
+  const nfoOnly = svc.loadAutoAdded();
+  try {
+    const known = new Set([...allowedNames, ...nfoOnly]);
+    const { stocks, others } = svc.findNewNfoNames(csvData, known);
+    // Index contracts etc. are only reported, once per name.
+    const seenFile = path.join(__dirname, 'downloads', 'new-nfo-reported.json');
+    const seen = new Set(fs.existsSync(seenFile) ? JSON.parse(fs.readFileSync(seenFile, 'utf8')) : []);
+    const newOthers = others.filter((o) => !seen.has(o.name));
+    if (!stocks.length && !newOthers.length) { console.log('🆕 No new NFO stocks.'); return nfoOnly; }
+
+    let ready = []; let notReady = []; let problems = []; let counts = null;
+    if (stocks.length) {
+      console.log(`🆕 New NFO stocks: ${stocks.map((s) => `${s.name} (lot ${s.lot})`).join(', ')}`);
+      const db = mongoose.connection.db;
+      const plan = await svc.planNewNfoStocks(db, stocks);
+      problems = plan.problems; counts = plan.summary.counts;
+      const ids = await svc.applyPlan(db, plan);
+      fs.writeFileSync(path.join(__dirname, 'downloads', `new-nfo-added-${new Date().toISOString().replace(/[:.]/g, '-')}.json`), JSON.stringify({ stocks, ids, problems }, null, 1));
+      ({ ready, notReady } = await svc.verifyStocks(db, stocks.filter((s) => s.lots.length === 1), plan));
+      svc.appendAutoAdded(ready, 'daily sync');
+      for (const s of ready) nfoOnly.add(s.name);
+      console.log(`   ready: ${ready.map((s) => s.name).join(', ') || 'none'}; not ready: ${notReady.map((s) => s.name).join(', ') || 'none'}`);
+    }
+    notifyTelegram(svc.describeRun({ ready, notReady, others: newOthers, problems, counts }));
+    fs.writeFileSync(seenFile, JSON.stringify([...seen, ...newOthers.map((o) => o.name)]));
+  } catch (e) {
+    console.error('❌ New NFO stock setup failed (sync continues without them):', e.message);
+    notifyTelegram(`New NFO stock setup failed: ${e.message}. Daily sync continued; nothing new was made tradable.`);
+  }
+  return nfoOnly;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // MAIN FUNCTION
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -397,9 +446,13 @@ async function fetchInstruments() {
     fs.writeFileSync(rawFilepath, csvData, 'utf8');
     console.log(`💾 Saved raw CSV: ${rawFilename}`);
 
+    // New NFO stock listings: set up their limits/brokerage/FSL and add them
+    // (services/newNfoStockService.js). Never allowed to break the sync.
+    const nfoOnlyNames = await addNewNfoStocks(csvData, allowedNames);
+
     // Parse and filter instruments using the allowed names list
     console.log('\n🔍 Parsing and filtering instruments...');
-    const { instruments, stats } = parseAndFilterInstruments(csvData, allowedNames);
+    const { instruments, stats } = parseAndFilterInstruments(csvData, allowedNames, nfoOnlyNames);
     
     // Keep instruments with expiry within next 3 months (same window as manage instruments)
     console.log('\n📅 Filtering to next 3 months expiry...');
