@@ -35,7 +35,9 @@ function fillHtml(f, candles) {
   const d = istDate(f.at);
   const day = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
   const secs = `${hm12(f.at)}:${String(d.getUTCSeconds()).padStart(2, '0')} ${ampm(f.at)}`;
-  const body = rows.map((r) => `<tr class="${r.t === fillMin ? 'hit' : ''}"><td class="l">${hm12(r.t)}:00 ${ampm(r.t)}</td><td>${n2(r.open)}</td><td>${n2(r.high)}</td><td>${n2(r.low)}</td><td>${n2(r.close)}</td><td>${Number(r.volume || 0)}</td></tr>`).join('');
+  const entryMin = f.rt ? Math.floor(f.rt.entryAt / 60000) * 60000 : null;
+  const rowClass = (t) => (t === fillMin ? 'hit' : t === entryMin ? 'entry' : '');
+  const body = rows.map((r) => `<tr class="${rowClass(r.t)}"><td class="l">${hm12(r.t)}:00 ${ampm(r.t)}</td><td>${n2(r.open)}</td><td>${n2(r.high)}</td><td>${n2(r.low)}</td><td>${n2(r.close)}</td><td>${Number(r.volume || 0)}</td></tr>`).join('');
   return `<!doctype html><html><head><meta charset="utf-8"><style>
     body{margin:0;background:#f0f0f0;font-family:'Noto Sans',sans-serif;width:900px}
     .bar{background:#e1e6f0;padding:7px 10px;font-size:17px;color:#141414}
@@ -44,13 +46,14 @@ function fillHtml(f, candles) {
     th.l,td.l{text-align:left}
     td{color:#ebebeb;font-family:'Source Code Pro',monospace;font-size:16px;padding:3px 18px;text-align:right}
     tr.hit td{color:#ffe650;font-weight:700;background:#282800;outline:2px solid #ffd200}
+    tr.entry td{color:#7dffa8;font-weight:700;background:#0c2814;outline:2px solid #2ecc71}
     .box{margin:10px;background:#fff;border:3px solid #c83c3c;padding:12px 16px;font-size:17px;color:#191919}
     .box h2{margin:0 0 8px;font-size:20px;color:#a01414}
     .box p{margin:4px 0}.red{color:#a01414;font-size:15px}
   </style></head><body>
   <div class="bar">Market Movement for FUTSTK&nbsp; ${esc(f.sym)} &nbsp;&nbsp;TimeInterval: 1 min &nbsp;&nbsp;(${esc(day)})</div>
   <table><tr><th class="l">Time</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th></tr>${body}</table>
-  <div class="box"><h2>Client trade — ${esc(f.client)}</h2>
+  ${f.rt ? quickBox(f, day) : `<div class="box"><h2>Client trade — ${esc(f.client)}</h2>
     <p>${esc(f.side)} ${esc(f.qty)} ${esc(f.sym)} (${esc(f.ot)}) @ ₹${n2(f.price)}</p>
     <p>Executed: ${esc(day)}, ${esc(secs)} IST &nbsp;&nbsp; Trade ID: ${esc(f.id)}</p>
     ${own ? `<p>Exchange at ${hm12(fillMin)} ${ampm(fillMin)}: Low ${n2(own.low)} – High ${n2(own.high)} &nbsp;(${buy ? 'lowest' : 'highest'} within ±1 min: ${n2(buy ? lowNear : highNear)})</p>` : ''}
@@ -58,7 +61,20 @@ function fillHtml(f, candles) {
     <p class="red">Exchange volume that minute: ${esc(own ? own.volume : '-')}${f.spike.volShare != null ? ` — this order alone = ${f.spike.volShare < 10 ? f.spike.volShare.toFixed(1) : Math.round(f.spike.volShare)}% of it` : ''}.</p>` : ''}
     ${!f.spike && gap > 0 ? `<p class="red">The fill price ₹${n2(f.price)} never traded on the exchange in this period — ₹${n2(gap)} ${buy ? 'below the lowest' : 'above the highest'} traded price.</p>
     <p class="red">Difference: ₹${n2(gap)} × ${esc(f.qty)} = ₹${n2(gap * Number(f.qty))}</p>` : ''}
-  </div></body></html>`;
+  </div>`}</body></html>`;
+}
+
+/** Trade box for a quick profit: entry (green row) -> exit (yellow row) and the market in between. */
+function quickBox(f, day) {
+  const r = f.rt;
+  const t = (ms) => { const d = istDate(ms); return `${hm12(ms)}:${String(d.getUTCSeconds()).padStart(2, '0')} ${ampm(ms)}`; };
+  const sign = (x) => (x >= 0 ? '+' : '');
+  return `<div class="box"><h2>Quick profit — ${esc(f.client)}</h2>
+    <p><span style="color:#1e9e50;font-weight:700">Entry</span> ${esc(r.entrySide)} ${esc(f.qty)} ${esc(f.sym)} @ ₹${n2(r.entryPrice)} at ${t(r.entryAt)}</p>
+    <p><span style="color:#b38f00;font-weight:700">Exit</span> ${esc(f.side)} ${esc(f.qty)} @ ₹${n2(f.price)} at ${t(f.at)} IST (${esc(day)}) — held ${esc(r.held)}</p>
+    <p>Profit: <b>₹${n2(r.pnl)}</b> &nbsp;&nbsp; Trade ID: ${esc(f.id)}</p>
+    ${r.movePct != null ? `<p class="red">Exchange in that window: Low ${n2(r.lo)} – High ${n2(r.hi)} (${r.movePct.toFixed(2)}% range, ${sign(r.dirPct)}${r.dirPct.toFixed(2)}% open→close)${r.volX != null ? `, volume ${r.volX.toFixed(1)}× the previous 30 minutes` : ''}.</p>` : ''}
+  </div>`;
 }
 
 /** PNG buffers for several fills with one browser start. items: [{ fill, candles }] */

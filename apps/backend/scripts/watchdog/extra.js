@@ -510,7 +510,120 @@ async function fillCheck(c) {
     }
   }
   state.fillQueue = state.fillQueue.filter((f) => !done.has(f.id));
+  // Quick profits among the fills just checked (bounded per run).
+  let qc = 0;
+  for (const f of ready) {
+    if (!done.has(f.id) || qc >= 15) continue;
+    qc++;
+    try { await quickProfitCheck(c, f, ks); } catch (e) { console.error('[watchdog] quick profit:', e.message); }
+  }
 }
+
+/**
+ * Quick profit: a close that books a profit within WATCHDOG_QUICK_MAX_MIN
+ * (default 20) minutes of the quantity it closes being opened (FIFO lots).
+ * The exchange candles for that holding window are checked for a heavy move:
+ * low-to-high range >= WATCHDOG_HEAVY_MOVE_PCT (1%) or volume >= 3x the 30
+ * minutes before. All quick profits are listed in the hourly report; heavy-
+ * move ones are flagged and get an image.
+ */
+const QUICK_MAX_MIN = () => num(process.env.WATCHDOG_QUICK_MAX_MIN, 20);
+const QUICK_MIN_PROFIT = () => num(process.env.WATCHDOG_QUICK_MIN_PROFIT, 1000);
+const HEAVY_MOVE_PCT = () => num(process.env.WATCHDOG_HEAVY_MOVE_PCT, 1);
+const HEAVY_VOL_X = () => num(process.env.WATCHDOG_HEAVY_VOL_X, 3);
+
+/** The FIFO lots a given closing fill consumed: { consumed: [{qty, price, at}], longClosed }. */
+function closedLots(fills, closeId) {
+  const lots = [];
+  let side = 0;
+  for (const t of fills) {
+    const sg = t.transaction_type === 'BUY' ? 1 : -1;
+    let q = Number(t.executed_quantity ?? t.quantity) || 0;
+    const at = new Date(t.executed_at).getTime();
+    const consumed = [];
+    while (q > 0 && lots.length && side !== sg) {
+      const m = Math.min(q, lots[0].qty);
+      consumed.push({ qty: m, price: lots[0].price, at: lots[0].at });
+      lots[0].qty -= m;
+      q -= m;
+      if (!lots[0].qty) lots.shift();
+    }
+    if (String(t._id) === closeId) return { consumed, longClosed: sg === -1 };
+    if (!lots.length) side = 0;
+    if (q > 0) {
+      side = sg;
+      lots.push({ qty: q, price: t.executed_price, at });
+    }
+  }
+  return { consumed: [], longClosed: false };
+}
+
+const candleMs = (cd) => Date.parse(String(cd.date).replace(/(\+\d{2})(\d{2})$/, '$1:$2'));
+
+async function quickProfitCheck(c, f, ks) {
+  const { d, state } = c;
+  const { ObjectId } = require(path.join(APP, 'node_modules', 'mongoose')).mongo;
+  const fills = await d.collection('trades').find({
+    user_id: new ObjectId(f.user), instrument_token: { $in: [f.token, Number(f.token)] }, status: 'completed',
+    executed_at: { $lte: new Date(f.at + 1000) }, trade_type: { $ne: 'carry_forward' },
+    $or: [{ deleted_at: null }, { settlement_period_key: { $exists: true, $ne: null } }],
+  }).project({ transaction_type: 1, executed_quantity: 1, quantity: 1, executed_price: 1, executed_at: 1 }).sort({ executed_at: 1, _id: 1 }).toArray();
+  const { consumed, longClosed } = closedLots(fills, f.id);
+  if (!consumed.length) return; // not a close
+  const pnl = consumed.reduce((sum, l) => sum + (longClosed ? f.price - l.price : l.price - f.price) * l.qty, 0);
+  const entryAt = Math.max(...consumed.map((l) => l.at)); // the most recent entry it closes
+  const holdMin = (f.at - entryAt) / 60_000;
+  if (!(pnl >= QUICK_MIN_PROFIT()) || holdMin > QUICK_MAX_MIN()) return;
+  const firstEntry = Math.min(...consumed.map((l) => l.at));
+  let candles = [];
+  try {
+    candles = (await ks.getHistoricalData(f.token, 'minute', `${istStr(firstEntry - 30 * 60_000).slice(0, 16)}:00`, `${istStr(f.at + 5 * 60_000).slice(0, 16)}:00`, { silent: true })) || [];
+  } catch (_) { /* no candles */ }
+  await new Promise((r) => setTimeout(r, 350));
+  const startMin = Math.floor(firstEntry / 60_000) * 60_000;
+  const endMin = Math.floor(f.at / 60_000) * 60_000;
+  const inWin = candles.filter((cd) => candleMs(cd) >= startMin && candleMs(cd) <= endMin);
+  const before = candles.filter((cd) => candleMs(cd) < startMin);
+  let movePct = null;
+  let dirPct = null;
+  let volX = null;
+  let hi = null;
+  let lo = null;
+  if (inWin.length) {
+    hi = Math.max(...inWin.map((x) => x.high));
+    lo = Math.min(...inWin.map((x) => x.low));
+    movePct = ((hi - lo) / lo) * 100;
+    dirPct = ((inWin[inWin.length - 1].close - inWin[0].open) / inWin[0].open) * 100;
+    const avg = (arr) => arr.reduce((s2, x) => s2 + (x.volume || 0), 0) / Math.max(1, arr.length);
+    const bAvg = avg(before);
+    volX = bAvg > 0 ? avg(inWin) / bAvg : null;
+  }
+  const heavy = (movePct != null && movePct >= HEAVY_MOVE_PCT()) || (volX != null && volX >= HEAVY_VOL_X());
+  const day = istStr(f.at).slice(0, 10);
+  const st = state.fillStats[day] || (state.fillStats[day] = { checked: 0, better: 0, worse: 0, gain: {} });
+  st.quick = (st.quick || 0) + 1;
+  if (heavy) st.quickHeavy = (st.quickHeavy || 0) + 1;
+  st.quickBy = st.quickBy || {};
+  st.quickBy[f.user] = (st.quickBy[f.user] || 0) + pnl;
+  const win = state.fillWindow || (state.fillWindow = { checked: 0, better: [], worse: 0 });
+  win.quick = win.quick || [];
+  if (win.quick.length >= 60) return;
+  const qty = consumed.reduce((s2, l) => s2 + l.qty, 0);
+  const entryPrice = consumed.reduce((s2, l) => s2 + l.price * l.qty, 0) / qty;
+  const held = `${Math.floor(holdMin)}m ${Math.round((holdMin % 1) * 60)}s`;
+  const market = movePct != null
+    ? ` · market ${lo}–${hi} (${movePct.toFixed(2)}% range, ${dirPct >= 0 ? '+' : ''}${dirPct.toFixed(2)}%)${volX != null ? `, volume ${volX.toFixed(1)}× normal` : ''}`
+    : '';
+  win.quick.push({
+    user: f.user,
+    heavy,
+    value: pnl,
+    line: `${f.sym} ${longClosed ? 'BUY' : 'SELL'} ${qty} @ ${entryPrice.toFixed(2)} (${istStr(firstEntry).slice(11)}) → ${f.side} @ ${f.price} (${istStr(f.at).slice(11)}) · held ${held} · profit ${rupees(pnl)}${market}`,
+    fill: { id: f.id, token: f.token, sym: f.sym, side: f.side, qty, ot: f.ot, price: f.price, at: f.at },
+    rt: { entryAt: firstEntry, entryPrice, entrySide: longClosed ? 'BUY' : 'SELL', held, pnl, movePct, dirPct, volX, hi, lo },
+  });
+}
+
 
 // Hourly report of the fill check, trading days: 10:15, 11:15 … 23:15 (each
 // covering the hour before) and 23:35 after MCX closes. Lists every fill
@@ -539,10 +652,19 @@ async function fillReport(c) {
     win.worse ? `Worse than the market: ${win.worse} (normal for market orders in a thin minute)` : '',
     win.spikes.length ? `Caught a spike edge (LIMIT/SL filled at the extreme of a fast minute): ${win.spikes.length}` : '',
     ...win.spikes.slice(0, 15).map((b) => `• ${who(b.user)} · ${b.line}`),
+    ...(() => {
+      const qs = (win.quick || []).slice().sort((a, b) => Number(b.heavy) - Number(a.heavy) || b.value - a.value);
+      if (!qs.length) return [];
+      const heavyN = qs.filter((x) => x.heavy).length;
+      return [
+        `Quick profits (closed within ${QUICK_MAX_MIN()} min): ${qs.length} — ${rupees(qs.reduce((s2, x) => s2 + x.value, 0))}${heavyN ? ` · ⚠ ${heavyN} during a heavy move` : ''}`,
+        ...qs.slice(0, 15).map((x) => `${x.heavy ? '⚠' : '•'} ${who(x.user)} · ${x.line}`),
+      ];
+    })(),
   ];
-  send(lib.formatAlert(win.better.length || win.spikes.length ? 'warning' : 'info', `Fill check ${hhmm(prevMark)}–${hhmm(m)}`, lines));
+  send(lib.formatAlert(win.better.length || win.spikes.length || (win.quick || []).some((x) => x.heavy) ? 'warning' : 'info', `Fill check ${hhmm(prevMark)}–${hhmm(m)}`, lines));
   // One forwardable image per flagged fill (max 10 per report): exchange minutes ±12 min + the trade.
-  const withFill = [...win.better, ...win.spikes].filter((b) => b.fill).slice(0, 10);
+  const withFill = [...win.better, ...win.spikes, ...(win.quick || []).filter((x) => x.heavy)].filter((b) => b.fill).slice(0, 10);
   if (withFill.length) await sendFillImages(c, withFill);
 }
 
@@ -553,18 +675,20 @@ async function sendFillImages(c, list) {
   for (const b of list) {
     const f = b.fill;
     let candles = [];
-    try { candles = (await ks.getHistoricalData(f.token, 'minute', `${istStr(f.at - 12 * 60_000).slice(0, 16)}:00`, `${istStr(f.at + 12 * 60_000).slice(0, 16)}:00`, { silent: true })) || []; } catch (_) { /* skip */ }
+    const fromMs = b.rt ? b.rt.entryAt - 8 * 60_000 : f.at - 12 * 60_000;
+    const toMs = b.rt ? f.at + 5 * 60_000 : f.at + 12 * 60_000;
+    try { candles = (await ks.getHistoricalData(f.token, 'minute', `${istStr(fromMs).slice(0, 16)}:00`, `${istStr(toMs).slice(0, 16)}:00`, { silent: true })) || []; } catch (_) { /* skip */ }
     await new Promise((r) => setTimeout(r, 350));
     if (!candles.length) continue;
     const u = c.names.users.get(String(b.user));
-    items.push({ b, fill: { ...f, client: u ? `${u.username} ${u.name || ''}`.trim() : who(b.user), spike: b.spike || null }, candles });
+    items.push({ b, fill: { ...f, client: u ? `${u.username} ${u.name || ''}`.trim() : who(b.user), spike: b.spike || null, rt: b.rt || null }, candles });
   }
   if (!items.length) return;
   const { renderFillImages } = require('./fillImage');
   const pngs = await renderFillImages(items);
   pngs.forEach((png, i) => {
     const it = items[i];
-    const tail = it.b.spike ? 'Filled at the extreme of a fast minute' : `${rupees(it.b.value)} better than any traded price`;
+    const tail = it.b.rt ? 'Quick profit during a heavy move' : it.b.spike ? 'Filled at the extreme of a fast minute' : `${rupees(it.b.value)} better than any traded price`;
     c.sendPhoto(png, lib.escapeHtml(`${who(it.b.user)}
 ${it.b.line}
 ${tail}`), `fill-${it.fill.sym}-${it.fill.id}.png`);
@@ -589,4 +713,4 @@ async function slow(c) {
   if (p.day >= 1 && p.day <= 5 && p.hhmm >= '23:40' && !state.digests[`collusion ${p.ymd}`]) { state.digests[`collusion ${p.ymd}`] = true; await collusion(c); }
 }
 
-module.exports = { internal, events, slow, sendFillImages, _test: { certDaysLeft, spikeCatch } };
+module.exports = { internal, events, slow, sendFillImages, _test: { certDaysLeft, spikeCatch, closedLots } };
