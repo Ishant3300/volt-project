@@ -43,6 +43,7 @@ const EVENT_MS = 5_000;
 const API_URL = process.env.WATCHDOG_API_URL || 'https://apexlive-api.mynpe.in/';
 const NGINX_LOG = '/var/log/nginx/access.log';
 const MIN = 60_000;
+const MUTE_STALE_QUOTE = true; // app 25 s stale-price blocks not sent to Telegram (see trades-rejected)
 
 fs.mkdirSync(DIR, { recursive: true });
 
@@ -396,10 +397,14 @@ async function checkEvents() {
   // Server refusals saved to the Rejection Log (incl. app-side blocks).
   for (const t of await newDocs(d, 'trades', { status: 'rejected' }, { user_id: 1, tradingsymbol: 1, transaction_type: 1, quantity: 1, order_type: 1, remarks: 1 }, 'trades-rejected')) {
     const remarks = String(t.remarks || '');
+    // App 25 s stale-price blocks: muted on Telegram at the user's request
+    // (14 Oct 2026) until the app fix ships; still in the Rejection Log and
+    // the daily digest counts. Set MUTE_STALE_QUOTE = false to bring back.
+    if (MUTE_STALE_QUOTE && /stale quote/i.test(remarks)) continue;
     const inApp = remarks.startsWith('Blocked in app:');
     const tag = inApp ? '[app blocked]' : lib.isRuleRefusal(remarks) ? '[server]' : '[server ⚠ unusual]';
     rejections.push(`${tag} ${who(t.user_id)} · ${orderText({ symbol: t.tradingsymbol, side: t.transaction_type, quantity: t.quantity, order_type: t.order_type })} · ${remarks.replace(/^Blocked in app:\s*/, '').slice(0, 220)}`);
-    if (/stale quote/i.test(t.remarks || '') && hit('stale-app', 5 * MIN, t).length >= 5) {
+    if (/stale quote/i.test(remarks) && hit('stale-app', 5 * MIN, t).length >= 5) {
       raise('stale-app', 'warning', 'Many app stale-price blocks', ['5+ clients blocked by the 25 s stale-price check in 5 min — feed or app connection problem.'], { cooldownMs: 30 * MIN });
     }
   }
