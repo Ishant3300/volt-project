@@ -7,7 +7,9 @@
  *               Kite feed silent / down in market hours, client loss and margin
  *               risk, pending orders whose price was crossed but didn't fill,
  *               event-loop lag; Kite login check before the open
- *   events()    every 5 s  — admin money actions (credit/debit, wallet assign/
+ *   events()    every 5 s  — admin/master changes with the person's name (backend
+ *               audit records), orders placed for clients by admin/master, money
+ *               actions (credit/debit, wallet assign/
  *               withdraw, adjustments), deleted trades, brokerage / script-limit
  *               changes, unusually large orders and order bursts
  *   slow()      every 30 s, each part on its own timer — account setting changes
@@ -151,44 +153,193 @@ function actorName(c, meta) {
   return a.type || '';
 }
 
-async function events(c) {
-  const { d, raise, send, lib, who, hit, newDocs, MIN } = c;
+// ------------------------------------------------- who did it (audit) ----
+// Every admin/master change is recorded by the backend (adminactions, from
+// middlewares/auditActions.js). Alerts name the person; changes covered by a
+// more specific alert (settings diff, money, orders, deletions) carry the
+// name there instead of being sent twice.
+const SETTLE_MS = 4000; // let the backend write its audit record before reporting
+const COVERED_ACCOUNT = /\/(users|masters)(\/[a-f0-9]{24}(\/(details|permissions|status|intraday-squareoff|margin-squareoff-percentage|report-permissions))?)?$|^\/api\/masters(\/[a-f0-9]{24}(\/(details|permissions|status|intraday-squareoff|margin-squareoff-percentage))?)?$/i;
+const COVERED_MONEY = /\/(credit|debit)$|\/wallet\/(assign|withdraw)$/i;
+const TRADE_PLACE = /^\/api\/trade\/?$/i;
+const TRADE_EDIT = /^\/api\/trade\/([a-f0-9]{24})\/(modify|cancel)$/i;
+const TRADE_DELETE = /^\/api\/trade\/([a-f0-9]{24})$/i;
+const ACTION_LABELS = [
+  [/brokerage-settings/, 'brokerage'], [/script-quantities/, 'script quantity limits'], [/grouped-quantities/, 'quantity groups'],
+  [/fresh-stoploss-limits/, 'Fresh Stop-Loss limits'], [/instruments\/(bulk-toggle|expiry-toggle)|\/instruments\//, 'scripts open/closed'],
+  [/expiry-actions/, 'expiry actions'], [/announcements/, 'announcements'], [/\/brokers/, 'Brokers page'],
+  [/settlement\/start/, 'weekly settlement'], [/mcx-square-off/, 'MCX square-off'], [/bhavcopy|refresh-(close|settlement)-prices/, 'prices refresh'],
+  [/totp\/(toggle|reset)/, '2-step login'], [/super-admin\/admins/, 'admin accounts'], [/\/api\/servers/, 'servers'], [/\/api\/kite\//, 'Kite login/instruments'],
+  [/username\/release/, 'username release'], [/base-rates/, 'master base rates'], [/account-limit/, 'master account limit'],
+  [/rollover|auto-squareoff-expired/, 'rollover / expiry square-off'],
+];
+const VERB = { POST: 'added/ran', PUT: 'changed', PATCH: 'changed', DELETE: 'removed' };
 
-  // Money moved by admin / master.
-  const tx = await newDocs(d, 'transactions', { type: { $in: MONEY_TYPES } }, { userId: 1, userModel: 1, type: 1, amount: 1, metadata: 1, description: 1 });
+function actorOf(a) {
+  if (!a) return '';
+  return `${a.actor_type} ${a.actor_username || String(a.actor_id).slice(-6)}`;
+}
+
+async function whoFresh(c, id) {
+  const s = c.who(id);
+  if (s !== String(id)) return s;
+  const u = await c.d.collection('users').findOne({ _id: oid(id) }, { projection: { username: 1, name: 1 } }).catch(() => null);
+  if (u) return `${u.username} ${u.name || ''}`.trim();
+  const m = await c.d.collection('masters').findOne({ _id: oid(id) }, { projection: { username: 1, name: 1 } }).catch(() => null);
+  return m ? `master ${m.username} ${m.name || ''}`.trim() : String(id);
+}
+
+function oid(id) {
+  const { ObjectId } = require('mongoose').mongo;
+  try { return new ObjectId(String(id)); } catch (_) { return null; }
+}
+
+/** Like newDocs, but only documents at least SETTLE_MS old (audit record is in by then). */
+async function settledDocs(c, coll, filter, projection, cursor) {
+  const { ObjectId } = require('mongoose').mongo;
+  const key = `id:${cursor}`;
+  if (!c.state.last[key]) { c.state.last[key] = ObjectId.createFromTime(Math.floor(Date.now() / 1000)).toHexString(); return []; }
+  const upTo = ObjectId.createFromTime(Math.floor((Date.now() - SETTLE_MS) / 1000));
+  const docs = await c.d.collection(coll).find({ ...filter, _id: { $gt: new ObjectId(c.state.last[key]), $lte: upTo } }, { projection }).sort({ _id: 1 }).limit(2000).toArray();
+  if (docs.length) c.state.last[key] = String(docs[docs.length - 1]._id);
+  return docs;
+}
+
+/** The latest admin/master action touching `id` (optionally matching `pathRe`) within `withinMs`. */
+async function actionFor(c, id, pathRe, withinMs = 3 * 60_000) {
+  const q = { created_at: { $gte: new Date(Date.now() - withinMs) } };
+  if (id) q.$or = [{ target_ids: String(id) }, { 'result.id': String(id) }];
+  if (pathRe) q.path = pathRe;
+  return c.d.collection('adminactions').findOne(q, { sort: { created_at: -1 } }).catch(() => null);
+}
+
+function summarizeBody(body) {
+  if (!body || typeof body !== 'object') return '';
+  const parts = [];
+  for (const [k, v] of Object.entries(body)) {
+    if (['user_id', 'userId', 'master_id', 'id', '_id'].includes(k)) continue;
+    if (Array.isArray(v)) {
+      const first = v[0] && typeof v[0] === 'object' ? Object.entries(v[0]).filter(([kk]) => !['_id', 'id', 'user_id'].includes(kk)).map(([kk, vv]) => `${kk}=${typeof vv === 'object' ? JSON.stringify(vv) : vv}`).join(' ') : String(v[0] ?? '');
+      parts.push(`${k}: ${v.length} item${v.length === 1 ? '' : 's'}${first ? ` (e.g. ${first})` : ''}`);
+    } else if (v && typeof v === 'object') {
+      parts.push(`${k}: ${Object.entries(v).slice(0, 6).map(([kk, vv]) => `${kk}=${typeof vv === 'object' ? JSON.stringify(vv) : vv}`).join(' ')}`);
+    } else parts.push(`${k}=${v}`);
+  }
+  const s = parts.join(' · ');
+  return s.length > 450 ? `${s.slice(0, 450)}…` : s;
+}
+
+async function auditEvents(c) {
+  const { d, state, send, lib } = c;
+  const actions = await c.newDocs(d, 'adminactions', {}, null, 'adminactions');
+  if (!actions.length) return;
+  // Account edits: let the settings diff report them (old → new) right away.
+  if (actions.some((a) => COVERED_ACCOUNT.test(a.path))) await settings(c);
+  const used = state.usedActions || (state.usedActions = {});
+  const lines = [];
+  for (const a of actions) {
+    if (used[String(a._id)]) continue;
+    const by = actorOf(a);
+    const targets = (await Promise.all((a.target_ids || []).slice(0, 5).map((id) => whoFresh(c, id)))).join(', ');
+    if (COVERED_MONEY.test(a.path)) continue; // money alert names the person
+    if (TRADE_PLACE.test(a.path)) continue; // order alert below names the person
+    if (TRADE_DELETE.test(a.path) && a.method === 'DELETE') continue; // deleted-trade alert names the person
+    const edit = a.path.match(TRADE_EDIT);
+    if (edit) {
+      const t = await d.collection('trades').findOne({ _id: oid(edit[1]) }, { projection: { user_id: 1, tradingsymbol: 1, transaction_type: 1, quantity: 1, order_type: 1, price: 1, status: 1 } });
+      const b = a.body || {};
+      lines.push(`${by} ${edit[2] === 'cancel' ? 'cancelled' : 'modified'} an order of ${t ? await whoFresh(c, t.user_id) : targets}: ${t ? `${t.tradingsymbol} ${t.transaction_type} ${t.quantity} ${t.order_type}${t.price ? ` @ ${t.price}` : ''}` : edit[1]}${edit[2] === 'modify' ? ` → ${summarizeBody(b)}` : ''}`);
+      continue;
+    }
+    if (COVERED_ACCOUNT.test(a.path)) {
+      // No setting difference found for it — still report the action itself.
+      const verb = a.method === 'POST' ? 'created/updated' : a.method === 'DELETE' ? 'deleted' : 'saved';
+      lines.push(`${by} ${verb} ${targets || 'an account'} (no tracked setting changed) · ${summarizeBody(a.body)}`.trim());
+      continue;
+    }
+    const label = (ACTION_LABELS.find(([re]) => re.test(a.path)) || [null, a.path.replace(/^\/api\//, '')])[1];
+    lines.push(`${by} ${VERB[a.method] || a.method} ${label}${targets ? ` for ${targets}` : ''}${a.body ? ` · ${summarizeBody(a.body)}` : ''}`);
+  }
+  for (const k of Object.keys(used)) if (Date.now() - used[k] > 30 * 60_000) delete used[k];
+  if (lines.length) send(lib.formatAlert('info', `Admin / master change${lines.length > 1 ? `s (${lines.length})` : ''}`, [...lines.slice(0, 15), lines.length > 15 ? `…and ${lines.length - 15} more` : '']));
+}
+
+/** Orders an admin or master placed for a client (any outcome), with who placed them. */
+async function staffOrders(c) {
+  const { d, send, lib } = c;
+  const trades = await settledDocs(c, 'trades', { placed_by: { $in: ['ADMIN', 'MASTER'] }, trade_type: { $ne: 'carry_forward' } },
+    { user_id: 1, tradingsymbol: 1, transaction_type: 1, quantity: 1, order_type: 1, price: 1, executed_price: 1, status: 1, placed_by: 1, trade_type: 1, remarks: 1 }, 'trades-staff');
+  if (!trades.length) return;
+  const lines = [];
+  for (const t of trades) {
+    const a = await actionFor(c, t._id, TRADE_PLACE, 10 * 60_000);
+    const by = a ? actorOf(a) : `${String(t.placed_by).toLowerCase()} (name not recorded)`;
+    const px = t.status === 'completed' ? ` @ ${t.executed_price}` : t.price ? ` @ ${t.price}` : '';
+    const kind = t.trade_type === 'admin_square_off' ? ' [square-off]' : '';
+    lines.push(`${by} → ${await whoFresh(c, t.user_id)}: ${t.tradingsymbol} ${t.transaction_type} ${t.quantity} ${t.order_type}${px} · ${t.status}${kind}${t.status === 'rejected' && t.remarks ? ` (${String(t.remarks).slice(0, 120)})` : ''}`);
+  }
+  send(lib.formatAlert('info', `Order${lines.length > 1 ? `s (${lines.length})` : ''} placed for clients by admin / master`, [...lines.slice(0, 20), lines.length > 20 ? `…and ${lines.length - 20} more` : '']));
+}
+
+async function events(c) {
+  const { d, raise, send, lib, who, hit, MIN } = c;
+
+  await auditEvents(c);
+  await staffOrders(c);
+
+  // Money moved by admin / master (named from the transaction, else from the audit record).
+  const tx = await settledDocs(c, 'transactions', { type: { $in: MONEY_TYPES } }, { userId: 1, userModel: 1, type: 1, amount: 1, metadata: 1, description: 1 }, 'transactions');
   if (tx.length) {
-    const lines = tx.slice(0, 12).map((t) => {
+    const lines = [];
+    for (const t of tx.slice(0, 12)) {
       const m = t.metadata || {};
       const cat = m.category ? ` ${m.category}` : '';
-      const by = actorName(c, m);
+      let by = actorName(c, m);
+      if (!by) by = actorOf(await actionFor(c, t.userId, COVERED_MONEY, 2 * 60_000)) || actorOf(await actionFor(c, t.userId, COVERED_ACCOUNT, 2 * 60_000));
       const after = m.targetBalanceAfter != null ? ` (now ${rupees(m.targetBalanceAfter)})` : '';
-      return `${t.type.replace('_', ' ')}${cat} ${rupees(t.amount)} → ${who(t.userId)}${after}${by ? ` · by ${by}` : ''}`;
-    });
+      const note = m.note ? ` · ${m.note}` : '';
+      lines.push(`${t.type.replace('_', ' ')}${cat} ${rupees(t.amount)} → ${await whoFresh(c, t.userId)}${after}${by ? ` · by ${by}` : ''}${note}`);
+    }
     if (tx.length > 12) lines.push(`…and ${tx.length - 12} more`);
     send(lib.formatAlert('info', `Money action${tx.length > 1 ? `s (${tx.length})` : ''}`, lines));
   }
-  const ctx = await newDocs(d, 'credittransactions', {}, { master_id: 1, transaction_type: 1, amount: 1, note: 1, actor_model: 1 });
+  const ctx = await settledDocs(c, 'credittransactions', {}, { master_id: 1, admin_id: 1, transaction_type: 1, amount: 1, note: 1, actor_model: 1 }, 'credittransactions');
   if (ctx.length) {
-    send(lib.formatAlert('info', `Master credit change${ctx.length > 1 ? `s (${ctx.length})` : ''}`, ctx.slice(0, 12).map((t) => `${t.transaction_type} ${rupees(t.amount)} → ${who(t.master_id)}${t.note ? ` · ${t.note}` : ''}`)));
+    const lines = [];
+    for (const t of ctx.slice(0, 12)) {
+      let by = '';
+      if (t.actor_model === 'Admin' && t.admin_id) by = `admin ${c.names.admins.get(String(t.admin_id))?.username || String(t.admin_id).slice(-6)}`;
+      if (!by) by = actorOf(await actionFor(c, t.master_id, COVERED_MONEY, 2 * 60_000));
+      lines.push(`${t.transaction_type} ${rupees(t.amount)} → ${await whoFresh(c, t.master_id)}${by ? ` · by ${by}` : ''}${t.note ? ` · ${t.note}` : ''}`);
+    }
+    send(lib.formatAlert('info', `Master credit change${ctx.length > 1 ? `s (${ctx.length})` : ''}`, lines));
   }
 
-  // Trades deleted (not weekly-settlement archiving).
+  // Trades deleted (not weekly-settlement archiving), with who deleted them.
   const state = c.state;
   if (!state.last.delAt) state.last.delAt = new Date().toISOString();
-  const del = await d.collection('trades').find({ deleted_at: { $gt: new Date(state.last.delAt) }, settlement_period_key: null })
+  const del = await d.collection('trades').find({ deleted_at: { $gt: new Date(state.last.delAt), $lte: new Date(Date.now() - SETTLE_MS) }, settlement_period_key: null })
     .project({ user_id: 1, tradingsymbol: 1, transaction_type: 1, quantity: 1, executed_price: 1, status: 1, deleted_at: 1, remarks: 1 }).sort({ deleted_at: 1 }).limit(200).toArray();
   if (del.length) {
     state.last.delAt = new Date(del[del.length - 1].deleted_at).toISOString();
-    raise(`deleted:${state.last.delAt}`, 'warning', `Trade${del.length > 1 ? `s (${del.length})` : ''} deleted`, del.slice(0, 10).map((t) => `${who(t.user_id)} · ${t.tradingsymbol} ${t.transaction_type} ${t.quantity} @ ${t.executed_price || 0} (${t.status})`), { cooldownMs: 0 });
+    const lines = [];
+    for (const t of del.slice(0, 10)) {
+      const a = await actionFor(c, t._id, TRADE_DELETE, 10 * 60_000);
+      lines.push(`${who(t.user_id)} · ${t.tradingsymbol} ${t.transaction_type} ${t.quantity} @ ${t.executed_price || 0} (${t.status})${a ? ` · by ${actorOf(a)}` : ''}`);
+    }
+    raise(`deleted:${state.last.delAt}`, 'warning', `Trade${del.length > 1 ? `s (${del.length})` : ''} deleted`, lines, { cooldownMs: 0 });
   }
 
-  // Brokerage and script-limit edits (grouped per account).
+  // Brokerage and script-limit rows changed WITHOUT an admin/master action
+  // (scripts / direct database edits). Changes made in the app are already
+  // reported, with the person's name, by auditEvents.
   for (const [coll, field, ownerField, title] of [['brokeragesettings', 'updated_at', 'user_id', 'Brokerage changed'], ['scriptquantities', 'updated_at', 'owner_id', 'Script limits changed']]) {
     const k = `upd:${coll}`;
     if (!state.last[k]) { state.last[k] = new Date().toISOString(); continue; }
-    const rows = await d.collection(coll).find({ [field]: { $gt: new Date(state.last[k]) } }).project({ [field]: 1, [ownerField]: 1, exchange_name: 1, deleted_at: 1 }).sort({ [field]: 1 }).limit(5000).toArray();
+    const rows = await d.collection(coll).find({ [field]: { $gt: new Date(state.last[k]), $lte: new Date(Date.now() - SETTLE_MS) } }).project({ [field]: 1, [ownerField]: 1, exchange_name: 1, deleted_at: 1 }).sort({ [field]: 1 }).limit(5000).toArray();
     if (!rows.length) continue;
     state.last[k] = new Date(rows[rows.length - 1][field]).toISOString();
+    if (await actionFor(c, null, null, 3 * 60_000)) continue; // made in the app — reported by auditEvents
     const per = new Map();
     for (const r of rows) {
       const owner = r[ownerField] ? String(r[ownerField]) : 'platform default';
@@ -198,7 +349,7 @@ async function events(c) {
       if (r.deleted_at) e.del++;
       per.set(owner, e);
     }
-    send(lib.formatAlert('info', title, [...per.entries()].slice(0, 10).map(([o, e]) => `${o === 'platform default' ? o : who(o)}: ${e.n} row${e.n > 1 ? 's' : ''}${e.del ? ` (${e.del} removed)` : ''} · ${[...e.segs].join(', ')}`)));
+    send(lib.formatAlert('info', `${title} (not from the app — script or database)`, [...per.entries()].slice(0, 10).map(([o, e]) => `${o === 'platform default' ? o : who(o)}: ${e.n} row${e.n > 1 ? 's' : ''}${e.del ? ` (${e.del} removed)` : ''} · ${[...e.segs].join(', ')}`)));
   }
 
   // Unusually large orders, and order bursts.
@@ -219,23 +370,57 @@ async function events(c) {
 }
 
 // -------------------------------------------------------------------- slow ----
-const SETTING_FIELDS_USER = ['status', 'bet', 'close_only', 'margin_square_off', 'margin_square_off_percentage', 'fresh_stoploss', 'master_id', 'deleted_at'];
-const SETTING_FIELDS_MASTER = ['status', 'pnl_sharing', 'brokerage_sharing', 'add_master', 'master_id', 'deleted_at'];
-const show = (v) => (v == null ? '—' : v instanceof Date ? 'yes' : Array.isArray(v) ? v.join(',') : String(v));
+// Every setting an admin/master can change on an account. Not here on
+// purpose: balances (money alerts cover them), live P&L/margin fields, login
+// data, push tokens, passwords (an admin password reset shows as "password
+// [changed]" through the audit record instead).
+const SETTING_FIELDS_USER = ['name', 'note', 'status', 'active_status', 'bet', 'close_only', 'margin_square_off', 'margin_square_off_percentage', 'fresh_stoploss',
+  'intraday_squareoff', 'trade_limit', 'pnl_sharing', 'brokerage_sharing', 'report_permissions', 'server_id', 'master_id', 'change_pass_on_first_login', 'deleted_at'];
+const SETTING_FIELDS_MASTER = ['name', 'note', 'status', 'active_status', 'pnl_sharing', 'brokerage_sharing', 'add_master', 'master_id', 'intraday_squareoff',
+  'margin_square_off', 'margin_square_off_percentage', 'trade_limit', 'server_id', 'max_credit', 'exchanges', 'permissions', 'account_limit',
+  'script_quantity_groups', 'allotted_script_quantity_groups', 'totp_enabled', 'change_pass_on_first_login', 'deleted_at'];
+const SETTINGS_VERSION = 2;
+const show = (v) => (v == null ? '—' : v === true ? 'on' : v === false ? 'off' : Array.isArray(v) ? (v.length ? v.map((x) => (typeof x === 'object' ? JSON.stringify(x) : x)).join(',') : 'none') : typeof v === 'object' ? JSON.stringify(v) : String(v));
+const strip = (v) => JSON.parse(JSON.stringify(v ?? null, (k, x) => (k === '_id' ? undefined : x)));
+
+function exchangeDiff(before = [], after = []) {
+  const map = (list) => new Map((list || []).map((e) => [e.exchange_name, e]));
+  const b = map(before); const a = map(after);
+  const out = [];
+  for (const [name, e] of a) {
+    if (!b.has(name)) { out.push(`exchange ${name} added (${e.lot ? 'lot' : 'turnover'}, group ${e.group_name || '—'})`); continue; }
+    const o = b.get(name);
+    const ch = Object.keys({ ...o, ...e }).filter((k) => JSON.stringify(o[k]) !== JSON.stringify(e[k])).map((k) => `${k.replace(/_/g, ' ')} ${show(o[k])} → ${show(e[k])}`);
+    if (ch.length) out.push(`${name}: ${ch.join(', ')}`);
+  }
+  for (const name of b.keys()) if (!a.has(name)) out.push(`exchange ${name} removed`);
+  return out;
+}
+
+function fieldDiff(f, before, after, who) {
+  if (f === 'master_id') return [`moved from ${who(before)} to ${who(after)}`];
+  if (f === 'deleted_at') return [after ? 'deleted' : 'restored'];
+  if (f === 'exchanges_allowed') return exchangeDiff(before, after);
+  const name = f.replace(/_/g, ' ');
+  if (before && after && typeof before === 'object' && typeof after === 'object' && !Array.isArray(before) && !Array.isArray(after)) {
+    return Object.keys({ ...before, ...after }).filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k])).map((k) => `${name} ${k.replace(/_/g, ' ')} ${show(before[k])} → ${show(after[k])}`);
+  }
+  return [`${name} ${show(before)} → ${show(after)}`];
+}
 
 async function settings(c) {
   const { d, state, send, lib, who } = c;
-  const users = await d.collection('users').find({}).project(Object.fromEntries([...SETTING_FIELDS_USER, 'exchanges_allowed', 'username', 'name'].map((f) => [f, 1]))).toArray();
-  const masters = await d.collection('masters').find({}).project(Object.fromEntries([...SETTING_FIELDS_MASTER, 'username', 'name'].map((f) => [f, 1]))).toArray();
+  const users = await d.collection('users').find({}).project(Object.fromEntries([...SETTING_FIELDS_USER, 'exchanges_allowed', 'username'].map((f) => [f, 1]))).toArray();
+  const masters = await d.collection('masters').find({}).project(Object.fromEntries([...SETTING_FIELDS_MASTER, 'exchanges_allowed', 'username'].map((f) => [f, 1]))).toArray();
   const snap = (doc, fields) => {
     const o = {};
-    for (const f of fields) o[f] = doc[f] == null ? null : f === 'master_id' ? String(doc[f]) : f === 'deleted_at' ? true : doc[f];
-    if (doc.exchanges_allowed) o.exchanges = doc.exchanges_allowed.map((e) => e.exchange_name).sort().join(',');
+    for (const f of [...fields, 'exchanges_allowed']) o[f] = doc[f] == null ? null : f === 'master_id' ? String(doc[f]) : f === 'deleted_at' ? true : strip(doc[f]);
     return o;
   };
-  const first = !state.settings;
-  const prev = state.settings || { users: {}, masters: {} };
+  const first = !state.settings || state.settingsVersion !== SETTINGS_VERSION;
+  const prev = first ? { users: {}, masters: {} } : state.settings;
   const next = { users: {}, masters: {} };
+  const used = state.usedActions || (state.usedActions = {});
   const lines = [];
   for (const [kind, list, fields] of [['users', users, SETTING_FIELDS_USER], ['masters', masters, SETTING_FIELDS_MASTER]]) {
     for (const doc of list) {
@@ -244,14 +429,19 @@ async function settings(c) {
       next[kind][id] = now;
       if (first) continue;
       const before = prev[kind][id];
-      const label = kind === 'users' ? who(id) : `master ${doc.username} ${doc.name || ''}`.trim();
-      if (!before) { lines.push(`New ${kind === 'users' ? 'client' : 'master'}: ${label}`); continue; }
-      const diffs = Object.keys(now).filter((f) => JSON.stringify(now[f]) !== JSON.stringify(before[f]))
-        .map((f) => (f === 'master_id' ? `moved from ${who(before[f])} to ${who(now[f])}` : f === 'deleted_at' ? 'deleted' : `${f.replace(/_/g, ' ')} ${show(before[f])} → ${show(now[f])}`));
-      if (diffs.length) lines.push(`${label}: ${diffs.join('; ')}`);
+      const label = kind === 'users' ? `client ${await whoFresh(c, id)}` : `master ${doc.username} ${doc.name || ''}`.trim();
+      let diffs;
+      if (!before) diffs = [`new ${kind === 'users' ? 'client' : 'master'} created`];
+      else diffs = Object.keys(now).filter((f) => JSON.stringify(now[f]) !== JSON.stringify(before[f])).flatMap((f) => fieldDiff(f, before[f], now[f], who));
+      if (!diffs.length) continue;
+      const a = await actionFor(c, id, null, 5 * 60_000);
+      if (a) used[String(a._id)] = Date.now();
+      lines.push(`${label}: ${diffs.join('; ')} · by ${a ? actorOf(a) : 'system / not recorded'}`);
     }
   }
   state.settings = next;
+  state.settingsVersion = SETTINGS_VERSION;
+  state.last['slow:settings'] = Date.now();
   if (lines.length) send(lib.formatAlert('info', `Account settings changed (${lines.length})`, [...lines.slice(0, 15), lines.length > 15 ? `…and ${lines.length - 15} more` : '']));
 }
 
@@ -713,4 +903,4 @@ async function slow(c) {
   if (p.day >= 1 && p.day <= 5 && p.hhmm >= '23:40' && !state.digests[`collusion ${p.ymd}`]) { state.digests[`collusion ${p.ymd}`] = true; await collusion(c); }
 }
 
-module.exports = { internal, events, slow, sendFillImages, _test: { certDaysLeft, spikeCatch, closedLots } };
+module.exports = { internal, events, slow, sendFillImages, _test: { certDaysLeft, spikeCatch, closedLots, exchangeDiff, fieldDiff, summarizeBody, COVERED_ACCOUNT, COVERED_MONEY, TRADE_EDIT } };

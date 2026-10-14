@@ -168,6 +168,10 @@ app.get('/', (req, res) => {
 const { requirePasswordChanged } = require('./middlewares/requirePasswordChange');
 app.use('/api', requirePasswordChanged);
 
+// Who changed what: every successful admin/master change is recorded for the
+// health watchdog's Telegram alerts (middlewares/auditActions.js).
+app.use('/api', require('./middlewares/auditActions'));
+
 app.use('/api/auth', authRoutes);
 
 app.use('/api/admin', adminRoutes);
