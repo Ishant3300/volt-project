@@ -485,6 +485,8 @@ const SETTING_FIELDS_MASTER = ['name', 'note', 'status', 'active_status', 'pnl_s
   'margin_square_off', 'margin_square_off_percentage', 'trade_limit', 'server_id', 'max_credit', 'exchanges', 'permissions', 'account_limit',
   'script_quantity_groups', 'allotted_script_quantity_groups', 'totp_enabled', 'change_pass_on_first_login', 'deleted_at'];
 const SETTINGS_VERSION = 2;
+// The client's own first-login password change clears change_pass_on_first_login.
+const SELF_PASSWORD = 'set their own password (first login)';
 const show = (v) => (v == null ? '—' : v === true ? 'on' : v === false ? 'off' : Array.isArray(v) ? (v.length ? v.map((x) => (typeof x === 'object' ? JSON.stringify(x) : x)).join(',') : 'none') : typeof v === 'object' ? JSON.stringify(v) : String(v));
 const strip = (v) => JSON.parse(JSON.stringify(v ?? null, (k, x) => (k === '_id' ? undefined : x)));
 
@@ -506,6 +508,7 @@ function exchangeDiff(before = [], after = []) {
 function fieldDiff(f, before, after, who) {
   if (f === 'master_id') return [`moved from ${who(before)} to ${who(after)}`];
   if (f === 'deleted_at') return [after ? 'deleted' : 'restored'];
+  if (f === 'change_pass_on_first_login') return [after ? 'must set a new password at next login' : SELF_PASSWORD];
   if (f === 'exchanges_allowed') return exchangeDiff(before, after);
   const name = f.replace(/_/g, ' ');
   if (before && after && typeof before === 'object' && typeof after === 'object' && !Array.isArray(before) && !Array.isArray(after)) {
@@ -545,7 +548,8 @@ async function settings(c) {
       if (!diffs.length) continue;
       const a = await actionFor(c, id, null, 5 * 60_000);
       if (a) used[String(a._id)] = Date.now();
-      lines.push(`${label}: ${diffs.join('; ')} · by ${a ? actorOf(a) : 'system / not recorded'}`);
+      const byClient = !a && kind === 'users' && diffs.every((x) => x === SELF_PASSWORD);
+      lines.push(`${label}: ${diffs.join('; ')} · by ${a ? actorOf(a) : byClient ? 'the client' : 'system / not recorded'}`);
     }
   }
   state.settings = next;

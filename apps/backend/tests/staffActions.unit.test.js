@@ -56,3 +56,9 @@ test('account-creation requests are recognised (one summary instead of three mes
   for (const p of ['/api/admin/users', '/api/master/users', '/api/master/masters', '/api/masters']) expect(w.CREATE_PATH.test(p)).toBe(true);
   expect(w.CREATE_PATH.test('/api/master/users/6accf69e5d53b458126f6b98/details')).toBe(false);
 });
+
+test("a client's first-login password change reads plainly", () => {
+  const who = (id) => id;
+  expect(w.fieldDiff('change_pass_on_first_login', true, false, who)).toEqual(['set their own password (first login)']);
+  expect(w.fieldDiff('change_pass_on_first_login', false, true, who)).toEqual(['must set a new password at next login']);
+});
