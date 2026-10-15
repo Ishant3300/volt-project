@@ -665,7 +665,7 @@ router.get('/expiry-actions/announcement', ...expiryPerm, async (req, res) => {
 // POST /admin/expiry-actions/announcement { message, push } — publish the notice
 router.post('/expiry-actions/announcement', ...expiryWrite, async (req, res) => {
   try {
-    const data = await expiryActionService.publishAnnouncement({ message: req.body?.message, push: !!req.body?.push, adminId: req.admin?.id });
+    const data = await expiryActionService.publishAnnouncement({ message: req.body?.message, push: !!req.body?.push, adminId: req.admin?.id, date: req.body?.date });
     res.json({ success: true, message: 'Announcement published', data });
   } catch (e) { expiryError(res, e); }
 });

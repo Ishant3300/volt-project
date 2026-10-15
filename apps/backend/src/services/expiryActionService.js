@@ -431,6 +431,15 @@ async function executeOpen(action) {
   tokens.forEach((t) => rolloverTokens.add(t));
   try { require('./livePriceService').ensureSubscribed(tokens); } catch (_) {}
   console.log(`🟢 [ExpiryActions] ${action.key}: opened next contracts (${enabled} enabled)`);
+  // "NEW CONTRACT Open" notice on the banner automatically (banner only, no
+  // push). Re-posted on each open of the day so it lists all of them.
+  try {
+    const draft = await buildAnnouncement(action.action_date);
+    if (draft.message) {
+      await require('./announcementBoard').postSection('expiry', draft.message, { ref: action.action_date, expiresAt: draft.expires_at });
+      console.log(`📣 [ExpiryActions] ${action.key}: new-contract notice on the banner until ${draft.expires_at.toISOString()}`);
+    }
+  } catch (e) { console.error(`❌ [ExpiryActions] new-contract notice not posted: ${e.message}`); }
 }
 
 function notifyUser(userId, action) {
@@ -677,7 +686,10 @@ async function buildAnnouncement(date) {
     const prefix = settlements.size > 1 ? `${s.labels.join(', ')} — ` : '';
     lines.push(`${prefix}Old Contract settlement: ${formatDay(s.date)} at last Quotation`, ` ( ${formatTime(s.time)} )`, '');
   }
-  return { message: lines.join('\n').trimEnd(), opens: opens.length };
+  // The notice leaves the banner once the last old contract has settled.
+  const last = [...settlements.values()].sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`)).pop();
+  const expires_at = last ? new Date(`${last.date}T${last.time}:00+05:30`) : new Date(`${date}T23:59:00+05:30`);
+  return { message: lines.join('\n').trimEnd(), opens: opens.length, expires_at };
 }
 
 /**
@@ -686,12 +698,14 @@ async function buildAnnouncement(date) {
  * the app installed — sent in the background, one account at a time,
  * respecting each account's notification settings.
  */
-async function publishAnnouncement({ message, push, adminId }) {
-  const Announcement = require('../models/Announcement');
+async function publishAnnouncement({ message, push, adminId, date }) {
   const text = String(message || '').trim();
   if (!text) throw Object.assign(new Error('Message is required'), { status: 400 });
-  await Announcement.updateMany({ is_active: true }, { $set: { is_active: false } });
-  const announcement = await Announcement.create({ message: text, is_active: true, created_by: adminId || undefined });
+  // That day's 'expiry' section of the banner only — the ban list and an
+  // admin's own message keep scrolling alongside (services/announcementBoard.js).
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(String(date || '')) ? date : dateKey(toIndiaDateOnly(new Date()));
+  const { expires_at } = await buildAnnouncement(day);
+  const announcement = await require('./announcementBoard').postSection('expiry', text, { ref: day, expiresAt: expires_at, createdBy: adminId });
 
   let recipients = 0;
   if (push) {

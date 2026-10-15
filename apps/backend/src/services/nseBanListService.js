@@ -7,15 +7,14 @@
  * back under the limit — this sync just mirrors that state onto
  * KiteInstrument.nse_banned/nse_ban_date each morning, independent of the
  * admin-driven `enabled`/`ban_reason` fields. Also posts the day's ban list
- * as the active Announcement (same single-slot mechanism as an admin manually
- * setting one — this replaces whatever was active, admin-set or not).
+ * as the banner's 'ban' section (services/announcementBoard.js) — it scrolls
+ * alongside an admin's message and new-contract notices, never replaces them.
  *
  * Main entry: syncNseBanList()
  */
 
 const axios = require('axios');
 const KiteInstrument = require('../models/KiteInstrument');
-const Announcement = require('../models/Announcement');
 const { toIndiaDateOnly } = require('../utils/settlementDates');
 
 const BAN_LIST_URL = 'https://nsearchives.nseindia.com/content/fo/fo_secban.csv';
@@ -77,19 +76,19 @@ async function syncNseBanList() {
     } catch (_) {}
   }
 
-  // Auto-post today's ban list as the active announcement, same behavior as
-  // an admin manually setting one (Announcement only ever holds one active
-  // row — this replaces whatever was there, admin-set or not). Only touches
-  // it when there's an actual ban list to show; an empty day leaves whatever
-  // announcement is already active alone rather than posting "no bans".
-  if (symbols.size > 0) {
-    try {
+  // Today's ban list is the banner's 'ban' section — it replaces only
+  // yesterday's list, never an admin's message or a new-contract notice
+  // (services/announcementBoard.js). A day with no bans removes the section
+  // so a stale list doesn't stay up.
+  try {
+    const board = require('./announcementBoard');
+    if (symbols.size > 0) {
       const dateLabel = today.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
-      const message = `NSE F&O Ban (${dateLabel}): ${[...symbols].sort().join(', ')} — new positions blocked, existing positions may still be closed.`;
-      await Announcement.updateMany({ is_active: true }, { $set: { is_active: false } });
-      await Announcement.create({ message, is_active: true });
-    } catch (_) {}
-  }
+      await board.postSection('ban', `NSE F&O Ban (${dateLabel}): ${[...symbols].sort().join(', ')} — new positions blocked, existing positions may still be closed.`);
+    } else {
+      await board.clearSection('ban');
+    }
+  } catch (_) {}
 
   return {
     symbolsInBanList: symbols.size,
