@@ -242,6 +242,7 @@ async function auditEvents(c) {
     const by = actorOf(a);
     const targets = (await Promise.all((a.target_ids || []).slice(0, 5).map((id) => whoFresh(c, id)))).join(', ');
     if (COVERED_MONEY.test(a.path)) continue; // money alert names the person
+    if (a.method === 'POST' && CREATE_PATH.test(a.path)) continue; // new-account summary names the person
     if (TRADE_PLACE.test(a.path)) continue; // order alert below names the person
     if (TRADE_DELETE.test(a.path) && a.method === 'DELETE') continue; // deleted-trade alert names the person
     const edit = a.path.match(TRADE_EDIT);
@@ -262,6 +263,104 @@ async function auditEvents(c) {
   }
   for (const k of Object.keys(used)) if (Date.now() - used[k] > 30 * 60_000) delete used[k];
   if (lines.length) send(lib.formatAlert('info', `Admin / master change${lines.length > 1 ? `s (${lines.length})` : ''}`, [...lines.slice(0, 15), lines.length > 15 ? `…and ${lines.length - 15} more` : '']));
+}
+
+// ------------------------------------------------- new client / master ----
+// Creating an account used to send 3 messages (settings "new master", the
+// raw create request, and 3-5 money lines: parent debit, initial credit,
+// wallet per category). Now one message with everything, a few seconds
+// after the account appears (its brokerage / wallet rows are in by then).
+const CREATE_PATH = /^\/api\/(admin\/users|master\/users|master\/masters|masters)\/?$/i;
+const CREATION_NOTE = /new child|account creation|initial account/i;
+const NEW_ACCOUNT_WAIT_MS = 15_000;
+const createdAt = (doc) => (doc && doc._id && doc._id.getTimestamp ? doc._id.getTimestamp().getTime() : 0);
+
+/** Money rows written by the account-creation request itself (shown in the new-account message). */
+async function partOfCreation(c, t) {
+  const note = `${(t.metadata && t.metadata.note) || ''} ${t.description || ''} ${t.note || ''}`;
+  if (CREATION_NOTE.test(note)) return true;
+  const id = t.userId || t.master_id;
+  if (!id) return false;
+  const acct = await c.d.collection(t.master_id || t.userModel === 'Master' ? 'masters' : 'users').findOne({ _id: oid(id) }, { projection: { _id: 1 } })
+    || await c.d.collection('masters').findOne({ _id: oid(id) }, { projection: { _id: 1 } });
+  const born = createdAt(acct);
+  return !!born && t._id.getTimestamp().getTime() - born < 60_000;
+}
+
+function brokerageText(r) {
+  if (!r) return 'no brokerage set';
+  if (r.type === 'LOT WISE') return `₹${r.brk_value}/lot`;
+  if (r.type === 'TURNOVER WISE') return `${r.brk_value} turnover`;
+  return `${r.brk_value} ${String(r.type || '').toLowerCase()}`;
+}
+
+async function newAccountMessage(c, kind, id) {
+  const { d } = c;
+  const doc = await d.collection(kind).findOne({ _id: oid(id) });
+  if (!doc) return null;
+  const isClient = kind === 'users';
+  const born = createdAt(doc);
+  const action = await d.collection('adminactions').findOne({ method: 'POST', path: CREATE_PATH, 'body.username': doc.username, created_at: { $gte: new Date(born - 5 * 60_000) } }, { sort: { created_at: -1 } }).catch(() => null);
+  const parentId = doc.master_id ? String(doc.master_id) : null;
+  const parentDebit = parentId ? await d.collection('transactions').findOne({ userId: { $in: [oid(parentId), parentId] }, type: 'DEBIT', _id: { $gte: require('mongoose').mongo.ObjectId.createFromTime(Math.floor(born / 1000) - 120) } }, { sort: { _id: -1 } }) : null;
+  const brk = await d.collection('brokeragesettings').find({ user_id: { $in: [doc._id, String(doc._id)] }, deleted_at: null }).project({ exchange_name: 1, type: 1, brk_value: 1, script_name: 1 }).toArray();
+  // The rate the account pays on most scripts of each segment.
+  const tallies = new Map();
+  for (const r of brk) {
+    const raw = String(r.exchange_name).toUpperCase();
+    const seg = raw === 'GLOBAL' ? 'INDICES' : raw; // GLOBAL brokerage is kept under both names
+    const m = tallies.get(seg) || new Map();
+    const k = `${r.type}|${r.brk_value}`;
+    const e = m.get(k) || { n: 0, r };
+    e.n++;
+    m.set(k, e);
+    tallies.set(seg, m);
+  }
+  const usualBrk = new Map([...tallies].map(([seg, m]) => [seg, [...m.values()].sort((a, b) => b.n - a.n)[0].r]));
+  const groups = new Map((doc.script_quantity_groups || []).map((g) => [String(g.exchange_name).toUpperCase(), g.group_name]));
+  const wallet = Object.entries(doc.wallet || {}).filter(([, v]) => Number(v) > 0).map(([k, v]) => `${k} ${rupees(v)}`);
+
+  const lines = [
+    `Name: ${doc.name || '—'} · ID: ${doc.username}`,
+    `Under: ${parentId ? await whoFresh(c, parentId) : 'admin (top level)'}`,
+    `Created by: ${action ? actorOf(action) : 'not recorded'}`,
+    `Credit: ${rupees(doc.credits)}${parentDebit ? ` (taken from ${await whoFresh(c, parentId)})` : ''}`,
+    `Trade wallet: ${wallet.length ? wallet.join(' · ') : 'none'}`,
+    'Exchanges:',
+    ...((doc.exchanges_allowed || []).map((x) => {
+      const e = typeof x === 'string' ? { exchange_name: x } : x; // masters: plain names
+      const seg = String(e.exchange_name).toUpperCase();
+      const mode = e.lot ? 'lot' : e.turnover ? 'turnover' : '';
+      const group = e.group_name || groups.get(seg);
+      const rate = usualBrk.get(seg === 'GLOBAL' ? 'INDICES' : seg);
+      return `  • ${seg}${mode ? ` — ${mode}` : ''}${group ? ` · group ${group}` : ''} · brokerage ${brokerageText(rate)}`;
+    })),
+  ];
+  if ((doc.exchanges_allowed || []).length === 0) lines.push('  none');
+  if (doc.pnl_sharing != null || doc.brokerage_sharing != null) lines.push(`Sharing: P&L ${doc.pnl_sharing ?? 0}% · brokerage ${doc.brokerage_sharing ?? 0}%`);
+  if (!isClient) lines.push(`Can create sub-masters: ${doc.add_master ? 'yes' : 'no'}`);
+  if (isClient) {
+    const extra = [];
+    if (doc.margin_square_off) extra.push(`margin square-off at ${doc.margin_square_off_percentage ?? '—'}%`);
+    if (doc.close_only) extra.push('close-only ON');
+    if (doc.fresh_stoploss) extra.push('fresh stop-loss on');
+    if (doc.status && doc.status !== 'active') extra.push(`status ${doc.status}`);
+    if (extra.length) lines.push(`Settings: ${extra.join(' · ')}`);
+  }
+  return c.lib.formatAlert('info', `New ${isClient ? 'client' : 'master'} created: ${doc.username} ${doc.name || ''}`.trim(), lines);
+}
+
+/** Send the one-message summary for accounts created at least NEW_ACCOUNT_WAIT_MS ago. */
+async function newAccounts(c) {
+  const pending = c.state.newAccounts || {};
+  for (const [id, p] of Object.entries(pending)) {
+    if (Date.now() - p.seenAt < NEW_ACCOUNT_WAIT_MS) continue;
+    delete pending[id];
+    try {
+      const msg = await newAccountMessage(c, p.kind, id);
+      if (msg) c.send(msg);
+    } catch (e) { console.error('[watchdog] new account message:', e.message); }
+  }
 }
 
 /** Orders an admin or master placed for a client (any outcome), with who placed them. */
@@ -285,10 +384,14 @@ async function events(c) {
   const { d, raise, send, lib, who, hit, newDocs, MIN } = c;
 
   await auditEvents(c);
+  await newAccounts(c);
   await staffOrders(c);
 
-  // Money moved by admin / master (named from the transaction, else from the audit record).
-  const tx = await settledDocs(c, 'transactions', { type: { $in: MONEY_TYPES } }, { userId: 1, userModel: 1, type: 1, amount: 1, metadata: 1, description: 1 }, 'transactions');
+  // Money moved by admin / master (named from the transaction, else from the
+  // audit record). Rows written by an account's creation are in its summary.
+  const txAll = await settledDocs(c, 'transactions', { type: { $in: MONEY_TYPES } }, { userId: 1, userModel: 1, type: 1, amount: 1, metadata: 1, description: 1 }, 'transactions');
+  const tx = [];
+  for (const t of txAll) if (!(await partOfCreation(c, t))) tx.push(t);
   if (tx.length) {
     const lines = [];
     for (const t of tx.slice(0, 12)) {
@@ -303,7 +406,9 @@ async function events(c) {
     if (tx.length > 12) lines.push(`…and ${tx.length - 12} more`);
     send(lib.formatAlert('info', `Money action${tx.length > 1 ? `s (${tx.length})` : ''}`, lines));
   }
-  const ctx = await settledDocs(c, 'credittransactions', {}, { master_id: 1, admin_id: 1, transaction_type: 1, amount: 1, note: 1, actor_model: 1 }, 'credittransactions');
+  const ctxAll = await settledDocs(c, 'credittransactions', {}, { master_id: 1, admin_id: 1, transaction_type: 1, amount: 1, note: 1, actor_model: 1 }, 'credittransactions');
+  const ctx = [];
+  for (const t of ctxAll) if (!(await partOfCreation(c, t))) ctx.push(t);
   if (ctx.length) {
     const lines = [];
     for (const t of ctx.slice(0, 12)) {
@@ -384,11 +489,12 @@ const show = (v) => (v == null ? '—' : v === true ? 'on' : v === false ? 'off'
 const strip = (v) => JSON.parse(JSON.stringify(v ?? null, (k, x) => (k === '_id' ? undefined : x)));
 
 function exchangeDiff(before = [], after = []) {
-  const map = (list) => new Map((list || []).map((e) => [e.exchange_name, e]));
+  // Clients keep exchanges as objects, masters as plain names.
+  const map = (list) => new Map((list || []).map((e) => (typeof e === 'string' ? [e, { exchange_name: e }] : [e.exchange_name, e])));
   const b = map(before); const a = map(after);
   const out = [];
   for (const [name, e] of a) {
-    if (!b.has(name)) { out.push(`exchange ${name} added (${e.lot ? 'lot' : 'turnover'}, group ${e.group_name || '—'})`); continue; }
+    if (!b.has(name)) { out.push(`exchange ${name} added${e.lot != null || e.turnover != null ? ` (${e.lot ? 'lot' : 'turnover'}, group ${e.group_name || '—'})` : ''}`); continue; }
     const o = b.get(name);
     const ch = Object.keys({ ...o, ...e }).filter((k) => JSON.stringify(o[k]) !== JSON.stringify(e[k])).map((k) => `${k.replace(/_/g, ' ')} ${show(o[k])} → ${show(e[k])}`);
     if (ch.length) out.push(`${name}: ${ch.join(', ')}`);
@@ -430,9 +536,12 @@ async function settings(c) {
       if (first) continue;
       const before = prev[kind][id];
       const label = kind === 'users' ? `client ${await whoFresh(c, id)}` : `master ${doc.username} ${doc.name || ''}`.trim();
-      let diffs;
-      if (!before) diffs = [`new ${kind === 'users' ? 'client' : 'master'} created`];
-      else diffs = Object.keys(now).filter((f) => JSON.stringify(now[f]) !== JSON.stringify(before[f])).flatMap((f) => fieldDiff(f, before[f], now[f], who));
+      if (!before) {
+        // Reported as one full summary by newAccounts() a few seconds later.
+        (state.newAccounts || (state.newAccounts = {}))[id] = { kind, seenAt: Date.now() };
+        continue;
+      }
+      const diffs = Object.keys(now).filter((f) => JSON.stringify(now[f]) !== JSON.stringify(before[f])).flatMap((f) => fieldDiff(f, before[f], now[f], who));
       if (!diffs.length) continue;
       const a = await actionFor(c, id, null, 5 * 60_000);
       if (a) used[String(a._id)] = Date.now();
@@ -903,4 +1012,4 @@ async function slow(c) {
   if (p.day >= 1 && p.day <= 5 && p.hhmm >= '23:40' && !state.digests[`collusion ${p.ymd}`]) { state.digests[`collusion ${p.ymd}`] = true; await collusion(c); }
 }
 
-module.exports = { internal, events, slow, sendFillImages, _test: { certDaysLeft, spikeCatch, closedLots, exchangeDiff, fieldDiff, summarizeBody, COVERED_ACCOUNT, COVERED_MONEY, TRADE_EDIT } };
+module.exports = { internal, events, slow, sendFillImages, _test: { certDaysLeft, spikeCatch, closedLots, exchangeDiff, fieldDiff, summarizeBody, COVERED_ACCOUNT, COVERED_MONEY, TRADE_EDIT, CREATE_PATH, newAccountMessage, partOfCreation } };

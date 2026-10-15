@@ -46,3 +46,13 @@ test('a bulk brokerage edit is summarised, not dumped', () => {
   const s = w.summarizeBody({ user_id: ID, settings: Array.from({ length: 40 }, (_, i) => ({ exchange_name: 'NFO-FUT', script_name: `S${i}`, brk_value: 5 })) });
   expect(s).toBe('settings: 40 items (e.g. exchange_name=NFO-FUT script_name=S0 brk_value=5)');
 });
+
+test("a master's exchanges (plain names) read as added/removed", () => {
+  expect(w.exchangeDiff(['NFO-FUT'], ['NFO-FUT', 'GLOBAL'])).toEqual(['exchange GLOBAL added']);
+  expect(w.exchangeDiff(['NFO-FUT', 'MCX-FUT'], ['NFO-FUT'])).toEqual(['exchange MCX-FUT removed']);
+});
+
+test('account-creation requests are recognised (one summary instead of three messages)', () => {
+  for (const p of ['/api/admin/users', '/api/master/users', '/api/master/masters', '/api/masters']) expect(w.CREATE_PATH.test(p)).toBe(true);
+  expect(w.CREATE_PATH.test('/api/master/users/6accf69e5d53b458126f6b98/details')).toBe(false);
+});
