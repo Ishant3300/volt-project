@@ -95,16 +95,21 @@ async function drain() {
 }
 
 /** Queue a message (Telegram HTML). Resolves when the queue has been drained. */
+// No rupee sign in anything the bot sends (user's preference, 15 Oct 2026) —
+// amounts read as plain numbers. Done here so every message and caption,
+// including quoted server text, is covered.
+const noRupee = (t) => String(t ?? '').replace(/₹\s?/g, '');
+
 function send(text) {
   if (queue.length > 200) queue.splice(0, queue.length - 200); // never pile up without limit
-  queue.push({ text });
+  queue.push({ text: noRupee(text) });
   return drain();
 }
 
 /** Queue a photo (PNG buffer) with an HTML caption (max ~1000 chars). */
 function sendPhoto(photo, caption, filename) {
   if (queue.length > 200) queue.splice(0, queue.length - 200);
-  queue.push({ photo, text: String(caption || '').slice(0, 1000), filename });
+  queue.push({ photo, text: noRupee(caption).slice(0, 1000), filename });
   return drain();
 }
 

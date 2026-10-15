@@ -54,13 +54,13 @@ function fillHtml(f, candles) {
   <div class="bar">Market Movement for FUTSTK&nbsp; ${esc(f.sym)} &nbsp;&nbsp;TimeInterval: 1 min &nbsp;&nbsp;(${esc(day)})</div>
   <table><tr><th class="l">Time</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th></tr>${body}</table>
   ${f.rt ? quickBox(f, day) : `<div class="box"><h2>Client trade — ${esc(f.client)}</h2>
-    <p>${esc(f.side)} ${esc(f.qty)} ${esc(f.sym)} (${esc(f.ot)}) @ ₹${n2(f.price)}</p>
+    <p>${esc(f.side)} ${esc(f.qty)} ${esc(f.sym)} (${esc(f.ot)}) @ ${n2(f.price)}</p>
     <p>Executed: ${esc(day)}, ${esc(secs)} IST &nbsp;&nbsp; Trade ID: ${esc(f.id)}</p>
     ${own ? `<p>Exchange at ${hm12(fillMin)} ${ampm(fillMin)}: Low ${n2(own.low)} – High ${n2(own.high)} &nbsp;(${buy ? 'lowest' : 'highest'} within ±1 min: ${n2(buy ? lowNear : highNear)})</p>` : ''}
     ${f.spike ? `<p class="red">Filled at the ${buy ? 'low' : 'high'} edge of a fast minute: the exchange moved ${f.spike.rangePct.toFixed(2)}% in that minute and this ${esc(f.ot)} order filled within the outer ${Math.max(1, Math.round(f.spike.edgePct))}% of the range.</p>
     <p class="red">Exchange volume that minute: ${esc(own ? own.volume : '-')}${f.spike.volShare != null ? ` — this order alone = ${f.spike.volShare < 10 ? f.spike.volShare.toFixed(1) : Math.round(f.spike.volShare)}% of it` : ''}.</p>` : ''}
-    ${!f.spike && gap > 0 ? `<p class="red">The fill price ₹${n2(f.price)} never traded on the exchange in this period — ₹${n2(gap)} ${buy ? 'below the lowest' : 'above the highest'} traded price.</p>
-    <p class="red">Difference: ₹${n2(gap)} × ${esc(f.qty)} = ₹${n2(gap * Number(f.qty))}</p>` : ''}
+    ${!f.spike && gap > 0 ? `<p class="red">The fill price ${n2(f.price)} never traded on the exchange in this period — ${n2(gap)} ${buy ? 'below the lowest' : 'above the highest'} traded price.</p>
+    <p class="red">Difference: ${n2(gap)} × ${esc(f.qty)} = ${n2(gap * Number(f.qty))}</p>` : ''}
   </div>`}</body></html>`;
 }
 
@@ -70,9 +70,9 @@ function quickBox(f, day) {
   const t = (ms) => { const d = istDate(ms); return `${hm12(ms)}:${String(d.getUTCSeconds()).padStart(2, '0')} ${ampm(ms)}`; };
   const sign = (x) => (x >= 0 ? '+' : '');
   return `<div class="box"><h2>Quick profit — ${esc(f.client)}</h2>
-    <p><span style="color:#1e9e50;font-weight:700">Entry</span> ${esc(r.entrySide)} ${esc(f.qty)} ${esc(f.sym)} @ ₹${n2(r.entryPrice)} at ${t(r.entryAt)}</p>
-    <p><span style="color:#b38f00;font-weight:700">Exit</span> ${esc(f.side)} ${esc(f.qty)} @ ₹${n2(f.price)} at ${t(f.at)} IST (${esc(day)}) — held ${esc(r.held)}</p>
-    <p>Profit: <b>₹${n2(r.pnl)}</b> &nbsp;&nbsp; Trade ID: ${esc(f.id)}</p>
+    <p><span style="color:#1e9e50;font-weight:700">Entry</span> ${esc(r.entrySide)} ${esc(f.qty)} ${esc(f.sym)} @ ${n2(r.entryPrice)} at ${t(r.entryAt)}</p>
+    <p><span style="color:#b38f00;font-weight:700">Exit</span> ${esc(f.side)} ${esc(f.qty)} @ ${n2(f.price)} at ${t(f.at)} IST (${esc(day)}) — held ${esc(r.held)}</p>
+    <p>Profit: <b>${n2(r.pnl)}</b> &nbsp;&nbsp; Trade ID: ${esc(f.id)}</p>
     ${r.movePct != null ? `<p class="red">Exchange in that window: Low ${n2(r.lo)} – High ${n2(r.hi)} (${r.movePct.toFixed(2)}% range, ${sign(r.dirPct)}${r.dirPct.toFixed(2)}% open→close)${r.volX != null ? `, volume ${r.volX.toFixed(1)}× the previous 30 minutes` : ''}.</p>` : ''}
   </div>`;
 }
