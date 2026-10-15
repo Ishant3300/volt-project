@@ -885,7 +885,7 @@ async function fillCheck(c) {
           st.spikes = (st.spikes || 0) + 1;
           win.spikes = win.spikes || [];
           if (win.spikes.length < 60) {
-            win.spikes.push({ user: f.user, line: `${f.sym} ${f.side} ${f.qty} ${f.ot} @ ${f.price} at ${istStr(f.at).slice(11)} · minute ${own.low}–${own.high} (${spike.rangePct.toFixed(2)}% move), fill in the outer ${Math.round(spike.edgePct)}% · exchange volume ${own.volume}${spike.volShare != null ? ` (client qty = ${spike.volShare < 10 ? spike.volShare.toFixed(1) : Math.round(spike.volShare)}% of it)` : ''}`,
+            win.spikes.push({ user: f.user, ex: { low: own.low, high: own.high, volume: own.volume }, line: `${f.sym} ${f.side} ${f.qty} ${f.ot} @ ${f.price} at ${istStr(f.at).slice(11)} · minute ${own.low}–${own.high} (${spike.rangePct.toFixed(2)}% move), fill in the outer ${Math.round(spike.edgePct)}% · exchange volume ${own.volume}${spike.volShare != null ? ` (client qty = ${spike.volShare < 10 ? spike.volShare.toFixed(1) : Math.round(spike.volShare)}% of it)` : ''}`,
               spike, fill: { id: f.id, token: f.token, sym: f.sym, side: f.side, qty: f.qty, ot: f.ot, price: f.price, at: f.at } });
           }
         }
@@ -897,7 +897,7 @@ async function fillCheck(c) {
       st.better++;
       st.gain[f.user] = (st.gain[f.user] || 0) + gap * f.qty;
       if (win.better.length < 60) {
-        win.better.push({ user: f.user, line: `${f.sym} ${f.side} ${f.qty} ${f.ot} @ ${f.price} at ${istStr(f.at).slice(11)} · exchange ${own.low}–${own.high} (±1 min ${low}–${high})`, value: gap * f.qty,
+        win.better.push({ user: f.user, ex: { low, high }, line: `${f.sym} ${f.side} ${f.qty} ${f.ot} @ ${f.price} at ${istStr(f.at).slice(11)} · exchange ${own.low}–${own.high} (±1 min ${low}–${high})`, value: gap * f.qty,
           fill: { id: f.id, token: f.token, sym: f.sym, side: f.side, qty: f.qty, ot: f.ot, price: f.price, at: f.at } });
       }
     }
@@ -1037,23 +1037,35 @@ async function fillReport(c) {
   win.spikes = win.spikes || [];
   if (!win.checked && !win.better.length) return; // nothing traded on Kite exchanges this hour
   const total = win.better.reduce((s2, b) => s2 + b.value, 0);
+  // Plain-language report: what was checked, then only what needs a look —
+  // each trade on two short lines (who / what, then the market and the money).
+  const n2 = (x) => Number(x).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const hm = (ms) => istStr(ms).slice(11, 16);
+  const sym = (t) => String(t).replace(/^(.*?)(\d{2})([A-Z]{3})FUT$/, '$1 $3 FUT');
+  const quick = (win.quick || []).slice().sort((a, b) => Number(b.heavy) - Number(a.heavy) || b.value - a.value);
+  const heavyN = quick.filter((x) => x.heavy).length;
+  const gap = ' ';
   const lines = [
-    `Checked ${win.checked} fill(s) against the exchange's 1-minute candles.`,
-    win.better.length ? `Better than the market: ${win.better.length} — ${rupees(total)} in clients' favour` : '✅ No fill better than the market.',
-    ...win.better.slice(0, 20).map((b) => `• ${who(b.user)} · ${b.line} · ${rupees(b.value)}`),
-    win.better.length > 20 ? `…and ${win.better.length - 20} more` : '',
-    win.worse ? `Worse than the market: ${win.worse} (normal for market orders in a thin minute)` : '',
-    win.spikes.length ? `Caught a spike edge (LIMIT/SL filled at the extreme of a fast minute): ${win.spikes.length}` : '',
-    ...win.spikes.slice(0, 15).map((b) => `• ${who(b.user)} · ${b.line}`),
-    ...(() => {
-      const qs = (win.quick || []).slice().sort((a, b) => Number(b.heavy) - Number(a.heavy) || b.value - a.value);
-      if (!qs.length) return [];
-      const heavyN = qs.filter((x) => x.heavy).length;
-      return [
-        `Quick profits (closed within ${QUICK_MAX_MIN()} min): ${qs.length} — ${rupees(qs.reduce((s2, x) => s2 + x.value, 0))}${heavyN ? ` · ⚠ ${heavyN} during a heavy move` : ''}`,
-        ...qs.slice(0, 15).map((x) => `${x.heavy ? '⚠' : '•'} ${who(x.user)} · ${x.line}`),
-      ];
-    })(),
+    `${win.checked} trade${win.checked === 1 ? '' : 's'} checked against the exchange's prices${win.better.length ? '' : ' · all at fair market prices ✅'}`,
+    ...(win.better.length ? [gap, `⚠ At a price the market never traded (${win.better.length}) · ${rupees(total)} in clients' favour`,
+      ...win.better.slice(0, 20).flatMap((b) => [`• ${who(b.user)} · ${sym(b.fill.sym)}`,
+        `   ${b.fill.side} ${b.fill.qty} @ ${n2(b.fill.price)} at ${hm(b.fill.at)} · market was ${n2(b.ex?.low)}–${n2(b.ex?.high)} · difference ${rupees(b.value)}`]),
+      win.better.length > 20 ? `…and ${win.better.length - 20} more` : ''] : []),
+    ...(win.spikes.length ? [gap, `⚡ Filled at the edge of a sudden spike (${win.spikes.length})`,
+      ...win.spikes.slice(0, 15).flatMap((b) => [`• ${who(b.user)} · ${sym(b.fill.sym)}`,
+        `   ${b.fill.side} ${b.fill.qty} @ ${n2(b.fill.price)} at ${hm(b.fill.at)} · that minute ${n2(b.ex?.low)}–${n2(b.ex?.high)} (${b.spike.rangePct.toFixed(1)}% move)${b.spike.volShare != null ? ` · client was ${b.spike.volShare < 10 ? b.spike.volShare.toFixed(1) : Math.round(b.spike.volShare)}% of its volume` : ''}`])] : []),
+    ...(quick.length ? [gap, `⏱ Quick profits — closed within ${QUICK_MAX_MIN()} min (${quick.length}) · total ${rupees(quick.reduce((s2, x) => s2 + x.value, 0))}${heavyN ? ` · ⚠ ${heavyN} in a heavy move` : ''}`,
+      ...quick.slice(0, 15).flatMap((x) => {
+        const r = x.rt || {};
+        const exit = r.entrySide === 'BUY' ? 'Sell' : 'Buy';
+        const mins = Math.max(1, Math.round((x.fill.at - r.entryAt) / 60000));
+        const mkt = r.movePct == null ? '' : x.heavy
+          ? `⚠ heavy move: ${r.movePct.toFixed(1)}%${r.volX != null ? `, volume ${r.volX.toFixed(1)}× normal` : ''}`
+          : `normal market (moved ${r.movePct.toFixed(1)}%)`;
+        return [`${x.heavy ? '⚠' : '•'} ${who(x.user)} · ${sym(x.fill.sym)} · ${x.fill.qty} qty`,
+          `   ${r.entrySide === 'BUY' ? 'Buy' : 'Sell'} ${n2(r.entryPrice)} at ${hm(r.entryAt)} → ${exit} ${n2(x.fill.price)} at ${hm(x.fill.at)} (${mins} min) · profit ${rupees(x.value)}`,
+          mkt ? `   ${mkt}` : ''];
+      })] : []),
   ];
   send(lib.formatAlert(win.better.length || win.spikes.length || (win.quick || []).some((x) => x.heavy) ? 'warning' : 'info', `Fill check ${hhmm(prevMark)}–${hhmm(m)}`, lines));
   // One forwardable image per flagged fill (max 10 per report): exchange minutes ±12 min + the trade.
@@ -1107,4 +1119,4 @@ async function slow(c) {
   if (p.day >= 1 && p.day <= 5 && p.hhmm >= '23:40' && !state.digests[`collusion ${p.ymd}`]) { state.digests[`collusion ${p.ymd}`] = true; await collusion(c); }
 }
 
-module.exports = { internal, events, slow, sendFillImages, _test: { brokerageLines, certDaysLeft, spikeCatch, closedLots, exchangeDiff, fieldDiff, summarizeBody, COVERED_ACCOUNT, COVERED_MONEY, TRADE_EDIT, CREATE_PATH, newAccountMessage, partOfCreation } };
+module.exports = { internal, events, slow, sendFillImages, _test: { fillReport, brokerageLines, certDaysLeft, spikeCatch, closedLots, exchangeDiff, fieldDiff, summarizeBody, COVERED_ACCOUNT, COVERED_MONEY, TRADE_EDIT, CREATE_PATH, newAccountMessage, partOfCreation } };
