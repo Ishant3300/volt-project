@@ -247,10 +247,23 @@ async function brokerageSnapshot(d) {
   return brkSnap.rows;
 }
 
-/** Readable lines for one brokerage action, or null when it isn't one. */
+/** True when `id` is a client/master created within 3 minutes before `at` (part of its creation). */
+async function justCreated(c, id, at) {
+  if (!id) return false;
+  const acct = await c.d.collection('users').findOne({ _id: oid(id) }, { projection: { _id: 1 } }) || await c.d.collection('masters').findOne({ _id: oid(id) }, { projection: { _id: 1 } });
+  const born = createdAt(acct);
+  const t = new Date(at || Date.now()).getTime();
+  return !!born && t - born >= -5_000 && t - born < 180_000;
+}
+
+/**
+ * Readable lines for one brokerage action; null when it isn't one, [] when
+ * it's part of creating an account (the new-account summary shows the rates).
+ */
 async function brokerageLines(c, a) {
   if (!BRK_PATH.test(a.path)) return null;
   const { d } = c;
+  if (a.body && a.body.user_id && await justCreated(c, a.body.user_id, a.created_at)) return [];
   const snap = await brokerageSnapshot(d);
   const body = a.body || {};
   const listed = (Array.isArray(body.ids) ? body.ids : []).filter((x) => /^[a-f0-9]{24}$/i.test(String(x)));
@@ -266,6 +279,11 @@ async function brokerageLines(c, a) {
     return [...bySeg].map(([k, n]) => { const [seg, type, v] = k.split('|'); return `${owner} · ${seg} · ${n} script${n > 1 ? 's' : ''}: ${a.method === 'DELETE' ? 'removed' : `added at ${rateText(type, v)}`}`; });
   }
   const rows = await d.collection('brokeragesettings').find({ _id: { $in: ids.map(oid).filter(Boolean) } }).project({ user_id: 1, exchange_name: 1, script_name: 1, brk_value: 1, type: 1, deleted_at: 1 }).toArray();
+  const owners = [...new Set(rows.map((r) => String(r.user_id || '')))];
+  if (owners.length === 1 && owners[0] && await justCreated(c, owners[0], a.created_at)) {
+    for (const r of rows) snap.set(String(r._id), { v: body.brk_value ?? r.brk_value, type: body.type || r.type });
+    return [];
+  }
   const groups = new Map();
   for (const r of rows) {
     const k = `${r.user_id || 'default'}|${r.exchange_name}`;
@@ -326,7 +344,7 @@ async function auditEvents(c) {
       continue;
     }
     const brk = await brokerageLines(c, a);
-    if (brk) { brkLines.push(...brk.map((l) => `${l} · by ${by}`)); continue; }
+    if (brk) { brkLines.push(...brk.map((l) => `${l} · by ${by}`)); continue; } // [] = part of an account's creation
     const label = (ACTION_LABELS.find(([re]) => re.test(a.path)) || [null, a.path.replace(/^\/api\//, '')])[1];
     lines.push(`${by} ${VERB[a.method] || a.method} ${label}${targets ? ` for ${targets}` : ''}${a.body ? ` · ${summarizeBody(a.body)}` : ''}`);
   }
@@ -341,7 +359,8 @@ async function auditEvents(c) {
 // wallet per category). Now one message with everything, a few seconds
 // after the account appears (its brokerage / wallet rows are in by then).
 const CREATE_PATH = /^\/api\/(admin\/users|master\/users|master\/masters|masters)\/?$/i;
-const CREATION_NOTE = /new child|account creation|initial account/i;
+// "Deducted balance for new child master creation" / "…for new user creation" / "Initial account creation funding"
+const CREATION_NOTE = /new (child|user|client|master|sub)|account creation|initial account/i;
 const NEW_ACCOUNT_WAIT_MS = 15_000;
 const createdAt = (doc) => (doc && doc._id && doc._id.getTimestamp ? doc._id.getTimestamp().getTime() : 0);
 
