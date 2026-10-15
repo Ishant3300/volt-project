@@ -1005,6 +1005,7 @@ async function slow(c) {
   if (due('slow:expiry', 5 * MIN)) await expiry(c);
   if (due('slow:weekly', 5 * MIN)) await weekly(c);
   if (due('slow:db', 30 * MIN)) await dbLimits(c);
+  if (due('slow:notices', 60_000)) { try { await require('./notices').run(c); } catch (e) { console.error('[watchdog] notices:', e.message); } }
   if (due('slow:fills', 60_000)) { try { await fillCheck(c); } catch (e) { console.error('[watchdog] fill check:', e.message); } }
   try { await fillReport(c); } catch (e) { console.error('[watchdog] fill report:', e.message); }
   const p = lib.istParts();
