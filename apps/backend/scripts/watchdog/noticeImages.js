@@ -84,13 +84,13 @@ const CSS = `
 function page({ title, subtitle, date, body }) {
   return `<!doctype html><html><head><meta charset="utf-8"><style>${CSS}</style></head><body><div class="card">
     <div class="head">
-      <div class="brand"><div class="logo">V</div><div><div class="bname">VOLT</div><div class="bsub">Trading notice</div></div></div>
+      <div class="brand"><div class="logo">V</div><div><div class="bname">VOLT</div><div class="bsub">Announcement</div></div></div>
       ${date ? `<div class="date">${esc(date)}</div>` : ''}
       <div class="title">${esc(title)}</div>
       ${subtitle ? `<div class="subtitle">${esc(subtitle)}</div>` : ''}
     </div>
     <div class="body">${body}</div>
-    <div class="foot"><span>Volt · automatic notice</span><span>${esc(nowIst())}</span></div>
+    <div class="foot"><span>Volt</span><span>${esc(nowIst())}</span></div>
   </div></body></html>`;
 }
 
