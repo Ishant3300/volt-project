@@ -501,6 +501,21 @@ async function fetchInstruments() {
       }
     }
 
+    // Expiry management for stocks added in the last 7 days: only the current
+    // futures month open until the planner opens the next one for everyone.
+    try {
+      const svc = require('../src/services/newNfoStockService');
+      const recent = svc.loadAutoAddedDates().filter((x) => Date.now() - x.at.getTime() < 7 * 864e5).map((x) => x.name);
+      const closedFar = await svc.closeFarFutures(mongoose.connection.db, recent);
+      if (closedFar.length) {
+        console.log(`🔒 New stocks: closed ${closedFar.length} far-month future(s): ${closedFar.join(', ')}`);
+        notifyTelegram(`New F&O stocks, expiry schedule applied: ${closedFar.join(', ')}. Only the current month trades until the next one opens for everyone.`);
+      }
+    } catch (e) {
+      console.error('❌ New stocks expiry step failed:', e.message);
+      notifyTelegram(`New F&O stocks: closing their far-month futures FAILED (${e.message}). Check Expiry management before the open.`);
+    }
+
     // Mark instruments no longer in Kite's feed as inactive
     // Exclude synthetic tokens (9999xxx) and instruments that never come from
     // Kite: GLOBAL/SGX (manually seeded), NSEIX — the GIFT NIFTY monthly

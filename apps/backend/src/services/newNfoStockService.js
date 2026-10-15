@@ -261,6 +261,57 @@ function appendAutoAdded(stocks, how, file = AUTO_LIST, now = new Date()) {
   return lines.length;
 }
 
+/** Auto-added names with when they were added. */
+function loadAutoAddedDates(file = AUTO_LIST) {
+  if (!fs.existsSync(file)) return [];
+  return fs.readFileSync(file, 'utf8').split('\n').slice(1).map((l) => l.split(',')).filter((p) => p[0])
+    .map(([name, , at]) => ({ name: name.trim().toUpperCase(), at: new Date(at) }));
+}
+
+const dayKey = (d) => new Date(d).toISOString().slice(0, 10);
+
+/**
+ * Expiry management for newly added stocks' futures, same as every other
+ * stock: only the current month trades; a later month opens when the NSE
+ * futures OPEN action runs for everyone. The expiry planner only closes
+ * contracts first created after its cut-off, so a stock whose contracts were
+ * already in the database (inactive, from an earlier import) came back with
+ * NOV/DEC open (ANANDRATHI and 5 others, 15 Oct 2026). Options need nothing:
+ * the NFO options reconcile closes far expiries for every name.
+ *
+ * A far month stays open only if that month was already opened for everyone
+ * (a done NSE_FUT OPEN action targets it). Safe to run again: it only ever
+ * matches what the planner has done for the other stocks.
+ */
+async function closeFarFutures(db, names, now = new Date()) {
+  if (!names.length) return [];
+  const today = new Date(`${dayKey(now)}T00:00:00Z`);
+  const futs = await db.collection('kiteinstruments').find({
+    name: { $in: names }, segment: 'NFO-FUT', instrument_type: 'FUT', is_active: true, deleted_at: null, expiry: { $gte: today },
+  }).project({ name: 1, expiry: 1, enabled: 1, tradingsymbol: 1 }).toArray();
+  const actions = await db.collection('expiryactions').find({ group_key: 'NSE_FUT', kind: 'OPEN', status: { $in: ['planned', 'confirmed', 'paused', 'running', 'done'] } })
+    .project({ status: 1, action_date: 1, targets: 1 }).sort({ action_date: 1 }).toArray();
+  const opened = new Set(); const openOn = new Map();
+  for (const a of actions) {
+    for (const t of a.targets || []) {
+      const k = dayKey(t.expiry);
+      if (a.status === 'done' || a.status === 'running') opened.add(k);
+      else if (!openOn.has(k)) openOn.set(k, a.action_date);
+    }
+  }
+  const nearest = new Map();
+  for (const f of futs) { const t = new Date(f.expiry).getTime(); if (!nearest.has(f.name) || t < nearest.get(f.name)) nearest.set(f.name, t); }
+  const closed = [];
+  for (const f of futs) {
+    const k = dayKey(f.expiry);
+    if (new Date(f.expiry).getTime() === nearest.get(f.name) || opened.has(k) || f.enabled === false) continue;
+    const reason = openOn.has(k) ? `Opens for trading on ${openOn.get(k)}` : 'Opens for trading per the NFO expiry schedule';
+    const res = await db.collection('kiteinstruments').updateOne({ _id: f._id, enabled: { $ne: false } }, { $set: { enabled: false, ban_reason: reason, banned_at: now } });
+    if (res.modifiedCount) closed.push(`${f.tradingsymbol} (${reason.replace('Opens for trading ', 'opens ')})`);
+  }
+  return closed;
+}
+
 /** Telegram message for a run (plain text). */
 function describeRun({ ready = [], notReady = [], others = [], problems = [], counts }) {
   const out = [];
@@ -274,4 +325,4 @@ function describeRun({ ready = [], notReady = [], others = [], problems = [], co
   return out.join('\n');
 }
 
-module.exports = { loadAutoAdded, appendAutoAdded, describeRun, AUTO_LIST, findNewNfoNames, planNewNfoStocks, applyPlan, verifyStocks, groupRules, INDEX_NAMES, GROUP_OVERRIDES };
+module.exports = { loadAutoAdded, loadAutoAddedDates, closeFarFutures, appendAutoAdded, describeRun, AUTO_LIST, findNewNfoNames, planNewNfoStocks, applyPlan, verifyStocks, groupRules, INDEX_NAMES, GROUP_OVERRIDES };

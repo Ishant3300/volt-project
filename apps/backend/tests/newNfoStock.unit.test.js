@@ -56,3 +56,43 @@ test('the Telegram text names what was added, what was held back and why', () =>
   expect(text).toContain('RADICO — NFO-FUT limits 100/139');
   expect(text).toContain('NIFTYNXT50');
 });
+
+// Expiry management for new stocks (real case 15 Oct 2026: ANANDRATHI etc.
+// came back with NOV/DEC futures open because their contracts already existed).
+const { closeFarFutures } = require('../src/services/newNfoStockService');
+
+function fakeDb(futs, actions) {
+  const updates = [];
+  const cursor = (rows) => ({ project() { return this; }, sort() { return this; }, toArray: async () => rows });
+  return {
+    updates,
+    collection: (name) => (name === 'kiteinstruments'
+      ? { find: () => cursor(futs), updateOne: async (q, u) => { const f = futs.find((x) => x._id === q._id); if (!f || f.enabled === false) return { modifiedCount: 0 }; Object.assign(f, u.$set); updates.push(f.tradingsymbol); return { modifiedCount: 1 }; } }
+      : { find: () => cursor(actions) }),
+  };
+}
+const fut = (sym, exp, enabled = true) => ({ _id: sym, name: sym.replace(/26(OCT|NOV|DEC)FUT$/, ''), tradingsymbol: sym, expiry: new Date(`${exp}T00:00:00Z`), enabled });
+const NOW = new Date('2026-10-15T02:00:00Z');
+
+test('a new stock trades only the current month; later months wait for their planned opening', async () => {
+  const db = fakeDb([fut('ANANDRATHI26OCTFUT', '2026-10-27'), fut('ANANDRATHI26NOVFUT', '2026-11-23'), fut('ANANDRATHI26DECFUT', '2026-12-29')], [
+    { status: 'planned', action_date: '2026-10-26', targets: [{ name: 'ASIANPAINT', expiry: new Date('2026-11-23T00:00:00Z') }] },
+    { status: 'planned', action_date: '2026-11-23', targets: [{ name: 'ASIANPAINT', expiry: new Date('2026-12-29T00:00:00Z') }] },
+  ]);
+  const closed = await closeFarFutures(db, ['ANANDRATHI'], NOW);
+  expect(db.updates).toEqual(['ANANDRATHI26NOVFUT', 'ANANDRATHI26DECFUT']);
+  expect(closed[0]).toBe('ANANDRATHI26NOVFUT (opens on 2026-10-26)');
+});
+
+test('a month already opened for everyone stays open (listed in expiry week)', async () => {
+  const db = fakeDb([fut('RADICO26OCTFUT', '2026-10-27'), fut('RADICO26NOVFUT', '2026-11-23')], [
+    { status: 'done', action_date: '2026-10-26', targets: [{ name: 'ASIANPAINT', expiry: new Date('2026-11-23T00:00:00Z') }] },
+  ]);
+  expect(await closeFarFutures(db, ['RADICO'], NOW)).toEqual([]);
+});
+
+test('already-closed contracts and other names are left alone', async () => {
+  const db = fakeDb([fut('ENRIN26OCTFUT', '2026-10-27'), fut('ENRIN26NOVFUT', '2026-11-23', false)], []);
+  expect(await closeFarFutures(db, ['ENRIN'], NOW)).toEqual([]);
+  expect(await closeFarFutures(db, [], NOW)).toEqual([]);
+});
