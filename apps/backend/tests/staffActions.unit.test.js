@@ -63,13 +63,27 @@ test("a client's first-login password change reads plainly", () => {
   expect(w.fieldDiff('change_pass_on_first_login', false, true, who)).toEqual(['must set a new password at next login']);
 });
 
-test('a brokerage edit reads as account · segment · scripts: old → new', async () => {
-  const id1 = '6ad06f6b5dc2afa427001a5a'; const id2 = '6ad06f6b5dc2afa427001a5b';
-  const rows = [{ _id: { toString: () => id1 }, user_id: 'm1', exchange_name: 'MCX-FUT', script_name: 'GOLD', brk_value: 150, type: 'LOT WISE' },
-    { _id: { toString: () => id2 }, user_id: 'm1', exchange_name: 'MCX-FUT', script_name: 'SILVER', brk_value: 150, type: 'LOT WISE' }];
-  const cur = (list) => ({ project() { return this; }, toArray: async () => list });
-  const d = { collection: (n) => ({ find: (q) => cur(n === 'brokeragesettings' && q._id ? rows : rows.map((r) => ({ ...r, brk_value: 100 }))), findOne: async () => null }) };
+test('a brokerage edit reads as account · segment · scripts: old → new; a re-save at the same rate says nothing', async () => {
+  const { ObjectId } = require('mongoose').mongo;
+  const born = Math.floor(Date.now() / 1000) - 3600; // rows created an hour ago
+  const id1 = ObjectId.createFromTime(born); const id2 = ObjectId.createFromTime(born + 1);
+  let current = 100;
+  const rows = () => [{ _id: id1, user_id: 'm1', exchange_name: 'MCX-FUT', script_name: 'GOLD', brk_value: current, type: 'LOT WISE' },
+    { _id: id2, user_id: 'm1', exchange_name: 'MCX-FUT', script_name: 'SILVER', brk_value: current, type: 'LOT WISE' }];
+  const cur = (list) => ({ project() { return this; }, sort() { return this; }, limit() { return this; }, toArray: async () => list });
+  const d = { collection: () => ({ find: () => cur(rows()), findOne: async () => null }) };
   const c = { d, who: () => 'master 833704 JNL' };
-  const lines = await w.brokerageLines(c, { path: '/api/admin/brokerage-settings/bulk-update', method: 'PUT', body: { ids: [id1, id2], brk_value: 150, type: 'LOT WISE' } });
-  expect(lines).toEqual(['master 833704 JNL · MCX-FUT · 2 scripts: 100 per lot → 150 per lot']);
+  const act = (v) => ({ path: '/api/admin/brokerage-settings/bulk-update', method: 'PUT', created_at: new Date(), body: { ids: [String(id1), String(id2)], brk_value: v, type: 'LOT WISE' } });
+  await w.brokerageChanges(c, { path: '/x', body: {} }); // not brokerage
+  const snapWarm = await w.brokerageChanges(c, act(100)); // first sight loads the snapshot (rates 100)
+  expect(await w.brokerageChangeLines(c, snapWarm.map((g) => ({ by: 'admin S', g })))).toEqual([]); // 100 → 100: nothing
+  current = 150;
+  const changed = await w.brokerageChanges(c, act(150));
+  expect(await w.brokerageChangeLines(c, changed.map((g) => ({ by: 'admin S', g })))).toEqual(['master 833704 JNL · MCX-FUT · 2 scripts: 100 per lot → 150 per lot · by admin S']);
+});
+
+test("a client's first-login password change reads plainly", () => {
+  const who = (id) => id;
+  expect(w.fieldDiff('change_pass_on_first_login', true, false, who)).toEqual(['set their own password (first login)']);
+  expect(w.fieldDiff('change_pass_on_first_login', false, true, who)).toEqual(['must set a new password at next login']);
 });

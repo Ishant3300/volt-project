@@ -175,9 +175,12 @@ const ACTION_LABELS = [
 ];
 const VERB = { POST: 'added/ran', PUT: 'changed', PATCH: 'changed', DELETE: 'removed' };
 
+let NAMES = null; // the watchdog's account names, set by events()
 function actorOf(a) {
   if (!a) return '';
-  return `${a.actor_type} ${a.actor_username || String(a.actor_id).slice(-6)}`;
+  const rec = NAMES && (a.actor_type === 'master' ? NAMES.masters : NAMES.admins).get(String(a.actor_id));
+  const name = rec && rec.name && rec.name !== a.actor_username ? ` ${rec.name}` : '';
+  return `${a.actor_type} ${a.actor_username || String(a.actor_id).slice(-6)}${name}`;
 }
 
 async function whoFresh(c, id) {
@@ -235,15 +238,27 @@ function summarizeBody(body) {
 // brokerage row (id → account, segment, rate) gives "JNL (833704) · NFO-FUT ·
 // 228 scripts: 1 → 1.5 turnover". Loaded once, then kept current for every
 // row an action touches.
-const brkSnap = { rows: null, at: 0 };
+const brkSnap = { rows: null, at: 0, lastId: null };
 const BRK_PATH = /\/brokerage-settings(\/|$)/;
 const rateText = (type, v) => (v == null ? '—' : type === 'LOT WISE' ? `${v} per lot` : type === 'TURNOVER WISE' ? `${v} turnover` : `${v} ${String(type || '').toLowerCase()}`);
 
+/** Every brokerage row's rate (id → value). Full load every 30 min; rows created since are added each cycle. */
 async function brokerageSnapshot(d) {
-  if (brkSnap.rows && Date.now() - brkSnap.at < 30 * 60_000) return brkSnap.rows;
-  const rows = await d.collection('brokeragesettings').find({ deleted_at: null }).project({ brk_value: 1, type: 1 }).toArray();
-  brkSnap.rows = new Map(rows.map((r) => [String(r._id), { v: r.brk_value, type: r.type }]));
-  brkSnap.at = Date.now();
+  const coll = d.collection('brokeragesettings');
+  if (!brkSnap.rows || Date.now() - brkSnap.at > 30 * 60_000) {
+    const rows = await coll.find({ deleted_at: null }).project({ brk_value: 1, type: 1 }).toArray();
+    brkSnap.rows = new Map(rows.map((r) => [String(r._id), { v: r.brk_value, type: r.type }]));
+    brkSnap.lastId = rows.reduce((m, r) => (!m || String(r._id) > m ? String(r._id) : m), null);
+    brkSnap.at = Date.now();
+    return brkSnap.rows;
+  }
+  if (brkSnap.lastId) {
+    const fresh = await coll.find({ _id: { $gt: oid(brkSnap.lastId) } }).project({ brk_value: 1, type: 1 }).sort({ _id: 1 }).limit(20000).toArray();
+    for (const r of fresh) {
+      if (!brkSnap.rows.has(String(r._id))) brkSnap.rows.set(String(r._id), { v: r.brk_value, type: r.type });
+      brkSnap.lastId = String(r._id);
+    }
+  }
   return brkSnap.rows;
 }
 
@@ -257,60 +272,99 @@ async function justCreated(c, id, at) {
 }
 
 /**
- * Readable lines for one brokerage action; null when it isn't one, [] when
- * it's part of creating an account (the new-account summary shows the rates).
+ * What one brokerage request did, per account+segment: { owner, seg, before
+ * (rate → rows that already existed), after (rate → rows), added (rows this
+ * same save created) }. null when it isn't a brokerage request, [] when it is
+ * part of creating an account (the new-account summary shows the rates).
  */
-async function brokerageLines(c, a) {
+async function brokerageChanges(c, a) {
   if (!BRK_PATH.test(a.path)) return null;
   const { d } = c;
-  if (a.body && a.body.user_id && await justCreated(c, a.body.user_id, a.created_at)) return [];
   const snap = await brokerageSnapshot(d);
   const body = a.body || {};
-  const listed = (Array.isArray(body.ids) ? body.ids : []).filter((x) => /^[a-f0-9]{24}$/i.test(String(x)));
-  const more = (Array.isArray(body.ids) ? body.ids : []).map((x) => String(x).match(/^…(\d+) more$/)).filter(Boolean).reduce((s, m) => s + Number(m[1]), 0);
+  if (body.user_id && await justCreated(c, body.user_id, a.created_at)) return [];
+  const actionAt = new Date(a.created_at || Date.now()).getTime();
+  const rawIds = Array.isArray(body.ids) ? body.ids : [];
+  const listed = rawIds.filter((x) => /^[a-f0-9]{24}$/i.test(String(x)));
+  const more = rawIds.map((x) => String(x).match(/^…(\d+) more$/)).filter(Boolean).reduce((s2, m) => s2 + Number(m[1]), 0);
   const single = a.path.match(/\/brokerage-settings\/([a-f0-9]{24})$/i);
   const ids = single ? [single[1]] : listed;
+  const value = body.brk_value ?? body.default_brk_value;
   if (!ids.length) {
-    // New rows (create / bulk-create): who and what, from the request.
-    const owner = body.user_id ? await whoFresh(c, body.user_id) : 'platform default';
-    const items = Array.isArray(body.settings) ? body.settings : Array.isArray(body.items) ? body.items : [body];
-    const bySeg = new Map();
-    for (const it of items) { const k = `${it.exchange_name || body.exchange_name || '?'}|${it.type || body.type || ''}|${it.brk_value ?? body.brk_value}`; bySeg.set(k, (bySeg.get(k) || 0) + 1); }
-    return [...bySeg].map(([k, n]) => { const [seg, type, v] = k.split('|'); return `${owner} · ${seg} · ${n} script${n > 1 ? 's' : ''}: ${a.method === 'DELETE' ? 'removed' : `added at ${rateText(type, v)}`}`; });
+    // create / bulk-create: rows for the scripts that had none, at the given rate.
+    const g = { owner: body.user_id || null, seg: body.exchange_name || '?', before: new Map(), after: new Map(), added: 0, total: 0, removed: a.method === 'DELETE' };
+    if (!g.removed) g.createRate = rateText(body.type, value);
+    return [g];
   }
   const rows = await d.collection('brokeragesettings').find({ _id: { $in: ids.map(oid).filter(Boolean) } }).project({ user_id: 1, exchange_name: 1, script_name: 1, brk_value: 1, type: 1, deleted_at: 1 }).toArray();
   const owners = [...new Set(rows.map((r) => String(r.user_id || '')))];
   if (owners.length === 1 && owners[0] && await justCreated(c, owners[0], a.created_at)) {
-    for (const r of rows) snap.set(String(r._id), { v: body.brk_value ?? r.brk_value, type: body.type || r.type });
+    for (const r of rows) snap.set(String(r._id), { v: value ?? r.brk_value, type: body.type || r.type });
     return [];
   }
   const groups = new Map();
   for (const r of rows) {
-    const k = `${r.user_id || 'default'}|${r.exchange_name}`;
-    const g = groups.get(k) || { owner: r.user_id, seg: r.exchange_name, n: 0, before: new Map(), after: new Map(), removed: 0, script: r.script_name };
+    const k = `${r.user_id || ''}|${r.exchange_name}`;
+    const g = groups.get(k) || { owner: r.user_id ? String(r.user_id) : null, seg: r.exchange_name, before: new Map(), after: new Map(), added: 0, total: 0, removed: false, script: r.script_name };
     const old = snap.get(String(r._id));
-    const ob = old ? rateText(old.type, old.v) : 'new';
-    // The request's own value: a second edit of the same rows seconds later
-    // must not show up as this one's result.
-    const newV = body.brk_value != null && !single ? Number(body.brk_value) : r.brk_value;
+    const bornNow = Math.abs(r._id.getTimestamp().getTime() - actionAt) < 15_000; // created by this same save
+    const newV = value != null && !single ? Number(value) : r.brk_value;
     const newT = body.type && !single ? body.type : r.type;
-    const nb = rateText(newT, newV);
-    g.before.set(ob, (g.before.get(ob) || 0) + 1);
-    g.after.set(nb, (g.after.get(nb) || 0) + 1);
-    if (r.deleted_at) g.removed++;
-    g.n++;
+    if (old && !bornNow) { const t = rateText(old.type, old.v); g.before.set(t, (g.before.get(t) || 0) + 1); } else g.added++;
+    const nt = rateText(newT, newV);
+    g.after.set(nt, (g.after.get(nt) || 0) + 1);
+    if (r.deleted_at) g.removed = true;
+    g.total++;
     groups.set(k, g);
     if (r.deleted_at) snap.delete(String(r._id)); else snap.set(String(r._id), { v: newV, type: newT });
   }
-  const list = (m) => [...m].sort((x, y) => y[1] - x[1]).map(([t, n]) => (m.size > 1 ? `${t} (${n})` : t)).join(', ');
-  const out = [];
-  for (const g of groups.values()) {
-    const owner = g.owner ? await whoFresh(c, g.owner) : 'platform default';
-    const total = g.n + (groups.size === 1 ? more : 0);
-    const what = g.removed === g.n ? 'removed' : `${list(g.before)} → ${list(g.after)}`;
-    out.push(`${owner} · ${g.seg === 'INDICES' ? 'GLOBAL' : g.seg} · ${total === 1 && g.script ? g.script : `${total} script${total > 1 ? 's' : ''}`}: ${what}`);
+  // Rows past the 50 ids the audit record keeps: same change, counted only.
+  if (groups.size === 1 && more) {
+    const g = [...groups.values()][0];
+    g.total += more;
+    const [t] = [...g.after.keys()];
+    g.after.set(t, g.after.get(t) + more);
+    const [bt] = [...g.before.keys()];
+    if (bt && g.before.size === 1) g.before.set(bt, g.before.get(bt) + more);
   }
-  return out.length ? out : null;
+  return [...groups.values()];
+}
+
+/** One save's brokerage requests, merged per account+segment, as plain lines. Unchanged rates → no line. */
+async function brokerageChangeLines(c, list) {
+  const merged = new Map();
+  for (const { by, g } of list) {
+    const k = `${by}|${g.owner}|${g.seg}`;
+    const m = merged.get(k) || { by, owner: g.owner, seg: g.seg, before: new Map(), after: new Map(), added: 0, total: 0, removed: false, createRate: null, script: g.script };
+    for (const [t, n] of g.before) m.before.set(t, (m.before.get(t) || 0) + n);
+    for (const [t, n] of g.after) m.after.set(t, (m.after.get(t) || 0) + n);
+    m.added += g.added;
+    m.total += g.total;
+    m.removed = m.removed || g.removed;
+    m.createRate = m.createRate || g.createRate || null;
+    merged.set(k, m);
+  }
+  const fmt = (map) => {
+    const e = [...map].sort((x, y) => y[1] - x[1]);
+    return e.length > 1 ? e.map(([t, n]) => `${t} (${n})`).join(', ') : (e[0] || ['—'])[0];
+  };
+  const out = [];
+  for (const m of merged.values()) {
+    const who = m.owner ? await whoFresh(c, m.owner) : 'platform default';
+    const seg = m.seg === 'INDICES' ? 'GLOBAL' : m.seg;
+    const scripts = (n) => (n === 1 && m.script ? m.script : `${n} script${n === 1 ? '' : 's'}`);
+    if (m.removed) { out.push(`${who} · ${seg} · ${scripts(m.total)}: rate removed · by ${m.by}`); continue; }
+    if (!m.after.size) {
+      if (m.createRate) out.push(`${who} · ${seg}: rate set for scripts that had none — ${m.createRate} · by ${m.by}`);
+      continue;
+    }
+    const before = fmt(m.before);
+    const after = fmt(m.after);
+    if (m.before.size && before !== after) out.push(`${who} · ${seg} · ${scripts(m.total)}: ${before} → ${after}${m.added ? ` (+${m.added} new)` : ''} · by ${m.by}`);
+    else if (m.added) out.push(`${who} · ${seg}: ${m.added} script${m.added === 1 ? '' : 's'} added at ${after} · by ${m.by}`);
+    // else saved with the same rate — nothing changed, nothing to report
+  }
+  return out;
 }
 
 async function auditEvents(c) {
@@ -321,7 +375,7 @@ async function auditEvents(c) {
   if (actions.some((a) => COVERED_ACCOUNT.test(a.path))) await settings(c);
   const used = state.usedActions || (state.usedActions = {});
   const lines = [];
-  const brkLines = [];
+  const brkGroups = [];
   for (const a of actions) {
     if (used[String(a._id)]) continue;
     const by = actorOf(a);
@@ -338,17 +392,21 @@ async function auditEvents(c) {
       continue;
     }
     if (COVERED_ACCOUNT.test(a.path)) {
-      // No setting difference found for it — still report the action itself.
-      const verb = a.method === 'POST' ? 'created/updated' : a.method === 'DELETE' ? 'deleted' : 'saved';
-      lines.push(`${by} ${verb} ${targets || 'an account'} (no tracked setting changed) · ${summarizeBody(a.body)}`.trim());
+      // Saved with no setting changed: nothing to report — except a password
+      // reset (passwords are never compared, only seen as "[changed]").
+      const b = a.body || {};
+      const pw = [b.password && 'password', b.investor_password && 'investor password'].filter(Boolean);
+      if (a.method === 'DELETE') lines.push(`${by} deleted ${targets || 'an account'}`);
+      else if (pw.length) lines.push(`${by} reset the ${pw.join(' and ')} of ${targets || 'an account'}`);
       continue;
     }
-    const brk = await brokerageLines(c, a);
-    if (brk) { brkLines.push(...brk.map((l) => `${l} · by ${by}`)); continue; } // [] = part of an account's creation
+    const brk = await brokerageChanges(c, a);
+    if (brk) { for (const g of brk) brkGroups.push({ by, g }); continue; } // [] = part of an account's creation
     const label = (ACTION_LABELS.find(([re]) => re.test(a.path)) || [null, a.path.replace(/^\/api\//, '')])[1];
     lines.push(`${by} ${VERB[a.method] || a.method} ${label}${targets ? ` for ${targets}` : ''}${a.body ? ` · ${summarizeBody(a.body)}` : ''}`);
   }
   for (const k of Object.keys(used)) if (Date.now() - used[k] > 30 * 60_000) delete used[k];
+  const brkLines = await brokerageChangeLines(c, brkGroups);
   if (brkLines.length) send(lib.formatAlert('info', `Brokerage changed${brkLines.length > 1 ? ` (${brkLines.length})` : ''}`, [...brkLines.slice(0, 15), brkLines.length > 15 ? `…and ${brkLines.length - 15} more` : '']));
   if (lines.length) send(lib.formatAlert('info', `Admin / master change${lines.length > 1 ? `s (${lines.length})` : ''}`, [...lines.slice(0, 15), lines.length > 15 ? `…and ${lines.length - 15} more` : '']));
 }
@@ -472,6 +530,7 @@ async function staffOrders(c) {
 async function events(c) {
   const { d, raise, send, lib, who, hit, newDocs, MIN } = c;
 
+  NAMES = c.names;
   await brokerageSnapshot(d); // warm before any change is processed (old → new)
   await auditEvents(c);
   await newAccounts(c);
@@ -1119,4 +1178,4 @@ async function slow(c) {
   if (p.day >= 1 && p.day <= 5 && p.hhmm >= '23:40' && !state.digests[`collusion ${p.ymd}`]) { state.digests[`collusion ${p.ymd}`] = true; await collusion(c); }
 }
 
-module.exports = { internal, events, slow, sendFillImages, _test: { fillReport, brokerageLines, certDaysLeft, spikeCatch, closedLots, exchangeDiff, fieldDiff, summarizeBody, COVERED_ACCOUNT, COVERED_MONEY, TRADE_EDIT, CREATE_PATH, newAccountMessage, partOfCreation } };
+module.exports = { internal, events, slow, sendFillImages, _test: { fillReport, brokerageChanges, brokerageChangeLines, certDaysLeft, spikeCatch, closedLots, exchangeDiff, fieldDiff, summarizeBody, COVERED_ACCOUNT, COVERED_MONEY, TRADE_EDIT, CREATE_PATH, newAccountMessage, partOfCreation } };
