@@ -229,6 +229,72 @@ function summarizeBody(body) {
   return s.length > 450 ? `${s.slice(0, 450)}…` : s;
 }
 
+// ------------------------------------------------ brokerage, readable ----
+// "changed brokerage · ids: 51 items (e.g. 6ad06f…) · brk_value=1.5" told
+// nobody which account or what the rate was before. A snapshot of every
+// brokerage row (id → account, segment, rate) gives "JNL (833704) · NFO-FUT ·
+// 228 scripts: 1 → 1.5 turnover". Loaded once, then kept current for every
+// row an action touches.
+const brkSnap = { rows: null, at: 0 };
+const BRK_PATH = /\/brokerage-settings(\/|$)/;
+const rateText = (type, v) => (v == null ? '—' : type === 'LOT WISE' ? `${v} per lot` : type === 'TURNOVER WISE' ? `${v} turnover` : `${v} ${String(type || '').toLowerCase()}`);
+
+async function brokerageSnapshot(d) {
+  if (brkSnap.rows && Date.now() - brkSnap.at < 30 * 60_000) return brkSnap.rows;
+  const rows = await d.collection('brokeragesettings').find({ deleted_at: null }).project({ brk_value: 1, type: 1 }).toArray();
+  brkSnap.rows = new Map(rows.map((r) => [String(r._id), { v: r.brk_value, type: r.type }]));
+  brkSnap.at = Date.now();
+  return brkSnap.rows;
+}
+
+/** Readable lines for one brokerage action, or null when it isn't one. */
+async function brokerageLines(c, a) {
+  if (!BRK_PATH.test(a.path)) return null;
+  const { d } = c;
+  const snap = await brokerageSnapshot(d);
+  const body = a.body || {};
+  const listed = (Array.isArray(body.ids) ? body.ids : []).filter((x) => /^[a-f0-9]{24}$/i.test(String(x)));
+  const more = (Array.isArray(body.ids) ? body.ids : []).map((x) => String(x).match(/^…(\d+) more$/)).filter(Boolean).reduce((s, m) => s + Number(m[1]), 0);
+  const single = a.path.match(/\/brokerage-settings\/([a-f0-9]{24})$/i);
+  const ids = single ? [single[1]] : listed;
+  if (!ids.length) {
+    // New rows (create / bulk-create): who and what, from the request.
+    const owner = body.user_id ? await whoFresh(c, body.user_id) : 'platform default';
+    const items = Array.isArray(body.settings) ? body.settings : Array.isArray(body.items) ? body.items : [body];
+    const bySeg = new Map();
+    for (const it of items) { const k = `${it.exchange_name || body.exchange_name || '?'}|${it.type || body.type || ''}|${it.brk_value ?? body.brk_value}`; bySeg.set(k, (bySeg.get(k) || 0) + 1); }
+    return [...bySeg].map(([k, n]) => { const [seg, type, v] = k.split('|'); return `${owner} · ${seg} · ${n} script${n > 1 ? 's' : ''}: ${a.method === 'DELETE' ? 'removed' : `added at ${rateText(type, v)}`}`; });
+  }
+  const rows = await d.collection('brokeragesettings').find({ _id: { $in: ids.map(oid).filter(Boolean) } }).project({ user_id: 1, exchange_name: 1, script_name: 1, brk_value: 1, type: 1, deleted_at: 1 }).toArray();
+  const groups = new Map();
+  for (const r of rows) {
+    const k = `${r.user_id || 'default'}|${r.exchange_name}`;
+    const g = groups.get(k) || { owner: r.user_id, seg: r.exchange_name, n: 0, before: new Map(), after: new Map(), removed: 0, script: r.script_name };
+    const old = snap.get(String(r._id));
+    const ob = old ? rateText(old.type, old.v) : 'new';
+    // The request's own value: a second edit of the same rows seconds later
+    // must not show up as this one's result.
+    const newV = body.brk_value != null && !single ? Number(body.brk_value) : r.brk_value;
+    const newT = body.type && !single ? body.type : r.type;
+    const nb = rateText(newT, newV);
+    g.before.set(ob, (g.before.get(ob) || 0) + 1);
+    g.after.set(nb, (g.after.get(nb) || 0) + 1);
+    if (r.deleted_at) g.removed++;
+    g.n++;
+    groups.set(k, g);
+    if (r.deleted_at) snap.delete(String(r._id)); else snap.set(String(r._id), { v: newV, type: newT });
+  }
+  const list = (m) => [...m].sort((x, y) => y[1] - x[1]).map(([t, n]) => (m.size > 1 ? `${t} (${n})` : t)).join(', ');
+  const out = [];
+  for (const g of groups.values()) {
+    const owner = g.owner ? await whoFresh(c, g.owner) : 'platform default';
+    const total = g.n + (groups.size === 1 ? more : 0);
+    const what = g.removed === g.n ? 'removed' : `${list(g.before)} → ${list(g.after)}`;
+    out.push(`${owner} · ${g.seg === 'INDICES' ? 'GLOBAL' : g.seg} · ${total === 1 && g.script ? g.script : `${total} script${total > 1 ? 's' : ''}`}: ${what}`);
+  }
+  return out.length ? out : null;
+}
+
 async function auditEvents(c) {
   const { d, state, send, lib } = c;
   const actions = await c.newDocs(d, 'adminactions', {}, null, 'adminactions');
@@ -237,6 +303,7 @@ async function auditEvents(c) {
   if (actions.some((a) => COVERED_ACCOUNT.test(a.path))) await settings(c);
   const used = state.usedActions || (state.usedActions = {});
   const lines = [];
+  const brkLines = [];
   for (const a of actions) {
     if (used[String(a._id)]) continue;
     const by = actorOf(a);
@@ -258,10 +325,13 @@ async function auditEvents(c) {
       lines.push(`${by} ${verb} ${targets || 'an account'} (no tracked setting changed) · ${summarizeBody(a.body)}`.trim());
       continue;
     }
+    const brk = await brokerageLines(c, a);
+    if (brk) { brkLines.push(...brk.map((l) => `${l} · by ${by}`)); continue; }
     const label = (ACTION_LABELS.find(([re]) => re.test(a.path)) || [null, a.path.replace(/^\/api\//, '')])[1];
     lines.push(`${by} ${VERB[a.method] || a.method} ${label}${targets ? ` for ${targets}` : ''}${a.body ? ` · ${summarizeBody(a.body)}` : ''}`);
   }
   for (const k of Object.keys(used)) if (Date.now() - used[k] > 30 * 60_000) delete used[k];
+  if (brkLines.length) send(lib.formatAlert('info', `Brokerage changed${brkLines.length > 1 ? ` (${brkLines.length})` : ''}`, [...brkLines.slice(0, 15), brkLines.length > 15 ? `…and ${brkLines.length - 15} more` : '']));
   if (lines.length) send(lib.formatAlert('info', `Admin / master change${lines.length > 1 ? `s (${lines.length})` : ''}`, [...lines.slice(0, 15), lines.length > 15 ? `…and ${lines.length - 15} more` : '']));
 }
 
@@ -383,6 +453,7 @@ async function staffOrders(c) {
 async function events(c) {
   const { d, raise, send, lib, who, hit, newDocs, MIN } = c;
 
+  await brokerageSnapshot(d); // warm before any change is processed (old → new)
   await auditEvents(c);
   await newAccounts(c);
   await staffOrders(c);
@@ -1017,4 +1088,4 @@ async function slow(c) {
   if (p.day >= 1 && p.day <= 5 && p.hhmm >= '23:40' && !state.digests[`collusion ${p.ymd}`]) { state.digests[`collusion ${p.ymd}`] = true; await collusion(c); }
 }
 
-module.exports = { internal, events, slow, sendFillImages, _test: { certDaysLeft, spikeCatch, closedLots, exchangeDiff, fieldDiff, summarizeBody, COVERED_ACCOUNT, COVERED_MONEY, TRADE_EDIT, CREATE_PATH, newAccountMessage, partOfCreation } };
+module.exports = { internal, events, slow, sendFillImages, _test: { brokerageLines, certDaysLeft, spikeCatch, closedLots, exchangeDiff, fieldDiff, summarizeBody, COVERED_ACCOUNT, COVERED_MONEY, TRADE_EDIT, CREATE_PATH, newAccountMessage, partOfCreation } };

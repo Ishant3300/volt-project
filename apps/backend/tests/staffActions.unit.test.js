@@ -62,3 +62,14 @@ test("a client's first-login password change reads plainly", () => {
   expect(w.fieldDiff('change_pass_on_first_login', true, false, who)).toEqual(['set their own password (first login)']);
   expect(w.fieldDiff('change_pass_on_first_login', false, true, who)).toEqual(['must set a new password at next login']);
 });
+
+test('a brokerage edit reads as account · segment · scripts: old → new', async () => {
+  const id1 = '6ad06f6b5dc2afa427001a5a'; const id2 = '6ad06f6b5dc2afa427001a5b';
+  const rows = [{ _id: { toString: () => id1 }, user_id: 'm1', exchange_name: 'MCX-FUT', script_name: 'GOLD', brk_value: 150, type: 'LOT WISE' },
+    { _id: { toString: () => id2 }, user_id: 'm1', exchange_name: 'MCX-FUT', script_name: 'SILVER', brk_value: 150, type: 'LOT WISE' }];
+  const cur = (list) => ({ project() { return this; }, toArray: async () => list });
+  const d = { collection: (n) => ({ find: (q) => cur(n === 'brokeragesettings' && q._id ? rows : rows.map((r) => ({ ...r, brk_value: 100 }))), findOne: async () => null }) };
+  const c = { d, who: () => 'master 833704 JNL' };
+  const lines = await w.brokerageLines(c, { path: '/api/admin/brokerage-settings/bulk-update', method: 'PUT', body: { ids: [id1, id2], brk_value: 150, type: 'LOT WISE' } });
+  expect(lines).toEqual(['master 833704 JNL · MCX-FUT · 2 scripts: 100 per lot → 150 per lot']);
+});
