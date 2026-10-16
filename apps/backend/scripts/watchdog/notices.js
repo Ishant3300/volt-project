@@ -59,7 +59,13 @@ async function expiryOpenData(d, date) {
   const list = opens.map((o) => {
     const names = [...new Set((o.targets || []).map((t) => String(t.name).toUpperCase()))];
     const newExpiries = [...new Set((o.targets || []).map((t) => keyOf(t.expiry)))].sort().slice(0, 3);
-    return { exchange: o.exchange_label, label: o.group_label, names: names.length && names.length <= 12 ? names : null, allLabel: `All ${o.group_label}`, newExpiries };
+    // Options say so — "NIFTY weekly options" — weekly when the new expiry is
+    // within ~a week of the current one (16 Oct 2026: the card said just "NIFTY").
+    const isOpt = /OPT/i.test(o.group_key || '') || /option/i.test(o.group_label || '');
+    const gapDays = o.current_expiry && newExpiries[0] ? (Date.parse(`${newExpiries[0]}T00:00:00Z`) - new Date(o.current_expiry).getTime()) / 864e5 : null;
+    const kind = isOpt ? (gapDays != null && gapDays <= 9 ? ' weekly options' : ' options') : '';
+    const shown = names.map((n) => `${n}${kind}`);
+    return { exchange: o.exchange_label, label: o.group_label, names: names.length && names.length <= 12 ? shown : null, allLabel: `All ${o.group_label}`, newExpiries, isOpt };
   });
   const seen = new Set();
   const settlements = cuts.filter((c) => { const k = `${c.action_date}|${c.close_time}`; if (seen.has(k)) return false; seen.add(k); return true; })

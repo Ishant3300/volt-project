@@ -105,13 +105,14 @@ function expiryOpenCard({ date, opens, settlements }) {
     byExchange.get(o.exchange).push(o);
   }
   const secs = [...byExchange].map(([ex, list]) => `<div class="sec"><span class="pill">${esc(ex)}</span><div class="rows"><table>
-      <tr><th>Script</th><th class="r">New contract</th></tr>
+      <tr><th>Script</th><th class="r">${list.some((o) => o.isOpt) ? 'New expiry' : 'New contract'}</th></tr>
       ${list.flatMap((o) => (o.names ? o.names.map((n) => ({ n, exp: o.newExpiries })) : [{ n: o.allLabel || `All ${o.label}`, exp: o.newExpiries }]))
     .map((r) => `<tr><td class="sym">${esc(r.n)}</td><td class="r"><span class="tag t-green">${r.exp.map(expiryLabel).map(esc).join(' / ') || 'Next month'}</span></td></tr>`).join('')}
     </table></div></div>`).join('');
   const settle = settlements.map((s) => `<div class="box amber">${settlements.length > 1 ? `<b>${esc(s.label)}</b><br>` : ''}Old contract settlement:
       <b>${esc(day(s.date, true))}</b> at last quotation <b>(${esc(time12(s.time))})</b></div>`).join('');
-  return page({ title: 'New Contract Open', subtitle: 'Next month contracts are now open for trading', date: day(date), body: secs + settle });
+  const allOpt = opens.every((o) => o.isOpt);
+  return page({ title: allOpt ? 'New Expiry Open' : 'New Contract Open', subtitle: allOpt ? 'New option expiry is now open for trading' : 'New contracts are now open for trading', date: day(date), body: secs + settle });
 }
 
 /** stocks: [{ name, company, lot, current: '2026-10-27', options: true, from: '2026-10-15' }] */
@@ -167,7 +168,7 @@ async function render(htmlList) {
     const out = [];
     for (const html of htmlList) {
       const page = await browser.newPage();
-      await page.setViewport({ width: 720, height: 600, deviceScaleFactor: 2 });
+      await page.setViewport({ width: 720, height: 100, deviceScaleFactor: 2 }); // fullPage grows to the card; a tall viewport left blank space under short cards
       await page.setContent(html, { waitUntil: 'load' });
       out.push(await page.screenshot({ type: 'png', fullPage: true }));
       await page.close();
