@@ -148,8 +148,9 @@ function actorName(c, meta) {
   const a = meta && meta.actor;
   if (!a) return '';
   const id = String(a.id || '');
-  if (a.type === 'Admin') return `admin ${c.names.admins.get(id)?.username || id.slice(-6)}`;
-  if (a.type === 'Master') return `master ${c.names.masters.get(id)?.username || id.slice(-6)}`;
+  const named = (rec) => (rec ? `${rec.username}${rec.name && rec.name !== rec.username ? ` ${rec.name}` : ''}` : id.slice(-6));
+  if (a.type === 'Admin') return `admin ${named(c.names.admins.get(id))}`;
+  if (a.type === 'Master') return `master ${named(c.names.masters.get(id))}`;
   return a.type || '';
 }
 
@@ -539,8 +540,19 @@ async function events(c) {
   // Money moved by admin / master (named from the transaction, else from the
   // audit record). Rows written by an account's creation are in its summary.
   const txAll = await settledDocs(c, 'transactions', { type: { $in: MONEY_TYPES } }, { userId: 1, userModel: 1, type: 1, amount: 1, metadata: 1, description: 1 }, 'transactions');
-  const tx = [];
-  for (const t of txAll) if (!(await partOfCreation(c, t))) tx.push(t);
+  const txKept = [];
+  for (const t of txAll) if (!(await partOfCreation(c, t))) txKept.push(t);
+  // A master crediting/debiting its client writes two rows — the client's
+  // CREDIT and the master's mirror DEBIT (or the reverse). One line, with the
+  // master's side in brackets (16 Oct 2026: one credit read as 4 lines).
+  const at = (t) => t._id.getTimestamp().getTime();
+  const mirrorOf = new Map();
+  for (const u of txKept.filter((t) => t.userModel !== 'Master' && (t.type === 'CREDIT' || t.type === 'DEBIT'))) {
+    const twin = txKept.find((m) => m.userModel === 'Master' && !mirrorOf.has(String(m._id)) && m.amount === u.amount
+      && m.type === (u.type === 'CREDIT' ? 'DEBIT' : 'CREDIT') && Math.abs(at(m) - at(u)) < 5000);
+    if (twin) { mirrorOf.set(String(twin._id), u); u._twin = twin; }
+  }
+  const tx = txKept.filter((t) => !mirrorOf.has(String(t._id)));
   if (tx.length) {
     const lines = [];
     for (const t of tx.slice(0, 12)) {
@@ -549,15 +561,29 @@ async function events(c) {
       let by = actorName(c, m);
       if (!by) by = actorOf(await actionFor(c, t.userId, COVERED_MONEY, 2 * 60_000)) || actorOf(await actionFor(c, t.userId, COVERED_ACCOUNT, 2 * 60_000));
       const after = m.targetBalanceAfter != null ? ` (now ${rupees(m.targetBalanceAfter)})` : '';
-      const note = m.note ? ` · ${m.note}` : '';
-      lines.push(`${t.type.replace('_', ' ')}${cat} ${rupees(t.amount)} → ${await whoFresh(c, t.userId)}${after}${by ? ` · by ${by}` : ''}${note}`);
+      const from = t._twin ? ` (${t.type === 'CREDIT' ? 'taken from' : 'back to'} ${await whoFresh(c, t._twin.userId)})` : '';
+      const note = m.note ? ` · note: ${m.note}` : '';
+      lines.push(`${t.type.replace('_', ' ')}${cat} ${rupees(t.amount)} → ${await whoFresh(c, t.userId)}${from}${after}${by ? ` · by ${by}` : ''}${note}`);
     }
     if (tx.length > 12) lines.push(`…and ${tx.length - 12} more`);
     send(lib.formatAlert('info', `Money action${tx.length > 1 ? `s (${tx.length})` : ''}`, lines));
   }
   const ctxAll = await settledDocs(c, 'credittransactions', {}, { master_id: 1, admin_id: 1, transaction_type: 1, amount: 1, note: 1, actor_model: 1 }, 'credittransactions');
   const ctx = [];
-  for (const t of ctxAll) if (!(await partOfCreation(c, t))) ctx.push(t);
+  for (const t of ctxAll) {
+    if (await partOfCreation(c, t)) continue;
+    // The master-ledger side of a client credit/debit — already in the money line above.
+    const ts = t._id.getTimestamp().getTime();
+    const clientSide = await d.collection('transactions').findOne({
+      type: { $in: ['CREDIT', 'DEBIT'] }, amount: t.amount, userModel: { $ne: 'Master' },
+      _id: { $gte: require('mongoose').mongo.ObjectId.createFromTime(Math.floor(ts / 1000) - 10), $lte: require('mongoose').mongo.ObjectId.createFromTime(Math.floor(ts / 1000) + 10) },
+    }, { projection: { userId: 1 } });
+    if (clientSide) {
+      const cl = await d.collection('users').findOne({ _id: clientSide.userId }, { projection: { master_id: 1 } });
+      if (cl && String(cl.master_id) === String(t.master_id)) continue;
+    }
+    ctx.push(t);
+  }
   if (ctx.length) {
     const lines = [];
     for (const t of ctx.slice(0, 12)) {
