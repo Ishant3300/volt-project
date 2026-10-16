@@ -193,8 +193,40 @@ function readNew(file, key, { sudo = false } = {}) {
   }
 }
 
+// Investor (read-only) logins: the login record has no investor flag before
+// the 16 Oct 2026 backend change, only the log line "… investor password
+// matched" at the same second. Remembered here, matched to logins in checkEvents.
+let lastOutLog = null;
+function investorLoginNear(ms, model) {
+  if (!lastOutLog) return false;
+  try {
+    const size = fs.statSync(lastOutLog).size;
+    const len = Math.min(size, 512 * 1024);
+    const fd = fs.openSync(lastOutLog, 'r');
+    const buf = Buffer.alloc(len);
+    fs.readSync(fd, buf, 0, len, size - len);
+    fs.closeSync(fd);
+    for (const line of buf.toString('utf8').split('\n')) {
+      if (!/investor password matched/i.test(line)) continue;
+      if (model && !new RegExp(`\\b${model}\\b`, 'i').test(line)) continue;
+      const m = line.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/);
+      if (m && Math.abs(Date.parse(`${m[1]}Z`) - ms) <= 3000) return true;
+    }
+  } catch (_) { /* no log — not known */ }
+  return false;
+}
+
+function browserOf(ua) {
+  const u = String(ua || '');
+  if (/Dart\//.test(u)) return 'Volt app';
+  const os = /iPhone|iPad/.test(u) ? 'iPhone' : /Android/.test(u) ? 'Android' : /Windows/.test(u) ? 'Windows' : /Mac OS/.test(u) ? 'Mac' : '';
+  const br = /Edg\/(\d+)/.test(u) ? `Edge ${u.match(/Edg\/(\d+)/)[1]}` : /Chrome\/(\d+)/.test(u) ? `Chrome ${u.match(/Chrome\/(\d+)/)[1]}` : /Safari\//.test(u) ? 'Safari' : u.slice(0, 40);
+  return [br, os].filter(Boolean).join(' on ');
+}
+
 function checkLogs(env) {
   if (!env) return;
+  lastOutLog = env.pm_out_log_path || lastOutLog;
   const found = new Map(); // key -> { severity, title, lines[], count, generic }
   for (const [file, isErr] of [[env.pm_out_log_path, false], [env.pm_err_log_path, true]]) {
     for (const line of readNew(file, isErr ? 'err' : 'out').split('\n')) {
@@ -384,8 +416,17 @@ async function checkEvents() {
     if (distinct.size >= 3) raise(`lf-ip:${a.ip}`, 'critical', 'Possible password guessing', [`${a.ip} failed on ${distinct.size} accounts in 10 min: ${[...distinct].slice(0, 6).join(', ')}`, why[2]], { cooldownMs: 30 * MIN });
   }
 
-  // Successful logins: admin from a new IP; success right after failures.
+  // Successful logins: investor (read-only) logins; admin from a new IP; success right after failures.
   for (const l of await newDocs(d, 'loginhistories')) {
+    if (l.userModel !== 'Admin') {
+      const at = new Date(l.createdAt || l._id.getTimestamp()).getTime();
+      if (l.investor === true || investorLoginNear(at, l.userModel)) {
+        const prev = await d.collection('loginhistories').countDocuments({ userId: l.userId, ip_address: l.ip_address, _id: { $lt: l._id } });
+        raise(`investor:${l._id}`, 'warning', `Investor (read-only) login — ${l.userModel === 'Master' ? 'master' : 'client'}`,
+          [`${l.userModel === 'Master' ? 'master ' : ''}${l.username} ${l.name || ''}`.trim(), `IP ${l.ip_address || '?'}${prev ? '' : ' (new IP for this account)'} · ${browserOf(l.user_agent)}`],
+          { cooldownMs: 0 });
+      }
+    }
     if (l.userModel === 'Admin') {
       const seen = await d.collection('loginhistories').countDocuments({ userId: l.userId, ip_address: l.ip_address, _id: { $lt: l._id }, createdAt: { $gte: new Date(Date.now() - 60 * 24 * 60 * MIN) } });
       if (!seen) raise(`admin-ip:${l.userId}:${l.ip_address}`, 'warning', 'Admin login from a new IP', [`${l.username} from ${l.ip_address}`, 'If this was not you, change the password now.'], { cooldownMs: 24 * 60 * MIN });
