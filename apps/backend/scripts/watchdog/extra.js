@@ -561,9 +561,11 @@ async function events(c) {
   if (ctx.length) {
     const lines = [];
     for (const t of ctx.slice(0, 12)) {
-      let by = '';
-      if (t.actor_model === 'Admin' && t.admin_id) by = `admin ${c.names.admins.get(String(t.admin_id))?.username || String(t.admin_id).slice(-6)}`;
-      if (!by) by = actorOf(await actionFor(c, t.master_id, COVERED_MONEY, 2 * 60_000));
+      // Only the action log names who did it: credittransactions.admin_id is the
+      // admin who OWNS the master's tree and actor_model says "Admin" even when
+      // a master acted (16 Oct 2026: LAABH51's own credits read "by admin Volt01").
+      const by = actorOf(await actionFor(c, t.master_id, COVERED_MONEY, 2 * 60_000))
+        || actorOf(await actionFor(c, null, /\/(users|masters)\/[a-f0-9]{24}\/(credit|debit)$|\/wallet\/(assign|withdraw)$/i, 60_000)) || 'not recorded';
       lines.push(`${t.transaction_type} ${rupees(t.amount)} → ${await whoFresh(c, t.master_id)}${by ? ` · by ${by}` : ''}${t.note ? ` · ${t.note}` : ''}`);
     }
     send(lib.formatAlert('info', `Master credit change${ctx.length > 1 ? `s (${ctx.length})` : ''}`, lines));
