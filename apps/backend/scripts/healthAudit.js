@@ -52,9 +52,24 @@ const istDate = (offsetDays = 0) => new Date(Date.now() + 5.5 * 3600e3 + offsetD
     { $group: { _id: { seg: '$segment', name: '$name' }, list: { $push: { e: '$expiry', en: '$enabled' } } } },
   ]).toArray();
   const none = rows.filter((x) => !x.list.some((y) => y.en !== false)).map((x) => `${x._id.seg} ${x._id.name}`);
-  const many = rows.filter((x) => x.list.filter((y) => y.en !== false).length > 1).map((x) => `${x._id.seg} ${x._id.name}`);
+  // A second open month is normal in the roll-over window: expiry management
+  // opened it (done OPEN action) and the old month hasn't been cut yet
+  // (CRUDE NOV opened 15 Oct, OCT settles 16 Oct). Only a month opened any
+  // other way is a warning.
+  const scheduled = new Set();
+  for (const a of await db.collection('expiryactions').find({ kind: 'OPEN', status: 'done' }).project({ targets: 1 }).toArray()) {
+    for (const t of a.targets || []) scheduled.add(`${String(t.name).toUpperCase()}|${new Date(t.expiry).toISOString().slice(0, 10)}`);
+  }
+  const rolling = []; const many = [];
+  for (const x of rows) {
+    const open = x.list.filter((y) => y.en !== false);
+    if (open.length < 2) continue;
+    const extra = open.slice(1).map((y) => `${String(x._id.name).toUpperCase()}|${new Date(y.e).toISOString().slice(0, 10)}`);
+    (extra.every((k) => scheduled.has(k)) ? rolling : many).push(`${x._id.seg} ${x._id.name}`);
+  }
   (none.length ? bad : ok)(`Futures scripts with NO open contract: ${none.length}${none.length ? ' — ' + none.join(', ') : ''}`);
-  (many.length ? warn : ok)(`Futures scripts with more than one open month: ${many.length}${many.length ? ' — ' + many.join(', ') : ''}`);
+  (many.length ? warn : ok)(`Futures scripts with more than one open month (not opened by expiry management): ${many.length}${many.length ? ' — ' + many.join(', ') : ''}`);
+  if (rolling.length) ok(`Next month open per expiry schedule (roll-over window): ${rolling.join(', ')}`);
 
   // GIFT NIFTY monthly: all must be ACTIVE (visible); at least one OPEN.
   // A later month closed until its open day is correct, not a problem.
