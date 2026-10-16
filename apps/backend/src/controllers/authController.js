@@ -19,7 +19,7 @@ const _getClientIp = (req) => {
   return ip;
 };
 
-const _logLogin = async (req, userId, userModel, username, name) => {
+const _logLogin = async (req, userId, userModel, username, name, investor = false) => {
   try {
     await LoginHistory.create({
       userId,
@@ -27,7 +27,8 @@ const _logLogin = async (req, userId, userModel, username, name) => {
       username,
       name: name || username,
       ip_address: _getClientIp(req),
-      user_agent: req.headers['user-agent'] || null
+      user_agent: req.headers['user-agent'] || null,
+      investor: !!investor,
     });
   } catch (e) {
     console.error('[LoginHistory] Failed to log:', e.message);
@@ -554,7 +555,7 @@ const universalLogin = async (req, res) => {
     await userAccount.save();
 
     const modelName = roleType.charAt(0).toUpperCase() + roleType.slice(1); // 'user' -> 'User'
-    await _logLogin(req, userAccount._id, modelName, userAccount.username, userAccount.name || userAccount.username);
+    await _logLogin(req, userAccount._id, modelName, userAccount.username, userAccount.name || userAccount.username, isInvestorLogin);
 
     // Check if password reset is required on first login (users/masters only, not investor logins)
     const requiresPasswordChange = !isInvestorLogin && (roleType === 'user' || roleType === 'master') && userAccount.change_pass_on_first_login === true;

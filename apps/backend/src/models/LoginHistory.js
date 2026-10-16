@@ -26,6 +26,11 @@ const loginHistorySchema = new mongoose.Schema({
   user_agent: {
     type: String,
     default: null
+  },
+  // Signed in with the investor (read-only) password — the watchdog alerts on these.
+  investor: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 
