@@ -163,15 +163,17 @@ async function withOptionalSession(session, fn) {
  * @throws error tagged `code: 'INSUFFICIENT_WALLET'` (with `.category`, `.requested`)
  *         when the pool cannot cover the amount.
  */
-async function block(ownerModel, ownerId, category, amount, session = null) {
+async function block(ownerModel, ownerId, category, amount, session = null, { allowNegative = false } = {}) {
   assertCategory(category);
   const rounded = assertPositiveAmount(amount);
   const Model = resolveModel(ownerModel);
   const field = `wallet.${category}`;
   const options = session ? { session } : {};
 
+  // allowNegative: admin bulk import of index futures (tradeController) — the
+  // pool may go below 0 and is refilled later; no balance guard.
   const result = await Model.updateOne(
-    { _id: ownerId, [field]: { $gte: rounded } },
+    allowNegative ? { _id: ownerId } : { _id: ownerId, [field]: { $gte: rounded } },
     { $inc: { [field]: -rounded } },
     options
   );

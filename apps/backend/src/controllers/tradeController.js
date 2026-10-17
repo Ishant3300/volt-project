@@ -699,6 +699,7 @@ const placeTrade = async (req, res) => {
             order_type, // 'MARKET', 'LIMIT'
             segment,   // e.g. NFO-FUT, MCX-FUT — sent by Flutter for accurate limit lookup
             no_brokerage, // Custom-ticket "carry forward" toggle — admin-only, see below
+            bulk_import, // web Bulk Trade Import — admin-only, see below
         } = req.body;
 
         // Admin-only brokerage bypass from the Custom order-ticket toggle. Never
@@ -706,6 +707,11 @@ const placeTrade = async (req, res) => {
         // is authenticated as `req.admin` (master/user requests ignore the flag
         // even if somehow sent).
         const skipBrokerage = !!(req.admin && no_brokerage === true);
+        // Admin Bulk Trade Import (migrating positions from another broker):
+        // INDEX futures skip the wallet margin check and may take the client's
+        // INDEX pool negative — refilled afterwards (user, 17 Oct 2026). Only
+        // INDEX, only admin; every other trade keeps the normal check.
+        const bulkImportByAdmin = !!(req.admin && bulk_import === true);
 
         if (!['BUY', 'SELL'].includes(transaction_type)) {
             return res.status(400).json({ success: false, message: 'Invalid transaction_type' });
@@ -1330,7 +1336,8 @@ const placeTrade = async (req, res) => {
                     // when the pool cannot cover it, aborting this transaction (the trade write
                     // rolls back) → clean category + shortfall rejection in the catch below.
                     if (walletOpeningQty > 0) {
-                        await walletService.block('User', user._id, walletCategory, walletOpeningQty * executedPrice, session);
+                        await walletService.block('User', user._id, walletCategory, walletOpeningQty * executedPrice, session,
+                            { allowNegative: bulkImportByAdmin && walletCategory === 'INDEX' });
                     }
                 }
 

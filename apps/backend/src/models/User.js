@@ -7,8 +7,10 @@ const mongoose = require('mongoose');
 const walletSchema = new mongoose.Schema({
   NSE:    { type: Number, default: 0, min: 0 },
   // Index futures — NIFTY / BANKNIFTY / SENSEX NFO futures ("INDEX"); their
-  // margin is blocked/released only here (utils/walletCategory.js).
-  INDEX:  { type: Number, default: 0, min: 0 },
+  // margin is blocked/released only here (utils/walletCategory.js). No `min`:
+  // admin Bulk Trade Import may take it below 0 (refilled later) — with min 0
+  // every later save of that client (each trade saves the user) would fail.
+  INDEX:  { type: Number, default: 0 },
   // NSE options ("NSE OPT") — option margin is blocked/released only here.
   NSEOPT: { type: Number, default: 0, min: 0 },
   MCX:    { type: Number, default: 0, min: 0 },
