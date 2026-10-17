@@ -20,6 +20,8 @@ import 'package:stocker/utils/contants.dart';
 import 'package:stocker/pages/login_page.dart';
 import 'initial_sheet.dart';
 import 'dart:async';
+import 'package:stocker/config/practice_session.dart';
+import 'package:stocker/widgets/practice_banner.dart';
 import 'dart:developer';
 
 void main() async {
@@ -202,7 +204,24 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 maxScaleFactor: 1.1,
               ),
             ),
-            child: child ?? const SizedBox.shrink(),
+            // Practice (paper trading) accounts: permanent banner over every
+            // screen, dialog and sheet (PracticeSession).
+            child: ValueListenableBuilder<bool>(
+              valueListenable: PracticeSession.active,
+              builder: (context, practice, _) {
+                final page = child ?? const SizedBox.shrink();
+                if (!practice) return page;
+                return Column(
+                  children: [
+                    const PracticeBanner(),
+                    Expanded(
+                      child: MediaQuery.removePadding(
+                          context: context, removeTop: true, child: page),
+                    ),
+                  ],
+                );
+              },
+            ),
           );
         },
         home: const InitialScreen(),

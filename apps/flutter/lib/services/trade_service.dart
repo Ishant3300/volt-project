@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:developer';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
+import 'package:stocker/config/practice_session.dart';
 import 'package:stocker/utils/contants.dart';
 
 /// Holds lot/quantity limit info for an instrument.
@@ -190,7 +191,7 @@ class TradeService {
             : null;
         final displayPrice =
             (executedPrice != null && executedPrice > 0) ? executedPrice : price;
-        return (true, '$message @ ₹${displayPrice.toStringAsFixed(2)}');
+        return (true, '$message @ ${PracticeSession.isActive ? '' : '₹'}${displayPrice.toStringAsFixed(2)}');
       } else {
         return (
           false,

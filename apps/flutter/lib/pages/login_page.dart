@@ -17,6 +17,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import '../home_page.dart';
 import '../utils/contants.dart';
 import '../views/webview_page.dart';
+import 'package:stocker/config/practice_session.dart';
+import 'package:stocker/pages/practice_signup_page.dart';
 import 'force_password_reset_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -67,8 +69,23 @@ class _LoginPageState extends State<LoginPage> {
     if (mounted) setState(() => _isLoadingServers = false);
   }
 
+  /// Practice sign-up, then sign in with the new email through the normal login.
+  Future<void> _openPracticeSignup() async {
+    final result = await Navigator.push<Map<String, String>>(
+      context,
+      MaterialPageRoute(builder: (_) => const PracticeSignupPage()),
+    );
+    if (result == null || !mounted) return;
+    _usernameController.text = result['email'] ?? '';
+    _passwordController.text = result['password'] ?? '';
+    _login();
+  }
+
   void _login() async {
-    if (_selectedServer == 'Select Server') {
+    // Practice accounts log in with their email — no server to pick.
+    final isPracticeLogin =
+        PracticeSession.isPracticeUsername(_usernameController.text.trim());
+    if (_selectedServer == 'Select Server' && !isPracticeLogin) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Please select a server'),
@@ -104,6 +121,9 @@ class _LoginPageState extends State<LoginPage> {
       try {
         fcmToken = await FirebaseMessaging.instance.getToken();
       } catch (_) {}
+
+      // Live or practice backend, from the login ID (email = practice).
+      await PracticeSession.setForUsername(_usernameController.text.trim());
 
       final authData = AuthenticateData(
         username: _usernameController.text.trim(),
@@ -776,6 +796,36 @@ class _LoginPageState extends State<LoginPage> {
                                         fontSize: kFontSizeButtonText,
                                         fontFamily: kFontFamily,
                                         fontWeight: kFontWeightBold)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      const Center(
+                        child: Text('New here?',
+                            style: TextStyle(
+                                color: kColorTextMuted,
+                                fontSize: kFontSizeSubtitle,
+                                fontFamily: kFontFamily)),
+                      ),
+                      const SizedBox(height: 8),
+                      // Practice (paper trading) account — separate system,
+                      // simulated prices, no real money.
+                      GestureDetector(
+                        onTap: _isLoading ? null : _openPracticeSignup,
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: kBrandPrimary),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Center(
+                            child: Text('Create practice account',
+                                style: TextStyle(
+                                    color: kBrandPrimary,
+                                    fontSize: kFontSizeButtonText,
+                                    fontFamily: kFontFamily,
+                                    fontWeight: kFontWeightBold)),
                           ),
                         ),
                       ),

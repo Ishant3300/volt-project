@@ -17,6 +17,7 @@ import 'option_chain_view.dart';
 import 'market_depth_sheet.dart';
 import 'info_sheet.dart';
 import 'chart_view.dart';
+import 'package:stocker/config/practice_session.dart';
 import 'package:stocker/services/trade_sound_service.dart';
 
 /// Client-side option validation is intentionally advisory. A missing local
@@ -525,6 +526,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
     );
   }
 
+  // Practice accounts: no ₹ — amounts are tokens.
+  String get _cur => PracticeSession.isActive ? '' : '₹';
+
   Future<void> _handleTrade(String transactionType, double currentPrice) async {
     if (_isLoading || _awaitingQuote) return;
     if (!mounted) return;
@@ -594,7 +598,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
         i.lastUpdated != null &&
         DateTime.now().difference(i.lastUpdated!) <= staleQuoteThreshold;
     var currentItem = watchlist.getByToken(quoteToken) ?? widget.item;
-    if (!profile.isAdmin && !isFresh(currentItem)) {
+    // Practice accounts: simulated prices step every 30 minutes by design,
+    // so the stale-quote guard never applies to them.
+    if (!profile.isAdmin && !PracticeSession.isActive && !isFresh(currentItem)) {
       _awaitingQuote = true;
       final messenger = ScaffoldMessenger.of(context);
       messenger.showSnackBar(const SnackBar(
@@ -622,7 +628,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
             : (currentItem.bidPrice ?? (ltp > 0 ? ltp - spread : ltp));
       }
     }
-    if (!profile.isAdmin && !isFresh(currentItem)) {
+    if (!profile.isAdmin && !PracticeSession.isActive && !isFresh(currentItem)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
@@ -741,22 +747,22 @@ class _TradeCardPageState extends State<TradeCardPage> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                  'Buy price ₹${tradePrice.toStringAsFixed(2)} cannot be above CMP ₹${cmp.toStringAsFixed(2)}'),
+                  'Buy price $_cur${tradePrice.toStringAsFixed(2)} cannot be above CMP $_cur${cmp.toStringAsFixed(2)}'),
               backgroundColor: kColorSell,
             ),
           );
-          _reportBlocked('LIMIT_PRICE', 'Buy price ₹${tradePrice.toStringAsFixed(2)} cannot be above CMP ₹${cmp.toStringAsFixed(2)}', transactionType, tradePrice);
+          _reportBlocked('LIMIT_PRICE', 'Buy price $_cur${tradePrice.toStringAsFixed(2)} cannot be above CMP $_cur${cmp.toStringAsFixed(2)}', transactionType, tradePrice);
           return;
         }
         if (transactionType == 'SELL' && tradePrice < cmp) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                  'Sell price ₹${tradePrice.toStringAsFixed(2)} cannot be below CMP ₹${cmp.toStringAsFixed(2)}'),
+                  'Sell price $_cur${tradePrice.toStringAsFixed(2)} cannot be below CMP $_cur${cmp.toStringAsFixed(2)}'),
               backgroundColor: kColorSell,
             ),
           );
-          _reportBlocked('LIMIT_PRICE', 'Sell price ₹${tradePrice.toStringAsFixed(2)} cannot be below CMP ₹${cmp.toStringAsFixed(2)}', transactionType, tradePrice);
+          _reportBlocked('LIMIT_PRICE', 'Sell price $_cur${tradePrice.toStringAsFixed(2)} cannot be below CMP $_cur${cmp.toStringAsFixed(2)}', transactionType, tradePrice);
           return;
         }
       }

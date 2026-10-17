@@ -7,14 +7,18 @@ import 'package:stocker/services/navigation_service.dart';
 import 'package:stocker/services/firebase_service.dart';
 import 'package:stocker/utils/contants.dart';
 import 'package:stocker/services/app_identity.dart';
+import 'package:stocker/config/practice_session.dart';
 
 class ApiService {
-  final String baseUrl;
+  final String _baseUrl;
+  // Live or practice backend, resolved per request (PracticeSession) so
+  // long-lived instances follow a login / account switch.
+  String get baseUrl => PracticeSession.resolve(_baseUrl);
   final SecureStorageService _storage = SecureStorageService();
   static bool _isInitializing = false;
   static bool _isHandling401 = false;
 
-  ApiService(this.baseUrl);
+  ApiService(String baseUrl) : _baseUrl = baseUrl;
 
   /// Call this to prevent 401 handling during login/initialization
   void setInitializing(bool value) {

@@ -17,6 +17,7 @@ import 'package:stocker/providers/investor_mode_provider.dart';
 import 'pages/login_page.dart';
 import 'pages/force_password_reset_page.dart';
 import 'home_page.dart';
+import 'package:stocker/config/practice_session.dart';
 import 'utils/contants.dart';
 
 /// Update: downloads the APK into the app's own temp storage and hands it
@@ -85,6 +86,8 @@ class _InitialScreenState extends State<InitialScreen> {
     if (!mounted) return;
 
     try {
+      // Live or practice backend for the saved session — before the token is used.
+      await PracticeSession.load();
       final token = await _storage.getToken();
       print('🔐 Token retrieved: ${token != null ? "exists" : "null"}');
 

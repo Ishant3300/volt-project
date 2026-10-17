@@ -22,6 +22,7 @@ import '../pages/login_page.dart';
 import '../services/firebase_service.dart';
 import '../pages/account_switcher_sheet.dart';
 import '../widgets/announcement_banner.dart';
+import 'package:stocker/config/practice_session.dart';
 import '../utils/contants.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -117,6 +118,8 @@ class _ProfilePageState extends State<ProfilePage> {
       final investorModeProvider =
           Provider.of<InvestorModeProvider>(context, listen: false);
       await investorModeProvider.clear();
+      // Back to the live backend for the next login.
+      await PracticeSession.set(false);
 
       if (!mounted) return;
 

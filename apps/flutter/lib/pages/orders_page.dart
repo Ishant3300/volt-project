@@ -21,6 +21,7 @@ import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/utils/contants.dart';
 import 'package:stocker/utils/market_hours.dart';
 
+import 'package:stocker/config/practice_session.dart';
 import '../utils/wallet_category.dart';
 class _NumberFormat {
   final double value;
@@ -1756,7 +1757,8 @@ class _OrdersPageState extends State<OrdersPage> {
             ],
           ),
           Text(
-            value.toStringAsFixed(2),
+            // Practice accounts: amounts are tokens, not money.
+            PracticeSession.money(value.toStringAsFixed(2)),
             style: TextStyle(
               color: valueColor,
               fontSize: kFontSizeBody,
@@ -2695,7 +2697,7 @@ class _OrdersPageState extends State<OrdersPage> {
                 'This will square off ${selectedPositions.length} position(s) '
                 'and immediately reopen the same qty and direction on the '
                 'next expiry contract.\n\n'
-                'Brokerage is charged on both the close and the reopen leg. '
+                '${PracticeSession.isActive ? '' : 'Brokerage is charged on both the close and the reopen leg. '}'
                 'A short option position cannot be rolled over — it must be '
                 'squared off manually instead.',
                 style: const TextStyle(

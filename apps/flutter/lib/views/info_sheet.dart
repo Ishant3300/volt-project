@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
+import 'package:stocker/config/practice_session.dart';
 import '../utils/contants.dart';
 
 class InfoSheet extends StatefulWidget {
@@ -126,7 +127,9 @@ class _InfoSheetState extends State<InfoSheet> {
                       _buildInfoRow('Break Qty', '${widget.breakQty}', false),
                     if (widget.groupName != null && widget.groupName!.isNotEmpty)
                       _buildInfoRow('Group', widget.groupName!, true),
-                    _buildInfoRow('Brokerage', _formatBrokerage(_data?['brokerage']), false),
+                    // Practice accounts: no brokerage (hidden).
+                    if (!PracticeSession.isActive)
+                      _buildInfoRow('Brokerage', _formatBrokerage(_data?['brokerage']), false),
                   ],
                 ),
               ),

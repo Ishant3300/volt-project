@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
+import '../config/practice_session.dart';
 
 // White-label branding (app name, logo, brand colours). Re-exported here so that
 // every file already importing this constants file picks up the brand tokens
@@ -11,7 +12,12 @@ export '../config/app_brand.dart';
 // final String backendUrl = Platform.isAndroid ? "http://10.0.2.2:3000" : "http://127.0.0.1:3000";
 // final String backendUrl =
 //     "http://192.168.1.6:3000"; // Physical device (use your LAN IP)
-final String backendUrl = "https://apexlive-api.mynpe.in"; // Production server
+// Production server — the live backend, or the separate practice (paper
+// trading) backend while a practice account is active (PracticeSession).
+String get backendUrl => PracticeSession.baseUrl;
+
+/// Always the live server (APK downloads / version check).
+const String kLiveBackendUrl = PracticeSession.liveUrl;
 
 const bool kLogLivePrices = false;
 const bool kLogWebSockets = false;

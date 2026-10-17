@@ -24,6 +24,7 @@ import 'deleted_trade_view.dart';
 import 'rejection_log_history_view.dart';
 import 'settlement_report_view.dart';
 import 'client_pnl_summary_view.dart';
+import 'package:stocker/config/practice_session.dart';
 import 'scriptwise_pnl_view.dart';
 
 class ReportsView extends StatelessWidget {
@@ -38,7 +39,8 @@ class ReportsView extends StatelessWidget {
     // Build the list of report items based on permissions
     final reportItems = <_ReportItemData>[];
 
-    if (perms['account_summary'] == true) {
+    // Practice accounts: no ledger / brokerage summary and no bills (PDF).
+    if (perms['account_summary'] == true && !PracticeSession.isActive) {
       reportItems.add(_ReportItemData('Account Summary', kIconAccountSummary));
     }
     if (perms['pnl_summary'] == true && !isUser) {
@@ -54,7 +56,7 @@ class ReportsView extends StatelessWidget {
       reportItems
           .add(_ReportItemData('Scriptwise P&L Summary', kIconProfitAndLoss));
     }
-    if (perms['generate_pdf'] == true) {
+    if (perms['generate_pdf'] == true && !PracticeSession.isActive) {
       reportItems.add(_ReportItemData('Generate PDF', kIconGeneratePdf));
     }
     if (perms['weekly_admin'] == true && !isUser) {

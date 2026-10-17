@@ -9,6 +9,7 @@ import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/providers/investor_mode_provider.dart';
 import 'package:stocker/pages/login_page.dart';
 import 'package:stocker/home_page.dart';
+import 'package:stocker/config/practice_session.dart';
 import 'package:stocker/services/firebase_service.dart';
 
 class AccountSwitcherSheet extends StatefulWidget {
@@ -57,6 +58,9 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
       // did, leaving the previous account still receiving this device's
       // push notifications after the switch.
       await FirebaseService().unregisterToken();
+
+      // Incoming account's backend (practice accounts log in with an email).
+      await PracticeSession.setForUsername(account.username);
 
       // Set the new token and role in secure storage
       await _storage.saveToken(token: account.token);

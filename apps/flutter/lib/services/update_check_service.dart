@@ -26,7 +26,7 @@ class UpdateCheckService {
       final installedBuild = int.tryParse(info.buildNumber) ?? 0;
 
       final response = await http
-          .get(Uri.parse('$backendUrl/downloads/$kBrandId-version.json'))
+          .get(Uri.parse('$kLiveBackendUrl/downloads/$kBrandId-version.json'))
           .timeout(const Duration(seconds: 5));
 
       if (response.statusCode != 200) {
