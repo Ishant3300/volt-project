@@ -104,4 +104,19 @@ async function resolveCreateParentId(req, { requireForAdmin = false } = {}) {
   return forId;
 }
 
-module.exports = { getAllSubMasterIds, getAdminHiddenMasterIds, resolveCreateParentId };
+/**
+ * A master whose own "create sub-master" permission (add_master) is off can't
+ * create a sub-master anywhere: not under themselves (createChildMaster's
+ * parent check covers that) and not on behalf of a downline master that has
+ * the permission either. Admin callers and a master creating under
+ * themselves are not affected here.
+ */
+async function assertOwnSubMasterRight(req, parentId) {
+  if (!req.master || !parentId || String(parentId) === String(req.master.id)) return;
+  const self = await Master.findById(req.master.id).select('add_master').lean();
+  if (!self || !self.add_master) {
+    throw Object.assign(new Error('No permission to create child masters'), { status: 403 });
+  }
+}
+
+module.exports = { getAllSubMasterIds, getAdminHiddenMasterIds, resolveCreateParentId, assertOwnSubMasterRight };

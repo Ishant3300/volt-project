@@ -85,8 +85,9 @@ const createChildMaster = async (req, res) => {
     // Admin may name any master too (for_master_id) — then it's created
     // exactly as if that master had created it; without one, admin creates
     // a top-level master as before (parentId null).
-    const { resolveCreateParentId } = require('../services/masterHierarchyService');
+    const { resolveCreateParentId, assertOwnSubMasterRight } = require('../services/masterHierarchyService');
     const parentId = isAdmin || isMaster ? await resolveCreateParentId(req) : null;
+    await assertOwnSubMasterRight(req, parentId);
     const actedByOther = parentId != null && (isAdmin || parentId !== String(req.master.id));
     const actedBy = isAdmin ? { type: 'Admin', id: req.admin.id } : { type: 'Master', id: req.master?.id };
     // Who pays the inline wallet funding: the parent master when admin acts
