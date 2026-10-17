@@ -6,6 +6,7 @@ import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/services/navigation_service.dart';
 import 'package:stocker/services/firebase_service.dart';
 import 'package:stocker/utils/contants.dart';
+import 'package:stocker/services/app_identity.dart';
 
 class ApiService {
   final String baseUrl;
@@ -79,6 +80,8 @@ class ApiService {
   Map<String, String> _defaultHeaders({String? token}) {
     final headers = {
       "Content-Type": "application/json",
+      // app version + phone model (login history, alerts, crash reports)
+      if (AppIdentity.userAgent.isNotEmpty) "User-Agent": AppIdentity.userAgent,
     };
 
     if (token != null) {

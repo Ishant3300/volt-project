@@ -13,6 +13,8 @@ import 'package:stocker/services/user_service.dart';
 import 'package:stocker/services/kite_service.dart';
 import 'package:stocker/services/navigation_service.dart';
 import 'package:stocker/services/firebase_service.dart';
+import 'package:stocker/services/app_identity.dart';
+import 'package:stocker/services/crash_reporter.dart';
 import 'package:stocker/firebase_options.dart';
 import 'package:stocker/utils/contants.dart';
 import 'package:stocker/pages/login_page.dart';
@@ -23,10 +25,11 @@ import 'dart:developer';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  FlutterError.onError = (details) {
-    print('🔴 FLUTTER ERROR: ${details.exception}');
-    print('🔴 STACK: ${details.stack}');
-  };
+  // Uncaught errors go to the backend (client-events, kind 'crash') too.
+  CrashReporter.install();
+  // App version + phone model for the User-Agent / crash reports; read in
+  // the background so it never delays the first frame.
+  unawaited(AppIdentity.load());
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
