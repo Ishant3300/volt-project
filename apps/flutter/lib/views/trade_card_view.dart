@@ -179,9 +179,17 @@ class _TradeCardPageState extends State<TradeCardPage> {
     }
   }
 
+  // Keeps this script's live price ticking while the screen is open, even
+  // when it isn't in the watchlist (see WatchlistProvider.track).
+  WatchlistProvider? _watchlist;
+  // Waiting a moment for a fresh quote before placing (stale-quote guard).
+  bool _awaitingQuote = false;
+
   @override
   void initState() {
     super.initState();
+    _watchlist = Provider.of<WatchlistProvider>(context, listen: false);
+    _watchlist!.track(widget.item);
     _loadQuickQuantities();
 
     if (widget.initialSelectedUser != null) {
@@ -296,6 +304,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
 
   @override
   void dispose() {
+    _watchlist?.untrack(widget.item.instrument.instrumentToken);
     _qtyController.dispose();
     _priceController.dispose();
     _userSearchCtrl.dispose();
@@ -517,7 +526,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
   }
 
   Future<void> _handleTrade(String transactionType, double currentPrice) async {
-    if (_isLoading) return;
+    if (_isLoading || _awaitingQuote) return;
     if (!mounted) return;
 
     // Block trades in investor mode (read-only access)
@@ -574,15 +583,46 @@ class _TradeCardPageState extends State<TradeCardPage> {
     // — Master still gets this guard) bypasses the rejection, per explicit
     // instruction: unlike the market-hours check above, this one isn't
     // meant to exempt Master too.
+    // Scripts not in the watchlist tick too while this screen is open
+    // (WatchlistProvider.track). When the quote is stale at the tap — just
+    // reconnected, or just opened — wait up to 3 s for a fresh tick before
+    // calling it low volume; a genuinely thin script still stays blocked.
     const staleQuoteThreshold = Duration(seconds: 25);
-    final currentItem =
-        Provider.of<WatchlistProvider>(context, listen: false)
-                .getByToken(widget.item.instrument.instrumentToken) ??
-            widget.item;
-    final lastTick = currentItem.lastUpdated;
-    if (!profile.isAdmin &&
-        (lastTick == null ||
-            DateTime.now().difference(lastTick) > staleQuoteThreshold)) {
+    final watchlist = Provider.of<WatchlistProvider>(context, listen: false);
+    final quoteToken = widget.item.instrument.instrumentToken;
+    bool isFresh(WatchlistItem i) =>
+        i.lastUpdated != null &&
+        DateTime.now().difference(i.lastUpdated!) <= staleQuoteThreshold;
+    var currentItem = watchlist.getByToken(quoteToken) ?? widget.item;
+    if (!profile.isAdmin && !isFresh(currentItem)) {
+      _awaitingQuote = true;
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.showSnackBar(const SnackBar(
+        content: Text('Getting live price…'),
+        duration: Duration(seconds: 3),
+      ));
+      try {
+        final deadline = DateTime.now().add(const Duration(seconds: 3));
+        while (DateTime.now().isBefore(deadline)) {
+          await Future.delayed(const Duration(milliseconds: 200));
+          if (!mounted) return;
+          currentItem = watchlist.getByToken(quoteToken) ?? widget.item;
+          if (isFresh(currentItem)) break;
+        }
+      } finally {
+        _awaitingQuote = false;
+      }
+      messenger.hideCurrentSnackBar();
+      if (isFresh(currentItem) && _selectedTab == 0) {
+        // Market order: use the fresh quote, not the one shown at the tap.
+        final ltp = currentItem.currentPrice ?? 0.0;
+        final spread = ltp * 0.0005;
+        currentPrice = transactionType == 'BUY'
+            ? (currentItem.askPrice ?? (ltp > 0 ? ltp + spread : ltp))
+            : (currentItem.bidPrice ?? (ltp > 0 ? ltp - spread : ltp));
+      }
+    }
+    if (!profile.isAdmin && !isFresh(currentItem)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(

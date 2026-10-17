@@ -23,6 +23,13 @@ class WatchlistProvider with ChangeNotifier {
   final LivePriceService _livePriceService = LivePriceService();
   WatchlistService? _watchlistService;
   final Map<String, String> _backendIdMap = {};
+  // Scripts open on an order screen but NOT in the watchlist (opened from
+  // Positions / History / Reports / option chain). Their ticks are applied
+  // here too — before, updatePrice dropped them, the order screen's copy
+  // never updated and the stale-quote guard blocked every order after 25 s.
+  // Ref-counted by track/untrack; never shown in the watchlist itself.
+  final Map<String, WatchlistItem> _tracked = {};
+  final Map<String, int> _trackCount = {};
   TradeMetricsProvider? tradeMetricsProvider;
   String? _authenticatedUserId;
 
@@ -79,6 +86,7 @@ class WatchlistProvider with ChangeNotifier {
         askPrice: askPrice,
         upperCircuitLimit: upperCircuit,
         lowerCircuitLimit: lowerCircuit,
+        genuine: !tick.containsKey('is_settlement'),
       );
     };
 
@@ -122,8 +130,8 @@ class WatchlistProvider with ChangeNotifier {
       if (connected) {
         // Authenticate so backend can send targeted trade_executed events
         _authenticateWebSocket();
-        if (_items.isNotEmpty) {
-          log('   Re-subscribing to ${_items.length} tokens');
+        if (_items.isNotEmpty || _tracked.isNotEmpty) {
+          log('   Re-subscribing to ${_items.length + _tracked.length} tokens');
           _subscribeCurrentTokens();
         }
       }
@@ -196,8 +204,10 @@ class WatchlistProvider with ChangeNotifier {
   }
 
   void _subscribeCurrentTokens() {
-    final tokens =
-        _items.map((item) => item.instrument.instrumentToken).toList();
+    final tokens = {
+      ..._items.map((item) => item.instrument.instrumentToken),
+      ..._tracked.keys,
+    }.toList();
     if (tokens.isNotEmpty) {
       log('📡 Subscribing to ${tokens.length} tokens: ${tokens.join(', ')}');
       _livePriceService.subscribe(tokens);
@@ -385,7 +395,11 @@ class WatchlistProvider with ChangeNotifier {
     _items.removeAt(itemIndex);
     _backendIdMap.remove(localId);
     notifyListeners();
-    _livePriceService.unsubscribe([token]);
+    if ((_trackCount[token] ?? 0) > 0) {
+      _tracked[token] = item; // its order screen is still open — keep ticking
+    } else {
+      _livePriceService.unsubscribe([token]);
+    }
 
     if (_watchlistService == null) {
       final apiService = ApiService(backendUrl);
@@ -429,14 +443,16 @@ class WatchlistProvider with ChangeNotifier {
     double? askPrice,
     double? upperCircuitLimit,
     double? lowerCircuitLimit,
+    // false for a cached / settlement price (the server's reply to a
+    // subscribe, bhavcopy, settlement): shown, but not counted as a fresh
+    // tick — the stale-quote guard trusts only genuine live ticks.
+    bool genuine = true,
   }) {
     final index = _items.indexWhere(
       (item) => item.instrument.instrumentToken == instrumentToken,
     );
 
-    if (index != -1) {
-      final oldItem = _items[index];
-      _items[index] = oldItem.copyWith(
+    WatchlistItem applyTick(WatchlistItem oldItem) => oldItem.copyWith(
         currentPrice: price,
         change: change,
         changePercent: changePercent,
@@ -450,10 +466,15 @@ class WatchlistProvider with ChangeNotifier {
         askPrice: askPrice,
         upperCircuitLimit: upperCircuitLimit,
         lowerCircuitLimit: lowerCircuitLimit,
-        lastUpdated: DateTime.now(),
+        lastUpdated: genuine ? DateTime.now() : null,
       );
 
+    if (index != -1) {
+      _items[index] = applyTick(_items[index]);
       // log('   ✅ Updated: ${_items[index].instrument.tradingsymbol} -> Price: $price');
+      notifyListeners();
+    } else if (_tracked.containsKey(instrumentToken)) {
+      _tracked[instrumentToken] = applyTick(_tracked[instrumentToken]!);
       notifyListeners();
     } else {
       if (kLogTokenWarnings)
@@ -485,7 +506,51 @@ class WatchlistProvider with ChangeNotifier {
     }
     _items.clear();
     _backendIdMap.clear();
+    _tracked.clear();
+    _trackCount.clear();
     notifyListeners();
+  }
+
+  /// An order screen opened for [seed]'s script: keep its live price ticking
+  /// even when it isn't in the watchlist. Pair every call with [untrack].
+  /// Starts with no tick time, so the stale-quote guard waits for a genuine
+  /// tick instead of trusting the caller's (possibly old) copy.
+  void track(WatchlistItem seed) {
+    final token = seed.instrument.instrumentToken.toString();
+    final n = (_trackCount[token] ?? 0) + 1;
+    _trackCount[token] = n;
+    if (n > 1 || contains(token)) return;
+    _tracked[token] = WatchlistItem(
+      id: 'track_$token',
+      instrument: seed.instrument,
+      currentPrice: seed.currentPrice,
+      change: seed.change,
+      changePercent: seed.changePercent,
+      high: seed.high,
+      low: seed.low,
+      open: seed.open,
+      close: seed.close,
+      bidPrice: seed.bidPrice,
+      askPrice: seed.askPrice,
+      upperCircuitLimit: seed.upperCircuitLimit,
+      lowerCircuitLimit: seed.lowerCircuitLimit,
+    );
+    _livePriceService.subscribe([token]);
+  }
+
+  /// The order screen for [instrumentToken] closed. No unsubscribe: the
+  /// server's subscribed-token set is shared by every client (an unsubscribe
+  /// removes the script for all of them) and ticks are broadcast to all
+  /// connections anyway, so dropping it locally is enough.
+  void untrack(String instrumentToken) {
+    final token = instrumentToken.toString();
+    final n = (_trackCount[token] ?? 0) - 1;
+    if (n > 0) {
+      _trackCount[token] = n;
+      return;
+    }
+    _trackCount.remove(token);
+    _tracked.remove(token);
   }
 
   @override
@@ -501,7 +566,7 @@ class WatchlistProvider with ChangeNotifier {
         (item) => item.instrument.instrumentToken.toString() == targetToken,
       );
     } catch (e) {
-      return null;
+      return _tracked[instrumentToken.toString()];
     }
   }
 
