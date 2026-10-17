@@ -1,10 +1,13 @@
 const mongoose = require('mongoose');
 
 // Category trade wallet — the available (spendable) balance per category pool
-// (NSE, NSEOPT, MCX, COMEX, GLOBAL). `min: 0` is a schema-level guard; the atomic `$gte` guard
+// (NSE, INDEX, NSEOPT, MCX, COMEX, GLOBAL). `min: 0` is a schema-level guard; the atomic `$gte` guard
 // in walletService is the real never-negative enforcement (see design §D1).
 const walletSchema = new mongoose.Schema({
   NSE:    { type: Number, default: 0, min: 0 },
+  // Index futures — NIFTY / BANKNIFTY / SENSEX NFO futures ("INDEX"); their
+  // margin is blocked/released only here (utils/walletCategory.js).
+  INDEX:  { type: Number, default: 0, min: 0 },
   // NSE options ("NSE OPT") — option margin is blocked/released only here.
   NSEOPT: { type: Number, default: 0, min: 0 },
   MCX:    { type: Number, default: 0, min: 0 },
@@ -143,7 +146,7 @@ const masterSchema = new mongoose.Schema({
   // flow; blocked on open / released on close by walletService.
   wallet: {
     type: walletSchema,
-    default: () => ({ NSE: 0, NSEOPT: 0, MCX: 0, COMEX: 0, GLOBAL: 0 })
+    default: () => ({ NSE: 0, INDEX: 0, NSEOPT: 0, MCX: 0, COMEX: 0, GLOBAL: 0 })
   },
   trade_limit: {
     type: [String],

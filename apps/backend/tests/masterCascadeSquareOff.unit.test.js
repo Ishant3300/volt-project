@@ -236,8 +236,8 @@ describe('_squareOffAllPositions — `force` bypasses ONLY the shouldSquareOff s
 
     expect(squared).toBe(1);
     expect(Trade).toHaveBeenCalledTimes(1);
-    // Entry notional 2 × 25000 = 50000 released to NSE (segment NFO-FUT → NSE), NOT 2 × 26010.
-    expect(walletService.release).toHaveBeenCalledWith('User', 'u1', 'NSE', 50000, fakeSession);
+    // Entry notional 2 × 25000 = 50000 released to INDEX (NIFTY future: NFO-FUT + NIFTY → INDEX), NOT 2 × 26010.
+    expect(walletService.release).toHaveBeenCalledWith('User', 'u1', 'INDEX', 50000, fakeSession);
     expect(metricsEngine.onTradeExecuted).toHaveBeenCalledWith('u1');
   });
 

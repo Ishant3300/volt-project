@@ -117,7 +117,7 @@ const istDate = (offsetDays = 0) => new Date(Date.now() + 5.5 * 3600e3 + offsetD
   }
 
   // Wallets
-  const neg = await db.collection('users').countDocuments({ deleted_at: null, $or: ['NSE', 'NSEOPT', 'MCX', 'COMEX', 'GLOBAL'].map((c) => ({ [`wallet.${c}`]: { $lt: 0 } })) });
+  const neg = await db.collection('users').countDocuments({ deleted_at: null, $or: ['NSE', 'INDEX', 'NSEOPT', 'MCX', 'COMEX', 'GLOBAL'].map((c) => ({ [`wallet.${c}`]: { $lt: 0 } })) });
   (neg ? warn : ok)(`Client accounts with a negative trade wallet: ${neg}`);
 
   // Activity

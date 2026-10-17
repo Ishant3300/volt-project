@@ -583,15 +583,16 @@ async function reconcile(ownerModel, ownerId) {
   // Resolve each open instrument's segment → category.
   const tokens = openPositions.map((p) => p.token);
   const instruments = tokens.length
-    ? await KiteInstrument.find({ instrument_token: { $in: tokens } }).select('instrument_token segment').lean()
+    ? await KiteInstrument.find({ instrument_token: { $in: tokens } }).select('instrument_token segment name raw_name tradingsymbol').lean()
     : [];
   const segmentByToken = {};
-  instruments.forEach((i) => { segmentByToken[i.instrument_token] = i.segment || ''; });
+  const instrumentByToken = {};
+  instruments.forEach((i) => { segmentByToken[i.instrument_token] = i.segment || ''; instrumentByToken[i.instrument_token] = i; });
 
   const blocked = {};
   for (const cat of CATEGORIES) blocked[cat] = 0;
   for (const pos of openPositions) {
-    const category = categoryForSegment(segmentByToken[pos.token] || '');
+    const category = categoryForSegment(segmentByToken[pos.token] || '', instrumentByToken[pos.token]);
     blocked[category] += pos.notional;
   }
 

@@ -88,7 +88,7 @@ async function closeOpenPositions({ instruments, priceFor, lease, trade, reason,
         const avgBuy = buyQty > 0 ? Number(fresh[0].total_buy_value || 0) / buyQty : 0;
         const avgSell = sellQty > 0 ? Number(fresh[0].total_sell_value || 0) / sellQty : 0;
         const avgEntry = netQty > 0 ? avgBuy : avgSell;
-        const releaseCategory = categoryForSegment(inst.segment || inst.exchange || '');
+        const releaseCategory = categoryForSegment(inst.segment || inst.exchange || '', inst);
 
         const user = await User.findById(userId).session(session);
         if (!user) throw new Error(`User ${userId} not found`);

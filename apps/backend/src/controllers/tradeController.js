@@ -1306,7 +1306,7 @@ const placeTrade = async (req, res) => {
                     // their own NSEOPT pool, a client sending a wrong/missing segment
                     // must not be able to charge the wrong wallet. Body value only as
                     // a fallback for an instrument the DB doesn't know.
-                    const walletCategory = categoryForSegment(instCheckExpiry?.segment || segment || exchange || '');
+                    const walletCategory = categoryForSegment(instCheckExpiry?.segment || segment || exchange || '', instCheckExpiry, { tradingsymbol });
 
                     const walletAvgBuy = flatResetState.totalBuyQty > 0
                         ? flatResetState.totalBuyValue / flatResetState.totalBuyQty : 0;
@@ -2183,8 +2183,8 @@ const deleteTrade = async (req, res) => {
                 // of NSE/MCX, releasing this trade's margin into the wrong
                 // wallet pool. Same trap already documented and avoided in
                 // priceQueueService.js; resolve segment from the instrument here too.
-                const deletedInstrument = await KiteInstrument.findOne({ instrument_token: trade.instrument_token }).select('segment').lean();
-                const walletCategory = categoryForSegment(deletedInstrument?.segment || trade.exchange || '');
+                const deletedInstrument = await KiteInstrument.findOne({ instrument_token: trade.instrument_token }).select('segment name raw_name tradingsymbol').lean();
+                const walletCategory = categoryForSegment(deletedInstrument?.segment || trade.exchange || '', deletedInstrument, trade);
                 const userId = trade.user_id;
 
                 // Fetch every completed trade for this (user, instrument) once,

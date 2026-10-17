@@ -185,8 +185,8 @@ async function rollBatch({ user, rules, placedBy, lease }, items, session, { sin
     trades.push(closeTrade, openTrade);
 
     // The same amounts walletService.release/block would move (each rounded to paise).
-    const closeCat = categoryForSegment(p.oldInstrument.segment || p.oldInstrument.exchange || '');
-    const openCat = categoryForSegment(p.newInstrument.segment || p.newInstrument.exchange || '');
+    const closeCat = categoryForSegment(p.oldInstrument.segment || p.oldInstrument.exchange || '', p.oldInstrument);
+    const openCat = categoryForSegment(p.newInstrument.segment || p.newInstrument.exchange || '', p.newInstrument);
     const releaseBasis = originalSide === 'BUY' ? avgBuy : avgSell;
     const releaseAmt = releaseBasis > 0 ? round2(absQty * releaseBasis) : 0;
     const blockAmt = round2(absQty * p.openPrice);

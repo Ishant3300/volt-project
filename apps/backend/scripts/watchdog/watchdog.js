@@ -472,7 +472,7 @@ async function checkEvents() {
   // Every 5 minutes: negative wallets, settlement runs.
   if (Date.now() - (state.last.slowAt || 0) > 5 * MIN) {
     state.last.slowAt = Date.now();
-    const cats = ['NSE', 'NSEOPT', 'MCX', 'COMEX', 'GLOBAL'];
+    const cats = ['NSE', 'INDEX', 'NSEOPT', 'MCX', 'COMEX', 'GLOBAL'];
     const neg = await d.collection('users').find({ deleted_at: null, $or: cats.map((c) => ({ [`wallet.${c}`]: { $lt: 0 } })) }).project({ username: 1, wallet: 1 }).limit(20).toArray();
     for (const u of neg) raise(`negw:${u._id}`, 'warning', 'Client wallet negative', [who(u._id), cats.filter((c) => u.wallet?.[c] < 0).map((c) => `${c} ${u.wallet[c]}`).join(', ')], { cooldownMs: 6 * 60 * MIN });
     const runs = await d.collection('settlementruns').find({ $or: [{ started_at: { $gte: new Date(Date.now() - 3 * 24 * 60 * MIN) } }, { status: { $in: ['running', 'failed', 'blocked'] } }] }).project({ period_key: 1, status: 1, error: 1 }).toArray();

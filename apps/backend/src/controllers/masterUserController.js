@@ -117,7 +117,7 @@ async function _squareOffUserSegments(userId, segments, options = {}) {
       const releaseAmount = absQty * avgEntry;
       if (releaseAmount > 0) {
         releasesToApply.push({
-          category: categoryForSegment(pos.segment || pos.exchange || ''),
+          category: categoryForSegment(pos.segment || pos.exchange || '', pos),
           amount: releaseAmount,
         });
       }

@@ -1530,7 +1530,8 @@ async function commitSettlementTransaction({ run, lockOwner, tradingDate, faultI
         const atp = isLong ? group.avgBuy : group.avgSell;          // original entry basis
         const settlePrice = priceMap[group.token];                  // official settlement price
         const category = categoryForSegment(
-          instrumentMap.get(group.token)?.segment || group.first.exchange || ''
+          instrumentMap.get(group.token)?.segment || group.first.exchange || '',
+          instrumentMap.get(group.token), group.first,
         );
         const isExpired = expiredTokens.has(group.token);
         // + release old entry notional, − block carry-forward at settlement price (unless expired).

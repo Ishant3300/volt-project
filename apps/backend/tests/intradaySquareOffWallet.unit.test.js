@@ -97,7 +97,7 @@ afterEach(() => {
 });
 
 describe('_squareOffUserSegments — releases entry notional to the wallet category', () => {
-  test('long NFO-FUT position releases |qty|×avgBuy to the NSE pool (segment beats exchange)', async () => {
+  test('long NFO-FUT index future releases |qty|×avgBuy to the INDEX pool (segment beats exchange)', async () => {
     // Long 2 lots, avg entry ₹25,000. Exit bid is a different price (₹26,010) to
     // prove the release uses the ENTRY notional, not the exit price.
     metricsEngine._bidMap.set(111, 26010);
@@ -106,7 +106,7 @@ describe('_squareOffUserSegments — releases entry notional to the wallet categ
         instrument_token: 111,
         tradingsymbol: 'NIFTY24DECFUT',
         exchange: 'NFO',      // base exchange alone would map to GLOBAL…
-        segment: 'NFO-FUT',   // …but the SEGMENT correctly maps to NSE
+        segment: 'NFO-FUT',   // …but the SEGMENT (+ NIFTY underlying) maps to INDEX
         net_qty: 2,
         avg_buy_price: 25000,
         avg_sell_price: 0,
@@ -121,9 +121,9 @@ describe('_squareOffUserSegments — releases entry notional to the wallet categ
 
     expect(squaredOff).toBe(1);
     expect(Trade.insertMany).toHaveBeenCalledTimes(1);
-    // Entry notional 2 × 25000 = 50000 released to NSE (NOT 2 × 26010), with the txn session.
+    // Entry notional 2 × 25000 = 50000 released to INDEX (NOT 2 × 26010), with the txn session.
     expect(walletService.release).toHaveBeenCalledTimes(1);
-    expect(walletService.release).toHaveBeenCalledWith('User', 'user1', 'NSE', 50000, fakeSession);
+    expect(walletService.release).toHaveBeenCalledWith('User', 'user1', 'INDEX', 50000, fakeSession);
     expect(walletService.block).not.toHaveBeenCalled();
   });
 

@@ -248,8 +248,8 @@ const processPendingOrders = async () => {
                         //    `freshTrade.exchange` (which carries no segment), so 'NFO-FUT'
                         //    maps to NSE and 'MCX-FUT' to MCX rather than GLOBAL.
                         const walletInstrument = await KiteInstrument.findOne({ instrument_token: freshTrade.instrument_token })
-                            .select('segment enabled deleted_at instrument_type nse_banned ban_reason raw_name name lot_size').session(session).lean();
-                        const walletCategory = categoryForSegment(walletInstrument?.segment || freshTrade.exchange || '');
+                            .select('segment enabled deleted_at instrument_type nse_banned ban_reason raw_name name lot_size tradingsymbol').session(session).lean();
+                        const walletCategory = categoryForSegment(walletInstrument?.segment || freshTrade.exchange || '', walletInstrument, freshTrade);
 
                         const { closingQty: walletClosingQty, openingQty: walletOpeningQty } =
                             computeWalletSplit(prevNetQtyCheck, freshTrade.transaction_type, freshTrade.quantity);

@@ -112,7 +112,7 @@ async function _squareOffUserMcxPositions(userId, adminId) {
         await newTrade.save({ session });
 
         const avgEntry = netQty > 0 ? position.avg_buy_price : position.avg_sell_price;
-        const releaseCategory = categoryForSegment(position.segment || position.exchange || '');
+        const releaseCategory = categoryForSegment(position.segment || position.exchange || '', position);
         if (closeQty > 0 && avgEntry > 0) {
           await walletService.release('User', freshUser._id, releaseCategory, closeQty * avgEntry, session);
         }

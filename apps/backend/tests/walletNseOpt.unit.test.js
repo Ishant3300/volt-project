@@ -16,7 +16,7 @@ beforeEach(() => jest.clearAllMocks());
 const lean = (doc) => ({ select: () => ({ lean: async () => doc }) });
 
 test('NSEOPT is a valid pool; NSE futures and options resolve to different pools', () => {
-  expect(walletService.CATEGORIES).toEqual(['NSE', 'NSEOPT', 'MCX', 'COMEX', 'GLOBAL']);
+  expect(walletService.CATEGORIES).toEqual(['NSE', 'INDEX', 'NSEOPT', 'MCX', 'COMEX', 'GLOBAL']);
   expect(categoryForSegment('NFO-OPT')).toBe('NSEOPT');
   expect(categoryForSegment('NFO-FUT')).toBe('NSE');
 });
@@ -55,11 +55,25 @@ test('futures still use wallet.NSE', async () => {
 
 test('getAvailable returns NSEOPT, reading a missing field (older documents) as 0', async () => {
   User.findById.mockReturnValue(lean({ wallet: { NSE: 1000, MCX: 5 } }));
-  expect(await walletService.getAvailable('User', 'u1')).toEqual({ NSE: 1000, NSEOPT: 0, MCX: 5, COMEX: 0, GLOBAL: 0 });
+  expect(await walletService.getAvailable('User', 'u1')).toEqual({ NSE: 1000, INDEX: 0, NSEOPT: 0, MCX: 5, COMEX: 0, GLOBAL: 0 });
   User.findById.mockReturnValue(lean({ wallet: { NSE: 1000, NSEOPT: 250.5 } }));
   expect((await walletService.getAvailable('User', 'u1')).NSEOPT).toBe(250.5);
 });
 
 test('an unknown pool is still rejected', async () => {
   await expect(walletService.block('User', 'u1', 'OPT', 1)).rejects.toThrow(/invalid category/);
+});
+
+// INDEX pool (Oct 2026): NIFTY / BANKNIFTY / SENSEX futures — same shape as NSEOPT.
+test('INDEX is a valid pool; an older document without it reads 0 and accepts funding', async () => {
+  expect(walletService.CATEGORIES).toContain('INDEX');
+  User.findById.mockReturnValue(lean({ wallet: { NSE: 1000, NSEOPT: 50 } }));
+  expect((await walletService.getAvailable('User', 'u1')).INDEX).toBe(0);
+  User.findById.mockReturnValue(lean({ wallet: { NSE: 1000, INDEX: 750.25 } }));
+  expect((await walletService.getAvailable('User', 'u1')).INDEX).toBe(750.25);
+});
+
+test('index futures and stock futures resolve to different pools', () => {
+  expect(categoryForSegment('NFO-FUT', { name: 'NIFTY' })).toBe('INDEX');
+  expect(categoryForSegment('NFO-FUT', { name: 'RELIANCE' })).toBe('NSE');
 });

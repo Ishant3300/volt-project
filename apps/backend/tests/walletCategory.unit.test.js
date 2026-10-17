@@ -3,7 +3,8 @@
 // Validates: Requirement 2.2 (segment -> category mapping) and the
 // allowedCategories derivation used by metrics / wallet funding.
 // NSE options have their own pool, NSEOPT ("NSE OPT"): option margin is
-// blocked/released only there, never from the NSE (futures) pool.
+// blocked/released only there, never from the NSE (futures) pool. NIFTY /
+// BANKNIFTY / SENSEX futures have their own pool too, INDEX (Oct 2026).
 
 const {
   CATEGORY,
@@ -11,6 +12,7 @@ const {
   categoryForSegment,
   categoryLabel,
   allowedCategories,
+  isIndexFuture,
 } = require('../src/utils/walletCategory');
 
 const ticked = (exchange_name) => ({ exchange_name, turnover: true, lot: false, group_name: '' });
@@ -49,16 +51,49 @@ describe('categoryForSegment', () => {
   });
 
   test('exposes the canonical category constants, order and labels', () => {
-    expect(CATEGORY).toEqual({ NSE: 'NSE', NSEOPT: 'NSEOPT', MCX: 'MCX', COMEX: 'COMEX', GLOBAL: 'GLOBAL' });
-    expect(CATEGORY_ORDER).toEqual(['NSE', 'NSEOPT', 'MCX', 'COMEX', 'GLOBAL']);
+    expect(CATEGORY).toEqual({ NSE: 'NSE', INDEX: 'INDEX', NSEOPT: 'NSEOPT', MCX: 'MCX', COMEX: 'COMEX', GLOBAL: 'GLOBAL' });
+    expect(CATEGORY_ORDER).toEqual(['NSE', 'INDEX', 'NSEOPT', 'MCX', 'COMEX', 'GLOBAL']);
     expect(categoryLabel('NSEOPT')).toBe('NSE OPT');
+    expect(categoryLabel('INDEX')).toBe('INDEX');
     expect(categoryLabel('MCX')).toBe('MCX');
+  });
+});
+
+describe('INDEX pool — NIFTY / BANKNIFTY / SENSEX futures', () => {
+  test.each([
+    [{ name: 'NIFTY' }], [{ raw_name: 'BANKNIFTY' }], [{ name: 'SENSEX' }],
+    [{ tradingsymbol: 'NIFTY26OCTFUT' }], [{ tradingsymbol: 'BANKNIFTY26NOVFUT' }], [{ tradingsymbol: 'SENSEX26OCTFUT' }],
+    ['NIFTY'], ['NIFTY26DECFUT'],
+  ])('NFO-FUT %j -> INDEX', (ref) => {
+    expect(categoryForSegment('NFO-FUT', ref)).toBe('INDEX');
+  });
+
+  test.each([
+    [{ name: 'RELIANCE' }], [{ tradingsymbol: 'TCS26OCTFUT' }],
+    // other index futures stay on NSE — only the three named ones move
+    [{ name: 'FINNIFTY' }], [{ name: 'MIDCPNIFTY' }], [{ name: 'NIFTYNXT50' }], [{ name: 'BANKEX' }],
+    [{ tradingsymbol: 'NIFTYNXT5026OCTFUT' }], [{ tradingsymbol: 'FINNIFTY26OCTFUT' }], [{ tradingsymbol: 'MIDCPNIFTY26OCTFUT' }],
+  ])('NFO-FUT %j -> NSE', (ref) => {
+    expect(categoryForSegment('NFO-FUT', ref)).toBe('NSE');
+  });
+
+  test('options and other segments are unaffected by the underlying', () => {
+    expect(categoryForSegment('NFO-OPT', { name: 'NIFTY' })).toBe('NSEOPT');
+    expect(categoryForSegment('NFO-OPT', { tradingsymbol: 'NIFTY26OCT25000CE' })).toBe('NSEOPT');
+    expect(categoryForSegment('MCX-FUT', { name: 'NIFTY' })).toBe('MCX');
+    expect(categoryForSegment('GLOBAL', { name: 'SENSEX' })).toBe('GLOBAL');
+  });
+
+  test('any of several refs can identify it (instrument first, then the trade)', () => {
+    expect(categoryForSegment('NFO-FUT', null, { tradingsymbol: 'NIFTY26OCTFUT' })).toBe('INDEX');
+    expect(categoryForSegment('NFO-FUT', { segment: 'NFO-FUT' }, { tradingsymbol: 'BANKNIFTY26OCTFUT' })).toBe('INDEX');
+    expect(isIndexFuture()).toBe(false);
   });
 });
 
 describe('allowedCategories', () => {
   test('derives distinct categories from the Master shape (array of strings)', () => {
-    expect(allowedCategories(['NFO-FUT', 'MCX-FUT', 'SGX'])).toEqual(['NSE', 'MCX', 'GLOBAL']);
+    expect(allowedCategories(['NFO-FUT', 'MCX-FUT', 'SGX'])).toEqual(['NSE', 'INDEX', 'MCX', 'GLOBAL']);
   });
 
   test('derives distinct categories from the User shape (array of objects)', () => {
@@ -69,10 +104,10 @@ describe('allowedCategories', () => {
     expect(allowedCategories(exchangesAllowed)).toEqual(['NSEOPT', 'MCX']);
   });
 
-  test('NSE futures and NSE options are separate pools', () => {
-    expect(allowedCategories(['NFO-FUT', 'NFO-OPT'])).toEqual(['NSE', 'NSEOPT']);
+  test('NSE futures and NSE options are separate pools; NFO futures span NSE + INDEX', () => {
+    expect(allowedCategories(['NFO-FUT', 'NFO-OPT'])).toEqual(['NSE', 'INDEX', 'NSEOPT']);
     expect(allowedCategories(['NFO-OPT'])).toEqual(['NSEOPT']);
-    expect(allowedCategories(['NFO-FUT'])).toEqual(['NSE']);
+    expect(allowedCategories(['NFO-FUT'])).toEqual(['NSE', 'INDEX']);
   });
 
   test('deduplicates categories that share a mapping', () => {
@@ -80,7 +115,7 @@ describe('allowedCategories', () => {
   });
 
   test('returns categories in canonical order regardless of input order', () => {
-    expect(allowedCategories(['SGX', 'MCX-FUT', 'NFO-OPT', 'NFO-FUT'])).toEqual(['NSE', 'NSEOPT', 'MCX', 'GLOBAL']);
+    expect(allowedCategories(['SGX', 'MCX-FUT', 'NFO-OPT', 'NFO-FUT'])).toEqual(['NSE', 'INDEX', 'NSEOPT', 'MCX', 'GLOBAL']);
   });
 
   test('a User row only counts when ticked (turnover or lot on)', () => {
@@ -88,15 +123,15 @@ describe('allowedCategories', () => {
       { exchange_name: 'NFO-FUT', turnover: true, lot: false },
       { exchange_name: 'NFO-OPT', turnover: false, lot: false },
       { exchange_name: 'MCX-FUT' },
-    ])).toEqual(['NSE']);
+    ])).toEqual(['NSE', 'INDEX']);
   });
 
   test('ignores blank, null and malformed entries', () => {
-    expect(allowedCategories(['NFO-FUT', '', null, {}, { exchange_name: '  ', turnover: true }])).toEqual(['NSE']);
+    expect(allowedCategories(['NFO-FUT', '', null, {}, { exchange_name: '  ', turnover: true }])).toEqual(['NSE', 'INDEX']);
   });
 
   test('is case-insensitive for entry names', () => {
-    expect(allowedCategories(['nfo-fut', ticked('mcx-opt'), ticked('nfo-opt')])).toEqual(['NSE', 'NSEOPT', 'MCX']);
+    expect(allowedCategories(['nfo-fut', ticked('mcx-opt'), ticked('nfo-opt')])).toEqual(['NSE', 'INDEX', 'NSEOPT', 'MCX']);
   });
 
   test('returns an empty array for empty or non-array input', () => {

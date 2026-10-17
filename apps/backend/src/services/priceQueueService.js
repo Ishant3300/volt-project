@@ -228,8 +228,8 @@ async function executeMatchedOrder(match, livePrice, options = {}) {
       //    segment, so categoryForSegment('NFO')→GLOBAL / ('MCX')→GLOBAL would be
       //    wrong. Resolving from segment maps 'NFO-FUT'→NSE, 'MCX-FUT'→MCX, etc.
       const walletInstrument = await KiteInstrument.findOne({ instrument_token: trade.instrument_token })
-        .select('segment enabled deleted_at instrument_type nse_banned ban_reason raw_name name lot_size').session(session).lean();
-      const walletCategory = categoryForSegment(walletInstrument?.segment || trade.exchange || '');
+        .select('segment enabled deleted_at instrument_type nse_banned ban_reason raw_name name lot_size tradingsymbol').session(session).lean();
+      const walletCategory = categoryForSegment(walletInstrument?.segment || trade.exchange || '', walletInstrument, trade);
 
       const { closingQty: walletClosingQty, openingQty: walletOpeningQty } =
         computeWalletSplit(previousNetQty, trade.transaction_type, trade.quantity);
