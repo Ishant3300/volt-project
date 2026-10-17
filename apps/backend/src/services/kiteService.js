@@ -735,4 +735,8 @@ class KiteService {
   }
 }
 
-module.exports = new KiteService();
+// Practice mode (docs/practice-trading.md): simulated data in Kite's shapes,
+// and no Kite request / login can ever be made. Live: the plain service.
+module.exports = require('../config/practice').PRACTICE
+  ? require('./practice/practiceKite').wrap(new KiteService())
+  : new KiteService();

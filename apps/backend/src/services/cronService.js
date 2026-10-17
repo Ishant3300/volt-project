@@ -8,6 +8,9 @@ const redisService = require('./redisService');
 const { snapshotWeeklySummary, snapshotWeeklyLedger } = require('./weeklySummaryService');
 const livePriceService = require('./livePriceService');
 const { beginTradeWrite } = require('./tradeWriteFenceService');
+// Practice mode (docs/practice-trading.md): jobs that reach Kite / NSE / MCX /
+// Massive or plan expiries return immediately — practice has no market data.
+const { PRACTICE } = require('../config/practice');
 
 class CronService {
     constructor() {
@@ -23,6 +26,7 @@ class CronService {
         // Fetch & sync instruments from Kite every day at 8:00 AM
         // Runs fetchInstruments.js in a child process (it calls process.exit internally)
         const fetchInstrumentsJob = cron.schedule('30 7 * * *', () => {
+            if (PRACTICE) return;
             console.log('📡 [CRON] Starting daily instrument fetch...');
             const scriptPath = path.join(__dirname, '../../scripts/fetchInstruments.js');
             const child = fork(scriptPath, [], { silent: true });
@@ -50,6 +54,7 @@ class CronService {
         // fails the entire run the moment anyone holds an open position on
         // one (settlementService.js's hasOfficialSettlementAuthority gate).
         const massiveSettlementJob = cron.schedule('0 6 * * *', async () => {
+            if (PRACTICE) return;
             console.log('📊 [CRON] Fetching CME/CBOT/COMEX official settlement prices (Massive)...');
             try {
                 const { fetchAndApplyMassiveSettlement } = require('./massiveSettlementService');
@@ -150,6 +155,7 @@ class CronService {
         // Check every hour if the Kite access token is still valid.
         // If expired or expiring soon, perform automated login (same as server startup).
         const kiteTokenRefresh = cron.schedule('0 * * * *', async () => {
+            if (PRACTICE) return;
             try {
                 const kiteAuthService = require('./kiteAuthService');
                 const status = await kiteAuthService.checkTokenStatus();
@@ -182,6 +188,7 @@ class CronService {
         // MCX: 1:00 AM IST (Tue-Sat) — fetches previous day's settlement prices
 
         const nseBhavcopyJob = cron.schedule('30 17 * * 1-5', async () => {
+            if (PRACTICE) return;
             console.log(`📊 [CRON] Fetching NSE settlement prices (5:30 PM IST)...`);
             try {
                 const { fetchAndApplyBhavcopy } = require('./bhavcopyService');
@@ -213,6 +220,7 @@ class CronService {
         // Also auto-lifts any previously-banned symbol no longer on today's
         // list — see nseBanListService for the independent nse_banned field.
         const nseBanListJob = cron.schedule('0 8 * * 1-5', async () => {
+            if (PRACTICE) return;
             console.log('🚫 [CRON] Syncing NSE F&O ban list...');
             try {
                 const { syncNseBanList } = require('./nseBanListService');
@@ -225,6 +233,7 @@ class CronService {
         this.jobs.push(nseBanListJob);
 
         const mcxBhavcopyJob = cron.schedule('0 1 * * 2-6', async () => {
+            if (PRACTICE) return;
             console.log(`📊 [CRON] Fetching MCX settlement prices (1:00 AM IST)...`);
             try {
                 const { fetchAndApplyBhavcopy } = require('./bhavcopyService');
@@ -348,8 +357,9 @@ class CronService {
         // whatever is due: opens automatically, cuts once admin-confirmed —
         // each just after its market's close, at the closing bid/ask.
         const expiryActionService = require('./expiryActionService');
-        expiryActionService.refreshPlan().catch((e) => console.error('❌ [CRON] Expiry plan refresh failed:', e.message));
+        if (!PRACTICE) expiryActionService.refreshPlan().catch((e) => console.error('❌ [CRON] Expiry plan refresh failed:', e.message));
         const expiryPlanJob = cron.schedule('*/30 * * * *', async () => {
+            if (PRACTICE) return;
             try {
                 const { errors } = await expiryActionService.refreshPlan();
                 if (errors.length) console.error('❌ [CRON] Expiry plan errors:', JSON.stringify(errors));
@@ -361,6 +371,7 @@ class CronService {
 
         let expiryRunBusy = false;
         const expiryRunJob = cron.schedule('* * * * *', async () => {
+            if (PRACTICE) return;
             if (expiryRunBusy) return; // a long cut may outlast a minute
             expiryRunBusy = true;
             try {

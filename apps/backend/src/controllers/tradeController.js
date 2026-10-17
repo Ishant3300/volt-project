@@ -706,7 +706,7 @@ const placeTrade = async (req, res) => {
         // trust the client's role claim — only honoured when this exact request
         // is authenticated as `req.admin` (master/user requests ignore the flag
         // even if somehow sent).
-        const skipBrokerage = !!(req.admin && no_brokerage === true);
+        const skipBrokerage = !!(req.admin && no_brokerage === true) || require('../config/practice').PRACTICE; // practice: never brokerage
         // Admin Bulk Trade Import (migrating positions from another broker):
         // INDEX futures skip the wallet margin check and may take the client's
         // INDEX pool negative — refilled afterwards (user, 17 Oct 2026). Only

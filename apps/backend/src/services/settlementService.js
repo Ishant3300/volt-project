@@ -200,6 +200,8 @@ function expectedPriceDateForInstrument(run, instrument) {
 
 function hasOfficialSettlementAuthority(instrument) {
   const source = String(instrument?.settlement_price_source || '');
+  // Practice mode settles only at its own simulated close (practice/simFeed.js).
+  if (require('../config/practice').PRACTICE) return source === 'PRACTICE_SIM';
   if (instrument?.exchange === 'MCX') return source.startsWith('MCX_OFFICIAL_BHAVCOPY_');
   // BSE/BFO get their own settlement_price_source prefix from
   // bhavcopyService.js's fetchBseBhavcopy (BSE_OFFICIAL_BHAVCOPY_...) —

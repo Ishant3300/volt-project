@@ -390,7 +390,12 @@ const masterLogout = async (req, res) => {
 // Universal Login
 const universalLogin = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { password } = req.body;
+    let { username } = req.body;
+    // Practice accounts log in with their email — match it case-insensitively.
+    if (require('../config/practice').PRACTICE && typeof username === 'string' && username.includes('@')) {
+      username = username.trim().toLowerCase();
+    }
 
     if (!username || !password) {
       return res.status(400).json({

@@ -14,6 +14,7 @@ const { LOG_LIVE_TICKS, LOG_WS_BROADCAST } = require('../config/logFlags');
 const metricsEngine = require('./metricsEngine');
 const SettlementRun = require('../models/SettlementRun');
 const { dateRange, isWeekendInIndia } = require('../utils/settlementDates');
+const { PRACTICE } = require('../config/practice');
 
 class LivePriceService {
   constructor() {
@@ -304,6 +305,20 @@ class LivePriceService {
         break;
 
       case 'subscribe':
+        if (PRACTICE && data.tokens && Array.isArray(data.tokens)) {
+          // Practice mode: simulated prices only (docs/practice-trading.md) —
+          // no Kite subscription, reply with the current simulated ticks.
+          data.tokens.forEach((token) => {
+            const numToken = parseInt(token);
+            if (!isNaN(numToken)) this.subscribedTokens.add(numToken);
+          });
+          require('./practice/simFeed').ticksFor(data.tokens).then((ticks) => {
+            if (!ticks.length) return;
+            this._applyTicks(ticks);
+            if (ws.readyState === 1) ws.send(JSON.stringify({ type: 'ticks', data: ticks }));
+          }).catch((e) => console.error('[practice] subscribe ticks failed:', e.message));
+          break;
+        }
         if (data.tokens && Array.isArray(data.tokens)) {
           console.log(`📊 Subscribe request for tokens: ${data.tokens.join(', ')}`);
           data.tokens.forEach(token => {
@@ -661,6 +676,21 @@ class LivePriceService {
 
       if (ticks.length > 0) {
         this._lastRealTickAt = Date.now(); // real prices, not heartbeats (watchdog feed check)
+        this._applyTicks(ticks);
+      }
+    } catch (error) {
+      console.log('❌ Error processing Kite tick:', error.message);
+    }
+  }
+
+  /**
+   * Apply parsed ticks: latest prices, metricsEngine, order matching,
+   * synthetic instruments, broadcast. The Kite feed's path — and practice
+   * mode's simulated prices (practice/simFeed.js) use the very same one.
+   */
+  _applyTicks(ticks) {
+    try {
+      {
         // Update latest prices map
         const liveTicks = [];
         ticks.forEach(t => {

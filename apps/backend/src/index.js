@@ -13,6 +13,8 @@ const redisService = require('./services/redisService');
 const orderBookService = require('./services/orderBookService');
 const priceQueueService = require('./services/priceQueueService');
 const firebaseService = require('./services/firebaseService');
+// Practice (paper trading) mode — docs/practice-trading.md. Unset on live.
+const { PRACTICE } = require('./config/practice');
 const { sanitizeErrorMessage } = require('./utils/sanitizeError');
 
 const app = express();
@@ -362,8 +364,16 @@ const startServer = async () => {
     console.log('⏭️  Background services DISABLED (DISABLE_BG_SERVICES=true)');
   }
 
+  // Practice mode: no Kite, no market feeds — simulated prices only.
+  if (!bgDisabled && PRACTICE) {
+    const simFeed = require('./services/practice/simFeed');
+    await simFeed.init(livePriceService, metricsEngine);
+    require('./services/practice/practiceCron').start();
+    _ts('Practice mode: simulated prices running (no Kite, no market feeds)');
+  }
+
   // Establish Kite authentication prerequisites before outbound live-price setup.
-  if (!bgDisabled) {
+  if (!bgDisabled && !PRACTICE) {
     console.log('\n🔐 Checking Kite authentication...');
     try {
       const status = await kiteAuthService.checkTokenStatus();

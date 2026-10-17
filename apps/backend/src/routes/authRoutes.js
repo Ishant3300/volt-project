@@ -29,6 +29,11 @@ router.post('/login', trackLoginAttempt('universal'), validateLogin, universalLo
 // signed in or not; see clientEventController.js. Read by the watchdog.
 router.post('/client-events', recordClientEvents);
 
+// Practice (paper trading) backend only — self sign-up (docs/practice-trading.md).
+if (require('../config/practice').PRACTICE) {
+  router.post('/practice-signup', require('../controllers/practiceSignupController').practiceSignup);
+}
+
 // Live in-memory state for the watchdog on this server only (key + no proxy); 404 otherwise.
 router.get('/internal-health', require('../controllers/internalHealthController').internalHealth);
 

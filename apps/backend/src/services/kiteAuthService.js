@@ -233,6 +233,9 @@ class KiteAuthService {
    * captcha token — that check only runs on the rendered web form.
    */
   async performAutomatedLogin() {
+    // Practice mode never logs in to Kite: one session per API key, a practice
+    // login would log the live backend out (docs/practice-trading.md).
+    if (require('../config/practice').PRACTICE) return { success: false, error: 'Kite is not available in practice mode' };
     if (this.isRunning) {
       console.log('⚠️  Login already in progress, skipping...');
       return { success: false, reason: 'Already running' };
