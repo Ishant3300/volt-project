@@ -218,6 +218,9 @@ function investorLoginNear(ms, model) {
 
 function browserOf(ua) {
   const u = String(ua || '');
+  // app 1.0.51+ sends "Volt/1.0.51+54 (Android 14; samsung SM-A546E) Dart/3"
+  const app = u.match(/^(Volt|Apex)\/(\S+)\s*\(([^)]*)\)/);
+  if (app) return `${app[1]} app ${app[2]}${app[3] ? ` · ${app[3]}` : ''}`;
   if (/Dart\//.test(u)) return 'Volt app';
   const os = /iPhone|iPad/.test(u) ? 'iPhone' : /Android/.test(u) ? 'Android' : /Windows/.test(u) ? 'Windows' : /Mac OS/.test(u) ? 'Mac' : '';
   const br = /Edg\/(\d+)/.test(u) ? `Edge ${u.match(/Edg\/(\d+)/)[1]}` : /Chrome\/(\d+)/.test(u) ? `Chrome ${u.match(/Chrome\/(\d+)/)[1]}` : /Safari\//.test(u) ? 'Safari' : u.slice(0, 40);
@@ -387,7 +390,7 @@ async function checkEvents() {
       const sig = `ce:${e.source}:${lib.signature(e.message)}`;
       const known = state.signatures[sig];
       state.signatures[sig] = { lastSeen: Date.now(), today: (known?.today || 0) + 1, day: lib.istParts().ymd };
-      if (!known) raise(sig, 'warning', `New ${src.toLowerCase()} ${e.kind === 'crash' ? 'crash' : 'error'}`, [`${who(e.account_id)} on ${e.page || '?'}`, e.message, e.version ? `version ${e.version}` : ''], { cooldownMs: 24 * 60 * MIN });
+      if (!known) raise(sig, 'warning', `New ${src.toLowerCase()} ${e.kind === 'crash' ? 'crash' : 'error'}`, [`${who(e.account_id)} on ${e.page || '?'}`, e.message, [e.version ? `version ${e.version}` : '', ctx.device ? `phone ${ctx.device}` : ''].filter(Boolean).join(' · ')], { cooldownMs: 24 * 60 * MIN });
       if (hit(`storm:${sig}`, 10 * MIN, e).length >= 10) raise(`storm:${sig}`, 'warning', `${src} error repeating`, [`10+ times in 10 min: ${e.message}`]);
     } else if (e.kind === 'api_error') {
       const list = hit(`apierr:${e.source}`, 5 * MIN, e);
