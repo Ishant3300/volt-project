@@ -102,7 +102,9 @@ function sessionOpen(slot, meta = {}, stepMin = DEFAULT_STEP_MIN) {
 
 function roundTick(price, tick = 0.05) {
   const t = tick > 0 ? tick : 0.05;
-  return Math.max(t, Math.round(price / t) * t);
+  // Round to the tick, then to the tick's decimals (no 1210.6000000000001).
+  const decimals = (String(t).split('.')[1] || '').length;
+  return Number(Math.max(t, Math.round(price / t) * t).toFixed(decimals));
 }
 
 /**

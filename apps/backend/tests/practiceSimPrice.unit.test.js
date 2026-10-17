@@ -71,3 +71,13 @@ test('candles agree with the price at each time', () => {
     expect(c.high).toBeGreaterThanOrEqual(Math.max(c.open, c.close));
   }
 });
+
+test('no floating-point artifacts: prices are exact to the tick decimals', () => {
+  expect(sim.roundTick(1210.6, 0.1)).toBe(1210.6);
+  expect(sim.roundTick(1210.60000001, 0.1)).toBe(1210.6);
+  expect(sim.roundTick(2.33, 0.05)).toBe(2.35);
+  for (let m = 0; m < 300; m += 30) {
+    const p = sim.priceAt(anchor, stock, istMs(2026, 10, 19, 9, 30) + m * 60e3);
+    expect(String(p).split('.')[1]?.length || 0).toBeLessThanOrEqual(1);
+  }
+});
