@@ -88,15 +88,15 @@ class _CreateUserViewState extends State<CreateUserView> {
   // shows (which the master then edits).
   final Map<String, double> _brokerageFloor = {};
 
-  // "Create account for" (create mode, master login): a master in the
-  // logged-in master's downline who will own AND fund the new client — e.g.
-  // harry creating a client for his sub-master vijay. Every owner-dependent
+  // "Create account for" (create mode): who owns AND funds the new client —
+  // the logged-in master by default ("Myself"), or a master in their
+  // downline (e.g. harry creating a client for his sub-master vijay); admin
+  // must pick a master (any). Every owner-dependent
   // value (offered exchanges, trade limits, balance/wallet checks, P&L and
   // brokerage sharing, server, brokerage rates/floor) reads _ownerMaster,
   // never profileProvider.master directly. The backend (`for_master_id`)
   // enforces the same ownership.
   List<Map<String, dynamic>> _downlineMasters = [];
-  bool _createForOther = false;
   Master? _forMaster;
   bool _loadingForMaster = false;
 
@@ -105,20 +105,10 @@ class _CreateUserViewState extends State<CreateUserView> {
       Provider.of<UserProfileProvider>(context, listen: false).master;
 
   Future<void> _loadDownlineMasters() async {
-    try {
-      final token = await SecureStorageService().getToken();
-      final res = await ApiService(backendUrl)
-          .get('/master/downline-masters', token: token);
-      if (res.statusCode == 200) {
-        final body = jsonDecode(res.body);
-        if (body['success'] == true && mounted) {
-          setState(() => _downlineMasters =
-              List<Map<String, dynamic>>.from(body['data'] ?? []));
-        }
-      }
-    } catch (e) {
-      log('⚠️ Error loading downline masters: $e');
-    }
+    final isAdmin =
+        Provider.of<UserProfileProvider>(context, listen: false).isAdmin;
+    final list = await loadCreateForMasters(isAdmin: isAdmin);
+    if (mounted) setState(() => _downlineMasters = list);
   }
 
   /// null = back to the logged-in master. Otherwise loads that master's full
@@ -215,7 +205,8 @@ class _CreateUserViewState extends State<CreateUserView> {
       _changePasswordOnFirstLogin = widget.user!.changePassOnFirstLogin;
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) => _generateUsername());
-      if (Provider.of<UserProfileProvider>(context, listen: false).isMaster) {
+      final profile = Provider.of<UserProfileProvider>(context, listen: false);
+      if (profile.isMaster || profile.isAdmin) {
         _loadDownlineMasters();
       }
     }
@@ -793,9 +784,13 @@ class _CreateUserViewState extends State<CreateUserView> {
     final profileProvider =
         Provider.of<UserProfileProvider>(context, listen: false);
 
-    // Only require master if we are NOT an admin editing a user
-    if (profileProvider.master == null &&
-        !(profileProvider.isAdmin && widget.user != null)) {
+    // Admin creating a client: it must belong to a master (picked above).
+    if (profileProvider.isAdmin && widget.user == null && _forMaster == null) {
+      _showSnack('Select the master this account belongs to', isError: true);
+      return;
+    }
+    // Only require master if we are NOT an admin
+    if (profileProvider.master == null && !profileProvider.isAdmin) {
       _showSnack('Master profile not found', isError: true);
       return;
     }
@@ -1026,8 +1021,8 @@ class _CreateUserViewState extends State<CreateUserView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (widget.user == null && _downlineMasters.isNotEmpty) ...[
-                      _sectionLabel('CREATE ACCOUNT FOR'),
+                    if (widget.user == null) ...[
+                      _sectionLabel('USER SELECTION'),
                       const SizedBox(height: 12),
                       _card(child: _buildCreateForPicker()),
                       const SizedBox(height: 20),
@@ -1442,19 +1437,16 @@ class _CreateUserViewState extends State<CreateUserView> {
   }
 
   Widget _buildCreateForPicker() {
+    final profile = Provider.of<UserProfileProvider>(context, listen: false);
+    final me = profile.master;
     return CreateForMasterPicker(
       masters: _downlineMasters,
-      enabled: _createForOther,
       selectedId: _forMaster?.id,
-      loading: _loadingForMaster,
-      ownerLabel: _forMaster == null
+      // Admin can't own a client — they must pick a master.
+      selfLabel: profile.isAdmin || me == null
           ? null
-          : '${_forMaster!.name} (${_forMaster!.username})',
-      onToggle: (checked) {
-        setState(() => _createForOther = checked);
-        _selectForMaster(
-            checked ? _downlineMasters.first['id']?.toString() : null);
-      },
+          : 'Myself — ${me.name} (${me.username})',
+      loading: _loadingForMaster,
       onSelect: _selectForMaster,
     );
   }

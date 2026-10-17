@@ -166,14 +166,15 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   // "no parent to violate against" case the backend itself skips.
   final Map<String, double> _brokerageFloor = {};
 
-  // "Create account for" (create mode, master login): a master in the
-  // logged-in master's downline (with add_master) who will own AND fund the
-  // new sub-broker — e.g. harry creating a sub-broker under vijay. Balance/
+  // "Create account for" (create mode): who owns AND funds the new
+  // sub-broker — the logged-in master by default ("Myself"), or a master in
+  // their downline with add_master (e.g. harry creating a sub-broker under
+  // vijay). Admin: "Myself" = a top-level master as before, or any master
+  // with add_master — then the form behaves exactly as that master's own. Balance/
   // wallet checks, P&L and brokerage sharing caps, server, and the base-rate
   // prefill/floor all read _ownerMaster, never profileProvider.master
   // directly. The backend (`for_master_id`) enforces the same ownership.
   List<Map<String, dynamic>> _downlineMasters = [];
-  bool _createForOther = false;
   Master? _forMaster;
   bool _loadingForMaster = false;
 
@@ -181,24 +182,13 @@ class _CreateMasterViewState extends State<CreateMasterView> {
       _forMaster ??
       Provider.of<UserProfileProvider>(context, listen: false).master;
 
+  // All of them are listed; ones without add_master are shown greyed out
+  // ("no sub-master rights") by the picker and can't be chosen.
   Future<void> _loadDownlineMasters() async {
-    try {
-      final token = await SecureStorageService().getToken();
-      final res = await ApiService(backendUrl)
-          .get('/master/downline-masters', token: token);
-      if (res.statusCode == 200) {
-        final body = jsonDecode(res.body);
-        if (body['success'] == true && mounted) {
-          setState(() => _downlineMasters =
-              List<Map<String, dynamic>>.from(body['data'] ?? [])
-                  // Only masters allowed to have sub-masters can own one.
-                  .where((m) => m['add_master'] == true)
-                  .toList());
-        }
-      }
-    } catch (e) {
-      log('⚠️ Error loading downline masters: $e');
-    }
+    final isAdmin =
+        Provider.of<UserProfileProvider>(context, listen: false).isAdmin;
+    final list = await loadCreateForMasters(isAdmin: isAdmin);
+    if (mounted) setState(() => _downlineMasters = list);
   }
 
   Future<void> _selectForMaster(String? masterId) async {
@@ -228,8 +218,17 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   }
 
   /// Base rates and their floor are the owner's — re-fetch for the new one.
+  /// Back to admin's own top-level master: no parent rate, fields cleared.
   void _reloadForOwner() {
-    setState(() => _brokerageFloor.clear());
+    setState(() {
+      _brokerageFloor.clear();
+      if (_ownerMaster == null) {
+        for (final s in _brokerageSettings.values) {
+          s['value'] = '';
+          (s['controller'] as TextEditingController).clear();
+        }
+      }
+    });
     _fetchOwnBrokerageFloor();
   }
 
@@ -313,7 +312,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     _fetchServers();
     if (widget.master == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _generateUsername());
-      if (Provider.of<UserProfileProvider>(context, listen: false).isMaster) {
+      final profile = Provider.of<UserProfileProvider>(context, listen: false);
+      if (profile.isMaster || profile.isAdmin) {
         _loadDownlineMasters();
       }
     }
@@ -639,7 +639,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             Provider.of<UserProfileProvider>(context, listen: false);
         String? serverId;
 
-        if (profileProvider.isAdmin) {
+        if (profileProvider.isAdmin && _forMaster == null) {
           serverId = _selectedServerId;
           if (serverId == null || serverId.isEmpty) {
             _showSnack('Please select a server', isError: true);
@@ -1057,25 +1057,24 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Personal Details
-                    if (widget.master == null && _downlineMasters.isNotEmpty) ...[
-                      _sectionLabel('CREATE ACCOUNT FOR'),
+                    if (widget.master == null) ...[
+                      _sectionLabel('USER SELECTION'),
                       const SizedBox(height: 12),
                       _card(
-                        child: CreateForMasterPicker(
-                          masters: _downlineMasters,
-                          enabled: _createForOther,
-                          selectedId: _forMaster?.id,
-                          loading: _loadingForMaster,
-                          ownerLabel: _forMaster == null
-                              ? null
-                              : '${_forMaster!.name} (${_forMaster!.username})',
-                          onToggle: (checked) {
-                            setState(() => _createForOther = checked);
-                            _selectForMaster(checked
-                                ? _downlineMasters.first['id']?.toString()
-                                : null);
+                        child: Consumer<UserProfileProvider>(
+                          builder: (context, profile, _) {
+                            final me = profile.master;
+                            return CreateForMasterPicker(
+                              masters: _downlineMasters,
+                              selectedId: _forMaster?.id,
+                              selfLabel: profile.isAdmin
+                                  ? 'Myself — Admin (top level)'
+                                  : 'Myself — ${me?.name ?? ''} (${me?.username ?? ''})',
+                              requireAddMaster: true,
+                              loading: _loadingForMaster,
+                              onSelect: _selectForMaster,
+                            );
                           },
-                          onSelect: _selectForMaster,
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -1095,7 +1094,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                           // Server dropdown for admin
                           Consumer<UserProfileProvider>(
                             builder: (context, profile, _) {
-                              if (!profile.isAdmin)
+                              if (!profile.isAdmin || _forMaster != null)
                                 return const SizedBox.shrink();
                               return Column(
                                 children: [
@@ -1197,7 +1196,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                     // Allotted Script Quantity Groups (admin-only)
                     Consumer<UserProfileProvider>(
                       builder: (context, profile, _) {
-                        if (!profile.isAdmin) return const SizedBox.shrink();
+                        if (!profile.isAdmin || _forMaster != null) {
+                          return const SizedBox.shrink();
+                        }
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [

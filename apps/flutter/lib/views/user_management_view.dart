@@ -881,8 +881,8 @@ class _UserManagementViewState extends State<UserManagementView> {
                     },
                   ),
 
-                // Create User
-                if (isMaster)
+                // Create User (admin: under a master picked on the form)
+                if (isMaster || isAdmin)
                   _buildCreateOption(
                     icon: Icons.person_add,
                     iconColor: const Color(0xFFD97706),
