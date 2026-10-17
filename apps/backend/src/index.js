@@ -15,6 +15,7 @@ const priceQueueService = require('./services/priceQueueService');
 const firebaseService = require('./services/firebaseService');
 // Practice (paper trading) mode — docs/practice-trading.md. Unset on live.
 const { PRACTICE } = require('./config/practice');
+if (PRACTICE) require('./services/practice/outboundGuard').install();
 const { sanitizeErrorMessage } = require('./utils/sanitizeError');
 
 const app = express();

@@ -53,6 +53,8 @@ function parseMcxFullDayHolidays(html, year) {
 }
 
 async function fetchNseHolidays(year) {
+  // Practice mode never downloads from exchanges — getHolidays falls back to the verified list.
+  if (require('../config/practice').PRACTICE) throw new Error('practice mode: no exchange download');
   const response = await axios.get(NSE_HOLIDAY_URL, {
     timeout: 30_000,
     headers: { ...BROWSER_HEADERS, Referer: 'https://www.nseindia.com/resources/exchange-communication-holidays' },
@@ -65,6 +67,7 @@ async function fetchNseHolidays(year) {
 }
 
 async function fetchMcxHolidays(year) {
+  if (require('../config/practice').PRACTICE) throw new Error('practice mode: no exchange download');
   const response = await axios.get(MCX_HOLIDAY_URL, { timeout: 30_000, headers: BROWSER_HEADERS });
   const holidays = parseMcxFullDayHolidays(response.data, year);
   if (!String(response.data || '').includes(`${year}-`)) {

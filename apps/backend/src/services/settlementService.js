@@ -962,7 +962,9 @@ async function executeOwnedRun(context) {
 
   try {
     let commitResult = { stats: run.stats || {} };
-    if (action === 'execute' && refreshPrices) {
+    // Practice mode settles only at its own simulated closes (PRACTICE_SIM,
+    // practice/simFeed.js) — never fetches NSE / MCX / Massive / NSE IX.
+    if (action === 'execute' && refreshPrices && !require('../config/practice').PRACTICE) {
       setPhase('fetching_prices', `Fetching official prices for ${run.period_key}`);
       const { fetchAndApplyBhavcopy } = require('./bhavcopyService');
       const fetched = await fetchAndApplyBhavcopy(undefined, {
