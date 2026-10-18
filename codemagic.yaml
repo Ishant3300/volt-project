@@ -32,7 +32,7 @@ workflows:
         distribution_type: app_store
         bundle_identifier: com.voltlive.volt
       vars:
-        APP_STORE_APPLE_ID: "0000000000" # ← set to VOLT's Apple ID (see step 4)
+        APP_STORE_APPLE_ID: "6808212028" # VOLT - Learn & Practice
         BRAND: volt
     triggering:
       events:
