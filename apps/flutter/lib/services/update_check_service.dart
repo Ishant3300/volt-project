@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import '../utils/contants.dart';
@@ -21,6 +22,8 @@ class UpdateInfo {
 /// fetch, checked once per app cold-start (see InitialScreen).
 class UpdateCheckService {
   Future<UpdateInfo?> check() async {
+    // The APK update prompt is Android-only — iPhones update via the App Store.
+    if (defaultTargetPlatform != TargetPlatform.android) return null;
     try {
       final info = await PackageInfo.fromPlatform();
       final installedBuild = int.tryParse(info.buildNumber) ?? 0;
