@@ -36,6 +36,12 @@ class LivePriceService {
       log('   URL: $uri');
 
       _channel = WebSocketChannel.connect(uri);
+      // A failed connect (no internet, DNS failure) is reported on `ready`;
+      // left unhandled it surfaced as an uncaught error (and a false crash
+      // report). The stream's onError below already schedules the reconnect.
+      _channel!.ready.catchError((Object e) {
+        log('❌ WebSocket connect failed: $e');
+      });
 
       _subscription = _channel!.stream.listen(
         (message) {

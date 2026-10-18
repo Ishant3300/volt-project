@@ -31,9 +31,16 @@ class CrashReporter {
     };
   }
 
+  // The phone's connection dropping (no internet, DNS failure, refused /
+  // reset connection, TLS handshake) is not an app crash — not reported.
+  static final RegExp _networkError = RegExp(
+      r'Failed host lookup|SocketException|Connection (refused|reset|closed|timed out)|HandshakeException|Network is unreachable',
+      caseSensitive: false);
+
   static Future<void> report(Object error, StackTrace? stack, {String where = ''}) async {
     try {
       final message = error.toString();
+      if (_networkError.hasMatch(message)) return;
       final frames = (stack?.toString() ?? '')
           .split('\n')
           .map((l) => l.trim())

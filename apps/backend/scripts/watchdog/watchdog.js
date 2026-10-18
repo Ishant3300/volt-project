@@ -386,6 +386,10 @@ async function checkEvents() {
     if (e.kind === 'order_block' || e.kind === 'order_rejected') {
       const by = e.account_role && e.account_role !== 'user' ? ` (placed by ${e.account_role})` : '';
       rejections.push(`[${src.toLowerCase()}${e.kind === 'order_block' ? ' blocked' : ''}] ${who(target)}${by} · ${orderText(ctx)} · ${e.message}`);
+    } else if ((e.kind === 'js_error' || e.kind === 'crash') && /Failed host lookup|SocketException|Connection (refused|reset|closed|timed out)|HandshakeException|Network is unreachable/i.test(e.message || '')) {
+      // The phone's connection dropped (no internet / DNS) — not an app crash.
+      // App 1.0.51+54 still reports these; newer builds don't.
+      continue;
     } else if (e.kind === 'js_error' || e.kind === 'crash') {
       const sig = `ce:${e.source}:${lib.signature(e.message)}`;
       const known = state.signatures[sig];
