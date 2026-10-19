@@ -16,15 +16,21 @@
 # Start a build: Codemagic → volt-project → Start new build → workflow
 # "iOS Volt → TestFlight" (any branch, normally main), or push to the
 # `ios-release` branch.
+#
+# "iOS Volt → App Store review" (manual start only) builds the same ipa and
+# submits it for App Store review: any submission already in review is
+# cancelled first, and an approved version is NOT released automatically
+# (release it by hand in App Store Connect). Apple's App Review messages
+# can only be answered in App Store Connect itself.
 workflows:
   ios-volt-testflight:
     name: iOS Volt → TestFlight
     max_build_duration: 60
     instance_type: mac_mini_m2
     working_directory: apps/flutter
-    integrations:
+    integrations: &integrations
       app_store_connect: codemagic
-    environment:
+    environment: &environment
       flutter: 3.47.2
       xcode: latest
       cocoapods: default
@@ -41,7 +47,7 @@ workflows:
         - pattern: ios-release
           include: true
       cancel_previous_builds: true
-    scripts:
+    scripts: &scripts
       - name: Flutter packages
         script: flutter pub get
       - name: CocoaPods
@@ -64,7 +70,7 @@ workflows:
             --dart-define=BRAND="$BRAND" \
             --build-number="$BUILD_NUMBER" \
             --export-options-plist=/Users/builder/export_options.plist
-    artifacts:
+    artifacts: &artifacts
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
       - flutter_drive.log
@@ -73,3 +79,20 @@ workflows:
         auth: integration
         submit_to_testflight: true
         submit_to_app_store: false
+
+  ios-volt-appstore:
+    name: iOS Volt → App Store review
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    working_directory: apps/flutter
+    integrations: *integrations
+    environment: *environment
+    scripts: *scripts
+    artifacts: *artifacts
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: false
+        submit_to_app_store: true
+        cancel_previous_submissions: true
+        release_type: MANUAL
