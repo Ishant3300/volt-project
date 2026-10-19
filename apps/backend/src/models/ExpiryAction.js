@@ -9,6 +9,10 @@ const mongoose = require('mongoose');
  *
  * status: planned → (CUT: confirmed) → running → done | failed
  *         planned/confirmed ⇄ paused (admin); obsolete = no longer in the plan
+ *
+ * group_key CORP_ACTION = a corporate-action cut (corporateActionCutService):
+ * every F&O position in one stock closed the trading day before its split /
+ * bonus / rights ex-date; current_expiry holds the ex-date there.
  */
 const expiryActionSchema = new mongoose.Schema({
   key: { type: String, required: true, unique: true }, // `${group}|${kind}|${expiry}`
@@ -24,6 +28,17 @@ const expiryActionSchema = new mongoose.Schema({
   // OPEN: targets ('NAME|YYYY-MM-DD') already closed-until-open-day once — never again,
   // so an admin opening one early by hand is not fought.
   closed_targets: [String],
+  // CORP_ACTION cuts only — what NSE announced.
+  corp_action: {
+    type: {
+      _id: false,
+      symbol: String,
+      kind: String, // 'split' | 'bonus' | 'rights', or several joined with '+'
+      subject: String, // NSE's wording, e.g. 'Bonus 1:1'
+      ex_date: String, // 'YYYY-MM-DD'
+    },
+    default: undefined,
+  },
   action_date: { type: String, required: true }, // 'YYYY-MM-DD' (India)
   close_time: { type: String, default: null }, // 'HH:MM' IST market close (CUT)
   execute_at: { type: Date, required: true },

@@ -369,6 +369,26 @@ class CronService {
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(expiryPlanJob);
 
+        // ── Corporate-action cuts (corporateActionCutService.js) ─────────
+        // NSE's split / bonus / rights list read once now and on weekdays at
+        // 8:45 AM and 1:45 PM — each becomes a cut in the same schedule,
+        // the trading day before its ex-date, run once admin-confirmed.
+        const corporateCuts = require('./corporateActionCutService');
+        const refreshCorporateCuts = async () => {
+            try {
+                const { planned, retired } = await corporateCuts.refreshPlan();
+                console.log(`🗓️  [CRON] Corporate-action cuts: ${planned} planned${retired ? `, ${retired} withdrawn` : ''}`);
+            } catch (error) {
+                console.error('❌ [CRON] Corporate-action cuts refresh failed:', error.message);
+            }
+        };
+        if (!PRACTICE) refreshCorporateCuts();
+        const corporateCutJob = cron.schedule('45 8,13 * * 1-5', async () => {
+            if (PRACTICE) return;
+            await refreshCorporateCuts();
+        }, { timezone: 'Asia/Kolkata' });
+        this.jobs.push(corporateCutJob);
+
         let expiryRunBusy = false;
         const expiryRunJob = cron.schedule('* * * * *', async () => {
             if (PRACTICE) return;

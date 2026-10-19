@@ -13,6 +13,9 @@
  *   that contract is closed at the snapshot (long at bid, short at ask) and
  *   the contract is disabled (closing-only), except GIFT NIFTY which is one
  *   continuous instrument and stays enabled.
+ *
+ * Corporate-action cuts (split / bonus / rights, corporateActionCutService.js)
+ * are planned separately but run through the same CUT path here.
  */
 
 const mongoose = require('mongoose');
@@ -24,6 +27,7 @@ const { getHolidays } = require('./marketCalendarService');
 const { addUtcDays, dateKey, toIndiaDateOnly } = require('../utils/settlementDates');
 const { beginTradeWrite } = require('./tradeWriteFenceService');
 const { closeOpenPositions, bidAskPrice } = require('./positionCloseService');
+const corporateCuts = require('./corporateActionCutService');
 
 const groupByKey = new Map(GROUPS.map((g) => [g.key, g]));
 /** Contract types a rule group covers — futures unless it says otherwise (NFO options: CE/PE). */
@@ -359,6 +363,7 @@ async function closeNewTargetsUntilOpen(now) {
 /* ----------------------------------------------------------- execution -- */
 
 async function resolveCutInstruments(action) {
+  if (corporateCuts.isCorporateCut(action)) return corporateCuts.resolveInstruments(action);
   const group = groupByKey.get(action.group_key);
   if (action.continuous) {
     return KiteInstrument.find({ tradingsymbol: { $in: group.tradingsymbols }, deleted_at: null })
@@ -443,15 +448,19 @@ async function executeOpen(action) {
 }
 
 function notifyUser(userId, action) {
-  const message = `Your ${action.group_label} positions were closed ahead of expiry at the closing rate.`;
+  const corp = corporateCuts.isCorporateCut(action);
+  const symbol = action.names?.[0] || '';
+  const message = corp
+    ? `Your ${symbol} positions were closed at the closing rate ahead of its ${corporateCuts.describe(action)} (ex-date ${action.corp_action?.ex_date}). You can trade ${symbol} again at the adjusted price.`
+    : `Your ${action.group_label} positions were closed ahead of expiry at the closing rate.`;
   try {
     require('./livePriceService').broadcastToUser(userId, { type: 'admin_square_off', message });
   } catch (_) {}
   try {
     require('./firebaseService').sendNotification(userId, 'admin_order_execution', {
-      title: `${action.group_label} positions closed`,
+      title: corp ? `${symbol} positions closed` : `${action.group_label} positions closed`,
       body: message,
-      data: { reason: 'expiry_cut' },
+      data: { reason: corp ? 'corporate_action_cut' : 'expiry_cut' },
     });
   } catch (_) {}
 }
@@ -509,6 +518,9 @@ async function executeCut(action) {
       ltp: metricsEngine._ltpMap?.get(token),
     };
     const expiryKey = dateKey(action.current_expiry);
+    // A corporate-action cut leaves the contracts open and watchlists as
+    // they are — only the positions close (corporateActionCutService.js).
+    const corp = corporateCuts.isCorporateCut(action);
 
     const result = await closeOpenPositions({
       instruments,
@@ -517,15 +529,17 @@ async function executeCut(action) {
       trade: {
         placed_by: 'ADMIN',
         trade_type: 'admin_square_off',
-        remarks: (symbol) => `Expiry cut ahead of ${expiryKey} expiry (${symbol})`,
+        remarks: corp
+          ? (symbol) => `Closed ahead of ${corporateCuts.describe(action)} ex-date ${action.corp_action?.ex_date} (${symbol})`
+          : (symbol) => `Expiry cut ahead of ${expiryKey} expiry (${symbol})`,
       },
-      reason: 'EXPIRY_CUT',
-      txSuffix: 'EXC',
+      reason: corp ? 'CORPORATE_ACTION_CUT' : 'EXPIRY_CUT',
+      txSuffix: corp ? 'CAC' : 'EXC',
       onUserClosed: (userId) => notifyUser(userId, action),
     });
 
     let disabled = 0;
-    if (!action.continuous && instruments.length) {
+    if (!corp && !action.continuous && instruments.length) {
       const res = await KiteInstrument.updateMany(
         { instrument_token: { $in: instruments.map((i) => i.instrument_token) } },
         { $set: { enabled: false, ban_reason: 'Contract closed ahead of expiry', banned_at: new Date() } },
@@ -535,7 +549,7 @@ async function executeCut(action) {
     }
     // Watchlists move to the next contract even if some positions failed to
     // close — the old contract is closed for trading either way.
-    const watch = action.continuous ? { swapped: 0, removed: 0 } : await swapWatchlistsToNextContract(instruments);
+    const watch = (corp || action.continuous) ? { swapped: 0, removed: 0 } : await swapWatchlistsToNextContract(instruments);
 
     const failures = [...result.failures, ...result.skipped].map((f) => ({ ...f, user_id: String(f.user_id) }));
     await ExpiryAction.updateOne({ _id: action._id }, {

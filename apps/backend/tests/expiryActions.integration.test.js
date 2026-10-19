@@ -297,4 +297,50 @@ describeIntegration('contract expiry actions (real MongoDB)', () => {
       'Old Contract settlement: 23-OCT-FRIDAY at last Quotation', ' ( 11.30 P.M. )',
     ].join('\n'));
   });
+  test('corporate-action CUT closes every F&O position in the stock at bid/ask and leaves the contracts open', async () => {
+    const { longUser, shortUser } = await seed();
+    const nfo = (token, symbol, type, strike) => ({
+      instrument_token: token, exchange_token: `${token}9`, tradingsymbol: symbol, name: 'TCS', raw_name: 'TCS',
+      last_price: 3000, expiry: d('2026-10-27'), strike, tick_size: 0.05, lot_size: 175,
+      instrument_type: type, segment: type === 'FUT' ? 'NFO-FUT' : 'NFO-OPT', exchange: 'NFO', enabled: true,
+    });
+    await KiteInstrument.create([nfo('9401', 'TCS26OCTFUT', 'FUT', 0), nfo('9402', 'TCS26OCT3000CE', 'CE', 3000)]);
+    const t = (user, token, symbol, side, qty, price) => ({
+      user_id: user._id, master_id: user.master_id, instrument_token: token, tradingsymbol: symbol, exchange: 'NFO',
+      transaction_type: side, quantity: qty, price, order_type: 'MARKET', status: 'completed',
+      executed_at: new Date('2026-10-20T05:00:00Z'), executed_price: price, executed_quantity: qty, pnl: 0,
+    });
+    await Trade.create([t(longUser, '9401', 'TCS26OCTFUT', 'BUY', 175, 3000), t(shortUser, '9402', 'TCS26OCT3000CE', 'SELL', 175, 50)]);
+    const futInst = await KiteInstrument.findOne({ instrument_token: '9401' }).lean();
+    await Watchlist.create({ kite_instrument_id: futInst._id, instrument_token: '9401', order: 1, owner_id: longUser._id, owner_type: 'User' });
+    metricsEngine._bidMap.set('9401', 3010); metricsEngine._askMap.set('9401', 3011);
+    metricsEngine._bidMap.set('9402', 40); metricsEngine._askMap.set('9402', 41);
+
+    // Bonus ex-date Wed 21 Oct → cut Tue 20 Oct just after the 15:40 close.
+    const cut = await ExpiryAction.create({
+      key: 'CORP_ACTION|TCS|2026-10-21', group_key: 'CORP_ACTION', group_label: 'TCS bonus', exchange_label: 'NSE',
+      kind: 'CUT', segments: ['NFO-FUT', 'NFO-OPT'], names: ['TCS'], current_expiry: d('2026-10-21'), targets: [],
+      action_date: '2026-10-20', close_time: '15:40', execute_at: new Date('2026-10-20T10:11:00Z'),
+      corp_action: { symbol: 'TCS', kind: 'bonus', subject: 'Bonus 1:1', ex_date: '2026-10-21' },
+    });
+
+    // Confirmed in advance; nothing happens before its time.
+    await expiryActionService.transition(cut._id, 'confirm', null, new Date('2026-10-20T04:00:00Z'));
+    await expiryActionService.runDue(new Date('2026-10-20T10:00:00Z'));
+    expect(await Trade.countDocuments({ trade_type: 'admin_square_off' })).toBe(0);
+
+    await expiryActionService.runDue(new Date('2026-10-20T10:12:00Z'));
+    const a = await ExpiryAction.findById(cut._id).lean();
+    expect(a).toMatchObject({ status: 'done', result: { open_positions: 2, positions_closed: 2, contracts: 0, watchlist_swapped: 0, watchlist_removed: 0 } });
+    const closes = await Trade.find({ trade_type: 'admin_square_off' }).lean();
+    const byToken = Object.fromEntries(closes.map((c) => [c.instrument_token, c]));
+    expect(byToken['9401']).toMatchObject({ transaction_type: 'SELL', executed_price: 3010, executed_quantity: 175 });
+    expect(byToken['9402']).toMatchObject({ transaction_type: 'BUY', executed_price: 41, executed_quantity: 175 });
+    expect(byToken['9401'].remarks).toMatch(/bonus ex-date 2026-10-21/);
+    expect(await Transaction.countDocuments({ 'metadata.reason': 'CORPORATE_ACTION_CUT' })).toBe(2);
+    // The stock stays tradable and watchlists are left alone; MCX untouched.
+    expect((await KiteInstrument.find({ instrument_token: { $in: ['9401', '9402'] } }).lean()).every((i) => i.enabled === true)).toBe(true);
+    expect(await Watchlist.findOne({ owner_id: longUser._id, deleted_at: null }).lean()).toMatchObject({ instrument_token: '9401' });
+    expect(await Trade.countDocuments({ instrument_token: '9101', trade_type: 'admin_square_off' })).toBe(0);
+  });
 });
