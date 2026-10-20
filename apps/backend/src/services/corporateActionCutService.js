@@ -18,8 +18,9 @@
  *
  * The list comes from NSE's corporate-actions API (the same source as the
  * Telegram notices in scripts/watchdog/notices.js), refreshed by
- * cronService. Dividends are not cut: NSE only adjusts F&O contracts for
- * extraordinary dividends, which are rare and announced as such.
+ * cronService. Dividends are cut too, by the business owner's choice
+ * (20 Oct 2026) — NSE only adjusts F&O for extraordinary ones, but every
+ * dividend's ex-date is cut the same way.
  */
 
 const ExpiryAction = require('../models/ExpiryAction');
@@ -35,14 +36,15 @@ const CLOSE_TIME = GROUPS.find((g) => g.key === 'NSE_FUT')?.closeTime || '15:40'
 /** How far ahead NSE's list is read. */
 const LOOKAHEAD_DAYS = 15;
 const INDEX = /^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|NIFTYNXT50|SENSEX|SENSEX50|BANKEX)$/;
-const KIND_LABEL = { split: 'split', bonus: 'bonus', rights: 'rights issue' };
+const KIND_LABEL = { split: 'split', bonus: 'bonus', rights: 'rights issue', dividend: 'dividend' };
 
-/** The kind of action an NSE subject describes, or null when no cut is needed (dividends, AGMs …). */
+/** The kind of action an NSE subject describes, or null when no cut is needed (AGM, buy-back …). */
 function kindOf(subject) {
   const s = String(subject || '');
   if (/split|sub-?division/i.test(s)) return 'split';
   if (/bonus/i.test(s)) return 'bonus';
   if (/rights/i.test(s)) return 'rights';
+  if (/dividend/i.test(s)) return 'dividend';
   return null;
 }
 
@@ -82,7 +84,7 @@ function planCuts(rows, { fnoNames, holidays, today }) {
   for (const e of bySymbolDay.values()) {
     const cutDay = previousTradingDay(new Date(`${e.exDate}T00:00:00.000Z`), holidays);
     if (dateKey(cutDay) < todayKey) continue;
-    const kinds = ['split', 'bonus', 'rights'].filter((k) => e.kinds.has(k));
+    const kinds = ['split', 'bonus', 'rights', 'dividend'].filter((k) => e.kinds.has(k));
     planned.push({
       key: e.key,
       symbol: e.symbol,

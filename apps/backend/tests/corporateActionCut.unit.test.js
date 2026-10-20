@@ -14,8 +14,10 @@ describe('kindOf', () => {
     ['Sub-Division', 'split'],
     ['Bonus 1:1', 'bonus'],
     ['Rights 1:5 @ Premium Rs 100/-', 'rights'],
-    ['Interim Dividend - Rs 5 Per Share', null],
-    ['Annual General Meeting/Dividend - Rs 10 Per Share', null],
+    ['Interim Dividend - Rs 5 Per Share', 'dividend'],
+    ['Annual General Meeting/Dividend - Rs 10 Per Share', 'dividend'],
+    ['Annual General Meeting', null],
+    ['Buy Back', null],
     ['', null],
   ])('%s → %s', (subject, kind) => expect(kindOf(subject)).toBe(kind));
 });
@@ -49,22 +51,27 @@ describe('planCuts', () => {
     expect(planCuts([{ symbol: 'TCS', subject: 'Bonus 1:1', exDate: '26-Oct-2026' }], ctx('2026-10-19', ['2026-10-23']))[0].action_date).toBe('2026-10-22');
   });
 
-  test('dividends, non-F&O stocks and indices are not cut', () => {
+  test('a dividend is cut like the rest (ANGELONE, 20 Oct 2026)', () => {
+    const [cut] = planCuts([{ symbol: 'INFY', subject: 'Interim Dividend - Rs 1.40 Per Share', exDate: '22-Oct-2026' }], ctx('2026-10-20'));
+    expect(cut).toMatchObject({ kind: 'dividend', label: 'INFY dividend', ex_date: '2026-10-22', action_date: '2026-10-21' });
+  });
+
+  test('AGMs, non-F&O stocks and indices are not cut', () => {
     expect(planCuts([
-      { symbol: 'INFY', subject: 'Interim Dividend - Rs 21 Per Share', exDate: '28-Oct-2026' },
+      { symbol: 'INFY', subject: 'Annual General Meeting', exDate: '28-Oct-2026' },
       { symbol: 'SMALLCO', subject: 'Bonus 1:1', exDate: '28-Oct-2026' },
       { symbol: 'NIFTY', subject: 'Bonus 1:1', exDate: '28-Oct-2026' },
     ], ctx('2026-10-19'))).toEqual([]);
   });
 
-  test('split and bonus on the same ex-date make one cut', () => {
+  test('split, bonus and dividend on the same ex-date make one cut', () => {
     const cuts = planCuts([
       { symbol: 'RELIANCE', subject: 'Bonus 1:1', exDate: '28-Oct-2026' },
       { symbol: 'RELIANCE', subject: 'Face Value Split (Sub-Division) - From Rs 10/- To Rs 5/-', exDate: '28-Oct-2026' },
       { symbol: 'RELIANCE', subject: 'Dividend - Rs 2 Per Share', exDate: '28-Oct-2026' },
     ], ctx('2026-10-19'));
     expect(cuts).toHaveLength(1);
-    expect(cuts[0]).toMatchObject({ kind: 'split+bonus', label: 'RELIANCE split + bonus' });
+    expect(cuts[0]).toMatchObject({ kind: 'split+bonus+dividend', label: 'RELIANCE split + bonus + dividend' });
   });
 
   test('a cut whose day has passed is not planned; today still is', () => {
