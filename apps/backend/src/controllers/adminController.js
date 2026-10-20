@@ -336,7 +336,10 @@ const updateUser = async (req, res) => {
       margin_square_off,
       change_pass_on_first_login,
       status,
-      profit_book_minutes
+      profit_book_minutes,
+      close_only,
+      bet,
+      fresh_stoploss
     } = req.body;
 
     // Scope to the caller's own hierarchy when a master calls this endpoint
@@ -446,6 +449,11 @@ const updateUser = async (req, res) => {
     if (margin_square_off !== undefined) user.margin_square_off = margin_square_off;
     if (change_pass_on_first_login !== undefined) user.change_pass_on_first_login = change_pass_on_first_login;
     if (status) user.status = status;
+    // The web admin's Trading permissions panel sends these here — they were
+    // silently ignored before 20 Oct 2026 (only the master endpoint set them).
+    if (close_only !== undefined) user.close_only = !!close_only;
+    if (bet !== undefined) user.bet = !!bet;
+    if (fresh_stoploss !== undefined) user.fresh_stoploss = !!fresh_stoploss;
 
     if (profit_book_minutes !== undefined) {
       const parsed = require('../utils/profitBookTime').parseProfitBookMinutes(profit_book_minutes);
