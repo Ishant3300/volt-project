@@ -18,7 +18,7 @@ const firebaseService = require('../services/firebaseService');
 const { beginTradeWrite, withTradeWriteLease } = require('../services/tradeWriteFenceService');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 const { calculateBrokerage } = require('../services/brokerageService');
-const { isLoggableTradeRefusal, GIFT_NOT_LIVE_MESSAGE } = require('../utils/rejectionLog');
+const { isLoggableTradeRefusal, GIFT_NOT_LIVE_MESSAGE, exchangeNotLiveMessage } = require('../utils/rejectionLog');
 
 const _getLivePricesFromKite = async (instrumentTokens) => {
     if (!instrumentTokens || instrumentTokens.length === 0) return new Map();
@@ -870,6 +870,15 @@ const placeTrade = async (req, res) => {
                     && (!require('../services/giftNiftyFeedService').isQuoteLive(instrument_token)
                         || require('../services/giftNiftyFeedService').isGiftSessionBreak())) {
                     throw Object.assign(new Error(GIFT_NOT_LIVE_MESSAGE), { status: 403 });
+                }
+                // MCX / NFO / BFO: same rule from the Kite feed — no exchange
+                // update on that segment for 3 minutes means it isn't trading
+                // (holiday, an evening-only MCX day before 5 PM), and the only
+                // price held is the last close (livePriceService.isExchangeLive).
+                const liveExchange = String(instCheck?.exchange || '').toUpperCase();
+                if (['MCX', 'NFO', 'BFO'].includes(liveExchange)
+                    && !require('../services/livePriceService').isExchangeLive(instrument_token)) {
+                    throw Object.assign(new Error(exchangeNotLiveMessage(liveExchange)), { status: 403 });
                 }
                 const isDisabled = instCheck && instCheck.enabled === false;
                 const isNseBanned = instCheck && instCheck.nse_banned === true;

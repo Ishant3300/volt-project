@@ -17,6 +17,9 @@
 
 /** placeTrade's refusal while GIFT NIFTY has no live NSE IX quote. */
 const GIFT_NOT_LIVE_MESSAGE = 'GIFT NIFTY is not trading right now — no live NSE IX price. Orders are paused until live prices resume.';
+// MCX / NFO with no live exchange price (holiday, before the session opens).
+const EXCHANGE_NOT_LIVE_TEXT = 'is not trading right now — no live exchange price';
+const exchangeNotLiveMessage = (exchange) => `${exchange} ${EXCHANGE_NOT_LIVE_TEXT}. Orders are paused until the session opens and live prices resume.`;
 
 const SERVER_REFUSAL_PATTERNS = [
   // already saved before
@@ -45,6 +48,7 @@ const SERVER_REFUSAL_PATTERNS = [
   'High-Low restriction', // limit inside the day range with High/low trade limit off
   'Price restriction', // Fresh Stop-Loss price offset
   GIFT_NOT_LIVE_MESSAGE,
+  EXCHANGE_NOT_LIVE_TEXT,
 ];
 
 function isLoggableTradeRefusal(message) {
@@ -86,4 +90,5 @@ module.exports = {
   APP_BLOCK_REASONS,
   SERVER_REFUSAL_PATTERNS,
   GIFT_NOT_LIVE_MESSAGE,
+  exchangeNotLiveMessage,
 };

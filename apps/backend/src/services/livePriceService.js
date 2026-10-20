@@ -843,6 +843,10 @@ class LivePriceService {
           change_percent: changePercent,
         };
 
+        // Exchange timestamp (full mode): when the exchange itself last
+        // updated this quote — kept per segment for isExchangeLive().
+        if (packet.length >= 64) this._noteExchangeTimestamp(segment, packet.readInt32BE(60));
+
         // Full mode (184 bytes) includes market depth starting at byte 64
         if (packet.length >= 184) {
           try {
@@ -880,6 +884,45 @@ class LivePriceService {
       console.log('❌ Error parsing tick packet:', error.message);
       return null;
     }
+  }
+
+  /**
+   * Newest exchange timestamp (epoch ms) seen per Kite segment (token & 0xFF).
+   * On an exchange holiday Kite's snapshot carries exchange time 0 (seen for
+   * NFO on 20 Oct 2026) — kept as 0 = known, not trading; any real tick
+   * replaces it.
+   */
+  _noteExchangeTimestamp(segment, epochSeconds) {
+    if (!(epochSeconds >= 0)) return;
+    if (!this._exchangeTickAt) this._exchangeTickAt = new Map();
+    const ms = epochSeconds * 1000;
+    const prev = this._exchangeTickAt.get(segment);
+    if (prev != null && ms <= prev) return;
+    this._exchangeTickAt.set(segment, ms);
+    // Log the first time seen and every return to live (e.g. a session opening).
+    const now = Date.now();
+    const name = { 1: 'NSE', 2: 'NFO', 4: 'BSE', 5: 'BFO', 7: 'MCX' }[segment];
+    if (name && (prev == null || (now - prev > 3 * 60 * 1000 && now - ms <= 3 * 60 * 1000))) {
+      console.log(`📡 [Feed] ${name} exchange time ${ms ? new Date(ms).toISOString() : 'none (holiday snapshot)'} — ${now - ms <= 3 * 60 * 1000 ? 'live' : 'not trading (orders paused)'}`);
+    }
+  }
+
+  /**
+   * Is this contract's exchange trading right now? True while any contract
+   * on the same Kite segment (NFO, MCX, …) has had an exchange update in
+   * the last 3 minutes. Before a session opens or on a holiday, Kite still
+   * sends a snapshot on (re)subscribe — but stamped with the old exchange
+   * time, so it doesn't count. Unknown (nothing seen for that segment since
+   * start-up) counts as live, so a feed format change can never stop all
+   * trading — tradeController uses this to refuse orders against a frozen
+   * price (20 Oct 2026: MCX evening-only session, NSE holiday).
+   */
+  isExchangeLive(instrumentToken, now = Date.now()) {
+    const token = Number(instrumentToken);
+    if (!Number.isFinite(token)) return true;
+    const at = this._exchangeTickAt?.get(token & 0xFF);
+    if (at == null) return true;
+    return now - at <= 3 * 60 * 1000;
   }
 
   /**
