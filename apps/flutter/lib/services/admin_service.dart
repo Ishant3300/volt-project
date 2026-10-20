@@ -310,6 +310,8 @@ class AdminService {
     required bool marginSquareOff,
     required bool changePassOnFirstLogin,
     required String serverId,
+    // Profit book time (minutes) — mandatory when creating a client.
+    required int profitBookMinutes,
     String? status,
     Map<String, double>? wallet,
     // "Create account for": a downline master who owns/funds the new client.
@@ -331,6 +333,7 @@ class AdminService {
       'margin_square_off': marginSquareOff,
       'change_pass_on_first_login': changePassOnFirstLogin,
       'server_id': serverId,
+      'profit_book_minutes': profitBookMinutes,
       if (status != null) 'status': status,
       if (wallet != null && wallet.isNotEmpty) 'wallet': wallet,
     };
@@ -430,6 +433,7 @@ class AdminService {
     bool? changePassOnFirstLogin,
     String? investorPassword,
     Map<String, double>? wallet,
+    int? profitBookMinutes,
   }) async {
     final data = {
       if (name != null) 'name': name,
@@ -446,6 +450,7 @@ class AdminService {
       if (changePassOnFirstLogin != null)
         'change_pass_on_first_login': changePassOnFirstLogin,
       if (wallet != null) 'wallet': wallet,
+      if (profitBookMinutes != null) 'profit_book_minutes': profitBookMinutes,
     };
 
     final token = await _storage.getToken();

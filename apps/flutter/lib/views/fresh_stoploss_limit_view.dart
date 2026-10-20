@@ -72,8 +72,10 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
     return _limits.where((l) => (l['raw_name'] ?? '').toString().toLowerCase().contains(q)).toList();
   }
 
+  // The hold time is no longer set here: since 20 Oct 2026 each client has
+  // their own profit book time (Create/Edit client). This screen sets only
+  // the per-script limit / stop-loss price offset.
   void _showBulkCreateDialog() {
-    final timeCtrl = TextEditingController(text: '30');
     final priceCtrl = TextEditingController(text: '100');
     showDialog(
       context: context,
@@ -82,11 +84,9 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
         title: Text('Set Limits for $_selectedExchange',
             style: const TextStyle(fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, fontSize: kFontSizeSectionHeader)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('This will create/update limits for ALL instruments in this segment.',
+          const Text('This will create/update the price offset for ALL instruments in this segment. Profit book time is set per client.',
               style: TextStyle(fontSize: kFontSizeBodySmall, color: kColorTextMuted, fontFamily: kFontFamily)),
           const SizedBox(height: 14),
-          _dialogField(timeCtrl, 'Time (minutes)', 'e.g. 30'),
-          const SizedBox(height: 10),
           _dialogField(priceCtrl, 'Price Offset', 'e.g. 100'),
         ]),
         actions: [
@@ -95,7 +95,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
           GestureDetector(
             onTap: () async {
               Navigator.pop(ctx);
-              await _bulkCreate(int.tryParse(timeCtrl.text) ?? 0, double.tryParse(priceCtrl.text) ?? 0);
+              await _bulkCreate(double.tryParse(priceCtrl.text) ?? 0);
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -108,14 +108,14 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
     );
   }
 
-  Future<void> _bulkCreate(int time, double price) async {
+  Future<void> _bulkCreate(double price) async {
     setState(() => _isLoading = true);
     try {
       final token = await SecureStorageService().getToken();
       final effectiveExchange = _selectedExchange == 'GLOBAL' ? 'INDICES' : _selectedExchange;
       final res = await ApiService(backendUrl).post(
         '/admin/fresh-stoploss-limits/bulk-create',
-        {'exchange_name': effectiveExchange, 'time_minutes': time, 'price_offset': price},
+        {'exchange_name': effectiveExchange, 'price_offset': price},
         token: token,
       );
       if (res.statusCode == 200 && mounted) {
@@ -134,7 +134,6 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
   }
 
   void _showBulkUpdateDialog() {
-    final timeCtrl = TextEditingController();
     final priceCtrl = TextEditingController();
     showDialog(
       context: context,
@@ -143,12 +142,10 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
         title: Text('Bulk Update $_selectedExchange',
             style: const TextStyle(fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, fontSize: kFontSizeSectionHeader)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('Update time and/or price for ALL instruments in this segment. Leave blank to keep current value.',
+          const Text('Update the price offset for ALL instruments in this segment.',
               style: TextStyle(fontSize: kFontSizeBodySmall, color: kColorTextMuted, fontFamily: kFontFamily)),
           const SizedBox(height: 14),
-          _dialogField(timeCtrl, 'Time (minutes)', 'Leave blank to skip'),
-          const SizedBox(height: 10),
-          _dialogField(priceCtrl, 'Price Offset', 'Leave blank to skip'),
+          _dialogField(priceCtrl, 'Price Offset', 'e.g. 100'),
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx),
@@ -156,7 +153,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
           GestureDetector(
             onTap: () async {
               Navigator.pop(ctx);
-              await _bulkUpdate(int.tryParse(timeCtrl.text), double.tryParse(priceCtrl.text));
+              await _bulkUpdate(double.tryParse(priceCtrl.text));
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -169,15 +166,13 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
     );
   }
 
-  Future<void> _bulkUpdate(int? time, double? price) async {
-    if (time == null && price == null) return;
+  Future<void> _bulkUpdate(double? price) async {
+    if (price == null) return;
     setState(() => _isLoading = true);
     try {
       final token = await SecureStorageService().getToken();
       final effectiveExchange = _selectedExchange == 'GLOBAL' ? 'INDICES' : _selectedExchange;
-      final body = <String, dynamic>{'exchange_name': effectiveExchange};
-      if (time != null) body['time_minutes'] = time;
-      if (price != null) body['price_offset'] = price;
+      final body = <String, dynamic>{'exchange_name': effectiveExchange, 'price_offset': price};
       final res = await ApiService(backendUrl).put('/admin/fresh-stoploss-limits/bulk-update', body, token: token);
       if (res.statusCode == 200 && mounted) {
         final respBody = jsonDecode(res.body);
@@ -192,7 +187,6 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
   }
 
   void _showEditDialog(Map<String, dynamic> item) {
-    final timeCtrl = TextEditingController(text: '${item['time_minutes'] ?? 0}');
     final priceCtrl = TextEditingController(text: '${item['price_offset'] ?? 0}');
     showDialog(
       context: context,
@@ -201,8 +195,6 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
         title: Text(item['raw_name'] ?? '',
             style: const TextStyle(fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, fontSize: kFontSizeSectionHeader, color: kBrandPrimary)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
-          _dialogField(timeCtrl, 'Time (minutes)', ''),
-          const SizedBox(height: 10),
           _dialogField(priceCtrl, 'Price Offset', ''),
         ]),
         actions: [
@@ -211,7 +203,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
           GestureDetector(
             onTap: () async {
               Navigator.pop(ctx);
-              await _updateSingle(item['_id'], int.tryParse(timeCtrl.text) ?? 0, double.tryParse(priceCtrl.text) ?? 0);
+              await _updateSingle(item['_id'], double.tryParse(priceCtrl.text) ?? 0);
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -224,12 +216,12 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
     );
   }
 
-  Future<void> _updateSingle(String id, int time, double price) async {
+  Future<void> _updateSingle(String id, double price) async {
     try {
       final token = await SecureStorageService().getToken();
       final res = await ApiService(backendUrl).put(
         '/admin/fresh-stoploss-limits/$id',
-        {'time_minutes': time, 'price_offset': price},
+        {'price_offset': price},
         token: token,
       );
       if (res.statusCode == 200 && mounted) {
@@ -359,7 +351,6 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
 
   Widget _buildLimitCard(Map<String, dynamic> item) {
     final rawName = item['raw_name'] ?? '';
-    final time = item['time_minutes'] ?? 0;
     final price = (item['price_offset'] as num?)?.toDouble() ?? 0;
     return GestureDetector(
       onTap: () => _showEditDialog(item),
@@ -372,8 +363,6 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
             Text(rawName, style: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeButtonText, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: -0.3)),
             const SizedBox(height: 6),
             Row(children: [
-              _valuePill('Time', '${time}min'),
-              const SizedBox(width: 8),
               _valuePill('Price', price.toStringAsFixed(0)),
             ]),
           ])),

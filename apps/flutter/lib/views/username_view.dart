@@ -725,6 +725,11 @@ class _UsernameViewState extends State<UsernameView> {
                 _infoRow('Created', DateFormatter.formatDateTime(createdAt)),
                 _infoRow('Last Login', DateFormatter.formatDateTime(lastLogin)),
                 _infoRow('IP Address', ipAddress ?? 'N/A'),
+                if (_currentMaster == null && _currentUser != null)
+                  _infoRow('Profit Book',
+                      (_currentUser!.profitBookMinutes ?? 10) == 0
+                          ? 'No restriction'
+                          : '${_currentUser!.profitBookMinutes ?? 10} min'),
                 _infoRow('Exchanges', exchangesAllowed.join(', '),
                     isLast: true),
               ],

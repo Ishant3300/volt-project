@@ -36,6 +36,9 @@ class _CreateUserViewState extends State<CreateUserView> {
   final TextEditingController _confirmInvestorPasswordController =
       TextEditingController();
   final TextEditingController _creditController = TextEditingController();
+  // Profit book time (minutes) — mandatory; empty on a new client so the
+  // creator always decides it (backend utils/profitBookTime.js).
+  final TextEditingController _profitBookController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
 
   bool _marginSquareOff = false;
@@ -200,6 +203,8 @@ class _CreateUserViewState extends State<CreateUserView> {
       _nameController.text = widget.user!.name;
       _usernameController.text = widget.user!.username;
       _creditController.text = widget.user!.credits.toString();
+      _profitBookController.text =
+          (widget.user!.profitBookMinutes ?? 10).toString();
       _noteController.text = widget.user!.note;
       _marginSquareOff = widget.user!.marginSquareOff;
       _changePasswordOnFirstLogin = widget.user!.changePassOnFirstLogin;
@@ -683,6 +688,7 @@ class _CreateUserViewState extends State<CreateUserView> {
     _investorPasswordController.dispose();
     _confirmInvestorPasswordController.dispose();
     _creditController.dispose();
+    _profitBookController.dispose();
     _noteController.dispose();
     for (final entry in _brokerageSettings.values) {
       (entry['controller'] as TextEditingController?)?.dispose();
@@ -778,6 +784,16 @@ class _CreateUserViewState extends State<CreateUserView> {
     final credit = double.tryParse(_creditController.text.trim());
     if (credit == null || credit < 0) {
       _showSnack('Please enter a valid credit amount', isError: true);
+      return;
+    }
+
+    final profitBookMinutes = int.tryParse(_profitBookController.text.trim());
+    if (profitBookMinutes == null ||
+        profitBookMinutes < 0 ||
+        profitBookMinutes > 1440) {
+      _showSnack(
+          'Enter the profit book time in whole minutes (0–1440). 0 = no restriction.',
+          isError: true);
       return;
     }
 
@@ -911,6 +927,7 @@ class _CreateUserViewState extends State<CreateUserView> {
           marginSquareOff: _marginSquareOff,
           changePassOnFirstLogin: _changePasswordOnFirstLogin,
           wallet: walletMap.isEmpty ? null : walletMap,
+          profitBookMinutes: profitBookMinutes,
         );
       } else {
         // Initial Trade Wallet funding (optional; only for allowed categories).
@@ -934,6 +951,7 @@ class _CreateUserViewState extends State<CreateUserView> {
           marginSquareOff: _marginSquareOff,
           changePassOnFirstLogin: _changePasswordOnFirstLogin,
           serverId: _ownerMaster!.serverId,
+          profitBookMinutes: profitBookMinutes,
           forMasterId: _forMaster?.id,
           wallet: walletMap.isEmpty ? null : walletMap,
         );
@@ -1067,6 +1085,21 @@ class _CreateUserViewState extends State<CreateUserView> {
                               keyboardType: TextInputType.number,
                               showWordsInIndian: true,
                               remainingAvailable: _ownerMaster?.equity),
+                          _divider(),
+                          _buildTextField(
+                              label: 'Profit Book (min) *',
+                              controller: _profitBookController,
+                              keyboardType: TextInputType.number),
+                          const Padding(
+                            padding: EdgeInsets.only(left: 100, bottom: 6),
+                            child: Text(
+                              "Can't close in profit until this long after opening; a loss can be closed any time. 0 = no restriction.",
+                              style: TextStyle(
+                                  color: kColorTextMuted,
+                                  fontSize: 11,
+                                  fontFamily: kFontFamily),
+                            ),
+                          ),
                           _divider(),
                           _buildTextField(
                               label: 'Note', controller: _noteController),
