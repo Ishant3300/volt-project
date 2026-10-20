@@ -70,6 +70,7 @@ const practiceSignup = async (req, res) => {
 
     const user = await User.create({
       name,
+      profit_book_minutes: require('../utils/profitBookTime').DEFAULT_PROFIT_BOOK_MINUTES,
       username: email,
       password: await bcrypt.hash(password, 10),
       credits: amount,

@@ -204,8 +204,19 @@ const createUser = async (req, res) => {
       margin_square_off,
       change_pass_on_first_login,
       server_id,
-      status
+      status,
+      profit_book_minutes
     } = req.body;
+
+    // Profit book time is required. Old app versions (before 20 Oct 2026)
+    // don't send it — they get the old universal 10 minutes for now.
+    const { DEFAULT_PROFIT_BOOK_MINUTES, parseProfitBookMinutes } = require('../utils/profitBookTime');
+    const profitBook = profit_book_minutes === undefined
+      ? { value: DEFAULT_PROFIT_BOOK_MINUTES }
+      : parseProfitBookMinutes(profit_book_minutes);
+    if (profitBook.error) {
+      return res.status(400).json({ success: false, message: profitBook.error, data: null });
+    }
 
     // Validate required fields
     if (!name || !username || !password || !server_id || credits === undefined || pnl_sharing === undefined || brokerage_sharing === undefined || !exchanges_allowed || !trade_limit) {
@@ -361,7 +372,8 @@ const createUser = async (req, res) => {
         change_pass_on_first_login: change_pass_on_first_login !== undefined ? change_pass_on_first_login : true,
         server_id,
         master_id: parentMaster._id,
-        status: status || 'active'
+        status: status || 'active',
+        profit_book_minutes: profitBook.value
       });
       await user.save({ session });
 
@@ -563,8 +575,16 @@ const updateUserDetails = async (req, res) => {
       active_status,
       close_only,
       bet,
-      fresh_stoploss
+      fresh_stoploss,
+      profit_book_minutes
     } = req.body;
+
+    let profitBookValue;
+    if (profit_book_minutes !== undefined) {
+      const parsed = require('../utils/profitBookTime').parseProfitBookMinutes(profit_book_minutes);
+      if (parsed.error) return res.status(400).json({ success: false, message: parsed.error, data: null });
+      profitBookValue = parsed.value;
+    }
 
     const query = { _id: id };
     if (req.master) query.master_id = { $in: await downlineMasterIds(req) };
@@ -732,6 +752,7 @@ const updateUserDetails = async (req, res) => {
     if (close_only !== undefined) user.close_only = close_only;
     if (bet !== undefined) user.bet = bet;
     if (fresh_stoploss !== undefined) user.fresh_stoploss = fresh_stoploss;
+    if (profitBookValue !== undefined) user.profit_book_minutes = profitBookValue;
 
     await user.save();
 

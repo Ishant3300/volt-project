@@ -335,7 +335,8 @@ const updateUser = async (req, res) => {
       trade_limit,
       margin_square_off,
       change_pass_on_first_login,
-      status
+      status,
+      profit_book_minutes
     } = req.body;
 
     // Scope to the caller's own hierarchy when a master calls this endpoint
@@ -445,6 +446,12 @@ const updateUser = async (req, res) => {
     if (margin_square_off !== undefined) user.margin_square_off = margin_square_off;
     if (change_pass_on_first_login !== undefined) user.change_pass_on_first_login = change_pass_on_first_login;
     if (status) user.status = status;
+
+    if (profit_book_minutes !== undefined) {
+      const parsed = require('../utils/profitBookTime').parseProfitBookMinutes(profit_book_minutes);
+      if (parsed.error) return res.status(400).json({ success: false, message: parsed.error, data: null });
+      user.profit_book_minutes = parsed.value;
+    }
 
     if (pnl_sharing !== undefined) {
       if (pnl_sharing < 0 || pnl_sharing > 100) return res.status(400).json({ success: false, message: 'P&L sharing must be between 0 and 100', data: null });

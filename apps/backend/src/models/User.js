@@ -152,6 +152,15 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // Profit book time: no closing IN PROFIT until this many minutes after the
+  // quantity was opened (0 = no restriction). Set per client at creation —
+  // replaced the admin's per-script FSL time (utils/profitBookTime.js).
+  profit_book_minutes: {
+    type: Number,
+    min: 0,
+    max: 1440,
+    default: 10
+  },
   report_permissions: {
     account_summary: { type: Boolean, default: true },
     pnl_summary: { type: Boolean, default: true },

@@ -12,8 +12,9 @@ const freshStoplossLimitSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  // Time restriction in minutes — applies to Market Execution trades
-  // e.g. 30 means user cannot close a market trade within 30 minutes
+  // NO LONGER USED (20 Oct 2026): the hold time is now per client —
+  // User.profit_book_minutes (utils/profitBookTime.js). Kept so old rows
+  // and old app versions that still send it don't break.
   time_minutes: {
     type: Number,
     required: true,

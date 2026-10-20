@@ -454,31 +454,19 @@ async function _validateFreshStoplossOpenPosition(isAdmin, user, instrument_toke
 }
 
 /**
- * Fresh Stop-Loss: the configured FreshStoplossLimit row for an instrument
- * (GLOBAL is stored as INDICES), or null.
- */
-async function _findFreshStoplossLimit(instrument_token, segment, exchange, instrumentRawName) {
-    const FreshStoplossLimit = require('../models/FreshStoplossLimit');
-    let fslSegment = (segment || '').toUpperCase();
-    if (!fslSegment || fslSegment === exchange?.toUpperCase()) {
-        const kiteInstFSL = await KiteInstrument.findOne({ instrument_token }).select('segment').lean();
-        if (kiteInstFSL?.segment) fslSegment = kiteInstFSL.segment.toUpperCase();
-    }
-    const normalizedSeg = fslSegment === 'GLOBAL' ? 'INDICES' : (fslSegment || exchange || '').toUpperCase();
-    return FreshStoplossLimit.findOne({ exchange_name: normalizedSeg, raw_name: instrumentRawName, deleted_at: null });
-}
-
-/**
- * Fresh Stop-Loss hold time: a position may not be closed IN PROFIT within
- * time_minutes of its last opening fill — MARKET, LIMIT, SL and SL-M alike
- * (see utils/freshStoplossHold.js). Loss closes are always allowed. Gated on a
- * configured row AND the user's fresh_stoploss toggle. Shared between
- * placeTrade and modifyTrade (a pending close moved to a profit price).
+ * Profit book time: a position may not be closed IN PROFIT within the
+ * client's own profit_book_minutes of opening that quantity — MARKET, LIMIT,
+ * SL and SL-M alike, every script (see utils/freshStoplossHold.js). Loss
+ * closes are always allowed; 0 minutes = no restriction. Per client since
+ * 20 Oct 2026 (was the admin's per-script FreshStoplossLimit.time_minutes,
+ * gated on the fresh_stoploss toggle — the toggle no longer affects this).
+ * Shared between placeTrade and modifyTrade (a pending close moved to a
+ * profit price).
  */
 async function _validateFreshStoplossHoldTime(isAdmin, user, instrument_token, order_type, transaction_type, price, segment, exchange, instrumentRawName, session, quantity) {
-    if (isAdmin || !instrumentRawName) return;
-    const fslLimit = await _findFreshStoplossLimit(instrument_token, segment, exchange, instrumentRawName);
-    if (!(fslLimit && user.fresh_stoploss === true && fslLimit.time_minutes > 0)) return;
+    if (isAdmin) return;
+    const timeMinutes = require('../utils/profitBookTime').profitBookMinutesOf(user);
+    if (!(timeMinutes > 0)) return;
 
     const { closesInProfit, openLots, lotHoldRejection } = require('../utils/freshStoplossHold');
     const metricsEngFSL = require('../services/metricsEngine');
@@ -502,13 +490,13 @@ async function _validateFreshStoplossHoldTime(isAdmin, user, instrument_token, o
     const stateFSL = computeFlatResetState(prevFills);
 
     const inProfit = closesInProfit({ orderType: order_type, transactionType: transaction_type, price: Number(price), state: stateFSL, bid: bidFSL, ask: askFSL });
-    console.log(`🔒 [FSL] hold check: instrument=${instrumentRawName}, type=${order_type} ${transaction_type}, price=${price}, time_minutes=${fslLimit.time_minutes}, netQty=${stateFSL.netQty}, bid=${bidFSL}, ask=${askFSL}, inProfit=${inProfit}`);
+    console.log(`🔒 [FSL] hold check: instrument=${instrumentRawName}, type=${order_type} ${transaction_type}, price=${price}, profit_book_minutes=${timeMinutes}, netQty=${stateFSL.netQty}, bid=${bidFSL}, ask=${askFSL}, inProfit=${inProfit}`);
     if (!inProfit) return;
 
     // Only quantity opened within the hold is locked (oldest lots close
     // first). Was: the whole position from its last opening fill, so adding
     // one lot locked lots held for hours (GBN5 GOLD, 13 Oct).
-    const rejection = lotHoldRejection({ lots: openLots(prevFills), closeQuantity: Number(quantity), timeMinutes: fslLimit.time_minutes });
+    const rejection = lotHoldRejection({ lots: openLots(prevFills), closeQuantity: Number(quantity), timeMinutes });
     if (rejection) throw new Error(rejection);
 }
 
@@ -2639,5 +2627,5 @@ module.exports = {
     autoSquareOffExpired,
     getInstrumentInfo,
     rolloverPositions,
-    _private: { _validateScriptQuantityLimit },
+    _private: { _validateScriptQuantityLimit, _validateFreshStoplossHoldTime },
 };
