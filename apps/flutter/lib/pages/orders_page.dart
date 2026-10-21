@@ -103,12 +103,20 @@ class _OrdersPageState extends State<OrdersPage> {
   List<Map<String, dynamic>> _adminMasterMetrics = [];
   final Map<String, double> _adminMasterPnl = {}; // master_id → live P&L
 
+  // Whether this screen subscribed master/admin live prices — remembered here
+  // because dispose() can't look up providers: the element is already being
+  // unmounted ("Null check operator used on a null value", 21 Oct 2026),
+  // which also skipped the unsubscribe/disconnect below.
+  bool _masterOrAdminPrices = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final userProfile =
           Provider.of<UserProfileProvider>(context, listen: false);
+      _masterOrAdminPrices = userProfile.isMaster || userProfile.isAdmin;
       if (userProfile.isAdmin) {
         _fetchAdminMasterMetrics();
         _setupMasterLivePrices();
@@ -124,10 +132,7 @@ class _OrdersPageState extends State<OrdersPage> {
   void dispose() {
     _livePriceService.onTickReceived = null;
     _livePriceService.onConnectionChanged = null;
-    final userProfile =
-        Provider.of<UserProfileProvider>(context, listen: false);
-    if ((userProfile.isMaster || userProfile.isAdmin) &&
-        _allTokens.isNotEmpty) {
+    if (_masterOrAdminPrices && _allTokens.isNotEmpty) {
       _livePriceService.unsubscribe(_allTokens.toList());
     }
     _livePriceService.disconnect();
