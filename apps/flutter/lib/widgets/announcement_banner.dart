@@ -15,6 +15,10 @@ class _AnnouncementBannerState extends State<AnnouncementBanner>
   late AnimationController _controller;
   bool _loaded = false;
   static const double _gap = 80;
+  // Reading speed, logical pixels per second. Was a fixed 20 s loop however
+  // long the text, so three notices on the bar ran ~3× faster (21 Oct 2026).
+  static const double _pixelsPerSecond = 55;
+  static const Duration _minLoop = Duration(seconds: 20);
 
   @override
   void initState() {
@@ -28,7 +32,20 @@ class _AnnouncementBannerState extends State<AnnouncementBanner>
 
   Future<void> _fetch() async {
     final msg = await AnnouncementService().fetchActive();
-    if (mounted) setState(() { _message = msg; _loaded = true; });
+    if (!mounted) return;
+    setState(() { _message = msg; _loaded = true; });
+    _setSpeed();
+  }
+
+  /// One loop = the text plus the gap, at a constant reading speed.
+  void _setSpeed() {
+    if (_message == null || _message!.isEmpty) return;
+    final ms = ((_measureText() + _gap) / _pixelsPerSecond * 1000).round();
+    final loop = Duration(milliseconds: ms) < _minLoop ? _minLoop : Duration(milliseconds: ms);
+    if (_controller.duration == loop) return;
+    _controller
+      ..duration = loop
+      ..repeat();
   }
 
   @override
