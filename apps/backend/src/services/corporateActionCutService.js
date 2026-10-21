@@ -164,17 +164,18 @@ async function refreshPlan(now = new Date(), { fetchActions = fetchNseActions } 
       const status = existing.status === 'obsolete' ? 'planned' : existing.status;
       await ExpiryAction.updateOne({ _id: existing._id }, { $set: { ...fields, status } });
     }
+    await syncBanner(await ExpiryAction.findOne({ key: p.key }).lean());
   }
 
   // Withdrawn by the company / no longer listed. An empty answer is not
   // trusted for this — NSE sometimes returns [] when it is having trouble.
   let retired = 0;
   if (rows.length > 0) {
-    const res = await ExpiryAction.updateMany(
-      { group_key: GROUP_KEY, status: { $in: ['planned', 'confirmed', 'paused'] }, action_date: { $gte: todayKey }, 'corp_action.ex_date': { $lte: toKey }, key: { $nin: planned.map((p) => p.key) } },
-      { $set: { status: 'obsolete' } },
-    );
+    const withdrawn = { group_key: GROUP_KEY, status: { $in: ['planned', 'confirmed', 'paused'] }, action_date: { $gte: todayKey }, 'corp_action.ex_date': { $lte: toKey }, key: { $nin: planned.map((p) => p.key) } };
+    const gone = await ExpiryAction.find(withdrawn).lean();
+    const res = await ExpiryAction.updateMany(withdrawn, { $set: { status: 'obsolete' } });
     retired = res.modifiedCount;
+    for (const a of gone) await syncBanner({ ...a, status: 'obsolete' });
   }
   return { planned: planned.length, retired };
 }
@@ -194,6 +195,51 @@ function isCorporateCut(action) {
   return action?.group_key === GROUP_KEY;
 }
 
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** '2026-10-22' → '22 Oct' */
+const dayLabel = (ymd) => `${Number(ymd.slice(8, 10))} ${MONTH_SHORT[Number(ymd.slice(5, 7)) - 1]}`;
+/** '15:40' → '3:40 PM' */
+function timeLabel(hhmm) {
+  const [h, m] = hhmm.split(':').map(Number);
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+}
+
+/**
+ * The announcement-bar notice for a cut (pure). A confirmed cut says the
+ * positions will be closed and stays up until it runs; an unconfirmed one
+ * only announces the action, until the ex-date starts. Null = no notice
+ * (cut ran, paused, obsolete …).
+ */
+function bannerFor(action) {
+  const ca = action?.corp_action;
+  if (!ca?.ex_date || !ca.symbol) return null;
+  const head = `${ca.symbol} — ${ca.subject || describe(action)}, ex-date ${dayLabel(ca.ex_date)}`;
+  if (action.status === 'confirmed' || action.status === 'running') {
+    return {
+      message: `${head}: all open ${ca.symbol} positions (futures & options) will be closed on ${dayLabel(action.action_date)} at the ${timeLabel(action.close_time || CLOSE_TIME)} closing rate.`,
+      expiresAt: new Date(action.execute_at),
+    };
+  }
+  if (action.status === 'planned') {
+    return { message: `${head}.`, expiresAt: new Date(`${ca.ex_date}T00:00:00+05:30`) };
+  }
+  return null;
+}
+
+/** Post, update or remove this cut's section of the announcement bar. Never throws. */
+async function syncBanner(action) {
+  if (!isCorporateCut(action) || !action.corp_action) return;
+  try {
+    const board = require('./announcementBoard');
+    const ref = `${action.corp_action.symbol}|${action.corp_action.ex_date}`;
+    const notice = bannerFor(action);
+    if (notice && notice.expiresAt > new Date()) await board.postSection('corp', notice.message, { ref, expiresAt: notice.expiresAt });
+    else await board.clearSection('corp', ref);
+  } catch (e) {
+    console.error(`❌ [CorpActions] Announcement bar update failed for ${action.key}: ${e.message}`);
+  }
+}
+
 /** Words for messages: 'bonus', 'split + bonus', 'rights issue'. */
 function describe(action) {
   return String(action.corp_action?.kind || '').split('+').filter(Boolean).map((k) => KIND_LABEL[k] || k).join(' + ') || 'corporate action';
@@ -206,5 +252,6 @@ module.exports = {
   resolveInstruments,
   isCorporateCut,
   describe,
-  _private: { kindOf, parseNseDate, planCuts, fetchNseActions, loadHolidays, CLOSE_TIME },
+  syncBanner,
+  _private: { kindOf, parseNseDate, planCuts, fetchNseActions, loadHolidays, bannerFor, CLOSE_TIME },
 };

@@ -3,7 +3,7 @@
 // Planning of corporate-action cuts (corporateActionCutService.js): which NSE
 // rows become a cut, and on which day / time. Pure — no DB, no network.
 
-const { _private: { kindOf, parseNseDate, planCuts, CLOSE_TIME } } = require('../src/services/corporateActionCutService');
+const { _private: { kindOf, parseNseDate, planCuts, bannerFor, CLOSE_TIME } } = require('../src/services/corporateActionCutService');
 
 const d = (s) => new Date(`${s}T00:00:00.000Z`);
 const ctx = (today, holidays = []) => ({ fnoNames: new Set(['RELIANCE', 'TCS', 'INFY', 'NIFTY']), holidays: new Set(holidays), today: d(today) });
@@ -78,5 +78,28 @@ describe('planCuts', () => {
     const rows = [{ symbol: 'TCS', subject: 'Rights 1:5', exDate: '20-Oct-2026' }];
     expect(planCuts(rows, ctx('2026-10-19')).map((c) => c.action_date)).toEqual(['2026-10-19']);
     expect(planCuts(rows, ctx('2026-10-20'))).toEqual([]);
+  });
+});
+
+describe('bannerFor (announcement bar notice)', () => {
+  const base = {
+    key: 'CORP_ACTION|ANGELONE|2026-10-22', group_key: 'CORP_ACTION', names: ['ANGELONE'], action_date: '2026-10-21', close_time: '15:40',
+    execute_at: new Date('2026-10-21T10:11:00Z'),
+    corp_action: { symbol: 'ANGELONE', kind: 'dividend', subject: 'Interim Dividend - Rs 1.40 Per Share', ex_date: '2026-10-22' },
+  };
+  test('confirmed: says the positions will be closed, until the cut runs', () => {
+    expect(bannerFor({ ...base, status: 'confirmed' })).toEqual({
+      message: 'ANGELONE — Interim Dividend - Rs 1.40 Per Share, ex-date 22 Oct: all open ANGELONE positions (futures & options) will be closed on 21 Oct at the 3:40 PM closing rate.',
+      expiresAt: new Date('2026-10-21T10:11:00Z'),
+    });
+  });
+  test('unconfirmed: information only, until the ex-date starts', () => {
+    expect(bannerFor({ ...base, status: 'planned' })).toEqual({
+      message: 'ANGELONE — Interim Dividend - Rs 1.40 Per Share, ex-date 22 Oct.',
+      expiresAt: new Date('2026-10-21T18:30:00Z'),
+    });
+  });
+  test('paused, done, failed, obsolete: no notice', () => {
+    for (const status of ['paused', 'done', 'failed', 'obsolete']) expect(bannerFor({ ...base, status })).toBeNull();
   });
 });

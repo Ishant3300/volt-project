@@ -9,6 +9,8 @@
  *   manual  — an admin's own message (Admin → Announcement)
  *   expiry  — one per open day, posted automatically when contracts open,
  *             shown until the old contract's settlement time
+ *   corp    — one per corporate-action cut (split / bonus / rights /
+ *             dividend, corporateActionCutService.js) until it runs
  *   ban     — today's NSE F&O ban list (removed on a day with no bans)
  * GET /announcements/active joins the live sections into one line, so the
  * app and web (one-line marquee, mobile shows only the first line of text)
@@ -16,7 +18,7 @@
  */
 const Announcement = require('../models/Announcement');
 
-const ORDER = ['manual', 'expiry', 'ban'];
+const ORDER = ['manual', 'corp', 'expiry', 'ban'];
 const SEPARATOR = '      |      ';
 
 /** One line: the mobile banner shows only the first line of a message. */

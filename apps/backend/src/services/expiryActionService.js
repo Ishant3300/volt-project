@@ -568,6 +568,7 @@ async function executeCut(action) {
       },
     });
     console.log(`🔴 [ExpiryActions] ${action.key}: closed ${result.squared}/${result.openPositions} position(s), ${disabled} contract(s) disabled, watchlists ${watch.swapped} moved/${watch.removed} removed, ${failures.length} failure(s)`);
+    if (corp) await corporateCuts.syncBanner({ ...action, status: failures.length ? 'failed' : 'done' });
   } finally {
     await lease?.release();
   }
@@ -642,6 +643,9 @@ async function transition(id, op, adminId, now = new Date()) {
     if (!current) throw Object.assign(new Error('Expiry action not found'), { status: 404 });
     throw Object.assign(new Error(`Cannot ${op} a ${current.kind} action that is ${current.status}`), { status: 409 });
   }
+  // A corporate-action cut's bar notice follows its status ("will be closed"
+  // once confirmed, info only while unconfirmed, gone when paused).
+  await corporateCuts.syncBanner(updated);
   return updated;
 }
 

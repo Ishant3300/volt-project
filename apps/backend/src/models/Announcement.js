@@ -6,10 +6,11 @@ const announcementSchema = new mongoose.Schema({
   created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin' },
   // The banner is one scrolling line made of sections (services/
   // announcementBoard.js): an admin's own message, each day's "NEW CONTRACT
-  // Open" notice, the NSE F&O ban list. Each source replaces only its own
-  // section. Rows from before sections existed count as 'manual'.
-  source: { type: String, enum: ['manual', 'expiry', 'ban'], default: 'manual' },
-  ref: { type: String, default: null }, // expiry: the open day 'YYYY-MM-DD'
+  // Open" notice, the NSE F&O ban list, each corporate-action cut. Each
+  // source replaces only its own section. Rows from before sections existed
+  // count as 'manual'.
+  source: { type: String, enum: ['manual', 'corp', 'expiry', 'ban'], default: 'manual' },
+  ref: { type: String, default: null }, // expiry: the open day 'YYYY-MM-DD'; corp: 'SYMBOL|ex-date'
   expires_at: { type: Date, default: null }, // dropped from the banner after this
 }, { timestamps: true });
 
