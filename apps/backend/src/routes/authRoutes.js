@@ -62,9 +62,16 @@ router.delete('/fcm-token', authenticateAny, removeFcmToken);
 // wallet and all — from their master's list with no notice. Accounts are
 // closed by their master/admin instead. (deleteAccount is kept in
 // authController.js, unused, in case this is ever re-enabled.)
-router.delete('/account', authenticateAny, (req, res) => res.status(403).json({
-  success: false,
-  message: 'Account deletion is not available in the app. Please contact your master or admin to close your account.',
-}));
+// Practice backend only: practice accounts can delete themselves (App Store
+// guideline 5.1.1(v), practiceAccountController). Live is unchanged.
+if (require('../config/practice').PRACTICE) {
+  router.delete('/account', authenticateAny,
+    require('../controllers/practiceAccountController').deletePracticeAccount);
+} else {
+  router.delete('/account', authenticateAny, (req, res) => res.status(403).json({
+    success: false,
+    message: 'Account deletion is not available in the app. Please contact your master or admin to close your account.',
+  }));
+}
 
 module.exports = router;
