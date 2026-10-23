@@ -595,6 +595,39 @@ async function _validateHighLowLimit(canCustomPrice, user, instrument_token, ord
 }
 
 /**
+ * A pending LIMIT / SL / SL-M order is refused (placement and modify) when the
+ * category wallet cannot cover the part it would OPEN, at the order price. It is
+ * the same test the fill gate applies (priceQueueService): opening qty × order
+ * price vs available balance + what the closed part releases.
+ *
+ * Until 23 Oct 2026 only the fill checked, so a client with a ₹0 INDEX wallet
+ * could place a BANKNIFTY limit that could only ever be rejected later. Nothing
+ * is blocked here. The fill gate stays the final check, because other orders may
+ * use the balance meanwhile.
+ */
+async function _validatePendingWalletCover(userId, instrument_token, transaction_type, quantity, price, segmentHint, instrument, tradingsymbol, session = null) {
+    let prevQuery = Trade.find({ user_id: userId, instrument_token, status: 'completed', deleted_at: null })
+        .select('transaction_type executed_quantity executed_price executed_at createdAt')
+        .sort({ executed_at: 1, createdAt: 1 });
+    if (session) prevQuery = prevQuery.session(session);
+    const state = computeFlatResetState(await prevQuery.lean());
+    const { closingQty, openingQty } = computeWalletSplit(state.netQty, transaction_type, quantity);
+    if (openingQty <= 0) return;
+    const category = categoryForSegment(segmentHint || '', instrument, { tradingsymbol });
+    const avgBuy = state.totalBuyQty > 0 ? state.totalBuyValue / state.totalBuyQty : 0;
+    const avgSell = state.totalSellQty > 0 ? state.totalSellValue / state.totalSellQty : 0;
+    const releaseBasis = state.netQty > 0 ? avgBuy : avgSell;
+    const available = Number((await walletService.getAvailable('User', userId, session || undefined))[category]) || 0;
+    const effective = available + closingQty * releaseBasis;
+    const required = openingQty * price;
+    if (required > effective) {
+        const err = new Error(`Insufficient ${categoryLabel(category)} wallet balance. Required ₹${required.toFixed(2)}, available ₹${effective.toFixed(2)} (short ₹${(required - effective).toFixed(2)}).`);
+        err.status = 400;
+        throw err;
+    }
+}
+
+/**
  * One-pending-order-type-per-script: a script can never have both a
  * pending LIMIT order and a pending SL/SL-M order at once, whether or not
  * a position is currently open. Same-type orders may still be stacked —
@@ -1255,6 +1288,13 @@ const placeTrade = async (req, res) => {
                     tradeRealisedPnl = (avgSellPrice - executedPrice) * closingQty;
                 }
                 tradeRealisedPnl = Math.round(tradeRealisedPnl * 100) / 100;
+            }
+
+            // Pending LIMIT / SL / SL-M: the wallet must cover what it would open
+            // (_validatePendingWalletCover). Admin bulk imports keep their INDEX exception.
+            if (!shouldExecuteNow && !bulkImportByAdmin) {
+                await _validatePendingWalletCover(user._id, instrument_token, transaction_type, quantity, executedPrice,
+                    instCheckExpiry?.segment || segment || exchange || '', instCheckExpiry, tradingsymbol, session);
             }
 
             // NOTE: The old Free-Margin + per-instrument margin validation block was
@@ -2062,6 +2102,10 @@ const modifyTrade = async (req, res) => {
             // position-size cap even though the order TYPE can't have
             // changed (order_type itself isn't editable, validated above).
             await _validateSingleOrderTypePerScript(user, trade.instrument_token, trade.order_type, trade.transaction_type, newQuantity, null, trade._id);
+            // A bigger quantity or price must still be covered by the wallet.
+            const walletInst = await KiteInstrument.findOne({ instrument_token: trade.instrument_token }).select('segment tradingsymbol exchange').lean();
+            await _validatePendingWalletCover(user._id, trade.instrument_token, trade.transaction_type, newQuantity, newPrice,
+                walletInst?.segment || trade.segment || trade.exchange || '', walletInst, trade.tradingsymbol);
         } catch (validationErr) {
             return res.status(400).json({ success: false, message: validationErr.message });
         }
@@ -2627,5 +2671,5 @@ module.exports = {
     autoSquareOffExpired,
     getInstrumentInfo,
     rolloverPositions,
-    _private: { _validateScriptQuantityLimit, _validateFreshStoplossHoldTime },
+    _private: { _validateScriptQuantityLimit, _validateFreshStoplossHoldTime, _validatePendingWalletCover },
 };
