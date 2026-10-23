@@ -234,6 +234,16 @@ function hasOfficialSettlementAuthority(instrument) {
 // Earliest start of a new weekly run: Saturday 02:50 IST (see runSettlement).
 const SETTLEMENT_EARLIEST_START_MINUTE = (2 * 60) + 50;
 
+// A week's trades run until 02:46 IST the morning after its last trading day,
+// not midnight: GLOBAL/COMEX (CME, closes ~02:30 IST) and GIFT NIFTY's night
+// session (02:45) belong to that day. With a midnight cutoff one Friday-night
+// GLOBAL trade blocked the whole run (SETTLEMENT_PERIOD_CONTAMINATED).
+// Must stay before SETTLEMENT_EARLIEST_START_MINUTE.
+const TRADE_CUTOFF_AFTER_DAY_END_MS = ((2 * 60) + 46) * 60 * 1000;
+function tradeCutoffFor(tradingDate) {
+  return new Date(indiaDayRangeUtc(tradingDate).end.getTime() + TRADE_CUTOFF_AFTER_DAY_END_MS);
+}
+
 function isBeforeEarliestStart(now = new Date()) {
   const p = getIndiaDateTimeParts(now);
   const weekday = new Date(Date.UTC(p.year, p.month - 1, p.day)).getUTCDay(); // 6 = Saturday
@@ -614,7 +624,7 @@ async function adoptLegacySettlement(periodKey, tradingDate, trigger, priceDates
     run = await SettlementRun.create({
       period_key: periodKey,
       trading_date: tradingDate,
-      trade_cutoff_at: indiaDayRangeUtc(tradingDate).end,
+      trade_cutoff_at: tradeCutoffFor(tradingDate),
       price_dates: normalizePriceDates(priceDates, tradingDate),
       status: 'blocked',
       trigger,
@@ -690,7 +700,7 @@ async function acquireSettlementRun({ tradingDate, priceDates, priceDatesResolve
       const run = await SettlementRun.create({
         period_key: periodKey,
         trading_date: tradingDate,
-        trade_cutoff_at: indiaDayRangeUtc(tradingDate).end,
+        trade_cutoff_at: tradeCutoffFor(tradingDate),
         price_dates: normalizedPriceDates,
         price_dates_resolved: priceDatesResolved,
         status: 'running',
@@ -1279,7 +1289,7 @@ async function commitSettlementTransaction({ run, lockOwner, tradingDate, faultI
 
   try {
     await session.withTransaction(async () => {
-      const cutoff = run.trade_cutoff_at ? new Date(run.trade_cutoff_at) : indiaDayRangeUtc(tradingDate).end;
+      const cutoff = run.trade_cutoff_at ? new Date(run.trade_cutoff_at) : tradeCutoffFor(tradingDate);
       const laterTrade = await Trade.findOne({
         deleted_at: null,
         $or: [
