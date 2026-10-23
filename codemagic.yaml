@@ -113,8 +113,8 @@ workflows:
   # Before the first run (new account):
   #   1. Codemagic → Team integrations → add the NEW account's App Store Connect
   #      API key, named exactly: velo
-  #   2. Replace VELO_BUNDLE_ID / APP_STORE_APPLE_ID below (and bundle_identifier
-  #      under ios_signing) with the new app's values.
+  #   2. (done) bundle id com.velo.simulator, app Apple ID 6826137877, team
+  #      9BJHTUS4RG (Flamingo Infotech Private Limited).
   #   3. Code signing identities: certificate + App Store profile for that bundle id.
   ios-velo-testflight:
     name: iOS Velo (simulator) → TestFlight
@@ -129,10 +129,10 @@ workflows:
       cocoapods: default
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.REPLACE.velo
+        bundle_identifier: com.velo.simulator
       vars:
-        APP_STORE_APPLE_ID: "REPLACE"
-        VELO_BUNDLE_ID: com.REPLACE.velo
+        APP_STORE_APPLE_ID: "6826137877" # VELO Trading Simulator (Flamingo Infotech account)
+        VELO_BUNDLE_ID: com.velo.simulator
         BRAND: velo
     scripts:
       - name: Check setup
