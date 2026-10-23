@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../utils/contants.dart';
+import '../config/practice_only.dart';
 
 /// A single tappable row in the Profile / Settings / Admin Settings / Reports
 /// menus, rendered in the style of the active brand.
@@ -221,11 +222,12 @@ const Color _yellow = Color(0xFFFFC800);
 
 const Map<String, Color> _menuAccents = {
   // Profile
-  'Admin Setting': _brown,
+  // Admin / master rows aren't in the practice-only build.
+  if (!kPracticeOnly) 'Admin Setting': _brown,
   'Account Detail': _pink,
-  'Master And User Management': _magenta,
+  if (!kPracticeOnly) 'Master And User Management': _magenta,
   'Reports': _indigo,
-  'Manage Reports': _indigo,
+  if (!kPracticeOnly) 'Manage Reports': _indigo,
   'Settings': _grey,
   'Invite Friends': _green,
   'Login History': _cyan,
@@ -241,27 +243,30 @@ const Map<String, Color> _menuAccents = {
   'Privacy Policy': _cyan,
   'Rules And Regulations': _lightBlue,
 
-  // Admin settings
-  'Reset TOTP Configuration': _grey,
-  'Manage Instruments': Color(0xFFFF6B1A),
-  'Send Message': _yellow,
-  'Settlement': _blue,
-  'Fetch Settlement Prices': _teal,
-  'Group Quantity': _magenta,
-  'Script Quantity': _orange,
-  'Brokerage Settings': _green,
-  'Fresh Stop-Loss Limits': kColorSell,
+  // Admin settings and Reports — not in the practice-only build.
+  if (!kPracticeOnly) ...{
+    // Admin settings
+    'Reset TOTP Configuration': _grey,
+    'Manage Instruments': Color(0xFFFF6B1A),
+    'Send Message': _yellow,
+    'Settlement': _blue,
+    'Fetch Settlement Prices': _teal,
+    'Group Quantity': _magenta,
+    'Script Quantity': _orange,
+    'Brokerage Settings': _green,
+    'Fresh Stop-Loss Limits': kColorSell,
 
-  // Reports
-  'Account Summary': _blue,
-  'Profit & Loss': _green,
-  'Generate PDF': _pink,
-  'Weekly Admin Report': _indigo,
-  'Intraday History': _orange,
-  'Userwise Open Position': _magenta,
-  'Script Qty Details': _teal,
-  'Deleted Trades': kColorSell,
-  'Rejection Log History': _brown,
+    // Reports
+    'Account Summary': _blue,
+    'Profit & Loss': _green,
+    'Generate PDF': _pink,
+    'Weekly Admin Report': _indigo,
+    'Intraday History': _orange,
+    'Userwise Open Position': _magenta,
+    'Script Qty Details': _teal,
+    'Deleted Trades': kColorSell,
+    'Rejection Log History': _brown,
+  },
 };
 
 /// Fallback palette for labels not listed above, so a newly added menu item

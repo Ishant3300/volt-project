@@ -22,6 +22,7 @@ import 'package:stocker/utils/contants.dart';
 import 'package:stocker/utils/market_hours.dart';
 
 import 'package:stocker/config/practice_session.dart';
+import 'package:stocker/config/practice_only.dart';
 import '../utils/wallet_category.dart';
 class _NumberFormat {
   final double value;
@@ -114,16 +115,19 @@ class _OrdersPageState extends State<OrdersPage> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final userProfile =
-          Provider.of<UserProfileProvider>(context, listen: false);
-      _masterOrAdminPrices = userProfile.isMaster || userProfile.isAdmin;
-      if (userProfile.isAdmin) {
-        _fetchAdminMasterMetrics();
-        _setupMasterLivePrices();
-      } else if (userProfile.isMaster) {
-        _fetchMasterPositions();
-        _fetchUserMetrics();
-        _setupMasterLivePrices();
+      // Client view only in the practice-only build (config/practice_only.dart).
+      if (!kPracticeOnly) {
+        final userProfile =
+            Provider.of<UserProfileProvider>(context, listen: false);
+        _masterOrAdminPrices = userProfile.isMaster || userProfile.isAdmin;
+        if (userProfile.isAdmin) {
+          _fetchAdminMasterMetrics();
+          _setupMasterLivePrices();
+        } else if (userProfile.isMaster) {
+          _fetchMasterPositions();
+          _fetchUserMetrics();
+          _setupMasterLivePrices();
+        }
       }
     });
   }
@@ -454,11 +458,14 @@ class _OrdersPageState extends State<OrdersPage> {
   @override
   Widget build(BuildContext context) {
     final userProfile = Provider.of<UserProfileProvider>(context);
-    if (userProfile.isAdmin) {
-      return _buildAdminView();
-    }
-    if (userProfile.isMaster) {
-      return _buildMasterView();
+    // Client view only in the practice-only build (config/practice_only.dart).
+    if (!kPracticeOnly) {
+      if (userProfile.isAdmin) {
+        return _buildAdminView();
+      }
+      if (userProfile.isMaster) {
+        return _buildMasterView();
+      }
     }
     return _buildUserView();
   }

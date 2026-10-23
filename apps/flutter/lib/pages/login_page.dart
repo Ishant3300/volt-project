@@ -18,6 +18,7 @@ import '../home_page.dart';
 import '../utils/contants.dart';
 import '../views/webview_page.dart';
 import 'package:stocker/config/practice_session.dart';
+import 'package:stocker/config/practice_only.dart';
 import 'package:stocker/pages/practice_signup_page.dart';
 import 'force_password_reset_page.dart';
 
@@ -33,7 +34,7 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _serverSearchController = TextEditingController();
 
-  String _selectedServer = 'Select Server';
+  String _selectedServer = kPracticeOnly ? '' : 'Select Server';
   bool _isLoading = false;
   List<Map<String, dynamic>> _servers = [];
   bool _isLoadingServers = false;
@@ -85,7 +86,19 @@ class _LoginPageState extends State<LoginPage> {
     // Practice accounts log in with their email — no server to pick.
     final isPracticeLogin =
         PracticeSession.isPracticeUsername(_usernameController.text.trim());
-    if (_selectedServer == 'Select Server' && !isPracticeLogin) {
+    // The practice-only build (config/practice_only.dart) signs in to
+    // practice accounts only — their login ID is the email.
+    if (kPracticeOnly && !isPracticeLogin) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Please enter the email of your practice account'),
+            backgroundColor: Colors.red),
+      );
+      return;
+    }
+    if (!kPracticeOnly &&
+        _selectedServer == 'Select Server' &&
+        !isPracticeLogin) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Please select a server'),
@@ -137,7 +150,8 @@ class _LoginPageState extends State<LoginPage> {
       if (mounted) {
         if (response.success) {
           // Check if OTP is required (admin login)
-          if (response.data != null &&
+          if (!kPracticeOnly &&
+              response.data != null &&
               response.data!['requires_totp'] == true) {
             apiService.setInitializing(false);
             setState(() => _isLoading = false);
@@ -733,7 +747,9 @@ class _LoginPageState extends State<LoginPage> {
                               letterSpacing: 3)),
                       const SizedBox(height: 8),
                       Text(
-                        'To sign in to an account in the application,\nenter your username and password',
+                        kPracticeOnly
+                            ? 'Practice trading with simulated prices.\nSign in with your practice account email'
+                            : 'To sign in to an account in the application,\nenter your username and password',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                             color: kColorTextMuted,
@@ -743,17 +759,22 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Server field
-                      _buildFieldLabel('Server'),
-                      const SizedBox(height: 6),
-                      _buildServerSearchField(),
-                      const SizedBox(height: 14),
+                      // Server field (live accounts — not in the
+                      // practice-only build)
+                      if (!kPracticeOnly) ...[
+                        _buildFieldLabel('Server'),
+                        const SizedBox(height: 6),
+                        _buildServerSearchField(),
+                        const SizedBox(height: 14),
+                      ],
 
                       // Username field
-                      _buildFieldLabel('Username'),
+                      _buildFieldLabel(kPracticeOnly ? 'Email' : 'Username'),
                       const SizedBox(height: 6),
                       _buildTextField(
-                          _usernameController, 'Enter Username', false),
+                          _usernameController,
+                          kPracticeOnly ? 'Enter Email' : 'Enter Username',
+                          false),
                       const SizedBox(height: 14),
 
                       // Password field

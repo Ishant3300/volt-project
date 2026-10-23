@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'practice_only.dart';
 
 /// Practice (paper trading) accounts talk to a separate backend with
 /// simulated prices (apex-project docs/practice-trading.md). A practice
@@ -14,8 +15,9 @@ class PracticeSession {
   static const String liveUrl = 'https://apexlive-api.mynpe.in';
   static const String practiceUrl = 'https://apexlive-api.mynpe.in/practice';
 
-  static final ValueNotifier<bool> active = ValueNotifier<bool>(false);
-  static bool get isActive => active.value;
+  /// Always on in the practice-only build (config/practice_only.dart).
+  static final ValueNotifier<bool> active = ValueNotifier<bool>(kPracticeOnly);
+  static bool get isActive => kPracticeOnly || active.value;
 
   static const _key = 'practice_mode';
   static const FlutterSecureStorage _storage = FlutterSecureStorage(
@@ -27,7 +29,8 @@ class PracticeSession {
       (username ?? '').contains('@');
 
   /// Current backend: practice or live.
-  static String get baseUrl => active.value ? practiceUrl : liveUrl;
+  static String get baseUrl =>
+      (kPracticeOnly || active.value) ? practiceUrl : liveUrl;
 
   /// An ApiService created with either backend address always uses the
   /// current one, so long-lived instances follow a login / account switch.
@@ -36,6 +39,7 @@ class PracticeSession {
 
   /// Restore at cold start (before the token is used).
   static Future<void> load() async {
+    if (kPracticeOnly) return;
     try {
       active.value = (await _storage.read(key: _key)) == 'true';
     } catch (_) {
@@ -44,6 +48,7 @@ class PracticeSession {
   }
 
   static Future<void> set(bool value) async {
+    if (kPracticeOnly) return;
     active.value = value;
     try {
       await _storage.write(key: _key, value: value ? 'true' : 'false');

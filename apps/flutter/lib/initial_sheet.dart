@@ -18,6 +18,7 @@ import 'pages/login_page.dart';
 import 'pages/force_password_reset_page.dart';
 import 'home_page.dart';
 import 'package:stocker/config/practice_session.dart';
+import 'package:stocker/config/practice_only.dart';
 import 'utils/contants.dart';
 
 /// Update: downloads the APK into the app's own temp storage and hands it
@@ -38,21 +39,25 @@ Future<void> checkAndShowForceUpdate(BuildContext context) async {
   // Guards against the cold-start check and a rapid resume/pause cycle
   // both trying to show the blocking dialog at once.
   if (_forceUpdateDialogShowing) return;
-  final update = await UpdateCheckService().check();
-  if (update == null || !context.mounted) return;
+  // The APK updater isn't compiled into the practice-only (iOS App Store)
+  // build — iPhones update through the App Store.
+  if (!kPracticeOnly) {
+    final update = await UpdateCheckService().check();
+    if (update == null || !context.mounted) return;
 
-  _forceUpdateDialogShowing = true;
-  try {
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => PopScope(
-        canPop: false,
-        child: _UpdateDialog(apkUrl: update.apkUrl),
-      ),
-    );
-  } finally {
-    _forceUpdateDialogShowing = false;
+    _forceUpdateDialogShowing = true;
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => PopScope(
+          canPop: false,
+          child: _UpdateDialog(apkUrl: update.apkUrl),
+        ),
+      );
+    } finally {
+      _forceUpdateDialogShowing = false;
+    }
   }
 }
 

@@ -22,6 +22,12 @@
 # cancelled first, and an approved version is NOT released automatically
 # (release it by hand in App Store Connect). Apple's App Review messages
 # can only be answered in App Store Connect itself.
+#
+# iOS builds are PRACTICE-ONLY (--dart-define=PRACTICE_ONLY=true, see
+# apps/flutter/lib/config/practice_only.dart): practice-account login only; the
+# admin / master screens and the live-server login are not compiled in (Apple
+# rejected 1.0.51 (55) under guideline 2.5.19 for containing them). Android
+# APKs are built by deploy/flutter-build-*.sh, without this flag.
 workflows:
   ios-volt-testflight:
     name: iOS Volt → TestFlight
@@ -68,6 +74,7 @@ workflows:
           flutter build ipa --release \
             --flavor "$BRAND" \
             --dart-define=BRAND="$BRAND" \
+            --dart-define=PRACTICE_ONLY=true \
             --build-number="$BUILD_NUMBER" \
             --export-options-plist=/Users/builder/export_options.plist
     artifacts: &artifacts

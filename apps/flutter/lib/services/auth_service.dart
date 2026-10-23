@@ -1,4 +1,5 @@
 import 'dart:convert';
+import '../config/practice_only.dart';
 import 'dart:developer';
 import 'package:jwt_decode/jwt_decode.dart';
 import 'package:stocker/services/api_service.dart';
@@ -77,7 +78,8 @@ class AuthService {
         if (authResponse.success && authResponse.data != null) {
           // If TOTP or OTP is required, don't save token yet (no token in response)
           if (authResponse.data['requires_otp'] == true ||
-              authResponse.data['requires_totp'] == true) {
+              (!kPracticeOnly &&
+                  authResponse.data['requires_totp'] == true)) {
             return authResponse;
           }
 
@@ -94,7 +96,8 @@ class AuthService {
             log('Saved role from token: ${tokenRole.toUpperCase()}');
 
             // If master login, save add_master permission
-            if (tokenRole.toUpperCase() == 'MASTER' &&
+            if (!kPracticeOnly &&
+                tokenRole.toUpperCase() == 'MASTER' &&
                 authResponse.data['master'] != null) {
               final masterData = authResponse.data['master'];
               final addMaster = masterData['add_master'] ?? false;
@@ -138,7 +141,8 @@ class AuthService {
   Future<AuthenticationResponse> logout({required String role}) async {
     try {
       late String endpoint;
-      if (role == 'USER') {
+      // Client accounts only in the practice-only build.
+      if (kPracticeOnly || role == 'USER') {
         endpoint = '/auth/user/logout';
       } else if (role == 'MASTER') {
         endpoint = '/auth/master/logout';

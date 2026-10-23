@@ -23,6 +23,7 @@ import '../services/firebase_service.dart';
 import '../pages/account_switcher_sheet.dart';
 import '../widgets/announcement_banner.dart';
 import 'package:stocker/config/practice_session.dart';
+import 'package:stocker/config/practice_only.dart';
 import '../utils/contants.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -501,6 +502,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 clipBehavior: Clip.antiAlias,
                 child: Column(
                   children: [
+                    // Practice-only build: client rows only (config/practice_only.dart).
+                    if (!kPracticeOnly) ...[
                     if (_isAdmin) ...[
                           _buildMenuItem(context, 'Admin Setting',
                               svgPath: kIconAdminSettings),
@@ -516,9 +519,11 @@ class _ProfilePageState extends State<ProfilePage> {
                               icon: Icons.admin_panel_settings_outlined),
                           _buildDivider(),
                         ],
+                    ],
                         _buildMenuItem(context, 'Account Detail',
                             svgPath: kIconAccountDetails),
                         _buildDivider(),
+                        if (!kPracticeOnly) ...[
                         if ((_isAdmin || _isMaster) &&
                             !Provider.of<InvestorModeProvider>(context,
                                     listen: false)
@@ -542,6 +547,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           _buildMenuItem(context, 'Manage Reports',
                               icon: Icons.description_outlined),
                           _buildDivider(),
+                        ],
                         ],
                         _buildMenuItem(context, 'Settings',
                             svgPath: kIconSettings),
@@ -598,6 +604,28 @@ class _ProfilePageState extends State<ProfilePage> {
                 _handleLogout();
               } else if (title == 'Delete Account') {
                 _handleDeleteAccount();
+              } else if (kPracticeOnly) {
+                if (title == 'Account Detail') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const AccountDetailView()),
+                  );
+                } else if (title == 'Login History') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const LoginHistoryView()),
+                  );
+                } else if (title == 'Settings') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const SettingsView()),
+                  );
+                } else if (title == 'Switch Account') {
+                  showAccountSwitcher(context);
+                }
               } else if (title == 'Admin Setting') {
                 Navigator.push(
                   context,

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
+import 'package:stocker/config/practice_only.dart';
 
 /// Tracks whether the current session is an investor (read-only) login.
 /// Persisted to secure storage so it survives app restarts.
@@ -8,7 +9,8 @@ class InvestorModeProvider with ChangeNotifier {
   final SecureStorageService _storage = SecureStorageService();
 
   bool _isInvestor = false;
-  bool get isInvestor => _isInvestor;
+  // Investor logins are live accounts — never in the practice-only build.
+  bool get isInvestor => !kPracticeOnly && _isInvestor;
 
   /// Call after login to set the investor mode state.
   Future<void> setInvestor(bool value) async {

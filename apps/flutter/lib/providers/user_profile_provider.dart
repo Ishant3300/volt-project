@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:jwt_decode/jwt_decode.dart';
 import '../models/user.dart';
 import '../models/master.dart';
+import '../config/practice_only.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 
@@ -27,8 +28,9 @@ class UserProfileProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  bool get isAdmin => _role == 'ADMIN';
-  bool get isMaster => _role == 'MASTER';
+  // Never true in the practice-only build (config/practice_only.dart).
+  bool get isAdmin => !kPracticeOnly && _role == 'ADMIN';
+  bool get isMaster => !kPracticeOnly && _role == 'MASTER';
   bool get isUser => _role == 'USER';
 
   /// Super Admin is an Admin with one extra capability (manage other
@@ -164,6 +166,8 @@ class UserProfileProvider with ChangeNotifier {
       // Fetch profile based on role
       if (role == 'USER') {
         await _fetchUserProfile(id, token);
+      } else if (kPracticeOnly) {
+        // Client accounts only.
       } else if (role == 'MASTER') {
         await _fetchMasterProfile(id, token);
       } else if (role == 'ADMIN') {
