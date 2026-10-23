@@ -471,16 +471,28 @@ const updateUser = async (req, res) => {
       user.brokerage_sharing = brokerage_sharing;
     }
 
+    // Exchanges whose Group was switched — their script limits are re-copied
+    // from the new group after the save (same as the master's Edit User,
+    // masterUserController.updateUserDetails). This route used to save only
+    // the group NAME: client 994912 showed "HRY 5 LOT" for NFO-FUT while
+    // every script limit was still GOLDMIN's (23 Oct 2026).
+    let groupChanges = [];
     if (exchanges_allowed) {
       if (!Array.isArray(exchanges_allowed)) return res.status(400).json({ success: false, message: 'exchanges_allowed must be an array', data: null });
       for (const exchange of exchanges_allowed) {
         if (!exchange.exchange_name || exchange.turnover === undefined || exchange.lot === undefined) return res.status(400).json({ success: false, message: 'Each exchange must have exchange_name, turnover, and lot', data: null });
       }
+      const oldGroupByExchange = new Map(
+        (user.exchanges_allowed || []).map(ex => [ex.exchange_name, ex.group_name])
+      );
       user.exchanges_allowed = exchanges_allowed.map(ex => {
         let name = ex.exchange_name.toUpperCase();
         if (name === 'GLOBAL') name = 'INDICES';
         return { ...ex, exchange_name: name };
       });
+      groupChanges = user.exchanges_allowed.filter(ex =>
+        ex.group_name && ex.group_name !== oldGroupByExchange.get(ex.exchange_name)
+      );
     }
 
     if (trade_limit) {
@@ -492,6 +504,13 @@ const updateUser = async (req, res) => {
     }
 
     await user.save();
+
+    if (groupChanges.length > 0) {
+      const { reseedUserScriptQuantityForExchange } = require('../services/scriptQuantityCopyService');
+      for (const ex of groupChanges) {
+        await reseedUserScriptQuantityForExchange(user._id.toString(), ex.exchange_name, ex.group_name);
+      }
+    }
 
     if (req.body.wallet) {
       await applyWalletFunding({ req, targetType: 'User', targetId: user._id, walletMap: req.body.wallet });
