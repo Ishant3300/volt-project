@@ -231,15 +231,17 @@ function hasOfficialSettlementAuthority(instrument) {
   return false;
 }
 
-// Earliest start of a new weekly run: Saturday 02:50 IST (see runSettlement).
-const SETTLEMENT_EARLIEST_START_MINUTE = (2 * 60) + 50;
+// Earliest start of a new weekly run: Saturday 03:50 IST (see runSettlement).
+// After every Friday-night close: GIFT NIFTY 02:45, CME (GLOBAL/COMEX) 02:30
+// in US summer time and 03:30 in US winter time (from early Nov).
+const SETTLEMENT_EARLIEST_START_MINUTE = (3 * 60) + 50;
 
-// A week's trades run until 02:46 IST the morning after its last trading day,
-// not midnight: GLOBAL/COMEX (CME, closes ~02:30 IST) and GIFT NIFTY's night
-// session (02:45) belong to that day. With a midnight cutoff one Friday-night
+// A week's trades run until 03:46 IST the morning after its last trading day,
+// not midnight: GLOBAL/COMEX (CME, closes 02:30 IST in US summer time, 03:30
+// in US winter time) and GIFT NIFTY's night session (02:45) belong to that day. With a midnight cutoff one Friday-night
 // GLOBAL trade blocked the whole run (SETTLEMENT_PERIOD_CONTAMINATED).
 // Must stay before SETTLEMENT_EARLIEST_START_MINUTE.
-const TRADE_CUTOFF_AFTER_DAY_END_MS = ((2 * 60) + 46) * 60 * 1000;
+const TRADE_CUTOFF_AFTER_DAY_END_MS = ((3 * 60) + 46) * 60 * 1000;
 function tradeCutoffFor(tradingDate) {
   return new Date(indiaDayRangeUtc(tradingDate).end.getTime() + TRADE_CUTOFF_AFTER_DAY_END_MS);
 }
@@ -865,9 +867,9 @@ async function runSettlement(options = {}) {
     // The logical Friday is local and deterministic. Materialize it before any
     // network calendar lookup can fail so startup can never continue unfenced.
     tradingDate = getLatestDueSettlementFriday(now);
-    // A new weekly run doesn't start before Saturday 02:50 IST — after GIFT
-    // NIFTY's night session closes (02:45), so its ATP is final and the week
-    // includes that session's trades. Applies to every trigger (cron,
+    // A new weekly run doesn't start before Saturday 03:50 IST — after GIFT
+    // NIFTY's night session (02:45) and CME's Friday close (up to 03:30), so
+    // prices are final and the week includes those sessions' trades. Applies to every trigger (cron,
     // recovery, admin). A run that already exists for this period isn't
     // affected (recovery of an in-flight run continues as before).
     if (!(await SettlementRun.exists({ period_key: dateKey(tradingDate) })) && isBeforeEarliestStart(now)) {
@@ -875,7 +877,7 @@ async function runSettlement(options = {}) {
         success: false,
         started: false,
         waiting: true,
-        message: 'Weekly settlement starts after GIFT NIFTY closes - from 02:50 IST Saturday.',
+        message: 'Weekly settlement starts after the Friday-night markets close - from 03:50 IST Saturday.',
         periodKey: dateKey(tradingDate),
       };
     }
@@ -1003,7 +1005,7 @@ async function executeOwnedRun(context) {
       }
 
       // GIFT NIFTY (NSEIX) — settles at NSE IX's ATP at the night-session
-      // close (read now, after 02:45; settlement doesn't start before 02:50
+      // close (read now, after 02:45; settlement doesn't start before 03:50
       // Saturday — see SETTLEMENT_EARLIEST_START). A failed read is logged
       // here; with no ATP price the price check below refuses GIFT positions
       // and the run waits for the next attempt.
@@ -1985,6 +1987,7 @@ module.exports = {
   runSettlement,
   _private: {
     isBeforeEarliestStart,
+    tradeCutoffFor,
     hasOfficialSettlementAuthority,
     acquireSettlementRun,
     adoptLegacySettlement,

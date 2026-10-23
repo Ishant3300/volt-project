@@ -246,9 +246,10 @@ class CronService {
         this.jobs.push(mcxBhavcopyJob);
 
         // ── Atomic Weekend Settlement ───────────────────────────────────
-        // Saturday 02:50 IST — after GIFT NIFTY's night session closes (02:45)
-        // so its ATP is final (settlementService refuses to start a new week
-        // earlier) — then hourly retries 03:30-05:30 if a price wasn't ready.
+        // Saturday 03:50 IST — after GIFT NIFTY's night session (02:45) and
+        // CME's Friday close (02:30 US summer / 03:30 US winter time) so every
+        // price is final (settlementService refuses to start a new week
+        // earlier) — then hourly retries 04:30-06:30 if a price wasn't ready.
         // The durable period key guarantees that only one worker can commit
         // the week; later invocations are no-ops after success.
         const runWeekendSettlement = async () => {
@@ -269,9 +270,9 @@ class CronService {
                 console.error(`[CRON] Weekend settlement error: ${error.message}`);
             }
         };
-        const weekendSettlementJob = cron.schedule('50 2 * * 6', runWeekendSettlement, { timezone: 'Asia/Kolkata' });
+        const weekendSettlementJob = cron.schedule('50 3 * * 6', runWeekendSettlement, { timezone: 'Asia/Kolkata' });
         this.jobs.push(weekendSettlementJob);
-        const weekendSettlementRetryJob = cron.schedule('30 3-5 * * 6', runWeekendSettlement, { timezone: 'Asia/Kolkata' });
+        const weekendSettlementRetryJob = cron.schedule('30 4-6 * * 6', runWeekendSettlement, { timezone: 'Asia/Kolkata' });
         this.jobs.push(weekendSettlementRetryJob);
 
         // Recover a run stranded by process restart, network failure, or a crash

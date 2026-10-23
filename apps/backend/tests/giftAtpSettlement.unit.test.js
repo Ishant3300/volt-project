@@ -4,17 +4,22 @@ jest.mock('../src/models/KiteInstrument', () => ({ find: jest.fn(), findOne: jes
 const axios = require('axios');
 const KiteInstrument = require('../src/models/KiteInstrument');
 const { fetchAndApplyGiftNiftyAtp } = require('../src/services/giftNiftySettlementService');
-const { _private: { isBeforeEarliestStart, hasOfficialSettlementAuthority } } = require('../src/services/settlementService');
+const { _private: { isBeforeEarliestStart, hasOfficialSettlementAuthority, tradeCutoffFor } } = require('../src/services/settlementService');
 
 const chain = (v) => ({ select: () => ({ lean: async () => v }) });
 
-describe('weekly settlement waits for GIFT NIFTY close (Saturday 02:50 IST)', () => {
-  test('Saturday before 02:50 IST is too early; 02:50 onwards and weekdays are not', () => {
+describe('weekly settlement waits for the Friday-night closes (Saturday 03:50 IST)', () => {
+  test('Saturday before 03:50 IST is too early; 03:50 onwards and weekdays are not', () => {
     expect(isBeforeEarliestStart(new Date('2026-10-09T18:30:00Z'))).toBe(true);  // Sat 00:00
-    expect(isBeforeEarliestStart(new Date('2026-10-09T21:19:00Z'))).toBe(true);  // Sat 02:49
-    expect(isBeforeEarliestStart(new Date('2026-10-09T21:20:00Z'))).toBe(false); // Sat 02:50
+    expect(isBeforeEarliestStart(new Date('2026-10-09T21:20:00Z'))).toBe(true);  // Sat 02:50
+    expect(isBeforeEarliestStart(new Date('2026-10-09T22:19:00Z'))).toBe(true);  // Sat 03:49
+    expect(isBeforeEarliestStart(new Date('2026-10-09T22:20:00Z'))).toBe(false); // Sat 03:50
     expect(isBeforeEarliestStart(new Date('2026-10-10T03:00:00Z'))).toBe(false); // Sat 08:30
     expect(isBeforeEarliestStart(new Date('2026-10-09T10:00:00Z'))).toBe(false); // Fri 15:30
+  });
+  test('trade cutoff is 03:46 IST Saturday — after CME closes in US winter time (03:30), before the run', () => {
+    expect(tradeCutoffFor(new Date('2026-11-06T00:00:00Z')).toISOString()).toBe('2026-11-06T22:16:00.000Z'); // Sat 7 Nov 03:46 IST
+    expect(isBeforeEarliestStart(tradeCutoffFor(new Date('2026-11-06T00:00:00Z')))).toBe(true);
   });
   test('GIFT NIFTY settles only on the ATP source, not the official DSP file', () => {
     expect(hasOfficialSettlementAuthority({ exchange: 'NSEIX', settlement_price_source: 'NSEIX_ATP_SESSION_CLOSE' })).toBe(true);
