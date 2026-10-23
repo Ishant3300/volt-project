@@ -104,48 +104,48 @@ workflows:
         cancel_previous_submissions: true
         release_type: MANUAL
 
-  # ── BOLT: iOS trading simulator on the new Apple developer account ─────────
-  # Manual start only. Same app code with --dart-define=BRAND=bolt and
+  # ── VELO: iOS trading simulator on the new Apple developer account ─────────
+  # Manual start only. Same app code with --dart-define=BRAND=velo and
   # PRACTICE_ONLY=true: it talks to the practice (simulation) server only. The
-  # Volt flavour's Xcode configuration is reused; this workflow swaps in Bolt's
+  # Volt flavour's Xcode configuration is reused; this workflow swaps in Velo's
   # bundle id, name and icon at build time (the repo's Volt files are unchanged).
   #
   # Before the first run (new account):
   #   1. Codemagic → Team integrations → add the NEW account's App Store Connect
-  #      API key, named exactly: bolt
-  #   2. Replace BOLT_BUNDLE_ID / APP_STORE_APPLE_ID below (and bundle_identifier
+  #      API key, named exactly: velo
+  #   2. Replace VELO_BUNDLE_ID / APP_STORE_APPLE_ID below (and bundle_identifier
   #      under ios_signing) with the new app's values.
   #   3. Code signing identities: certificate + App Store profile for that bundle id.
-  ios-bolt-testflight:
-    name: iOS Bolt (simulator) → TestFlight
+  ios-velo-testflight:
+    name: iOS Velo (simulator) → TestFlight
     max_build_duration: 60
     instance_type: mac_mini_m2
     working_directory: apps/flutter
     integrations:
-      app_store_connect: bolt
+      app_store_connect: velo
     environment:
       flutter: 3.47.2
       xcode: latest
       cocoapods: default
       ios_signing:
         distribution_type: app_store
-        bundle_identifier: com.REPLACE.bolt
+        bundle_identifier: com.REPLACE.velo
       vars:
         APP_STORE_APPLE_ID: "REPLACE"
-        BOLT_BUNDLE_ID: com.REPLACE.bolt
-        BRAND: bolt
+        VELO_BUNDLE_ID: com.REPLACE.velo
+        BRAND: velo
     scripts:
       - name: Check setup
         script: |
-          case "$BOLT_BUNDLE_ID$APP_STORE_APPLE_ID" in
-            *REPLACE*) echo "Set BOLT_BUNDLE_ID / APP_STORE_APPLE_ID in codemagic.yaml first"; exit 1;;
+          case "$VELO_BUNDLE_ID$APP_STORE_APPLE_ID" in
+            *REPLACE*) echo "Set VELO_BUNDLE_ID / APP_STORE_APPLE_ID in codemagic.yaml first"; exit 1;;
           esac
-      - name: Bolt identity (bundle id, name, icon) for this build only
+      - name: Velo identity (bundle id, name, icon) for this build only
         script: |
           cat > ios/Flutter/brand-volt.xcconfig <<XC
-          PRODUCT_BUNDLE_IDENTIFIER = $BOLT_BUNDLE_ID
-          APP_DISPLAY_NAME = BOLT
-          ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon-bolt
+          PRODUCT_BUNDLE_IDENTIFIER = $VELO_BUNDLE_ID
+          APP_DISPLAY_NAME = VELO
+          ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon-velo
           XC
           cat ios/Flutter/brand-volt.xcconfig
       - name: Flutter packages
@@ -156,7 +156,7 @@ workflows:
           pod install --repo-update
       - name: Use App Store signing profiles
         script: xcode-project use-profiles
-      - name: Build Bolt ipa
+      - name: Build Velo ipa
         script: |
           LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo "")
           PUBSPEC_BUILD=$(grep '^version:' pubspec.yaml | sed -E 's/.*\+([0-9]+).*/\1/')
@@ -164,7 +164,7 @@ workflows:
           echo "Build number: $BUILD_NUMBER"
           flutter build ipa --release \
             --flavor volt \
-            --dart-define=BRAND=bolt \
+            --dart-define=BRAND=velo \
             --dart-define=PRACTICE_ONLY=true \
             --build-number="$BUILD_NUMBER" \
             --export-options-plist=/Users/builder/export_options.plist

@@ -98,7 +98,7 @@ flutter:
     - assets/new_app_icon.png
     # White-label brand assets (selected at build time via --dart-define=BRAND)
     - assets/volt/
-    - assets/bolt/
+    - assets/velo/
     - lib/icons/
     - lib/icons/profile_page_icons/
     - lib/icons/reports_view_icons/
