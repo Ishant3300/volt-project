@@ -293,6 +293,10 @@ class MassiveFuturesFeedService {
 
     const metricsEngine = require('./metricsEngine');
     metricsEngine.onTick(token, lastPrice, bidPrice, askPrice);
+    // Pending limit/stop orders are matched off this, exactly as for Kite and
+    // GIFT ticks. Missing until 23 Oct 2026, so no GLOBAL/COMEX limit or stop
+    // order had ever filled (162038's YMZ6 BUY 52310.7 sat with price below it).
+    require('./priceQueueService').publishPriceUpdate(token, lastPrice);
 
     if (!this._shouldBroadcast(token)) return;
     lps._broadcastToClients({
@@ -321,6 +325,7 @@ class MassiveFuturesFeedService {
 
     const metricsEngine = require('./metricsEngine');
     metricsEngine.onTick(token, lastPrice, null, null);
+    require('./priceQueueService').publishPriceUpdate(token, lastPrice);
 
     if (!this._shouldBroadcast(token)) return;
     lps._broadcastToClients({
