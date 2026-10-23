@@ -86,16 +86,6 @@ class _LoginPageState extends State<LoginPage> {
     // Practice accounts log in with their email — no server to pick.
     final isPracticeLogin =
         PracticeSession.isPracticeUsername(_usernameController.text.trim());
-    // The practice-only build (config/practice_only.dart) signs in to
-    // practice accounts only — their login ID is the email.
-    if (kPracticeOnly && !isPracticeLogin) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Please enter the email of your practice account'),
-            backgroundColor: Colors.red),
-      );
-      return;
-    }
     if (!kPracticeOnly &&
         _selectedServer == 'Select Server' &&
         !isPracticeLogin) {
@@ -150,8 +140,7 @@ class _LoginPageState extends State<LoginPage> {
       if (mounted) {
         if (response.success) {
           // Check if OTP is required (admin login)
-          if (!kPracticeOnly &&
-              response.data != null &&
+          if (response.data != null &&
               response.data!['requires_totp'] == true) {
             apiService.setInitializing(false);
             setState(() => _isLoading = false);
@@ -748,7 +737,7 @@ class _LoginPageState extends State<LoginPage> {
                       const SizedBox(height: 8),
                       Text(
                         kPracticeOnly
-                            ? 'Practice trading with simulated prices.\nSign in with your practice account email'
+                            ? 'Trading simulator with virtual money.\nSign in with your practice account'
                             : 'To sign in to an account in the application,\nenter your username and password',
                         textAlign: TextAlign.center,
                         style: TextStyle(
@@ -769,11 +758,14 @@ class _LoginPageState extends State<LoginPage> {
                       ],
 
                       // Username field
-                      _buildFieldLabel(kPracticeOnly ? 'Email' : 'Username'),
+                      _buildFieldLabel(
+                          kPracticeOnly ? 'Email or username' : 'Username'),
                       const SizedBox(height: 6),
                       _buildTextField(
                           _usernameController,
-                          kPracticeOnly ? 'Enter Email' : 'Enter Username',
+                          kPracticeOnly
+                              ? 'Enter email or username'
+                              : 'Enter Username',
                           false),
                       const SizedBox(height: 14),
 

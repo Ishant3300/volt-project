@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
-import '../config/practice_only.dart';
 
 class NotificationSettingsView extends StatefulWidget {
   const NotificationSettingsView({super.key});
@@ -34,15 +33,10 @@ class _NotificationSettingsViewState extends State<NotificationSettingsView> {
   static const _labels = {
     'market_order': 'Market Order',
     'pending_order': 'Pending Order',
-    // No admins in the practice-only build — these rows are not shown there.
-    if (!kPracticeOnly) 'admin_order_execution': 'Admin Order Execution',
-    if (!kPracticeOnly) 'admin_order_deletion': 'Admin Order Deletion',
+    'admin_order_execution': 'Admin Order Execution',
+    'admin_order_deletion': 'Admin Order Deletion',
     'trading_sound': 'Trading Sound',
   };
-
-  /// Settings with a row on screen (all of them, except in the
-  /// practice-only build).
-  Iterable<String> get _shownKeys => _settings.keys.where(_labels.containsKey);
 
   @override
   void initState() { super.initState(); _fetch(); }
@@ -150,8 +144,8 @@ class _NotificationSettingsViewState extends State<NotificationSettingsView> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
-              child: Column(children: _shownKeys.map((key) {
-                final isLast = key == _shownKeys.last;
+              child: Column(children: _settings.keys.map((key) {
+                final isLast = key == _settings.keys.last;
                 return Column(children: [
                   _toggleRow(_labels[key]!, _settings[key]!, (v) => setState(() => _settings[key] = v)),
                   if (!isLast) const Divider(height: 24, color: Color(0xFFF1F5F9)),

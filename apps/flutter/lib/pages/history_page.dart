@@ -13,7 +13,6 @@ import 'package:stocker/views/trade_card_view.dart';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/utils/contants.dart';
-import 'package:stocker/config/practice_only.dart';
 import 'history_filter_sheet.dart';
 import 'trade_detail_sheet.dart';
 
@@ -37,11 +36,8 @@ class _PortfolioPageState extends State<PortfolioPage>
   late TabController _tabController;
 
   // Master-specific state
-  bool _masterRole = false;
-  bool _adminRole = false;
-  // Never true in the practice-only build (config/practice_only.dart).
-  bool get _isMaster => !kPracticeOnly && _masterRole;
-  bool get _isAdmin => !kPracticeOnly && _adminRole;
+  bool _isMaster = false;
+  bool _isAdmin = false;
   bool _masterLoading = false;
   List<Trade> _masterTrades = [];
   int _masterPage = 1;
@@ -73,10 +69,10 @@ class _PortfolioPageState extends State<PortfolioPage>
       final userProfile =
           Provider.of<UserProfileProvider>(context, listen: false);
       if (userProfile.isMaster) {
-        setState(() => _masterRole = true);
+        setState(() => _isMaster = true);
         _fetchMasterTrades();
       } else if (userProfile.isAdmin) {
-        setState(() => _adminRole = true);
+        setState(() => _isAdmin = true);
         _fetchMasterTrades();
       }
     });
@@ -90,8 +86,6 @@ class _PortfolioPageState extends State<PortfolioPage>
   }
 
   Future<void> _fetchMasterTrades({bool loadMore = false}) async {
-    // Master / admin trade list — not in the practice-only build.
-    if (kPracticeOnly) return;
     if (loadMore) {
       if (_masterLoadingMore || _masterPage >= _masterTotalPages) return;
       setState(() => _masterLoadingMore = true);

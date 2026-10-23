@@ -1,6 +1,5 @@
 ﻿import 'dart:convert';
 import 'package:flutter/material.dart';
-import '../config/practice_only.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_profile_provider.dart';
@@ -79,8 +78,7 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
 
       final profileProvider =
           Provider.of<UserProfileProvider>(context, listen: false);
-      // Client accounts only in the practice-only build.
-      final isUser = kPracticeOnly || profileProvider.isUser;
+      final isUser = profileProvider.isUser;
       final endpoint = isUser
           ? '/my/login-history?page=1&limit=$_pageSize'
           : '/master/login-history?page=1&limit=$_pageSize';
@@ -116,8 +114,7 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
 
       final profileProvider =
           Provider.of<UserProfileProvider>(context, listen: false);
-      // Client accounts only in the practice-only build.
-      final isUser = kPracticeOnly || profileProvider.isUser;
+      final isUser = profileProvider.isUser;
       final endpoint = isUser
           ? '/my/login-history?page=$nextPage&limit=$_pageSize'
           : '/master/login-history?page=$nextPage&limit=$_pageSize';

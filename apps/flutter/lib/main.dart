@@ -21,7 +21,6 @@ import 'package:stocker/pages/login_page.dart';
 import 'initial_sheet.dart';
 import 'dart:async';
 import 'package:stocker/config/practice_session.dart';
-import 'package:stocker/config/practice_only.dart';
 import 'package:stocker/widgets/practice_banner.dart';
 import 'dart:developer';
 
@@ -118,14 +117,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             return AuthService(apiService);
           },
         ),
-        // Admin screens aren't compiled into the practice-only build.
-        if (!kPracticeOnly)
-          ProxyProvider<ApiService, AdminService>(
-            update: (_, apiService, __) {
-              log('   Creating AdminService');
-              return AdminService(apiService);
-            },
-          ),
+        ProxyProvider<ApiService, AdminService>(
+          update: (_, apiService, __) {
+            log('   Creating AdminService');
+            return AdminService(apiService);
+          },
+        ),
         ProxyProvider<ApiService, UserService>(
           update: (_, apiService, __) {
             log('   Creating UserService');

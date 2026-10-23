@@ -180,7 +180,9 @@ workflows:
           PRACTICE=$(strings "$BIN" | grep -c 'apexlive-api\.mynpe\.in/practice' || true)
           echo "server URLs: $LIVE (practice: $PRACTICE)"
           [ "$LIVE" -ne "$PRACTICE" ] && { echo "LIVE SERVER URL FOUND"; FAIL=1; }
-          for m in 'Select Server' '/servers/search' 'apex_update.apk' '-version.json'; do
+          # /servers/search = the live login's server picker ('Select Server' is
+          # also the Create Master form's label, so the endpoint is checked).
+          for m in '/servers/search' 'apex_update.apk' '-version.json'; do
             n=$(strings "$BIN" | grep -cF -- "$m" || true)
             echo "$m: $n"; [ "$n" -ne 0 ] && FAIL=1
           done

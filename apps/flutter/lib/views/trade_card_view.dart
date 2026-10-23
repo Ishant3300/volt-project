@@ -18,7 +18,6 @@ import 'market_depth_sheet.dart';
 import 'info_sheet.dart';
 import 'chart_view.dart';
 import 'package:stocker/config/practice_session.dart';
-import 'package:stocker/config/practice_only.dart';
 import 'package:stocker/services/trade_sound_service.dart';
 
 /// Client-side option validation is intentionally advisory. A missing local
@@ -338,8 +337,6 @@ class _TradeCardPageState extends State<TradeCardPage> {
   }
 
   Future<void> _fetchUsers(String query) async {
-    // Client search is for masters / admins — not in the practice-only build.
-    if (kPracticeOnly) return;
     if (mounted) setState(() => _isSearchingUsers = true);
     _lastUserQuery = query;
     _userSearchPage = 1;
@@ -371,7 +368,6 @@ class _TradeCardPageState extends State<TradeCardPage> {
   }
 
   Future<void> _loadMoreUsers() async {
-    if (kPracticeOnly) return;
     if (_isLoadingMoreUsers || !_hasMoreUsers) return;
     setState(() => _isLoadingMoreUsers = true);
 
