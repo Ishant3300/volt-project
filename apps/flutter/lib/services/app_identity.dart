@@ -31,7 +31,7 @@ class AppIdentity {
         os = 'iOS ${i.systemVersion}';
       }
     } catch (_) {}
-    final brand = kIsVolt ? 'Volt' : 'Apex';
+    final brand = kIsBolt ? 'Bolt' : kIsVolt ? 'Volt' : 'Apex';
     userAgent = _ascii('$brand/$version (${[os, device].where((s) => s.isNotEmpty).join('; ')}) Dart/3');
   }
 

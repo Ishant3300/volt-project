@@ -103,3 +103,93 @@ workflows:
         submit_to_app_store: true
         cancel_previous_submissions: true
         release_type: MANUAL
+
+  # ── BOLT: iOS trading simulator on the new Apple developer account ─────────
+  # Manual start only. Same app code with --dart-define=BRAND=bolt and
+  # PRACTICE_ONLY=true: it talks to the practice (simulation) server only. The
+  # Volt flavour's Xcode configuration is reused; this workflow swaps in Bolt's
+  # bundle id, name and icon at build time (the repo's Volt files are unchanged).
+  #
+  # Before the first run (new account):
+  #   1. Codemagic → Team integrations → add the NEW account's App Store Connect
+  #      API key, named exactly: bolt
+  #   2. Replace BOLT_BUNDLE_ID / APP_STORE_APPLE_ID below (and bundle_identifier
+  #      under ios_signing) with the new app's values.
+  #   3. Code signing identities: certificate + App Store profile for that bundle id.
+  ios-bolt-testflight:
+    name: iOS Bolt (simulator) → TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    working_directory: apps/flutter
+    integrations:
+      app_store_connect: bolt
+    environment:
+      flutter: 3.47.2
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.REPLACE.bolt
+      vars:
+        APP_STORE_APPLE_ID: "REPLACE"
+        BOLT_BUNDLE_ID: com.REPLACE.bolt
+        BRAND: bolt
+    scripts:
+      - name: Check setup
+        script: |
+          case "$BOLT_BUNDLE_ID$APP_STORE_APPLE_ID" in
+            *REPLACE*) echo "Set BOLT_BUNDLE_ID / APP_STORE_APPLE_ID in codemagic.yaml first"; exit 1;;
+          esac
+      - name: Bolt identity (bundle id, name, icon) for this build only
+        script: |
+          cat > ios/Flutter/brand-volt.xcconfig <<XC
+          PRODUCT_BUNDLE_IDENTIFIER = $BOLT_BUNDLE_ID
+          APP_DISPLAY_NAME = BOLT
+          ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon-bolt
+          XC
+          cat ios/Flutter/brand-volt.xcconfig
+      - name: Flutter packages
+        script: flutter pub get
+      - name: CocoaPods
+        script: |
+          cd ios
+          pod install --repo-update
+      - name: Use App Store signing profiles
+        script: xcode-project use-profiles
+      - name: Build Bolt ipa
+        script: |
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo "")
+          PUBSPEC_BUILD=$(grep '^version:' pubspec.yaml | sed -E 's/.*\+([0-9]+).*/\1/')
+          if [ -n "$LATEST" ]; then BUILD_NUMBER=$((LATEST + 1)); else BUILD_NUMBER=$PUBSPEC_BUILD; fi
+          echo "Build number: $BUILD_NUMBER"
+          flutter build ipa --release \
+            --flavor volt \
+            --dart-define=BRAND=bolt \
+            --dart-define=PRACTICE_ONLY=true \
+            --build-number="$BUILD_NUMBER" \
+            --export-options-plist=/Users/builder/export_options.plist
+      - name: Safety gate — no live server in the binary
+        script: |
+          # Fails the build if the compiled Dart code can reach the live server
+          # (only the practice server is allowed in the simulator).
+          IPA=$(ls build/ios/ipa/*.ipa | head -1)
+          rm -rf /tmp/ipa && mkdir -p /tmp/ipa && unzip -q "$IPA" -d /tmp/ipa
+          BIN=$(ls -d /tmp/ipa/Payload/*.app)/Frameworks/App.framework/App
+          FAIL=0
+          LIVE=$(strings "$BIN" | grep -c 'apexlive-api\.mynpe\.in' || true)
+          PRACTICE=$(strings "$BIN" | grep -c 'apexlive-api\.mynpe\.in/practice' || true)
+          echo "server URLs: $LIVE (practice: $PRACTICE)"
+          [ "$LIVE" -ne "$PRACTICE" ] && { echo "LIVE SERVER URL FOUND"; FAIL=1; }
+          for m in 'Select Server' '/servers/search' 'apex_update.apk' '-version.json'; do
+            n=$(strings "$BIN" | grep -cF -- "$m" || true)
+            echo "$m: $n"; [ "$n" -ne 0 ] && FAIL=1
+          done
+          exit $FAIL
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false

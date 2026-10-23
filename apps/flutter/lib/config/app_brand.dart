@@ -11,6 +11,8 @@ import 'package:flutter/material.dart';
 /// Selecting a flavour:
 ///   Apex (default) →  flutter run
 ///   Volt           →  flutter run --dart-define=BRAND=volt
+///   Bolt           →  flutter run --dart-define=BRAND=bolt  (iOS trading
+///                     simulator — practice server only, see practice_only.dart)
 ///
 /// Adding a new white-label brand:
 ///   1. add a `kIsX` const below,
@@ -26,29 +28,45 @@ const String kBrandId = String.fromEnvironment('BRAND', defaultValue: 'apex');
 /// Per-brand compile-time switches. `String.fromEnvironment` is a const
 /// constructor and `==` on const strings is const-evaluable, so these remain
 /// usable inside `const` expressions.
-const bool kIsVolt = kBrandId == 'volt';
+const bool kIsBolt = kBrandId == 'bolt';
+// Bolt reuses Volt's look (menus, fonts); only its identity and colours differ.
+const bool kIsVolt = kBrandId == 'volt' || kIsBolt;
 const bool kIsApex = !kIsVolt;
 
 // ─── Identity ───────────────────────────────────────────────────────────────
 
 /// Display name shown on the splash screen, login screen and MaterialApp title.
-const String kAppName = kIsVolt ? 'VOLT' : 'APEX';
+const String kAppName = kIsBolt ? 'BOLT' : kIsVolt ? 'VOLT' : 'APEX';
 
 /// Brand logo (SVG) shown on the splash and login screens.
-const String kLogoAsset =
-    kIsVolt ? 'assets/volt/logo.svg' : 'assets/Subtract.svg';
+const String kLogoAsset = kIsBolt
+    ? 'assets/bolt/logo.svg'
+    : kIsVolt
+        ? 'assets/volt/logo.svg'
+        : 'assets/Subtract.svg';
 
 // ─── Brand colours ──────────────────────────────────────────────────────────
 
 /// Primary brand colour — buttons, active states, spinners, focus borders.
-const Color kBrandPrimary = kIsVolt ? Color(0xFF4E75FF) : Color(0xFF3F45C7);
+const Color kBrandPrimary = kIsBolt
+    ? Color(0xFF0059FA)
+    : kIsVolt
+        ? Color(0xFF4E75FF)
+        : Color(0xFF3F45C7);
 
 /// Gradient start for primary CTAs (login button, badges, avatars).
-const Color kBrandGradientStart =
-    kIsVolt ? Color(0xFF4E75FF) : Color(0xFFC6529E);
+const Color kBrandGradientStart = kIsBolt
+    ? Color(0xFF0059FA)
+    : kIsVolt
+        ? Color(0xFF4E75FF)
+        : Color(0xFFC6529E);
 
 /// Gradient end for primary CTAs.
-const Color kBrandGradientEnd = kIsVolt ? Color(0xFF2E55DF) : Color(0xFF3B43C9);
+const Color kBrandGradientEnd = kIsBolt
+    ? Color(0xFF0040C8)
+    : kIsVolt
+        ? Color(0xFF2E55DF)
+        : Color(0xFF3B43C9);
 
 /// Standard left→right brand gradient used on primary CTAs.
 const LinearGradient kBrandGradient = LinearGradient(

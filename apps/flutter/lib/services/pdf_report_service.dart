@@ -401,7 +401,7 @@ class PdfReportService {
 
     final List<pw.Widget> content = [
       pw.Center(
-          child: pw.Text(kIsVolt ? 'Volt' : 'Apex',
+          child: pw.Text(kIsBolt ? 'Bolt' : kIsVolt ? 'Volt' : 'Apex',
               style:
                   pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold))),
       pw.SizedBox(height: 6),
