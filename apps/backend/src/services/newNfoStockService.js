@@ -26,7 +26,12 @@
 const INDEX_NAMES = /^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|NIFTYNXT50|NIFTYFPI|SENSEX|SENSEX50|BANKEX)$/;
 const SEGMENTS = ['NFO-FUT', 'NFO-OPT'];
 // Groups not set up in lots, with the value chosen for new stocks (14 Oct 2026).
-const GROUP_OVERRIDES = { 'NFO-FUT|GOLDMIN': { unit: 'lots', max: 1, brk: 1 } };
+// 223 (24 Oct 2026): per-stock values from the user's file; a stock not in the
+// file gets 10000/10000 qty, so new stocks do too.
+const GROUP_OVERRIDES = {
+  'NFO-FUT|GOLDMIN': { unit: 'lots', max: 1, brk: 1 },
+  'NFO-FUT|223': { unit: 'fixed', max: 10000, brk: 10000 },
+};
 const FSL_MINUTES = 10;
 
 function tally(values) {

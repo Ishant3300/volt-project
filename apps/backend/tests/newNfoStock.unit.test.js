@@ -96,3 +96,9 @@ test('already-closed contracts and other names are left alone', async () => {
   expect(await closeFarFutures(db, ['ENRIN'], NOW)).toEqual([]);
   expect(await closeFarFutures(db, [], NOW)).toEqual([]);
 });
+
+test('group 223 futures: a new stock gets the fixed 10000/10000 (custom per-stock group, 24 Oct 2026)', () => {
+  const { GROUP_OVERRIDES } = require('../src/services/newNfoStockService');
+  expect(GROUP_OVERRIDES['NFO-FUT|223']).toEqual({ unit: 'fixed', max: 10000, brk: 10000 });
+  expect(GROUP_OVERRIDES['NFO-FUT|GOLDMIN']).toEqual({ unit: 'lots', max: 1, brk: 1 });
+});
