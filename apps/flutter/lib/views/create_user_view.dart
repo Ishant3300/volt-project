@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'dart:developer';
 import '../utils/number_to_words.dart';
+import '../utils/usual_brokerage.dart';
 import '../providers/user_profile_provider.dart';
 import '../services/admin_service.dart';
 import '../services/master_service.dart';
@@ -410,7 +411,7 @@ class _CreateUserViewState extends State<CreateUserView> {
         final type = brkSettings['type'] as String;
         final userQuery = userId != null ? '&user_id=$userId' : '';
         final res = await apiService.get(
-          '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=1$userQuery',
+          '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=2000$userQuery',
           token: token,
         );
         if (res.statusCode == 200) {
@@ -418,7 +419,8 @@ class _CreateUserViewState extends State<CreateUserView> {
           if (body['success'] == true) {
             final items = body['data']['items'] as List? ?? [];
             if (items.isNotEmpty) {
-              final firstVal = (items[0]['brk_value'] as num?)?.toDouble() ?? 0;
+              // The usual rate, not the first row (see usualBrokerage).
+              final firstVal = usualBrokerage(items) ?? 0;
               if (mounted) {
                 setState(() {
                   brkSettings['value'] = firstVal.toString();

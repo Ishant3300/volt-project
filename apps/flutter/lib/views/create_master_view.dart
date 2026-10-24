@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../utils/number_to_words.dart';
+import '../utils/usual_brokerage.dart';
 import '../models/master.dart';
 import '../services/api_service.dart';
 import '../services/admin_service.dart';
@@ -418,7 +419,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
         if (brkSettings == null) continue;
         final type = brkSettings['type'] as String;
         final res = await apiService.get(
-          '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=1&user_id=$ownMasterId',
+          '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=2000&user_id=$ownMasterId',
           token: token,
         );
         if (res.statusCode == 200) {
@@ -426,8 +427,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           if (body['success'] == true) {
             final items = body['data']['items'] as List? ?? [];
             if (items.isNotEmpty) {
-              final firstVal =
-                  (items[0]['brk_value'] as num?)?.toDouble() ?? 0;
+              // The usual rate, not the first row (see usualBrokerage).
+              final firstVal = usualBrokerage(items) ?? 0;
               if (mounted) {
                 setState(() {
                   brkSettings['value'] = firstVal.toString();
