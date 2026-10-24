@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:developer';
 import '../utils/number_to_words.dart';
 import '../utils/usual_brokerage.dart';
+import '../utils/profit_book_minimum.dart';
 import '../providers/user_profile_provider.dart';
 import '../services/admin_service.dart';
 import '../services/master_service.dart';
@@ -40,6 +41,20 @@ class _CreateUserViewState extends State<CreateUserView> {
   // Profit book time (minutes) — mandatory; empty on a new client so the
   // creator always decides it (backend utils/profitBookTime.js).
   final TextEditingController _profitBookController = TextEditingController();
+  // Admin minimum (default 5): a new client starts at it; a CHANGED time may
+  // not go below it (backend utils/profitBookTime.js).
+  int _profitBookMin = kDefaultProfitBookMinimum;
+
+  Future<void> _loadProfitBookMinimum() async {
+    final min = await fetchProfitBookMinimum();
+    if (!mounted) return;
+    setState(() {
+      _profitBookMin = min;
+      if (widget.user == null && _profitBookController.text.trim().isEmpty) {
+        _profitBookController.text = min.toString();
+      }
+    });
+  }
   final TextEditingController _noteController = TextEditingController();
 
   bool _marginSquareOff = false;
@@ -199,13 +214,14 @@ class _CreateUserViewState extends State<CreateUserView> {
   void initState() {
     super.initState();
     _loadMasterPermissions();
+    _loadProfitBookMinimum();
 
     if (widget.user != null) {
       _nameController.text = widget.user!.name;
       _usernameController.text = widget.user!.username;
       _creditController.text = widget.user!.credits.toString();
       _profitBookController.text =
-          (widget.user!.profitBookMinutes ?? 10).toString();
+          (widget.user!.profitBookMinutes ?? kDefaultProfitBookMinimum).toString();
       _noteController.text = widget.user!.note;
       _marginSquareOff = widget.user!.marginSquareOff;
       _changePasswordOnFirstLogin = widget.user!.changePassOnFirstLogin;
@@ -793,8 +809,14 @@ class _CreateUserViewState extends State<CreateUserView> {
     if (profitBookMinutes == null ||
         profitBookMinutes < 0 ||
         profitBookMinutes > 1440) {
+      _showSnack('Enter the profit book time in whole minutes (0–1440).',
+          isError: true);
+      return;
+    }
+    if (profitBookMinutes < _profitBookMin &&
+        profitBookMinutes != widget.user?.profitBookMinutes) {
       _showSnack(
-          'Enter the profit book time in whole minutes (0–1440). 0 = no restriction.',
+          'Profit book time cannot be less than $_profitBookMin minutes (admin minimum).',
           isError: true);
       return;
     }
@@ -1092,11 +1114,11 @@ class _CreateUserViewState extends State<CreateUserView> {
                               label: 'Profit Book (min) *',
                               controller: _profitBookController,
                               keyboardType: TextInputType.number),
-                          const Padding(
-                            padding: EdgeInsets.only(left: 100, bottom: 6),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 100, bottom: 6),
                             child: Text(
-                              "Can't close in profit until this long after opening; a loss can be closed any time. 0 = no restriction.",
-                              style: TextStyle(
+                              "Can't close in profit until this long after opening; a loss can be closed any time. Minimum $_profitBookMin min (set by admin).",
+                              style: const TextStyle(
                                   color: kColorTextMuted,
                                   fontSize: 11,
                                   fontFamily: kFontFamily),

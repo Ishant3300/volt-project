@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
+import '../utils/profit_book_minimum.dart';
 
 class FreshStoplossLimitView extends StatefulWidget {
   const FreshStoplossLimitView({super.key});
@@ -22,10 +23,51 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
   bool _hasInitialized = false;
   final _searchCtrl = TextEditingController();
   String _searchQuery = '';
+  // Minimum profit book time for every client (default 5) — see utils/profit_book_minimum.dart.
+  int? _profitBookMin;
+
+  Future<void> _loadProfitBookMin() async {
+    final n = await fetchProfitBookMinimum();
+    if (mounted) setState(() => _profitBookMin = n);
+  }
+
+  void _editProfitBookMin() {
+    final ctrl = TextEditingController(text: '${_profitBookMin ?? kDefaultProfitBookMinimum}');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Minimum profit book time'),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          TextField(controller: ctrl, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: const InputDecoration(labelText: 'Minutes (0–1440)')),
+          const SizedBox(height: 8),
+          const Text('New clients start at this time; no client can be set below it. Existing clients keep their time until it is changed.',
+            style: TextStyle(color: kColorTextMuted, fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () async {
+            final n = int.tryParse(ctrl.text.trim());
+            if (n == null || n < 0 || n > 1440) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter whole minutes, 0–1440')));
+              return;
+            }
+            final err = await saveProfitBookMinimum(n);
+            if (!ctx.mounted) return;
+            Navigator.pop(ctx);
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err ?? 'Minimum set to $n min')));
+            if (err == null) setState(() => _profitBookMin = n);
+          }, child: const Text('Save')),
+        ],
+      ),
+    );
+  }
 
   @override
   void initState() {
     super.initState();
+    _loadProfitBookMin();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_hasInitialized && _selectedExchange == null) {
         setState(() {
@@ -271,6 +313,19 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
           const SizedBox(width: 12),
           const Text('Fresh Stop-Loss Limits', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
         ])),
+
+        // Minimum profit book time (all clients)
+        Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 12), child: GestureDetector(
+          onTap: _editProfitBookMin,
+          child: Container(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))),
+            child: Row(children: [
+              const Expanded(child: Text('Minimum profit book time', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
+              Text(_profitBookMin == null ? '…' : '$_profitBookMin min', style: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+              const SizedBox(width: 6),
+              const Icon(Icons.edit, size: 16, color: kColorTextMuted),
+            ])),
+        )),
 
         // Exchange chips
         Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: SizedBox(height: 36,
