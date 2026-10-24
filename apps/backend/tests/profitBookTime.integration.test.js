@@ -31,8 +31,8 @@ describe('parseProfitBookMinutes / profitBookMinutesOf', () => {
     expect(parseProfitBookMinutes(-1).error).toMatch(/between/);
     expect(parseProfitBookMinutes(1441).error).toMatch(/between/);
   });
-  test('an account without the field gets the old universal 10', () => {
-    expect(profitBookMinutesOf({})).toBe(10);
+  test('an account without the field gets the default 5 (24 Oct 2026; was 10)', () => {
+    expect(profitBookMinutesOf({})).toBe(5);
     expect(profitBookMinutesOf({ profit_book_minutes: 0 })).toBe(0);
     expect(profitBookMinutesOf({ profit_book_minutes: 15 })).toBe(15);
   });

@@ -208,12 +208,14 @@ const createUser = async (req, res) => {
       profit_book_minutes
     } = req.body;
 
-    // Profit book time is required. Old app versions (before 20 Oct 2026)
-    // don't send it — they get the old universal 10 minutes for now.
-    const { DEFAULT_PROFIT_BOOK_MINUTES, parseProfitBookMinutes } = require('../utils/profitBookTime');
+    // Profit book time is required and may not be below the admin minimum
+    // (default 5). Old app versions (before 20 Oct 2026) don't send it —
+    // they get the minimum.
+    const { getMinProfitBookMinutes, parseProfitBookMinutes } = require('../utils/profitBookTime');
+    const profitBookMin = await getMinProfitBookMinutes();
     const profitBook = profit_book_minutes === undefined
-      ? { value: DEFAULT_PROFIT_BOOK_MINUTES }
-      : parseProfitBookMinutes(profit_book_minutes);
+      ? { value: profitBookMin }
+      : parseProfitBookMinutes(profit_book_minutes, { min: profitBookMin });
     if (profitBook.error) {
       return res.status(400).json({ success: false, message: profitBook.error, data: null });
     }
@@ -752,7 +754,16 @@ const updateUserDetails = async (req, res) => {
     if (close_only !== undefined) user.close_only = close_only;
     if (bet !== undefined) user.bet = bet;
     if (fresh_stoploss !== undefined) user.fresh_stoploss = fresh_stoploss;
-    if (profitBookValue !== undefined) user.profit_book_minutes = profitBookValue;
+    if (profitBookValue !== undefined && profitBookValue !== user.profit_book_minutes) {
+      // A changed time may not go below the admin minimum (an unchanged one
+      // can stay below a since-raised minimum — utils/profitBookTime.js).
+      const { getMinProfitBookMinutes } = require('../utils/profitBookTime');
+      const profitBookMin = await getMinProfitBookMinutes();
+      if (profitBookValue < profitBookMin) {
+        return res.status(400).json({ success: false, message: `Profit book time cannot be less than ${profitBookMin} minutes (admin minimum)`, data: null });
+      }
+      user.profit_book_minutes = profitBookValue;
+    }
 
     await user.save();
 

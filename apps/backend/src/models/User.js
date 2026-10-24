@@ -159,7 +159,7 @@ const userSchema = new mongoose.Schema({
     type: Number,
     min: 0,
     max: 1440,
-    default: 10
+    default: 5
   },
   report_permissions: {
     account_summary: { type: Boolean, default: true },

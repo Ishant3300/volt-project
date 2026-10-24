@@ -456,7 +456,9 @@ const updateUser = async (req, res) => {
     if (fresh_stoploss !== undefined) user.fresh_stoploss = !!fresh_stoploss;
 
     if (profit_book_minutes !== undefined) {
-      const parsed = require('../utils/profitBookTime').parseProfitBookMinutes(profit_book_minutes);
+      // Not below the admin minimum, unless left at the client's current value.
+      const { getMinProfitBookMinutes, parseProfitBookMinutes } = require('../utils/profitBookTime');
+      const parsed = parseProfitBookMinutes(profit_book_minutes, { min: await getMinProfitBookMinutes(), current: user.profit_book_minutes });
       if (parsed.error) return res.status(400).json({ success: false, message: parsed.error, data: null });
       user.profit_book_minutes = parsed.value;
     }
