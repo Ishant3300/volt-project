@@ -156,7 +156,11 @@ router.put('/brokerage-settings/bulk-update', authenticateAdminOrMaster, rejectI
     if (!req.admin) {
       const User = require('../models/User');
       const Master = require('../models/Master');
-      const floorRecords = records.filter((r) => r.user_id);
+      // A script that trades nowhere has no floor (brokerageCopyService.tradingScriptNames):
+      // 11 dropped F&O stocks at the old default 2 blocked NBS's "1 for all" (24 Oct 2026).
+      const { tradingScriptNames, isTradingName } = require('../services/brokerageCopyService');
+      const trading = await tradingScriptNames();
+      const floorRecords = records.filter((r) => r.user_id && isTradingName(trading, r.script_name));
       const scripts = [...new Set(floorRecords.map((r) => r.script_name))];
       const types = [...new Set(floorRecords.map((r) => type || r.type))];
       const rateKey = (ex, script, t) => `${ex}|${script}|${t}`;

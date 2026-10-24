@@ -1429,7 +1429,11 @@ const updateBrokerageSettings = async (req, res) => {
 
     // Floor validation: if this record belongs to a user/master, ensure new rate >= parent's rate
     // Admin bypasses this — admin can set any rate on their children
-    if (brk_value !== undefined && brokerageSettings.user_id && !req.admin) {
+    // A script that trades nowhere has no floor (brokerageCopyService.tradingScriptNames).
+    const { tradingScriptNames, isTradingName } = require('../services/brokerageCopyService');
+    const hasFloor = brk_value !== undefined && brokerageSettings.user_id && !req.admin
+      && isTradingName(await tradingScriptNames(), script_name || brokerageSettings.script_name);
+    if (hasFloor) {
       const { validateBrokerageFloor } = require('../services/brokerageCopyService');
       // Determine owner type
       const User = require('../models/User');

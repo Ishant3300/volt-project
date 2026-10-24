@@ -16,6 +16,31 @@ const KiteInstrument = require('../models/KiteInstrument');
 const { categoryForNfoScript } = require('../constants/nfoIndexUnderlyings');
 
 /**
+ * Upper-cased names (raw_name / name) of every script that trades in at least
+ * one segment right now. A brokerage row for any other name is never read by
+ * a trade (brokerageService.js matches raw_name in the segment, then raw_name
+ * in any segment), so its rate must not block a floor check — on 24 Oct 2026
+ * 11 dropped F&O stocks still at the global default 2 made "set 1 for all"
+ * fail with "cannot be less than the parent limit (2)" for NBS (593462).
+ * Returns null when the instrument list looks wrong (fewer than 100 names; live
+ * had 247 on 24 Oct 2026):
+ * callers then treat every script as trading, i.e. today's behaviour.
+ */
+async function tradingScriptNames() {
+  const filter = { is_active: true };
+  const [raw, names] = await Promise.all([
+    KiteInstrument.distinct('raw_name', filter),
+    KiteInstrument.distinct('name', filter),
+  ]);
+  const set = new Set([...raw, ...names].filter(Boolean).map((n) => String(n).toUpperCase()));
+  return set.size >= 100 ? set : null;
+}
+
+function isTradingName(trading, scriptName) {
+  return !trading || !scriptName || trading.has(String(scriptName).toUpperCase());
+}
+
+/**
  * Copy brokerage settings from a parent (Master) to a newly created child (Master or User).
  * Creates new BrokerageSettings records with user_id = childId, copying all rates from parentId.
  *
@@ -193,6 +218,9 @@ async function getParentBrokerageRate(targetId, targetType, exchangeName, script
  * @returns {string|null} Error message or null if valid
  */
 async function validateBrokerageFloor(targetId, targetType, exchangeName, scriptName, type, newValue) {
+  // A script that trades nowhere has no floor (see tradingScriptNames).
+  if (!isTradingName(await tradingScriptNames(), scriptName)) return null;
+
   const parentRate = await getParentBrokerageRate(targetId, targetType, exchangeName, scriptName, type);
 
   if (parentRate === null) return null; // No parent rate found — allow any value
@@ -235,6 +263,7 @@ async function applyBrokerageOverrides(childId, overrides, session, enforceFloor
 
   const now = new Date();
   const ops = [];
+  let trading; // tradingScriptNames(), loaded on first whole-segment entry
 
   for (const entry of overrides) {
     if (!entry?.exchange_name || !entry?.type || entry?.brk_value === undefined || entry?.brk_value === null) continue;
@@ -300,6 +329,26 @@ async function applyBrokerageOverrides(childId, overrides, session, enforceFloor
         },
       });
     }
+
+    // A whole-segment (or Index/Stock) rate also covers the account's copied
+    // rows for scripts that trade nowhere, so they don't keep the old default
+    // (NBS 593462 was left with 2 on 11 dropped F&O stocks after "1 for all").
+    // No floor check: those rows are never read by a trade. Existing rows only.
+    if (!entry.script_name) {
+      if (trading === undefined) trading = await tradingScriptNames();
+      if (trading) {
+        const category = entry.category ? String(entry.category).toUpperCase() : null;
+        const listed = new Set(scriptNames.map((n) => String(n).toUpperCase()));
+        const rowsQuery = BrokerageSettings.find({ user_id: childId, exchange_name: exchangeName, type, deleted_at: null }).select('script_name');
+        if (session) rowsQuery.session(session);
+        for (const row of await rowsQuery.lean()) {
+          const name = row.script_name;
+          if (!name || listed.has(String(name).toUpperCase()) || isTradingName(trading, name)) continue;
+          if (category && categoryForNfoScript(exchangeName, name) !== category) continue;
+          ops.push({ updateOne: { filter: { _id: row._id, deleted_at: null }, update: { $set: { brk_value: brkValue, updated_at: now } } } });
+        }
+      }
+    }
   }
 
   if (ops.length > 0) {
@@ -315,4 +364,6 @@ module.exports = {
   getParentBrokerageRate,
   validateBrokerageFloor,
   applyBrokerageOverrides,
+  tradingScriptNames,
+  isTradingName,
 };
