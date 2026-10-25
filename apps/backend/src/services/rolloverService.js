@@ -19,10 +19,12 @@
  *    same User document (equity, wallet) and the same trade-write lease, so
  *    running them in parallel only produced write-conflict retries.
  *  - Metrics are recomputed once per request, not once per position.
- *  - Admission control (gate below): a bounded number of rollover requests
- *    run at once; one that cannot start within MAX_WAIT_MS is answered
- *    "busy — nothing was changed" at once, instead of finishing after the
- *    app's 10 s request timeout has already reported a failure.
+ *  - Admission control (gate below): at most MAX_ACTIVE rollover requests
+ *    run at once (16 was faster than no limit in a load test: 100 clients x
+ *    10 positions at the same instant all finished in 3.1 s vs 3.6 s). A
+ *    request beyond that WAITS for a slot and always runs — never "busy"
+ *    (user, 25 Oct 2026). ROLLOVER_MAX_WAIT_MS > 0 brings the old
+ *    answer-busy-after-waiting behaviour back if ever needed.
  */
 
 const mongoose = require('mongoose');
@@ -40,7 +42,7 @@ const { computeFlatResetState } = require('../utils/walletSplit');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
 const MAX_ACTIVE = Number(process.env.ROLLOVER_MAX_ACTIVE) || 16;
-const MAX_WAIT_MS = Number(process.env.ROLLOVER_MAX_WAIT_MS) || 4000;
+const MAX_WAIT_MS = Number(process.env.ROLLOVER_MAX_WAIT_MS) || 0; // 0 = wait as long as needed, never refuse
 
 /* ------------------------------------------------------ admission gate -- */
 
@@ -60,7 +62,7 @@ function enterGate() {
   }
   return new Promise((resolve, reject) => {
     const entry = { resolve, timer: null };
-    entry.timer = setTimeout(() => {
+    if (MAX_WAIT_MS > 0) entry.timer = setTimeout(() => {
       const i = gate.waiting.indexOf(entry);
       if (i >= 0) gate.waiting.splice(i, 1);
       reject(busyError());

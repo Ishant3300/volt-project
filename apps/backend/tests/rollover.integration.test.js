@@ -223,16 +223,18 @@ describeIntegration('rollover (real MongoDB)', () => {
     expect(w).toBeGreaterThanOrEqual(0);
   });
 
-  test('overloaded: answers busy without doing anything', async () => {
+  test('overloaded: waits for a free slot, then rolls (never "busy", 25 Oct 2026)', async () => {
     const { user } = await seed();
-    const { gate, MAX_ACTIVE } = rolloverService._private;
+    const { gate, MAX_ACTIVE, leaveGate } = rolloverService._private;
     const saved = gate.active;
     gate.active = MAX_ACTIVE;
-    try {
-      await expect(run(user)).rejects.toMatchObject({ status: 503, code: 'ROLLOVER_BUSY' });
-    } finally {
-      gate.active = saved;
-    }
-    expect(await Trade.countDocuments({})).toBe(1);
+    const pending = run(user);
+    await new Promise((r) => setTimeout(r, 200));
+    expect(await Trade.countDocuments({ rollover_group_id: { $ne: null } })).toBe(0); // still waiting
+    leaveGate(); // a slot frees up
+    const { rolled_over, errors } = await pending;
+    gate.active = saved;
+    expect(errors).toEqual([]);
+    expect(rolled_over).toHaveLength(1);
   });
 });
