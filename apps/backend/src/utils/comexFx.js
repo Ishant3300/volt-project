@@ -103,7 +103,7 @@ function comexBillBlock(instruments, snapshots, fx) {
   for (const s of snapshots || []) {
     if (!isComex(s.exchange) || s.fx_rate == null) continue;
     const key = s.settlement_period_key || String(s.settlement_run_id);
-    const p = periods.get(key) || { period_key: key, settlement_date: s.settlement_date, fx_rate: s.fx_rate, usd_pnl: 0, usd_brokerage: 0, inr_pnl: 0, inr_brokerage: 0 };
+    const p = periods.get(key) || { period_key: key, settlement_date: s.settlement_date, settlement_trading_date: s.settlement_trading_date || null, fx_rate: s.fx_rate, usd_pnl: 0, usd_brokerage: 0, inr_pnl: 0, inr_brokerage: 0 };
     p.usd_pnl += Number(s.usd_total_pnl) || 0;
     p.usd_brokerage += Number(s.usd_brokerage) || 0;
     p.inr_pnl += Number(s.total_pnl) || 0;
