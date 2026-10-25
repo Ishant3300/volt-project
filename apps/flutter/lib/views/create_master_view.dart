@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../utils/number_to_words.dart';
 import '../utils/usual_brokerage.dart';
+import '../utils/profit_book_base.dart';
 import '../models/master.dart';
 import '../services/api_service.dart';
 import '../services/admin_service.dart';
@@ -37,6 +38,44 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   final TextEditingController _noteController = TextEditingController();
   final TextEditingController _profitLossController = TextEditingController();
   final TextEditingController _brkSharingController = TextEditingController();
+  // Base profit book time (backend utils/profitBookTime.js): no client or
+  // sub-master under this master can be given less. Floor = the parent's
+  // base (null = top-level, no floor). New: starts at the owner's base.
+  // Edit: saved via PUT /admin/profit-book-base; raising it lifts the tree.
+  final TextEditingController _profitBookBaseController = TextEditingController();
+  int? _profitBookBaseFloor;
+  String? _profitBookBaseFloorOf;
+  int? _profitBookBaseCurrent;
+
+  Future<void> _loadProfitBookBase() async {
+    if (widget.master != null) {
+      final b = await fetchProfitBookBase(widget.master!.id);
+      if (!mounted || b == null) return;
+      setState(() {
+        _profitBookBaseCurrent = b.minutes;
+        _profitBookBaseFloor = b.floor;
+        _profitBookBaseFloorOf = b.parentUsername;
+        _profitBookBaseController.text = b.minutes.toString();
+      });
+      return;
+    }
+    final ownerId = _ownerMaster?.id;
+    if (ownerId == null || ownerId.isEmpty) {
+      setState(() {
+        _profitBookBaseFloor = null;
+        _profitBookBaseFloorOf = null;
+        _profitBookBaseController.text = kDefaultProfitBookBase.toString();
+      });
+      return;
+    }
+    final b = await fetchProfitBookBase(ownerId);
+    if (!mounted || b == null) return;
+    setState(() {
+      _profitBookBaseFloor = b.minutes;
+      _profitBookBaseFloorOf = b.username;
+      _profitBookBaseController.text = b.minutes.toString();
+    });
+  }
 
   bool _addMaster = false;
   bool _changePasswordOnFirstLogin = true;
@@ -231,6 +270,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
       }
     });
     _fetchOwnBrokerageFloor();
+    _loadProfitBookBase();
   }
 
   @override
@@ -246,6 +286,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     _noteController.dispose();
     _profitLossController.dispose();
     _brkSharingController.dispose();
+    _profitBookBaseController.dispose();
     for (final controller in _walletControllers.values) {
       controller.dispose();
     }
@@ -325,6 +366,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     // runs now, not just for an admin caller. The Allotted Groups SECTION
     // itself stays admin-gated separately, via its own Consumer check.
     WidgetsBinding.instance.addPostFrameCallback((_) => _fetchAvailableGroups());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadProfitBookBase());
 
     _profitLossController.addListener(() => setState(() {}));
     _brkSharingController.addListener(() => setState(() {}));
@@ -560,6 +602,40 @@ class _CreateMasterViewState extends State<CreateMasterView> {
       }
     }
 
+    // Editing a master whose base couldn't be loaded: leave the base alone.
+    final baseCurrent = _profitBookBaseCurrent;
+    final skipBase = widget.master != null && baseCurrent == null;
+    final profitBookBase = int.tryParse(_profitBookBaseController.text.trim()) ?? -1;
+    if (!skipBase && (profitBookBase < 0 || profitBookBase > 1440)) {
+      _showSnack('Base profit book time must be whole minutes, 0–1440.', isError: true);
+      return;
+    }
+    final baseFloor = _profitBookBaseFloor;
+    if (!skipBase && baseFloor != null && profitBookBase < baseFloor) {
+      _showSnack('Base profit book time cannot be less than $baseFloor minutes (base of ${_profitBookBaseFloorOf ?? 'the parent'}).', isError: true);
+      return;
+    }
+    // Editing: a raise lifts everyone below — say how many and confirm first.
+    final baseChanged = widget.master != null && baseCurrent != null && profitBookBase != baseCurrent;
+    if (baseChanged && profitBookBase > baseCurrent) {
+      final lift = await previewProfitBookBase(widget.master!.id, profitBookBase);
+      if (!mounted) return;
+      if (lift != null && (lift.$1 > 0 || lift.$2 > 0)) {
+        final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Raise base profit book time?'),
+            content: Text('Saving $profitBookBase min will raise ${lift.$1} client(s) and ${lift.$2} sub-master(s) under this master to $profitBookBase min.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Raise')),
+            ],
+          ),
+        );
+        if (ok != true || !mounted) return;
+      }
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
@@ -622,8 +698,14 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               : scriptQuantityGroupsPayload,
         );
         if (response.statusCode == 200) {
+          final baseErr = baseChanged
+              ? await saveProfitBookBase(widget.master!.id, profitBookBase)
+              : null;
           if (mounted) {
-            _showSnack('Master updated successfully');
+            _showSnack(baseErr == null
+                ? 'Master updated successfully'
+                : 'Master updated, but the base profit book time was not saved: $baseErr',
+                isError: baseErr != null);
             Navigator.pop(context, true);
           }
         } else {
@@ -738,6 +820,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           serverId: serverId,
           wallet: walletMap.isEmpty ? null : walletMap,
           forMasterId: _forMaster?.id,
+          profitBookBaseMinutes: profitBookBase >= 0 ? profitBookBase : null,
           allottedScriptQuantityGroups:
               allottedGroupsPayload.isEmpty ? null : allottedGroupsPayload,
           scriptQuantityGroups: scriptQuantityGroupsPayload.isEmpty
@@ -1158,6 +1241,21 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                               keyboardType: TextInputType.number,
                               showWordsInIndian: true,
                               remainingAvailable: _ownerMaster?.equity),
+                          _divider(),
+                          _buildTextField(
+                              label: 'Base Profit Book (min) *',
+                              controller: _profitBookBaseController,
+                              keyboardType: TextInputType.number),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 100, bottom: 6),
+                            child: Text(
+                              '${_profitBookBaseFloor == null ? 'Top-level master — no minimum.' : 'Minimum $_profitBookBaseFloor min (base of ${_profitBookBaseFloorOf ?? 'the parent'}).'} No client or sub-master under this master can be given less${widget.master != null ? '; raising it lifts everyone below to the new value' : ''}.',
+                              style: const TextStyle(
+                                  color: kColorTextMuted,
+                                  fontSize: 11,
+                                  fontFamily: kFontFamily),
+                            ),
+                          ),
                           _divider(),
                           _buildTextField(
                               label: 'Note / Remark',

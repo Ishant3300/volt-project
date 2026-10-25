@@ -6,7 +6,7 @@ import 'dart:convert';
 import 'dart:developer';
 import '../utils/number_to_words.dart';
 import '../utils/usual_brokerage.dart';
-import '../utils/profit_book_minimum.dart';
+import '../utils/profit_book_base.dart';
 import '../providers/user_profile_provider.dart';
 import '../services/admin_service.dart';
 import '../services/master_service.dart';
@@ -41,18 +41,21 @@ class _CreateUserViewState extends State<CreateUserView> {
   // Profit book time (minutes) — mandatory; empty on a new client so the
   // creator always decides it (backend utils/profitBookTime.js).
   final TextEditingController _profitBookController = TextEditingController();
-  // Admin minimum (default 5): a new client starts at it; a CHANGED time may
-  // not go below it (backend utils/profitBookTime.js).
-  int _profitBookMin = kDefaultProfitBookMinimum;
+  // Minimum = the base of the client's master (backend utils/profitBookTime.js):
+  // a new client starts at it (refilled when the owner changes); a CHANGED
+  // time may not go below it.
+  int _profitBookMin = kDefaultProfitBookBase;
+  String? _profitBookMinOf;
 
-  Future<void> _loadProfitBookMinimum() async {
-    final min = await fetchProfitBookMinimum();
-    if (!mounted) return;
+  Future<void> _loadProfitBookBase() async {
+    final masterId = widget.user?.masterId ?? _ownerMaster?.id;
+    if (masterId == null || masterId.isEmpty) return;
+    final base = await fetchProfitBookBase(masterId);
+    if (!mounted || base == null) return;
     setState(() {
-      _profitBookMin = min;
-      if (widget.user == null && _profitBookController.text.trim().isEmpty) {
-        _profitBookController.text = min.toString();
-      }
+      _profitBookMin = base.minutes;
+      _profitBookMinOf = base.username;
+      if (widget.user == null) _profitBookController.text = base.minutes.toString();
     });
   }
   final TextEditingController _noteController = TextEditingController();
@@ -167,6 +170,7 @@ class _CreateUserViewState extends State<CreateUserView> {
       _brokerageCustomized.clear();
     });
     _loadMasterPermissions();
+    _loadProfitBookBase();
   }
 
   // Trade Wallet inputs per allowed category (NSE/MCX/GLOBAL)
@@ -214,14 +218,14 @@ class _CreateUserViewState extends State<CreateUserView> {
   void initState() {
     super.initState();
     _loadMasterPermissions();
-    _loadProfitBookMinimum();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadProfitBookBase());
 
     if (widget.user != null) {
       _nameController.text = widget.user!.name;
       _usernameController.text = widget.user!.username;
       _creditController.text = widget.user!.credits.toString();
       _profitBookController.text =
-          (widget.user!.profitBookMinutes ?? kDefaultProfitBookMinimum).toString();
+          (widget.user!.profitBookMinutes ?? kDefaultProfitBookBase).toString();
       _noteController.text = widget.user!.note;
       _marginSquareOff = widget.user!.marginSquareOff;
       _changePasswordOnFirstLogin = widget.user!.changePassOnFirstLogin;
@@ -816,7 +820,7 @@ class _CreateUserViewState extends State<CreateUserView> {
     if (profitBookMinutes < _profitBookMin &&
         profitBookMinutes != widget.user?.profitBookMinutes) {
       _showSnack(
-          'Profit book time cannot be less than $_profitBookMin minutes (admin minimum).',
+          'Profit book time cannot be less than $_profitBookMin minutes (base of ${_profitBookMinOf ?? 'the master'}).',
           isError: true);
       return;
     }
@@ -1117,7 +1121,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                           Padding(
                             padding: const EdgeInsets.only(left: 100, bottom: 6),
                             child: Text(
-                              "Can't close in profit until this long after opening; a loss can be closed any time. Minimum $_profitBookMin min (set by admin).",
+                              "Can't close in profit until this long after opening; a loss can be closed any time. Minimum $_profitBookMin min (base of ${_profitBookMinOf ?? 'the master'}).",
                               style: const TextStyle(
                                   color: kColorTextMuted,
                                   fontSize: 11,

@@ -59,10 +59,13 @@ class AdminService {
     // "Create account for": a downline master who owns/funds the new
     // sub-broker (only honoured on a master's own create call).
     String? forMasterId,
+    // Base profit book time (minutes) — floor for everyone under the new master.
+    int? profitBookBaseMinutes,
   }) async {
     final data = {
       if (forMasterId != null && forMasterId.isNotEmpty)
         'for_master_id': forMasterId,
+      if (profitBookBaseMinutes != null) 'profit_book_base_minutes': profitBookBaseMinutes,
       'name': name,
       'username': username,
       'password': password,
