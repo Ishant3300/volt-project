@@ -193,6 +193,55 @@ class _UsernameViewState extends State<UsernameView> {
   /// to keep the aggregated view live.
   final Map<String, Map<String, dynamic>> _perUserMetricsCache = {};
 
+  /// Master view: one row per instrument across every account under the
+  /// master. ATP = qty-weighted average entry of the accounts holding each
+  /// side (avg_buy_price over longs, avg_sell_price over shorts) — same as
+  /// the web's aggregatePositionsBySymbol (lib/risk.ts). Copying the first
+  /// account's prices showed ATP 0.00 when that account held the other side
+  /// (e.g. first client long, the master's net short).
+  static List<Map<String, dynamic>> _aggregatePositions(
+      Iterable<Map<String, dynamic>> accounts) {
+    final Map<String, Map<String, dynamic>> instrMap = {};
+    final Map<String, List<double>> sums = {}; // buyQty, buyValue, sellQty, sellValue
+    for (final account in accounts) {
+      final List positions = account['positions'] ?? [];
+      for (final pos in positions) {
+        final iToken = pos['instrument_token']?.toString() ?? '';
+        if (iToken.isEmpty) continue;
+        final net = (pos['net_qty'] as num?)?.toInt() ?? 0;
+        if (net == 0) continue;
+        final row = instrMap.putIfAbsent(iToken, () {
+          final r = Map<String, dynamic>.from(pos);
+          r['net_qty'] = 0;
+          r['floating_pnl'] = 0.0;
+          return r;
+        });
+        final sum = sums.putIfAbsent(iToken, () => [0, 0, 0, 0]);
+        row['net_qty'] = (row['net_qty'] as int) + net;
+        row['floating_pnl'] = (row['floating_pnl'] as double) +
+            ((pos['floating_pnl'] as num?)?.toDouble() ?? 0);
+        if (net > 0) {
+          sum[0] += net;
+          sum[1] += net * ((pos['avg_buy_price'] as num?)?.toDouble() ?? 0);
+        } else {
+          sum[2] += -net;
+          sum[3] += -net * ((pos['avg_sell_price'] as num?)?.toDouble() ?? 0);
+        }
+        if (pos['ltp'] != null) row['ltp'] = pos['ltp'];
+        if (pos['cmp'] != null) row['cmp'] = pos['cmp'];
+      }
+    }
+    final out = <Map<String, dynamic>>[];
+    instrMap.forEach((token, row) {
+      if (row['net_qty'] == 0) return;
+      final sum = sums[token]!;
+      row['avg_buy_price'] = sum[0] > 0 ? sum[1] / sum[0] : 0.0;
+      row['avg_sell_price'] = sum[2] > 0 ? sum[3] / sum[2] : 0.0;
+      out.add(row);
+    });
+    return out;
+  }
+
   void _reaggregateMasterMetrics() {
     // Re-aggregate from all cached user metrics
     double totalRealised = 0,
@@ -200,7 +249,6 @@ class _UsernameViewState extends State<UsernameView> {
         totalMargin = 0,
         totalCredit = 0;
     double totalEquity = 0, totalFreeMargin = 0;
-    final Map<String, Map<String, dynamic>> instrMap = {};
 
     for (final userMetrics in _perUserMetricsCache.values) {
       totalRealised += (userMetrics['realised_pnl'] as num?)?.toDouble() ?? 0;
@@ -209,26 +257,9 @@ class _UsernameViewState extends State<UsernameView> {
       totalCredit += (userMetrics['credit'] as num?)?.toDouble() ?? 0;
       totalEquity += (userMetrics['equity'] as num?)?.toDouble() ?? 0;
       totalFreeMargin += (userMetrics['free_margin'] as num?)?.toDouble() ?? 0;
-
-      final List positions = userMetrics['positions'] ?? [];
-      for (final pos in positions) {
-        final iToken = pos['instrument_token']?.toString() ?? '';
-        if (iToken.isEmpty) continue;
-        if (!instrMap.containsKey(iToken)) {
-          instrMap[iToken] = Map<String, dynamic>.from(pos);
-          instrMap[iToken]!['net_qty'] = 0;
-          instrMap[iToken]!['floating_pnl'] = 0.0;
-        }
-        instrMap[iToken]!['net_qty'] = (instrMap[iToken]!['net_qty'] as int) +
-            ((pos['net_qty'] as num?)?.toInt() ?? 0);
-        instrMap[iToken]!['floating_pnl'] =
-            (instrMap[iToken]!['floating_pnl'] as double) +
-                ((pos['floating_pnl'] as num?)?.toDouble() ?? 0);
-      }
     }
 
-    final livePositions =
-        instrMap.values.where((p) => (p['net_qty'] as int) != 0).toList();
+    final livePositions = _aggregatePositions(_perUserMetricsCache.values);
     final m2m = totalRealised + totalFloating;
     final equity = totalEquity;
     final freeMargin = totalFreeMargin;
@@ -308,7 +339,6 @@ class _UsernameViewState extends State<UsernameView> {
               totalMargin = 0,
               totalCredit = 0;
           double totalEquity = 0, totalFreeMargin = 0;
-          final Map<String, Map<String, dynamic>> instrMap = {};
 
           for (final userMetrics in data) {
             // Seed per-user cache for live WebSocket updates
@@ -331,24 +361,12 @@ class _UsernameViewState extends State<UsernameView> {
             final List positions = userMetrics['positions'] ?? [];
             for (final pos in positions) {
               final iToken = pos['instrument_token']?.toString() ?? '';
-              if (iToken.isEmpty) continue;
-              if (!instrMap.containsKey(iToken)) {
-                instrMap[iToken] = Map<String, dynamic>.from(pos);
-                instrMap[iToken]!['net_qty'] = 0;
-                instrMap[iToken]!['floating_pnl'] = 0.0;
-              }
-              instrMap[iToken]!['net_qty'] =
-                  (instrMap[iToken]!['net_qty'] as int) +
-                      ((pos['net_qty'] as num?)?.toInt() ?? 0);
-              instrMap[iToken]!['floating_pnl'] =
-                  (instrMap[iToken]!['floating_pnl'] as double) +
-                      ((pos['floating_pnl'] as num?)?.toDouble() ?? 0);
-              tokens.add(iToken);
+              if (iToken.isNotEmpty) tokens.add(iToken);
             }
           }
 
-          _livePositions =
-              instrMap.values.where((p) => (p['net_qty'] as int) != 0).toList();
+          _livePositions = _aggregatePositions(
+              data.map((u) => Map<String, dynamic>.from(u as Map)));
           final m2m = totalRealised + totalFloating;
           final equity = totalEquity;
           final freeMargin = totalFreeMargin;
