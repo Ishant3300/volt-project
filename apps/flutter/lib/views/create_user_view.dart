@@ -1655,9 +1655,8 @@ class _CreateUserViewState extends State<CreateUserView> {
 
     // NFO-FUT, SGX, GLOBAL → block Lot checkbox (turnover-only exchanges)
     final bool lotBlocked = ex == 'NFO-FUT' || ex == 'GLOBAL';
-    // NFO-OPT, COMEX-FUT → block T/O checkbox (lot-only exchanges; COMEX
-    // trades in whole lots only — backend utils/comexLots.js)
-    final bool toBlocked = ex == 'NFO-OPT' || ex == 'COMEX-FUT';
+    // NFO-OPT → block T/O checkbox (lot-only exchange)
+    final bool toBlocked = ex == 'NFO-OPT';
     // MCX-FUT, MCX-OPT → mutually exclusive (only one can be selected)
     final bool mutuallyExclusive = ex == 'MCX-FUT' || ex == 'MCX-OPT';
 
@@ -1666,14 +1665,7 @@ class _CreateUserViewState extends State<CreateUserView> {
         Expanded(
           flex: 2,
           child: GestureDetector(
-            onTap: () => setState(() {
-              settings['enabled'] = !enabled;
-              // COMEX is lot-only: enabling it selects Lot.
-              if (ex == 'COMEX-FUT' && settings['enabled'] == true) {
-                settings['lot'] = true;
-                settings['turnover'] = false;
-              }
-            }),
+            onTap: () => setState(() => settings['enabled'] = !enabled),
             child: Row(
               children: [
                 Container(
