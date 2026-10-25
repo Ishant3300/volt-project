@@ -13,6 +13,7 @@ import '../providers/user_profile_provider.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../services/pdf_report_service.dart';
+import '../utils/comex_bill.dart';
 import '../utils/contants.dart';
 import 'account_summary_view.dart';
 import 'profit_and_loss_view.dart';
@@ -658,6 +659,9 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
     );
     final List<Map<String, dynamic>> carryForward = [];
     double totalLivePnlAdjustment = 0;
+    // COMEX open positions' live P&L is in dollars (utils/comex_bill.dart) —
+    // folded into the not-yet-settled COMEX estimate below, not added as-is.
+    double comexLivePnl = 0;
 
     // ── Step 1: Fetch actual open positions from backend (all historical trades) ──
     final Map<String, Map<String, dynamic>> openPosMap = {};
@@ -815,7 +819,11 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
         final existingBrokerage = (instr['brokerage'] as num?)?.toDouble() ?? 0;
         instr['pnl'] = existingPnl + unrealizedPnl;
         instr['net_pnl'] = (existingPnl + unrealizedPnl) - existingBrokerage;
-        totalLivePnlAdjustment += unrealizedPnl;
+        if (isComexExchange(exchange)) {
+          comexLivePnl += unrealizedPnl;
+        } else {
+          totalLivePnlAdjustment += unrealizedPnl;
+        }
 
         instr['all_trades'] = allTrades;
 
@@ -835,6 +843,17 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
 
     // Update summary totals to include unrealized P&L
     final summary = Map<String, dynamic>.from(reportData['summary'] ?? {});
+    // COMEX live P&L joins the server's not-yet-settled COMEX estimate, which
+    // is re-converted at today's rate by its new sign (debit/credit).
+    final serverComex = reportData['comex'] as Map?;
+    if (comexLivePnl != 0 && serverComex != null) {
+      final est = serverComex['estimate'] as Map?;
+      final oldUsd = (est?['usd_net'] as num?)?.toDouble() ?? 0;
+      final oldInr = (est?['inr_net'] as num?)?.toDouble() ?? 0;
+      final newUsd = oldUsd + comexLivePnl;
+      final rate = comexRateForNet(newUsd, serverComex['fx'] as Map?);
+      totalLivePnlAdjustment += rate == null ? comexLivePnl : newUsd * rate - oldInr;
+    }
     if (totalLivePnlAdjustment != 0) {
       final oldTotalPnl = (summary['total_pnl'] as num?)?.toDouble() ?? 0;
       final totalBrokerage =

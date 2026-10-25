@@ -2,6 +2,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
 import '../config/app_brand.dart';
+import '../utils/comex_bill.dart';
 
 class PdfReportService {
   static final _fmt = NumberFormat('#,##0.00');
@@ -390,6 +391,41 @@ class PdfReportService {
     );
   }
 
+  /// COMEX box above the totals: the dollar net and each conversion line.
+  static pw.Widget _comexBox(ComexBill c) {
+    final bold = pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold);
+    const normal = pw.TextStyle(fontSize: 8.5);
+    String usd(double v) => '\$${_billMoney(v)}';
+    return pw.Container(
+      width: double.infinity,
+      padding: const pw.EdgeInsets.all(5),
+      decoration: pw.BoxDecoration(border: pw.Border.all(width: 0.8)),
+      child: pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+        pw.Row(children: [
+          pw.Expanded(child: pw.Text('COMEX (USD)', style: bold)),
+          pw.Text('P&L ${usd(c.usdPnl)}   Brokerage ${usd(c.usdBr)}   Net ${usd(c.usdNet)}', style: bold),
+        ]),
+        pw.SizedBox(height: 2),
+        pw.Text('Turnover: Buy ${usd(c.usdBuyTurnover)}   Sell ${usd(c.usdSellTurnover)}', style: normal),
+        for (final l in c.lines) ...[
+          pw.SizedBox(height: 2),
+          pw.Row(children: [
+            pw.Expanded(child: pw.Text(l.label, style: normal)),
+            pw.Text(
+              l.rate == null || l.inrNet == null
+                  ? '${usd(l.usdNet)} - rate not set'
+                  : '${usd(l.usdNet)} x ${l.rate!.toStringAsFixed(2)} = ${_billMoney(l.inrNet!)}',
+              style: pw.TextStyle(
+                  fontSize: 8.5,
+                  fontWeight: pw.FontWeight.bold,
+                  color: l.usdNet >= 0 ? _billBlue : _billRed),
+            ),
+          ]),
+        ],
+      ]),
+    );
+  }
+
   static pw.Document generateAdvancedReport(Map<String, dynamic> data) {
     final pdf = pw.Document();
     final accountLabel =
@@ -437,19 +473,31 @@ class PdfReportService {
     double grandNet = 0;
     double buyTurnover = 0;
     double sellTurnover = 0;
+    // COMEX scripts are in dollars (utils/comex_bill.dart): kept out of the
+    // rupee totals, converted once below.
+    bool hasComex = false;
+    double comexPnl = 0, comexBr = 0, comexBuyTurnover = 0, comexSellTurnover = 0;
 
     for (final instr in instruments) {
+      final isComex = isComexExchange(instr['exchange']);
       final title = (instr['bill_name'] ??
-              instr['display_name'] ??
-              instr['tradingsymbol'] ??
-              '')
-          .toString();
+                  instr['display_name'] ??
+                  instr['tradingsymbol'] ??
+                  '')
+              .toString() +
+          (isComex ? ' (USD)' : '');
       final lotSize = (instr['lot_size'] as num?)?.toDouble();
       final pnl = (instr['pnl'] as num?)?.toDouble() ?? 0;
       final brokerage = (instr['brokerage'] as num?)?.toDouble() ?? 0;
       final netPnl = (instr['net_pnl'] as num?)?.toDouble() ?? (pnl - brokerage);
-      grandBrokerage += brokerage;
-      grandNet += netPnl;
+      if (isComex) {
+        hasComex = true;
+        comexPnl += pnl;
+        comexBr += brokerage;
+      } else {
+        grandBrokerage += brokerage;
+        grandNet += netPnl;
+      }
 
       // (kind, time, type, isBuy, qty, rate, brokerage)
       final rows = <({
@@ -524,7 +572,13 @@ class PdfReportService {
           }
         }
         if (r.kind == 'TRADE') {
-          if (r.isBuy) {
+          if (isComex) {
+            if (r.isBuy) {
+              comexBuyTurnover += r.rate * r.qty;
+            } else {
+              comexSellTurnover += r.rate * r.qty;
+            }
+          } else if (r.isBuy) {
             buyTurnover += r.rate * r.qty;
           } else {
             sellTurnover += r.rate * r.qty;
@@ -588,6 +642,23 @@ class PdfReportService {
         child: pw.Text('No trades or open positions in this period.',
             style: const pw.TextStyle(fontSize: 8.5)),
       ));
+    }
+
+    final comex = comexBill(
+      usdPnl: comexPnl,
+      usdBr: comexBr,
+      usdBuyTurnover: comexBuyTurnover,
+      usdSellTurnover: comexSellTurnover,
+      serverComex: data['comex'] as Map?,
+      hasComex: hasComex,
+    );
+    if (comex != null) {
+      // Rupee totals get COMEX at its converted amount - or, with no rate
+      // set, its dollar figures so nothing silently vanishes.
+      grandBrokerage += comex.inrBr ?? comex.usdBr;
+      grandNet += comex.inrNet ?? comex.usdNet;
+      content.add(pw.SizedBox(height: 10));
+      content.add(_comexBox(comex));
     }
 
     content.add(pw.SizedBox(height: 10));
