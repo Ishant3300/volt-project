@@ -32,6 +32,7 @@ const APP = path.resolve(__dirname, '..', '..');
 require('dotenv').config({ path: path.join(APP, '.env') });
 const { MongoClient, ObjectId } = require(path.join(APP, 'node_modules', 'mongoose')).mongo;
 const lib = require('./lib');
+const scannerBan = require('./scannerBan');
 const telegram = require('./telegram');
 const extra = require('./extra');
 
@@ -265,6 +266,8 @@ function checkNginx() {
   let s5 = 0;
   let s429 = 0;
   const paths5 = new Map();
+  const newBans = [];
+  state.scanner = state.scanner || {};
   for (const raw of lines) {
     const l = lib.parseNginxLine(raw);
     if (!l) continue;
@@ -276,8 +279,21 @@ function checkNginx() {
       paths5.set(p, (paths5.get(p) || 0) + 1);
     }
     if (l.status === 429) s429++;
-    if (lib.SENSITIVE_PATH.test(l.path) && l.status === 200) {
+    if (lib.isSensitivePath(l.path) && l.status === 200) {
       raise(`secret-200:${l.path}`, 'critical', 'A secret-file request got an answer', [`${l.ip} ${l.method} ${l.path} -> 200`, 'Check immediately — this path should never be served.']);
+    }
+    // Secret-file scanners: 5 probes in 10 min → denied by nginx for 7 days (scannerBan.js).
+    if (lib.isProbe(l.path) && scannerBan.recordProbe(state.scanner, l.ip)) newBans.push(l.ip);
+  }
+  const banListChanged = scannerBan.prune(state.scanner) || newBans.length > 0;
+  if (banListChanged) {
+    try {
+      scannerBan.applyDenyFile(scannerBan.renderDenyFile(state.scanner));
+      for (const ip of newBans) {
+        raise(`scanner-ban:${ip}`, 'info', 'Scanner blocked', [`${ip} probed for secret files (${scannerBan.THRESHOLD}+ in 10 min) — nginx now refuses it for 7 days.`]);
+      }
+    } catch (e) {
+      raise('scanner-ban-failed', 'warning', 'Could not update the scanner block list', [String(e.message).slice(0, 200)]);
     }
   }
   if (s5 >= 5) {

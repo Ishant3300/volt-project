@@ -127,3 +127,14 @@ describe('multi-line error dumps', () => {
     for (const [line, alert] of lines) expect(Boolean(l.classifyLogLine(line, true))).toBe(alert);
   });
 });
+
+test('secret-file alert looks at the file path only, not the query (25 Oct 2026 false alarm)', () => {
+  const lib = require('../scripts/watchdog/lib');
+  expect(lib.isSensitivePath('/?url=.env')).toBe(false);
+  expect(lib.isSensitivePath('/?file=../.env')).toBe(false);
+  expect(lib.isSensitivePath('/.env')).toBe(true);
+  expect(lib.isSensitivePath('/laravel/.env.production?x=1')).toBe(true);
+  expect(lib.isSensitivePath('/%2Eenv')).toBe(true);
+  expect(lib.isSensitivePath('/.git/config')).toBe(true);
+  expect(lib.isSensitivePath('/api/trade/report')).toBe(false);
+});

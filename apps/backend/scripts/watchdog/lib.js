@@ -85,6 +85,25 @@ function parseNginxLine(line) {
 const SENSITIVE_PATH = /\.env\b|\.git\/|\.aws\/|credentials|wp-config|\.sql\b|\.bak\b|id_rsa|\.pem\b/i;
 
 /**
+ * Is this request's FILE PATH a secret file? Only the path counts — not the
+ * query after "?": scanners send e.g. "/?url=.env", which is just the home
+ * page (25 Oct 2026 false alarm). The path is URL-decoded first so
+ * "/%2Eenv" still counts.
+ */
+function isSensitivePath(rawPath) {
+  let p = String(rawPath || '').split('?')[0].split('#')[0];
+  try { p = decodeURIComponent(p); } catch (_) { /* keep the raw path */ }
+  return SENSITIVE_PATH.test(p);
+}
+
+/** A scanner probe: a secret-file pattern ANYWHERE in the URL, query included (scannerBan.js). */
+function isProbe(rawUrl) {
+  let u = String(rawUrl || '');
+  try { u = decodeURIComponent(u); } catch (_) { /* keep the raw URL */ }
+  return SENSITIVE_PATH.test(u);
+}
+
+/**
  * Cooldown gate. state.sent: key -> last sent epoch ms. critical repeats every
  * 5 min while active; warning every `cooldownMs` (default 15 min); info hourly.
  */
@@ -113,6 +132,6 @@ const RULE_REFUSAL = /wallet balance|Insufficient|breakup|exceeds|close-only|Fre
 const isRuleRefusal = (message) => RULE_REFUSAL.test(String(message || ''));
 
 module.exports = {
-  istParts, inMarketHours, inGiftSession, signature, classifyLogLine, parseNginxLine, SENSITIVE_PATH,
+  istParts, inMarketHours, inGiftSession, signature, classifyLogLine, parseNginxLine, SENSITIVE_PATH, isSensitivePath, isProbe,
   shouldSend, escapeHtml, formatAlert, isRuleRefusal,
 };
