@@ -5,6 +5,7 @@ const BrokerageSettings = require('../models/BrokerageSettings');
 const KiteInstrument = require('../models/KiteInstrument');
 const SettlementHistory = require('../models/SettlementHistory');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
+const { isComex } = require('../utils/comexFx');
 
 /**
  * GET /api/master/weekly-admin-report
@@ -232,7 +233,7 @@ const getWeeklyAdminReport = async (req, res) => {
           // no brokerage — marked brokerage_exempt below.
           { deleted_at: { $ne: null }, settlement_run_id: { $ne: null } },
         ],
-      }).select('user_id instrument_token executed_price executed_quantity pnl brokerage_exempt trade_type').lean();
+      }).select('user_id instrument_token executed_price executed_quantity pnl brokerage_exempt trade_type settlement_run_id').lean();
 
       for (const t of liveTrades) {
         if (t.trade_type === 'carry_forward') t.brokerage_exempt = true;
@@ -281,6 +282,11 @@ const getWeeklyAdminReport = async (req, res) => {
         });
       }
     }
+
+    // COMEX weeks already settled count in rupees, at the rate that week's
+    // settlement used for that client (utils/comexFx.js). Unsettled COMEX
+    // trades stay in dollars until their settlement.
+    await _applyComexSettlementRates(tradesByUser, kiteMap);
 
     // 7. Load ALL BrokerageSettings (user-specific + caller's own + global)
     //
@@ -851,7 +857,7 @@ function _groupTradesByInstrument(trades, kiteMap) {
     const ki = kiteMap[token];
     const lotSize = ki?.lot_size || 1;
     byInstrument[token].turnover += t.executed_price * t.executed_quantity;
-    byInstrument[token].lots += lotSize > 1 ? t.executed_quantity / lotSize : t.executed_quantity;
+    byInstrument[token].lots += (lotSize > 1 ? t.executed_quantity / lotSize : t.executed_quantity) * (t._fx || 1);
   }
   return byInstrument;
 }
@@ -877,6 +883,41 @@ function _clearanceForRules(byInstrument, rules, kiteMap) {
     else if (rule.type === 'LOT WISE') total += data.lots * rule.brk_value;
   }
   return total;
+}
+
+/**
+ * COMEX (utils/comexFx.js): a COMEX trade of an already-settled week is
+ * re-expressed in rupees at the rate that settlement used for its client —
+ * price and pnl × rate, and _fx for lot-wise brokerage — so every figure
+ * built from it below (P&L, turnover, brokerage, sharing, clearance) is in
+ * rupees with no change to those formulas. In-memory copies only.
+ */
+async function _applyComexSettlementRates(tradesByUser, kiteMap) {
+  const runIds = new Set();
+  const userIds = new Set();
+  for (const [uid, list] of Object.entries(tradesByUser)) {
+    for (const t of list) {
+      if (t.settlement_run_id && isComex(kiteMap[t.instrument_token]?.exchange)) {
+        runIds.add(String(t.settlement_run_id));
+        userIds.add(uid);
+      }
+    }
+  }
+  if (runIds.size === 0) return;
+  const rows = await SettlementHistory.find({
+    settlement_run_id: { $in: [...runIds] },
+    user_id: { $in: [...userIds] },
+    fx_rate: { $ne: null },
+  }).select('user_id settlement_run_id fx_rate').lean();
+  const rateOf = new Map(rows.map((r) => [`${r.user_id}|${r.settlement_run_id}`, r.fx_rate]));
+  for (const [uid, list] of Object.entries(tradesByUser)) {
+    tradesByUser[uid] = list.map((t) => {
+      if (!t.settlement_run_id || !isComex(kiteMap[t.instrument_token]?.exchange)) return t;
+      const rate = rateOf.get(`${uid}|${t.settlement_run_id}`);
+      if (!rate) return t;
+      return { ...t, executed_price: (t.executed_price || 0) * rate, pnl: (t.pnl || 0) * rate, _fx: rate };
+    });
+  }
 }
 
 /**
@@ -913,7 +954,9 @@ function _getUserBrokerageAndTurnoverBatched(userId, tradesByUser, brkRulesByUse
     const rawName = ki?.raw_name || '';
     const lotSize = ki?.lot_size || 1;
     const tradeTurnover = t.executed_price * t.executed_quantity;
-    const tradeLots = lotSize > 1 ? t.executed_quantity / lotSize : t.executed_quantity;
+    // _fx: a settled COMEX trade's rupee rate (_applyComexSettlementRates) —
+    // its price is already scaled; lot-wise brokerage ($ per lot) scales too.
+    const tradeLots = (lotSize > 1 ? t.executed_quantity / lotSize : t.executed_quantity) * (t._fx || 1);
 
     totalTurnover += tradeTurnover;
     totalLots += tradeLots;
@@ -1111,6 +1154,7 @@ module.exports = {
     _clearanceForRules,
     _getUserBrokerageAndTurnoverBatched,
     _findRule,
+    _applyComexSettlementRates,
     /** Tests: drop the shared brokerage-rule copy so each test reads its own mocked rules. */
     _resetBrokerageRuleCache: () => { _brkRuleCache.index = null; _brkRuleCache.loadedAt = 0; _brkRuleCache.loading = null; },
   },

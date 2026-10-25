@@ -3,6 +3,7 @@ const User = require('../models/User');
 const BrokerageSettings = require('../models/BrokerageSettings');
 const KiteInstrument = require('../models/KiteInstrument');
 const SettlementHistory = require('../models/SettlementHistory');
+const { isComex, loadComexFx, comexBillBlock } = require('../utils/comexFx');
 const mongoose = require('mongoose');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 const { computeAveragePricePnl, averageCostState } = require('../utils/averageCostPnl');
@@ -749,6 +750,18 @@ const getTradeReport = async (req, res) => {
       }
     }
 
+    // COMEX rows are in dollars; the bill totals are in rupees — settled weeks
+    // at the rate their settlement used, the rest an estimate at today's rate
+    // (utils/comexFx.js). The `comex` block carries the conversion lines.
+    const comex = comexBillBlock(instruments, snapshots, await loadComexFx());
+    if (comex) {
+      for (const inst of instruments) if (isComex(inst.exchange)) inst.currency = 'USD';
+      if (comex.inr_pnl != null) {
+        grandTotalPnl += comex.inr_pnl - comex.usd_pnl;
+        grandBrokerage += comex.inr_brokerage - comex.usd_brokerage;
+      }
+    }
+
     res.status(200).json({
       success: true,
       data: {
@@ -761,6 +774,7 @@ const getTradeReport = async (req, res) => {
           total_brokerage: grandBrokerage,
           net_pnl: grandTotalPnl - grandBrokerage,
         },
+        comex,
         carry_forward: carryForward,
       }
     });
@@ -930,7 +944,12 @@ const getSettlementHistory = async (req, res) => {
       .sort({ period_to: -1, tradingsymbol: 1 })
       .lean();
 
-    res.status(200).json({ success: true, data: snapshots });
+    // Today's COMEX rate, for the bill's estimate of a not-yet-settled week
+    // (settled COMEX rows carry their own fx_rate) — utils/comexFx.js.
+    const fx = await loadComexFx();
+    const comex_fx = fx ? { base: fx.base, spread: fx.spread, debit_rate: fx.base + fx.spread, credit_rate: fx.base - fx.spread } : null;
+
+    res.status(200).json({ success: true, data: snapshots, comex_fx });
   } catch (error) {
     res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }

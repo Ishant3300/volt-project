@@ -291,6 +291,11 @@ const { getProfitBookBase, previewProfitBookBase, setProfitBookBase } = require(
 router.get('/profit-book-base/:masterId', authenticateAdminOrMaster, getProfitBookBase);
 router.get('/profit-book-base/:masterId/preview', authenticateAdminOrMaster, previewProfitBookBase);
 router.put('/profit-book-base/:masterId', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, requireAdminPermission('MASTER_EDIT_ANY'), setProfitBookBase);
+
+// COMEX USD→INR rate for the weekly settlement (utils/comexFx.js).
+const { getComexRate, setComexRate } = require('../controllers/comexRateController');
+router.get('/comex-rate', authenticateAdminOrMaster, getComexRate);
+router.put('/comex-rate', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('SETTLEMENT_TRIGGER'), setComexRate);
 router.post('/fresh-stoploss-limits/bulk-create', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('FRESH_STOPLOSS_MANAGE'), bulkCreateFreshStoplossLimits);
 router.put('/fresh-stoploss-limits/bulk-update', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('FRESH_STOPLOSS_MANAGE'), bulkUpdateFreshStoplossLimits);
 router.put('/fresh-stoploss-limits/:id', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('FRESH_STOPLOSS_MANAGE'), updateFreshStoplossLimit);

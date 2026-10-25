@@ -31,6 +31,7 @@ const {
   toIndiaDateOnly,
 } = require('../utils/settlementDates');
 const { categoryForSegment } = require('../utils/walletCategory');
+const { isComex, loadComexFx, convertComexSnapshots } = require('../utils/comexFx');
 const { resolveSettlementPriceDates } = require('./marketCalendarService');
 const { acquireSettlementFence } = require('./tradeWriteFenceService');
 
@@ -1437,6 +1438,14 @@ async function commitSettlementTransaction({ run, lockOwner, tradingDate, faultI
         brokerageRulesMap,
         isExpired: expiredTokens.has(group.token),
       }));
+
+      // COMEX is in dollars up to here; the bill is in rupees. Convert each
+      // client's COMEX lines at base ± spread by the sign of that client's
+      // COMEX net (utils/comexFx.js). Every other segment is untouched.
+      if (snapshots.some((snapshot) => isComex(snapshot.exchange))) {
+        const comexFx = await loadComexFx(session);
+        convertComexSnapshots(snapshots, comexFx);
+      }
 
       const creditByUser = new Map();
       for (const snapshot of snapshots) {

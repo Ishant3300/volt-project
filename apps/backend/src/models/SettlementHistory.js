@@ -65,6 +65,19 @@ const settlementHistorySchema = new mongoose.Schema({
   brokerage: { type: Number, default: 0 },
   net_pnl: { type: Number, default: 0 },
 
+  // COMEX (utils/comexFx.js): the money fields above are in rupees, converted
+  // at fx_rate (base ± spread by the sign of the client's COMEX net); the
+  // original dollar figures are kept here. Fills stay in dollars.
+  currency: { type: String, default: null },
+  usd_realized_pnl: { type: Number, default: null },
+  usd_settlement_pnl: { type: Number, default: null },
+  usd_total_pnl: { type: Number, default: null },
+  usd_brokerage: { type: Number, default: null },
+  usd_net_pnl: { type: Number, default: null },
+  fx_base: { type: Number, default: null },
+  fx_spread: { type: Number, default: null },
+  fx_rate: { type: Number, default: null },
+
   // Position carried forward into the NEXT period (= net closed at settlement price)
   carry_forward_qty: { type: Number, default: 0 },
   carry_forward_price: { type: Number, default: 0 },

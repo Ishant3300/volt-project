@@ -14,6 +14,7 @@ const Trade = require('../src/models/Trade');
 const TradeWriteLease = require('../src/models/TradeWriteLease');
 const Transaction = require('../src/models/Transaction');
 const User = require('../src/models/User');
+const ComexRate = require('../src/models/ComexRate');
 const bhavcopyService = require('../src/services/bhavcopyService');
 const cronService = require('../src/services/cronService');
 const metricsEngine = require('../src/services/metricsEngine');
@@ -63,6 +64,7 @@ async function clearDatabase() {
     TradeWriteLease.deleteMany({}),
     Transaction.deleteMany({}),
     User.deleteMany({}),
+    ComexRate.deleteMany({}),
   ]);
   resetProcessCaches();
   settlementService.resetState();
@@ -637,6 +639,84 @@ describeIntegration('isolated replica-set weekend settlement', () => {
     expect(await SettlementHistory.countDocuments({})).toBe(beforeCounts.history);
     expect(await Trade.countDocuments({})).toBe(beforeCounts.trades);
     expect((await User.find({ _id: { $in: scenario.users.map(user => user._id) } }).sort({ username: 1 }).lean()).map(user => user.settled_pnl)).toEqual(beforeCounts.pnl);
+  });
+
+  test('COMEX is settled in dollars and booked in rupees at base ± spread per client (89 debit / 87 credit)', async () => {
+    const scenario = await seedScenario({ includeFlat: false, includePending: false, prefix: 'comexfx' });
+    await ComexRate.create({ key: 'comex', base: 88, spread: 1 });
+    const gcToken = 'comexfx_gc';
+    await KiteInstrument.create({
+      instrument_token: gcToken,
+      exchange_token: gcToken,
+      tradingsymbol: 'GCX6',
+      name: 'Gold',
+      raw_name: 'Gold',
+      display_name: 'Gold GCX6',
+      last_price: 4100,
+      settlement_price: 4100,
+      settlement_price_date: scenario.tradingDate,
+      settlement_price_source: 'MASSIVE_OFFICIAL_SESSION_TEST',
+      expiry: new Date('2026-11-25T00:00:00.000Z'),
+      strike: 0,
+      tick_size: 0.1,
+      lot_size: 100,
+      instrument_type: 'FUT',
+      segment: 'COMEX-FUT',
+      exchange: 'COMEX',
+    });
+    const master = await Master.findOne({ username: 'it_master_comexfx' }).lean();
+    const [winner, loser] = await User.create([1, 2].map((i) => ({
+      name: `COMEX User ${i}`,
+      username: `it_comex_${i}`,
+      password: 'not-used',
+      credits: 100_000,
+      equity: 100_000,
+      settled_pnl: 0,
+      server_id: master.server_id,
+      master_id: master._id,
+      wallet: { NSE: 0, MCX: 0, GLOBAL: 0, COMEX: 1_000_000 },
+    })));
+    const cutoff = indiaDayRangeUtc(scenario.tradingDate).end;
+    const at = (ms) => new Date(cutoff.getTime() - 6 * 60 * 60 * 1000 + ms);
+    const gc = (user, side, price, ms, pnl = 0) => ({
+      user_id: user._id, master_id: master._id, instrument_token: gcToken, tradingsymbol: 'GCX6', exchange: 'COMEX',
+      transaction_type: side, quantity: 100, price, order_type: 'MARKET', status: 'completed',
+      executed_at: at(ms), executed_price: price, executed_quantity: 100, pnl, createdAt: at(ms - 1), updatedAt: at(ms - 1),
+    });
+    const nfoUser = scenario.users ? scenario.users[0] : await User.findOne({ username: 'it_user_comexfx_1' }).lean();
+    await Trade.create([
+      gc(winner, 'BUY', 4000, 1000), // closes at settlement 4100: +$10,000 → credit × 87
+      gc(loser, 'BUY', 4200, 2000), // closes at settlement 4100: −$10,000 → debit × 89
+      gc(nfoUser, 'BUY', 4050, 3000), gc(nfoUser, 'SELL', 4060, 4000, 1000), // closed in the week: +$1,000 → × 87
+    ]);
+
+    const result = await settlementService.runSettlement({
+      tradingDate: scenario.tradingDate,
+      priceDates: { nse: scenario.tradingDate, mcx: scenario.tradingDate, global: scenario.tradingDate },
+      refreshPrices: false,
+      applySettlementPrices: true,
+      waitForCompletion: true,
+    });
+    expect(result.success).toBe(true);
+    const run = await SettlementRun.findOne({ period_key: '2026-07-31' }).lean();
+    const rows = await SettlementHistory.find({ settlement_run_id: run._id }).lean();
+    const comexRow = (u) => rows.find((r) => r.exchange === 'COMEX' && r.user_id.toString() === u._id.toString());
+
+    expect(comexRow(winner)).toMatchObject({ usd_total_pnl: 10000, total_pnl: 870000, net_pnl: 870000, fx_rate: 87, fx_base: 88, fx_spread: 1, currency: 'USD', settlement_price: 4100 });
+    expect(comexRow(loser)).toMatchObject({ usd_total_pnl: -10000, total_pnl: -890000, net_pnl: -890000, fx_rate: 89 });
+    expect(comexRow(loser).fills[0]).toMatchObject({ executed_price: 4200 }); // fills stay in dollars
+    expect((await User.findById(winner._id).lean()).settled_pnl).toBe(870000);
+    expect((await User.findById(loser._id).lean()).settled_pnl).toBe(-890000);
+
+    // A client with NFO and COMEX: NFO exactly as before (no conversion), COMEX +$1,000 → ₹87,000.
+    const nfoRow = rows.find((r) => r.exchange === 'NFO' && r.user_id.toString() === nfoUser._id.toString());
+    expect(nfoRow.fx_rate == null).toBe(true);
+    expect(comexRow(nfoUser)).toMatchObject({ usd_net_pnl: 1000, net_pnl: 87000, fx_rate: 87 });
+    expect((await User.findById(nfoUser._id).lean()).settled_pnl).toBeCloseTo(nfoRow.net_pnl + 87000, 2);
+
+    // Carry-forward stays in dollars at the settlement price.
+    const reopened = await Trade.findOne({ user_id: winner._id, trade_type: 'carry_forward', deleted_at: null }).lean();
+    expect(reopened).toMatchObject({ executed_price: 4100, executed_quantity: 100, exchange: 'COMEX' });
   });
 
   test('a failure after all financial writes rolls the transaction back completely', async () => {
