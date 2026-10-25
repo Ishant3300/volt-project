@@ -2220,7 +2220,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text(
-                                  'Carry Forward (no brokerage)',
+                                  'No brokerage on this trade',
                                   style: TextStyle(
                                     color: Color(0xFF2B2B2B),
                                     fontSize: kFontSizeBody,
