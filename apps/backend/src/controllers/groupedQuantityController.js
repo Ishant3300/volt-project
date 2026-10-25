@@ -2,6 +2,7 @@ const User = require('../models/User');
 const GroupedQuantity = require('../models/GroupedQuantity');
 const KiteInstrument = require('../models/KiteInstrument');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
+const { withoutNonTrading } = require('../utils/hideNonTrading');
 const { categoryForNfoScript } = require('../constants/nfoIndexUnderlyings');
 
 /**
@@ -426,8 +427,9 @@ const getBrokerageByExchange = async (req, res) => {
   try {
     const { exchange_name } = req.params;
     const { type, user_id, page = 1, limit = 500 } = req.query;
-    const filter = { exchange_name: exchange_name.toUpperCase(), user_id: user_id || null, deleted_at: null };
+    let filter = { exchange_name: exchange_name.toUpperCase(), user_id: user_id || null, deleted_at: null };
     if (type) filter.type = type.toUpperCase();
+    filter = await withoutNonTrading(BrokerageSettings, filter, 'script_name'); // utils/hideNonTrading.js
     const items = await BrokerageSettings.find(filter)
       .limit(parseInt(limit)).skip((parseInt(page) - 1) * parseInt(limit)).sort({ script_name: 1 });
     const count = await BrokerageSettings.countDocuments(filter);
@@ -552,7 +554,7 @@ const getScriptQuantityByExchange = async (req, res) => {
     const exchangeFilter = baseExchange
       ? { $in: [mappedName, baseExchange] }
       : mappedName;
-    const filter = { exchange_name: exchangeFilter, deleted_at: null };
+    let filter = { exchange_name: exchangeFilter, deleted_at: null };
 
     // If owner_id is provided, filter to that specific master/user's ScriptQuantity
     if (owner_id) {
@@ -571,6 +573,7 @@ const getScriptQuantityByExchange = async (req, res) => {
         }
       }
       filter.owner_id = owner_id;
+      filter = await withoutNonTrading(ScriptQuantity, filter, 'script_name'); // utils/hideNonTrading.js
       const items = await ScriptQuantity.find(filter)
         .limit(parseInt(limit)).skip((parseInt(page) - 1) * parseInt(limit)).sort({ script_name: 1 });
       const count = await ScriptQuantity.countDocuments(filter);
@@ -581,6 +584,7 @@ const getScriptQuantityByExchange = async (req, res) => {
 
     // Admin/Master viewing global list: deduplicate by script_name, prefer Admin-owned records
     // This avoids showing one entry per master/user for the same script
+    filter = await withoutNonTrading(ScriptQuantity, filter, 'script_name'); // utils/hideNonTrading.js
     const allItems = await ScriptQuantity.find(filter).sort({ owner_type: 1, script_name: 1 }).lean();
 
     // Deduplicate: keep one per script_name (prefer Admin > Master > User)

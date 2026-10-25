@@ -1,6 +1,7 @@
 const FreshStoplossLimit = require('../models/FreshStoplossLimit');
 const KiteInstrument = require('../models/KiteInstrument');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
+const { withoutNonTrading } = require('../utils/hideNonTrading');
 
 /**
  * GET /admin/fresh-stoploss-limits
@@ -9,8 +10,9 @@ const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 const getAllFreshStoplossLimits = async (req, res) => {
   try {
     const { exchange_name, limit = 500 } = req.query;
-    const filter = { deleted_at: null };
+    let filter = { deleted_at: null };
     if (exchange_name) filter.exchange_name = exchange_name.toUpperCase();
+    filter = await withoutNonTrading(FreshStoplossLimit, filter, 'raw_name'); // utils/hideNonTrading.js
 
     const docs = await FreshStoplossLimit.find(filter)
       .sort({ raw_name: 1 })
