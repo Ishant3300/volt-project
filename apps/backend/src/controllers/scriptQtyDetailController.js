@@ -218,14 +218,18 @@ const getInstrumentLimit = async (req, res) => {
       }
     }
 
+    // The order ticket's trading mode: as ticked, except a ticked COMEX row
+    // always trades in lots (utils/comexLots.js).
+    const mode = require('../utils/comexLots').tradingModeFor(allowedExchange, normalizedSegment);
+
     if (!limit) {
       return res.status(200).json({
         success: true,
         message: 'No specific limit found',
         data: {
           exchange_name: segment,
-          turnover: allowedExchange.turnover,
-          lot: allowedExchange.lot,
+          turnover: mode.turnover,
+          lot: mode.lot,
           limit: null
         }
       });
@@ -238,8 +242,8 @@ const getInstrumentLimit = async (req, res) => {
       success: true,
       data: {
         exchange_name: segment,
-        turnover: allowedExchange.turnover,
-        lot: allowedExchange.lot,
+        turnover: mode.turnover,
+        lot: mode.lot,
         limit: {
           max_qty: limit.max_qty,
           break_qty: limit.break_qty,

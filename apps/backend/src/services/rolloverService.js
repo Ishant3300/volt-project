@@ -371,9 +371,11 @@ async function rolloverPositions({ targetUserId, tokens, actor }) {
         if (limit === null || !(limit > 0)) continue;
         const absQty = Math.abs(p.expectedNet);
         const lotSize = sq?.lot_size || p.newInstrument.lot_size || 1;
-        const requested = cfg.lot === true ? Math.ceil(absQty / lotSize) : absQty;
+        // A ticked COMEX row always trades in lots (utils/comexLots.js).
+        const inLots = require('../utils/comexLots').tradingModeFor(cfg, ex).lot;
+        const requested = inLots ? Math.ceil(absQty / lotSize) : absQty;
         if (requested > limit) {
-          const unit = cfg.lot === true ? 'lot(s)' : 'qty';
+          const unit = inLots ? 'lot(s)' : 'qty';
           errors.push(rejection(p.token, p.oldInstrument.tradingsymbol, `Rollover exceeds the current maximum position limit for ${p.newInstrument.tradingsymbol}. Max: ${limit} ${unit}, Requested: ${requested} ${unit}. Square off the excess manually before rolling over.`));
           plan.splice(i, 1);
         }

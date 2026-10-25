@@ -2,7 +2,7 @@ const Trade = require('../models/Trade');
 const User = require('../models/User');
 const Master = require('../models/Master');
 const { escapeRegex } = require('../utils/escapeRegex');
-const { validateComexWholeLots } = require('../utils/comexLots');
+const { validateComexWholeLots, tradingModeFor } = require('../utils/comexLots');
 const KiteInstrument = require('../models/KiteInstrument');
 const BrokerageSettings = require('../models/BrokerageSettings');
 const kiteService = require('../services/kiteService');
@@ -169,8 +169,8 @@ async function _validateScriptQuantityLimit(user, instrument_token, transaction_
     const userExchange = user.exchanges_allowed?.find(ex => ex.exchange_name.toUpperCase() === normalizedExchange);
 
     // Determine mode from user's exchange config
-    const isTurnover = userExchange?.turnover === true;
-    const isLotMode  = userExchange?.lot === true;
+    // (a ticked COMEX row always trades in lots — utils/comexLots.js)
+    const { turnover: isTurnover, lot: isLotMode } = tradingModeFor(userExchange, normalizedExchange);
 
     let limitValue = null; // max_qty from DB (qty or lots depending on mode)
     let breakValue = 0;   // break_qty from DB (qty or lots depending on mode)

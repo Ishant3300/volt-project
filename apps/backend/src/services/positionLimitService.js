@@ -65,11 +65,13 @@ async function positionLimitRejection({ trade, previousNetQty, instrument, user,
   }
   if (!(limit > 0)) return null;
 
-  if (userExchange?.turnover === true) {
+  // A ticked COMEX row always trades in lots (utils/comexLots.js).
+  const mode = require('../utils/comexLots').tradingModeFor(userExchange, exchangeName);
+  if (mode.turnover) {
     if (absAfter > absCurrent && absAfter > limit) {
       return `Order exceeds maximum position limit at execution. Max: ${limit} qty, Position: ${absCurrent} qty, Order: ${quantity} qty.`;
     }
-  } else if (userExchange?.lot === true) {
+  } else if (mode.lot) {
     const currentLots = Math.floor(absCurrent / lotSize);
     const afterLots = Math.ceil(absAfter / lotSize);
     if (afterLots > currentLots && afterLots > limit) {

@@ -4,8 +4,11 @@
  * COMEX trades in whole lots only, like MCX (the user, 25 Oct 2026). A lot is
  * the official contract size from Massive (KiteInstrument.lot_size: Gold 100,
  * Silver 5,000, Copper 25,000). Every COMEX order — client or admin — must be
- * a whole number of lots, and a client's COMEX segment is always lot mode
- * (lot: true, turnover: false), so its quantity limits count lots.
+ * a whole number of lots, and COMEX trades in lot mode (the ticket asks for
+ * lots, quantity limits count lots) whatever is ticked on the client's
+ * exchange row. The Lot / Turnover tick itself is the admin's choice (it
+ * also picks the brokerage type) and is never changed here; an unticked row
+ * still means the segment isn't allowed.
  */
 
 const COMEX_SEGMENT = 'COMEX-FUT';
@@ -17,10 +20,17 @@ function isComexSegment(segment, exchange) {
   return s === COMEX_SEGMENT || e === 'COMEX';
 }
 
-/** A client's exchanges_allowed entry, with COMEX forced to lot mode. */
-function withComexLotMode(entry) {
-  if (!entry || String(entry.exchange_name || '').toUpperCase() !== COMEX_SEGMENT) return entry;
-  return { ...entry, lot: true, turnover: false };
+/**
+ * Trading mode for a client's exchange row: { lot, turnover } as ticked —
+ * except a ticked COMEX row always trades in lots.
+ */
+function tradingModeFor(row, segment) {
+  const lot = row?.lot === true;
+  const turnover = row?.turnover === true;
+  if (String(segment || row?.exchange_name || '').toUpperCase() === COMEX_SEGMENT && (lot || turnover)) {
+    return { lot: true, turnover: false };
+  }
+  return { lot, turnover };
 }
 
 /** Throws (status 400) unless a COMEX order's quantity is a whole number of lots. */
@@ -40,4 +50,4 @@ async function validateComexWholeLots({ segment, exchange, instrument_token, qua
   }
 }
 
-module.exports = { COMEX_SEGMENT, WHOLE_LOTS_TEXT, isComexSegment, withComexLotMode, validateComexWholeLots };
+module.exports = { COMEX_SEGMENT, WHOLE_LOTS_TEXT, isComexSegment, tradingModeFor, validateComexWholeLots };
