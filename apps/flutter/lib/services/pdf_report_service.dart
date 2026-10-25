@@ -396,19 +396,19 @@ class PdfReportService {
   /// settled week at its settlement's rate, the unsettled rest an estimate at
   /// today's rate. Plain numbers, boxed like the script tables.
   static pw.Widget _comexConversion(ComexBill c) {
-    final rows = <(String, String, double, bool)>[
-      ('COMEX Net (USD)', _billMoney(c.usdNet), c.usdNet, true),
-      for (final l in c.lines)
-        (
-          l.label,
-          l.rate == null || l.inrNet == null
-              ? '${_billMoney(l.usdNet)} - rate not set'
-              : '${_billMoney(l.usdNet)} x ${l.rate!.toStringAsFixed(2)} = ${_billMoney(l.inrNet!)}',
-          l.usdNet,
-          false,
-        ),
-      if (c.inrNet != null) ('COMEX Net (INR)', _billMoney(c.inrNet!), c.inrNet!, true),
-    ];
+    String conv(ComexBillLine l) => l.rate == null || l.inrNet == null
+        ? '${_billMoney(l.usdNet)} - rate not set'
+        : '${_billMoney(l.usdNet)} x ${l.rate!.toStringAsFixed(2)} = ${_billMoney(l.inrNet!)}';
+    // Normally ONE line: the COMEX net of all trades x its rate (debit
+    // base + spread, credit base - spread; a settled week at its booked
+    // rate). Only a bill spanning several weeks lists each week + the total.
+    final rows = c.lines.length == 1
+        ? <(String, String, double, bool)>[('COMEX Net (USD)', conv(c.lines.single), c.usdNet, true)]
+        : <(String, String, double, bool)>[
+            ('COMEX Net (USD)', _billMoney(c.usdNet), c.usdNet, true),
+            for (final l in c.lines) (l.label, conv(l), l.usdNet, false),
+            if (c.inrNet != null) ('COMEX Net (INR)', _billMoney(c.inrNet!), c.inrNet!, true),
+          ];
     return pw.Container(
       width: double.infinity,
       padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 3),

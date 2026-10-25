@@ -89,7 +89,7 @@ ComexBill? comexBill({
   if (remPnl.abs() >= 0.005 || remBr.abs() >= 0.005) {
     final remNet = remPnl - remBr;
     final rate = comexRateForNet(remNet, serverComex?['fx'] as Map?);
-    lines.add(ComexBillLine('Not yet settled (estimate at today\'s rate)', _r2(remNet), rate,
+    lines.add(ComexBillLine('This week (today\'s rate)', _r2(remNet), rate,
         rate == null ? null : _r2(remNet * rate), true));
     if (rate == null) {
       complete = false;
