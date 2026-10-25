@@ -395,7 +395,8 @@ class PdfReportService {
   static pw.Widget _comexBox(ComexBill c) {
     final bold = pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold);
     const normal = pw.TextStyle(fontSize: 8.5);
-    String usd(double v) => '\$${_billMoney(v)}';
+    // Plain numbers, no currency signs - the "COMEX (USD)" heading says these are dollars.
+    String usd(double v) => _billMoney(v);
     return pw.Container(
       width: double.infinity,
       padding: const pw.EdgeInsets.all(5),
