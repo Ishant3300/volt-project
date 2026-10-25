@@ -31,6 +31,7 @@ import 'sharing_details_view.dart';
 import 'rejection_log_history_view.dart';
 import 'settlement_report_view.dart';
 import '../pages/transaction_page.dart';
+import '../pages/master_instrument_users_page.dart';
 import 'reports_view.dart';
 import 'manage_reports_view.dart';
 
@@ -70,6 +71,11 @@ class _UsernameViewState extends State<UsernameView> {
 
   // Sub-master list state (for Master view)
   List<Master> _subMasterList = [];
+  // Search boxes on the Masters / Users tabs (name or user id).
+  final TextEditingController _masterSearchController = TextEditingController();
+  final TextEditingController _userSearchController = TextEditingController();
+  String _masterQuery = '';
+  String _userQuery = '';
   bool _isLoadingSubMasters = false;
   String? _subMastersError;
 
@@ -121,6 +127,8 @@ class _UsernameViewState extends State<UsernameView> {
       _livePriceService.unsubscribe(_allTokens.toList());
     }
     _livePriceService.disconnect();
+    _masterSearchController.dispose();
+    _userSearchController.dispose();
     super.dispose();
   }
 
@@ -1552,7 +1560,22 @@ class _UsernameViewState extends State<UsernameView> {
     double floating = (pos['floating_pnl'] as num?)?.toDouble() ?? 0;
 
     return GestureDetector(
-      onTap: _currentUser != null ? () => _openTradeCardFor(pos) : null,
+      onTap: _currentUser != null
+          ? () => _openTradeCardFor(pos)
+          : _currentMaster != null
+              ? () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MasterInstrumentUsersPage(
+                        instrumentToken: iToken,
+                        tradingsymbol: symbol,
+                        exchange: exchange,
+                        netQty: netQty,
+                        masterId: _currentMaster!.id,
+                      ),
+                    ),
+                  )
+              : null,
       child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -2370,6 +2393,68 @@ class _UsernameViewState extends State<UsernameView> {
   }
 
   // ── Sub-Master List Tab ──
+  /// Compact search box at the top of the Masters / Users lists.
+  Widget _listSearchField(TextEditingController controller, String hint,
+      ValueChanged<String> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        height: 40,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 4,
+                offset: const Offset(0, 2))
+          ],
+        ),
+        child: Row(
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(left: 12),
+              child: Icon(Icons.search, size: 18, color: kColorTextMuted),
+            ),
+            Expanded(
+              child: TextField(
+                controller: controller,
+                onChanged: onChanged,
+                style: const TextStyle(
+                    color: kColorTextPrimary,
+                    fontSize: 13,
+                    fontFamily: kFontFamily),
+                decoration: InputDecoration(
+                  hintText: '$hint (name or ID)',
+                  hintStyle: const TextStyle(
+                      color: kColorTextMuted,
+                      fontSize: 13,
+                      fontFamily: kFontFamily),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 10),
+                ),
+              ),
+            ),
+            if (controller.text.isNotEmpty)
+              GestureDetector(
+                onTap: () {
+                  controller.clear();
+                  onChanged('');
+                },
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 10),
+                  child:
+                      Icon(Icons.close, size: 16, color: kColorTextMuted),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSubMasterListTab() {
     if (_isLoadingSubMasters) {
       return const Center(
@@ -2444,13 +2529,25 @@ class _UsernameViewState extends State<UsernameView> {
       );
     }
 
+    final mq = _masterQuery.trim().toLowerCase();
+    final masters = mq.isEmpty
+        ? _subMasterList
+        : _subMasterList
+            .where((m) =>
+                m.name.toLowerCase().contains(mq) ||
+                m.username.toLowerCase().contains(mq))
+            .toList();
     return RefreshIndicator(
       onRefresh: _fetchSubMasterList,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _subMasterList.length,
+        itemCount: masters.length + 1,
         itemBuilder: (context, index) {
-          final master = _subMasterList[index];
+          if (index == 0) {
+            return _listSearchField(_masterSearchController, 'Search masters',
+                (v) => setState(() => _masterQuery = v));
+          }
+          final master = masters[index - 1];
           return GestureDetector(
             onTap: () async {
               final result = await Navigator.push(
@@ -2648,13 +2745,25 @@ class _UsernameViewState extends State<UsernameView> {
       );
     }
 
+    final uq = _userQuery.trim().toLowerCase();
+    final users = uq.isEmpty
+        ? _userList
+        : _userList
+            .where((u) =>
+                u.name.toLowerCase().contains(uq) ||
+                u.username.toLowerCase().contains(uq))
+            .toList();
     return RefreshIndicator(
       onRefresh: _fetchUserList,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _userList.length,
+        itemCount: users.length + 1,
         itemBuilder: (context, index) {
-          final user = _userList[index];
+          if (index == 0) {
+            return _listSearchField(_userSearchController, 'Search users',
+                (v) => setState(() => _userQuery = v));
+          }
+          final user = users[index - 1];
           return GestureDetector(
             onTap: () async {
               final result = await Navigator.push(

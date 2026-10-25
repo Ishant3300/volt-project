@@ -15,12 +15,17 @@ class MasterInstrumentUsersPage extends StatefulWidget {
   final String exchange;
   final int netQty;
 
+  /// The master whose tree to break down (admin, or a master viewing a
+  /// sub-master's Position tab). null = the logged-in master's own tree.
+  final String? masterId;
+
   const MasterInstrumentUsersPage({
     super.key,
     required this.instrumentToken,
     required this.tradingsymbol,
     required this.exchange,
     required this.netQty,
+    this.masterId,
   });
 
   @override
@@ -121,8 +126,9 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
     try {
       final token = await _storage.getToken();
       if (token != null) {
-        // Backend derives identity from the verified token; no client-claimed id.
-        _livePriceService.authenticate(token);
+        // Backend derives identity from the verified token; viewing another
+        // master's tree is authorised server-side against our hierarchy.
+        _livePriceService.authenticate(token, viewAsUserId: widget.masterId);
       }
     } catch (e) {
       log('⚠️ Failed to authenticate WebSocket: $e');
@@ -139,14 +145,19 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
     try {
       final token = await _storage.getToken();
 
-      // Fetch both endpoints in parallel
+      // Fetch both endpoints in parallel. With masterId: live-metrics is
+      // scoped to that master's tree (ownership-checked server-side); the
+      // breakdown endpoint is only used for names here.
+      final mq = widget.masterId == null ? '' : '?master_id=${widget.masterId}';
       final results = await Future.wait([
         _apiService.get(
-          '/master/positions/aggregated/${widget.instrumentToken}',
+          '/master/positions/aggregated/${widget.instrumentToken}$mq',
           token: token,
         ),
         _apiService.get(
-          '/master/positions/user-metrics',
+          widget.masterId == null
+              ? '/master/positions/user-metrics'
+              : '/master/positions/live-metrics$mq',
           token: token,
         ),
       ]);
@@ -179,6 +190,35 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
 
         _userMetrics = metricsMap;
         _allTokens = tokens;
+
+        // Rows = each account's LIVE position in this script (the same
+        // net qty / ATP its own Position tab shows, settlement-rebased),
+        // not the all-time trade totals of the breakdown endpoint.
+        final names = {
+          for (final u in _users) u['user_id']?.toString() ?? '': u,
+        };
+        final rows = <Map<String, dynamic>>[];
+        metricsMap.forEach((uid, m) {
+          final List positions = m['positions'] ?? [];
+          for (final pos in positions) {
+            if (pos['instrument_token']?.toString() != widget.instrumentToken) continue;
+            final net = (pos['net_qty'] as num?)?.toInt() ?? 0;
+            if (net == 0) continue;
+            rows.add({
+              'user_id': uid,
+              'name': names[uid]?['name'] ?? m['name'] ?? m['username'] ?? uid,
+              'username': names[uid]?['username'] ?? m['username'] ?? '',
+              'net_qty': net,
+              'side': net > 0 ? 'BUY' : 'SELL',
+              'avg_buy_price': pos['avg_buy_price'],
+              'avg_sell_price': pos['avg_sell_price'],
+            });
+          }
+        });
+        if (rows.isNotEmpty || widget.masterId != null) {
+          rows.sort((a, b) => (b['net_qty'] as int).abs().compareTo((a['net_qty'] as int).abs()));
+          _users = rows;
+        }
 
         // Subscribe to all tokens if already connected
         if (_livePriceService.isConnected && tokens.isNotEmpty) {
