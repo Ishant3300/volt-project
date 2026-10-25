@@ -208,14 +208,13 @@ const createUser = async (req, res) => {
       profit_book_minutes
     } = req.body;
 
-    // Profit book time is required and may not be below the admin minimum
-    // (default 5). Old app versions (before 20 Oct 2026) don't send it —
-    // they get the minimum.
-    const { getMinProfitBookMinutes, parseProfitBookMinutes } = require('../utils/profitBookTime');
-    const profitBookMin = await getMinProfitBookMinutes();
+    // Profit book time: may not be below the owning master's base (checked
+    // below once that master is loaded; utils/profitBookTime.js). Old app
+    // versions (before 20 Oct 2026) don't send it — they get the base.
+    const { parseProfitBookMinutes, baseOf } = require('../utils/profitBookTime');
     const profitBook = profit_book_minutes === undefined
-      ? { value: profitBookMin }
-      : parseProfitBookMinutes(profit_book_minutes, { min: profitBookMin });
+      ? { value: undefined }
+      : parseProfitBookMinutes(profit_book_minutes);
     if (profitBook.error) {
       return res.status(400).json({ success: false, message: profitBook.error, data: null });
     }
@@ -305,6 +304,12 @@ const createUser = async (req, res) => {
 
       if (!parentMaster) {
         throw new Error('Parent master not found');
+      }
+
+      const profitBookBase = baseOf(parentMaster);
+      if (profitBook.value === undefined) profitBook.value = profitBookBase;
+      else if (profitBook.value < profitBookBase) {
+        throw Object.assign(new Error(`Profit book time cannot be less than ${profitBookBase} minutes (base of ${parentMaster.username})`), { status: 400 });
       }
 
       // A client can only be handed a group from the set admin allotted
@@ -755,12 +760,11 @@ const updateUserDetails = async (req, res) => {
     if (bet !== undefined) user.bet = bet;
     if (fresh_stoploss !== undefined) user.fresh_stoploss = fresh_stoploss;
     if (profitBookValue !== undefined && profitBookValue !== user.profit_book_minutes) {
-      // A changed time may not go below the admin minimum (an unchanged one
-      // can stay below a since-raised minimum — utils/profitBookTime.js).
-      const { getMinProfitBookMinutes } = require('../utils/profitBookTime');
-      const profitBookMin = await getMinProfitBookMinutes();
-      if (profitBookValue < profitBookMin) {
-        return res.status(400).json({ success: false, message: `Profit book time cannot be less than ${profitBookMin} minutes (admin minimum)`, data: null });
+      // Not below the client's master's base (utils/profitBookTime.js).
+      const { masterBaseById } = require('../utils/profitBookTime');
+      const profitBookBase = await masterBaseById(user.master_id);
+      if (profitBookValue < profitBookBase) {
+        return res.status(400).json({ success: false, message: `Profit book time cannot be less than ${profitBookBase} minutes (base of the client's master)`, data: null });
       }
       user.profit_book_minutes = profitBookValue;
     }

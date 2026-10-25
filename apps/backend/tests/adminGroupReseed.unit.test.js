@@ -8,6 +8,8 @@
 
 jest.mock('../src/models/User', () => ({ findById: jest.fn(), findOne: jest.fn() }));
 jest.mock('../src/services/scriptQuantityCopyService', () => ({ reseedUserScriptQuantityForExchange: jest.fn() }));
+// updateUser also checks the client's time against its master's base (utils/profitBookTime.js).
+jest.mock('../src/models/Master', () => ({ findById: jest.fn(() => ({ select: () => ({ lean: async () => ({ profit_book_base_minutes: 10 }) }) })) }));
 
 const User = require('../src/models/User');
 const { reseedUserScriptQuantityForExchange: reseed } = require('../src/services/scriptQuantityCopyService');

@@ -60,6 +60,14 @@ const masterSchema = new mongoose.Schema({
     min: 0,
     max: 100
   },
+  // Base profit book time (minutes): no client or sub-master under this
+  // master can be given less (utils/profitBookTime.js, 25 Oct 2026).
+  profit_book_base_minutes: {
+    type: Number,
+    min: 0,
+    max: 1440,
+    default: 10
+  },
   exchanges_allowed: {
     type: [String],
     required: true,

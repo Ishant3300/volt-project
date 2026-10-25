@@ -54,8 +54,18 @@ const createMaster = async (req, res) => {
       // exchange — [{exchange_name, group_names: [String]}]. createMaster
       // is admin-only (route-enforced), so no caller-type check is needed
       // here, unlike updateMaster.
-      allotted_script_quantity_groups
+      allotted_script_quantity_groups,
+      profit_book_base_minutes
     } = req.body;
+
+    // Base profit book time of a top-level master: no floor, 10 by default (utils/profitBookTime.js).
+    const { parseProfitBookMinutes, DEFAULT_PROFIT_BOOK_MINUTES } = require('../utils/profitBookTime');
+    let profitBookBase = DEFAULT_PROFIT_BOOK_MINUTES;
+    if (profit_book_base_minutes !== undefined && profit_book_base_minutes !== null && profit_book_base_minutes !== '') {
+      const parsed = parseProfitBookMinutes(profit_book_base_minutes, { label: 'Base profit book time' });
+      if (parsed.error) return res.status(400).json({ success: false, message: parsed.error, data: null });
+      profitBookBase = parsed.value;
+    }
 
     if (!name || !username || !password || !server_id || credits === undefined || pnl_sharing === undefined || brokerage_sharing === undefined || !exchanges_allowed || !trade_limit) {
       return res.status(400).json({
@@ -133,6 +143,7 @@ const createMaster = async (req, res) => {
         note,
         pnl_sharing,
         brokerage_sharing,
+        profit_book_base_minutes: profitBookBase,
         exchanges_allowed: finalExchangesAllowed,
         trade_limit: finalTradeLimit,
         add_master: add_master !== undefined ? add_master : false,

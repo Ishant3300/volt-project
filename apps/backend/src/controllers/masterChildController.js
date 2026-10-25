@@ -51,7 +51,8 @@ const createChildMaster = async (req, res) => {
       // scope, see scriptQuantityCopyService.js's own comment on that
       // function).
       script_quantity_groups,
-      allotted_script_quantity_groups
+      allotted_script_quantity_groups,
+      profit_book_base_minutes
     } = req.body;
 
     // Validate required fields
@@ -149,6 +150,17 @@ const createChildMaster = async (req, res) => {
         }
       }
 
+      // Base profit book time: at least the parent's base (a top-level master
+      // has no floor); starts at the parent's base, 10 for a top-level one.
+      const { parseProfitBookMinutes, baseOf, DEFAULT_PROFIT_BOOK_MINUTES } = require('../utils/profitBookTime');
+      const parentBase = parentMaster ? baseOf(parentMaster) : null;
+      let profitBookBase = parentBase ?? DEFAULT_PROFIT_BOOK_MINUTES;
+      if (profit_book_base_minutes !== undefined && profit_book_base_minutes !== null && profit_book_base_minutes !== '') {
+        const parsed = parseProfitBookMinutes(profit_book_base_minutes, { min: parentBase, label: 'Base profit book time', minWhy: `base of ${parentMaster?.username}` });
+        if (parsed.error) throw Object.assign(new Error(parsed.error), { status: 400 });
+        profitBookBase = parsed.value;
+      }
+
       if (permissions && parentMaster) {
         for (const [key, value] of Object.entries(permissions)) {
           if (value === true && parentMaster.permissions[key] !== true) {
@@ -179,6 +191,7 @@ const createChildMaster = async (req, res) => {
         note,
         pnl_sharing,
         brokerage_sharing,
+        profit_book_base_minutes: profitBookBase,
         exchanges_allowed: normalizedExchangesAllowed,
         trade_limit: normalizedTradeLimit,
         add_master: add_master || false,

@@ -455,12 +455,18 @@ const updateUser = async (req, res) => {
     if (bet !== undefined) user.bet = !!bet;
     if (fresh_stoploss !== undefined) user.fresh_stoploss = !!fresh_stoploss;
 
-    if (profit_book_minutes !== undefined) {
-      // Not below the admin minimum, unless left at the client's current value.
-      const { getMinProfitBookMinutes, parseProfitBookMinutes } = require('../utils/profitBookTime');
-      const parsed = parseProfitBookMinutes(profit_book_minutes, { min: await getMinProfitBookMinutes(), current: user.profit_book_minutes });
-      if (parsed.error) return res.status(400).json({ success: false, message: parsed.error, data: null });
-      user.profit_book_minutes = parsed.value;
+    {
+      // Not below the client's master's base (after any master change above);
+      // a client moved under a higher base is lifted to it (utils/profitBookTime.js).
+      const { masterBaseById, parseProfitBookMinutes } = require('../utils/profitBookTime');
+      const profitBookBase = await masterBaseById(user.master_id);
+      if (profit_book_minutes !== undefined) {
+        const parsed = parseProfitBookMinutes(profit_book_minutes, { min: profitBookBase, minWhy: "base of the client's master" });
+        if (parsed.error) return res.status(400).json({ success: false, message: parsed.error, data: null });
+        user.profit_book_minutes = parsed.value;
+      } else if (!(Number(user.profit_book_minutes) >= profitBookBase)) {
+        user.profit_book_minutes = profitBookBase;
+      }
     }
 
     if (pnl_sharing !== undefined) {

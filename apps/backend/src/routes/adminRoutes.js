@@ -286,10 +286,11 @@ router.get('/announcements/active', authenticateAny, getActiveAnnouncement);
 // ==================== FRESH STOPLOSS LIMIT ROUTES ====================
 const { getAllFreshStoplossLimits, bulkCreateFreshStoplossLimits, updateFreshStoplossLimit, deleteFreshStoplossLimit, bulkUpdateFreshStoplossLimits } = require('../controllers/freshStoplossLimitController');
 router.get('/fresh-stoploss-limits', authenticateAdmin, getAllFreshStoplossLimits);
-// Minimum profit book time (minutes) for every client — utils/profitBookTime.js.
-const { getProfitBookMinimum, setProfitBookMinimum } = require('../controllers/platformSettingController');
-router.get('/settings/profit-book-minimum', authenticateAdminOrMaster, getProfitBookMinimum);
-router.put('/settings/profit-book-minimum', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('FRESH_STOPLOSS_MANAGE'), setProfitBookMinimum);
+// Master base profit book time (utils/profitBookTime.js; replaces the 24 Oct platform minimum).
+const { getProfitBookBase, previewProfitBookBase, setProfitBookBase } = require('../controllers/profitBookBaseController');
+router.get('/profit-book-base/:masterId', authenticateAdminOrMaster, getProfitBookBase);
+router.get('/profit-book-base/:masterId/preview', authenticateAdminOrMaster, previewProfitBookBase);
+router.put('/profit-book-base/:masterId', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, requireAdminPermission('MASTER_EDIT_ANY'), setProfitBookBase);
 router.post('/fresh-stoploss-limits/bulk-create', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('FRESH_STOPLOSS_MANAGE'), bulkCreateFreshStoplossLimits);
 router.put('/fresh-stoploss-limits/bulk-update', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('FRESH_STOPLOSS_MANAGE'), bulkUpdateFreshStoplossLimits);
 router.put('/fresh-stoploss-limits/:id', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('FRESH_STOPLOSS_MANAGE'), updateFreshStoplossLimit);
