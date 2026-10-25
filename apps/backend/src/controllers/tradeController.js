@@ -2,6 +2,7 @@ const Trade = require('../models/Trade');
 const User = require('../models/User');
 const Master = require('../models/Master');
 const { escapeRegex } = require('../utils/escapeRegex');
+const { validateComexWholeLots } = require('../utils/comexLots');
 const KiteInstrument = require('../models/KiteInstrument');
 const BrokerageSettings = require('../models/BrokerageSettings');
 const kiteService = require('../services/kiteService');
@@ -1083,6 +1084,9 @@ const placeTrade = async (req, res) => {
             // order flow the per-script cap exists to police. instrumentRawName
             // is still needed by the checks below regardless, so it's looked
             // up either way.
+            // COMEX: whole lots only, for every order incl. admin's (utils/comexLots.js).
+            await validateComexWholeLots({ segment, exchange, instrument_token, quantity, session });
+
             let instrumentRawName;
             if (req.admin) {
                 const kiteInstForName = await KiteInstrument.findOne({ instrument_token }).select('raw_name name').lean();
@@ -2084,6 +2088,9 @@ const modifyTrade = async (req, res) => {
             await _validateBidAskSpread(trade.instrument_token, newPrice, trade.order_type);
             // Same admin bypass as placeTrade — see that function's own
             // comment on this check.
+            // COMEX: whole lots only, for every order incl. admin's (utils/comexLots.js).
+            await validateComexWholeLots({ segment: trade.segment, exchange: trade.exchange, instrument_token: trade.instrument_token, quantity: newQuantity });
+
             let instrumentRawName;
             if (isAdmin) {
                 const kiteInstForName = await KiteInstrument.findOne({ instrument_token: trade.instrument_token }).select('raw_name name').lean();

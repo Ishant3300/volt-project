@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { escapeRegex } = require('../utils/escapeRegex');
+const { withComexLotMode } = require('../utils/comexLots');
 const User = require('../models/User');
 const Master = require('../models/Master');
 const Server = require('../models/Server');
@@ -270,13 +271,14 @@ const createUser = async (req, res) => {
       }
     }
 
+    // COMEX is always lot mode (utils/comexLots.js).
     const normalizedExchangesAllowed = exchanges_allowed.map(ex => {
       let name = ex.exchange_name.toUpperCase();
       if (name === 'GLOBAL') name = 'INDICES';
-      return {
+      return withComexLotMode({
         ...ex,
         exchange_name: name
-      };
+      });
     });
 
     const normalizedTradeLimit = trade_limit.map(ex => {
@@ -699,13 +701,14 @@ const updateUserDetails = async (req, res) => {
       );
 
       // Normalize exchange names to uppercase and map GLOBAL to INDICES
+      // COMEX is always lot mode (utils/comexLots.js).
       user.exchanges_allowed = exchanges_allowed.map(ex => {
         let name = ex.exchange_name.toUpperCase();
         if (name === 'GLOBAL') name = 'INDICES';
-        return {
+        return withComexLotMode({
           ...ex,
           exchange_name: name
-        };
+        });
       });
 
       // A user's assigned Group is the ceiling any later per-script edit

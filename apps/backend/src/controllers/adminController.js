@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { escapeRegex } = require('../utils/escapeRegex');
+const { withComexLotMode } = require('../utils/comexLots');
 const User = require('../models/User');
 const Master = require('../models/Master');
 const Server = require('../models/Server');
@@ -493,10 +494,11 @@ const updateUser = async (req, res) => {
       const oldGroupByExchange = new Map(
         (user.exchanges_allowed || []).map(ex => [ex.exchange_name, ex.group_name])
       );
+      // COMEX is always lot mode (utils/comexLots.js).
       user.exchanges_allowed = exchanges_allowed.map(ex => {
         let name = ex.exchange_name.toUpperCase();
         if (name === 'GLOBAL') name = 'INDICES';
-        return { ...ex, exchange_name: name };
+        return withComexLotMode({ ...ex, exchange_name: name });
       });
       groupChanges = user.exchanges_allowed.filter(ex =>
         ex.group_name && ex.group_name !== oldGroupByExchange.get(ex.exchange_name)
