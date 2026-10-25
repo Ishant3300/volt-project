@@ -104,6 +104,53 @@ workflows:
         cancel_previous_submissions: true
         release_type: MANUAL
 
+  # ── VOLT LIVE: full app for INTERNAL TestFlight testers only ───────────────
+  # Manual start only. The full Volt app (live login, admin / master screens) —
+  # built WITHOUT PRACTICE_ONLY, like the Android APK — uploaded to App Store
+  # Connect for INTERNAL TestFlight testers (members of the App Store Connect
+  # team, max 100) and NEVER submitted for beta or App Store review: Apple
+  # rejected 1.0.51 (55) under 2.5.19 / 5.6 for exactly this code, so these
+  # builds must not be put up for review (the review workflows above build
+  # their own practice-only ipa). Shares the app record and build-number
+  # counter with the practice builds: in TestFlight, testers pick the build
+  # by number.
+  ios-volt-live-internal:
+    name: iOS Volt LIVE → TestFlight (internal only)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    working_directory: apps/flutter
+    integrations: *integrations
+    environment: *environment
+    scripts:
+      - name: Flutter packages
+        script: flutter pub get
+      - name: CocoaPods
+        script: |
+          cd ios
+          pod install --repo-update
+      - name: Use App Store signing profiles
+        script: xcode-project use-profiles
+      - name: Build Volt LIVE ipa (no PRACTICE_ONLY)
+        script: |
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo "")
+          PUBSPEC_BUILD=$(grep '^version:' pubspec.yaml | sed -E 's/.*\+([0-9]+).*/\1/')
+          if [ -n "$LATEST" ]; then BUILD_NUMBER=$((LATEST + 1)); else BUILD_NUMBER=$PUBSPEC_BUILD; fi
+          if [ "$BUILD_NUMBER" -le "$PUBSPEC_BUILD" ]; then BUILD_NUMBER=$((PUBSPEC_BUILD)); fi
+          echo "Build number: $BUILD_NUMBER (LIVE, internal testers only — never submit for review)"
+          flutter build ipa --release \
+            --flavor "$BRAND" \
+            --dart-define=BRAND="$BRAND" \
+            --build-number="$BUILD_NUMBER" \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts: *artifacts
+    publishing:
+      app_store_connect:
+        auth: integration
+        # Upload only: internal testers get it after Apple's processing;
+        # no beta review submission, no App Store submission.
+        submit_to_testflight: false
+        submit_to_app_store: false
+
   # ── VELO: iOS trading simulator on the new Apple developer account ─────────
   # Manual start only. Same app code with --dart-define=BRAND=velo and
   # PRACTICE_ONLY=true: it talks to the practice (simulation) server only. The
