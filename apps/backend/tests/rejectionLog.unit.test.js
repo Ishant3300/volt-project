@@ -123,3 +123,9 @@ describe('POST /api/trade/app-rejection', () => {
     expect(Trade.create).not.toHaveBeenCalled();
   });
 });
+
+test('one-pending-order-type refusal is a business refusal (was logged as a 500, 21-23 Oct 2026)', () => {
+  const { isLoggableTradeRefusal } = require('../src/utils/rejectionLog');
+  expect(isLoggableTradeRefusal('You already have a pending Stop-Loss order on this script — cancel it before placing a Limit order.')).toBe(true);
+  expect(isLoggableTradeRefusal('You already have a pending Limit order on this script — cancel it before placing a Stop-Loss order.')).toBe(true);
+});

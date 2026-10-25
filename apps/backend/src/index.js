@@ -118,10 +118,13 @@ if (process.env.LOG_ALL_REQUESTS === 'true') {
   });
 }
 
-// Global rate limiter — 200 requests per minute per IP
+// Global rate limiter — requests per minute per IP. 600 since 26 Oct 2026
+// (was 200): the admin office's web portal reached 352/min on 20 Oct and
+// was refused, and more clients share mobile-carrier IPs on busy days.
+// CORS preflights are answered by cors() above and don't count.
 const globalLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 200,
+  max: Number(process.env.RATE_LIMIT_PER_MIN) || 600,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many requests, please try again later' },

@@ -1709,6 +1709,7 @@ const placeTrade = async (req, res) => {
         else if (error.message.includes('Trade margin is not configured')) statusCode = 400;
         else if (error.message.includes('Fresh Stop-Loss')) statusCode = 400;
         else if (error.message.includes('High-Low restriction') || error.message.includes('Price restriction')) statusCode = 400;
+        else if (error.message.includes('You already have a pending')) statusCode = 400; // was a 500 (21-23 Oct)
 
         // Anything that isn't a known business refusal never reaches the
         // Rejection Log — keep a record for the watchdog (fire-and-forget).
