@@ -24,6 +24,9 @@ const WS_URL = 'wss://socket.massive.com/futures';
 const REST_BASE_URL = 'https://api.massive.com';
 const RECONNECT_DELAY_MS = 10_000;
 const OHLC_POLL_INTERVAL_MS = 20_000;
+// Contracts added while running (scripts/seedGlobalFutures.js, weekly) are
+// picked up this often — before 26 Oct 2026 only a restart subscribed them.
+const TICKER_REFRESH_MS = 30 * 60_000;
 // _pollOhlc fires REST calls to Massive's aggs endpoint, entirely separate
 // from the persistent WS connection that streams live ticks (_handleQuote/
 // _handleTrade below) — this batching only paces those REST calls and has
@@ -104,6 +107,22 @@ class MassiveFuturesFeedService {
 
     this.ohlcPollTimer = setInterval(() => this._pollOhlc(), OHLC_POLL_INTERVAL_MS);
     this._pollOhlc();
+    this.tickerRefreshTimer = setInterval(() => {
+      this._refreshTickers().catch((e) => console.warn(`⚠️  [MassiveFeed] Contract refresh failed: ${e.message}`));
+    }, TICKER_REFRESH_MS);
+  }
+
+  /** Load contracts added since start-up and subscribe just the new tickers (a reconnect subscribes all). */
+  async _refreshTickers() {
+    const before = new Set(this.tickerToToken.keys());
+    await this._loadTickerMap();
+    const added = [...this.tickerToToken.keys()].filter((t) => !before.has(t));
+    if (added.length === 0) return;
+    console.log(`📡 [MassiveFeed] ${added.length} new contract(s): ${added.join(', ')} — subscribing`);
+    if (this._authenticated && this.ws && this.ws.readyState === WebSocket.OPEN) {
+      const params = added.map((t) => `Q.${t}`).concat(added.map((t) => `T.${t}`)).join(',');
+      this.ws.send(JSON.stringify({ action: 'subscribe', params }));
+    }
   }
 
   /**
@@ -229,6 +248,7 @@ class MassiveFuturesFeedService {
     });
 
     this.ws.on('close', () => {
+      this._authenticated = false;
       console.warn('⚠️  [MassiveFeed] WebSocket closed — reconnecting in 10s...');
       this._scheduleReconnect();
     });
@@ -257,6 +277,7 @@ class MassiveFuturesFeedService {
           this.ws.send(JSON.stringify({ action: 'auth', params: API_KEY }));
         } else if (evt.status === 'auth_success') {
           console.log('✅ [MassiveFeed] Authenticated — subscribing...');
+          this._authenticated = true;
           const tickers = [...this.tickerToToken.keys()];
           const params = tickers.map(t => `Q.${t}`).concat(tickers.map(t => `T.${t}`)).join(',');
           this.ws.send(JSON.stringify({ action: 'subscribe', params }));
@@ -347,6 +368,10 @@ class MassiveFuturesFeedService {
     if (this.ohlcPollTimer) {
       clearInterval(this.ohlcPollTimer);
       this.ohlcPollTimer = null;
+    }
+    if (this.tickerRefreshTimer) {
+      clearInterval(this.tickerRefreshTimer);
+      this.tickerRefreshTimer = null;
     }
     if (this.ws) {
       this.ws.removeAllListeners('close');
