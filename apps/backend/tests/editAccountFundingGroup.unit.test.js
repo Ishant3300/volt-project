@@ -122,3 +122,40 @@ describe.each([
     expect(u.save).not.toHaveBeenCalled();
   });
 });
+
+// Min NSE FUT script price (utils/minScriptPrice.js) — saved by both edit routes.
+describe.each([
+  ['admin route', updateUser],
+  ['master route', updateUserDetails],
+])('min NSE FUT price — %s', (_label, handler) => {
+  const edit = (body) => ({ params: { id: 'u1' }, admin: { id: 'a1' }, master: null, body });
+
+  test('a value is saved (rounded to paise)', async () => {
+    const u = userDoc([['NFO-FUT', 'GOLDMIN']]);
+    loadUser(u);
+    masterWith({});
+    const r = res();
+    await handler(edit({ min_nse_fut_price: '99.999' }), r);
+    expect(r.status).toHaveBeenCalledWith(200);
+    expect(u.min_nse_fut_price).toBe(100);
+    expect(u.save).toHaveBeenCalled();
+  });
+
+  test('a negative value → 400, nothing saved', async () => {
+    const u = userDoc([['NFO-FUT', 'GOLDMIN']]);
+    loadUser(u);
+    masterWith({});
+    const r = res();
+    await handler(edit({ min_nse_fut_price: -5 }), r);
+    expect(r.status).toHaveBeenCalledWith(400);
+    expect(u.save).not.toHaveBeenCalled();
+  });
+
+  test('not sent → left as it is', async () => {
+    const u = { ...userDoc([['NFO-FUT', 'GOLDMIN']]), min_nse_fut_price: 50 };
+    loadUser(u);
+    masterWith({});
+    await handler(edit({ note: 'x' }), res());
+    expect(u.min_nse_fut_price).toBe(50);
+  });
+});

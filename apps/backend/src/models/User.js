@@ -161,6 +161,14 @@ const userSchema = new mongoose.Schema({
     max: 1440,
     default: 10
   },
+  // Minimum NSE FUT script price (last official close): below it a script is
+  // hidden and can't be opened or added to — closing is always allowed. 0 =
+  // off (everyone's default). NFO-FUT only (utils/minScriptPrice.js).
+  min_nse_fut_price: {
+    type: Number,
+    min: 0,
+    default: 0
+  },
   report_permissions: {
     account_summary: { type: Boolean, default: true },
     pnl_summary: { type: Boolean, default: true },

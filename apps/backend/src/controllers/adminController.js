@@ -339,7 +339,8 @@ const updateUser = async (req, res) => {
       profit_book_minutes,
       close_only,
       bet,
-      fresh_stoploss
+      fresh_stoploss,
+      min_nse_fut_price
     } = req.body;
 
     // Scope to the caller's own hierarchy when a master calls this endpoint
@@ -454,6 +455,12 @@ const updateUser = async (req, res) => {
     if (close_only !== undefined) user.close_only = !!close_only;
     if (bet !== undefined) user.bet = !!bet;
     if (fresh_stoploss !== undefined) user.fresh_stoploss = !!fresh_stoploss;
+    if (min_nse_fut_price !== undefined) {
+      // Min NSE FUT script price (utils/minScriptPrice.js).
+      const parsed = require('../utils/minScriptPrice').parseMinNseFutPrice(min_nse_fut_price);
+      if (parsed.error) return res.status(400).json({ success: false, message: parsed.error, data: null });
+      user.min_nse_fut_price = parsed.value;
+    }
 
     {
       // Not below the client's master's base (after any master change above);

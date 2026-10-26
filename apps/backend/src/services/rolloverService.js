@@ -344,6 +344,17 @@ async function rolloverPositions({ targetUserId, tokens, actor }) {
         errors.push(rejection(token, sym, 'Option selling is not allowed. You must own this option before you can sell it — a short option position cannot be rolled over.'));
         continue;
       }
+      // Min NSE FUT script price (utils/minScriptPrice.js): the reopen is a
+      // new position, so a next contract below the client's minimum isn't
+      // rolled into — the position stays and can be squared off. Admin bypasses.
+      if (!actor.isAdmin) {
+        const { minNseFutPriceOf, isBelowMinPrice } = require('../utils/minScriptPrice');
+        const minPrice = minNseFutPriceOf(user);
+        if (isBelowMinPrice(minPrice, newInstrument)) {
+          errors.push(rejection(token, sym, `${newInstrument.tradingsymbol} is priced below your minimum of ${minPrice} for NSE FUT, so it can't be rolled over. Square it off instead.`));
+          continue;
+        }
+      }
       plan.push({ token, oldInstrument, newInstrument, rawSegment, openSide, expectedNet: state.netQty });
     }
 

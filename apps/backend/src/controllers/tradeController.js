@@ -502,6 +502,44 @@ async function _validateFreshStoplossHoldTime(isAdmin, user, instrument_token, o
 }
 
 /**
+ * Min NSE FUT script price (utils/minScriptPrice.js): an NSE future whose
+ * last official close is below the client's minimum can only be closed or
+ * reduced — never opened or added to. Admin bypasses. Shared between
+ * placeTrade and modifyTrade (a pending order made bigger, or on a script
+ * that fell below the minimum).
+ */
+async function _validateMinNseFutPrice(isAdmin, user, instrument, instrument_token, transaction_type, quantity, session) {
+    if (isAdmin) return;
+    const { minNseFutPriceOf, isBelowMinPrice, belowMinMessage } = require('../utils/minScriptPrice');
+    const minPrice = minNseFutPriceOf(user);
+    if (!(minPrice > 0)) return;
+    let inst = instrument;
+    if (!inst || inst.settlement_price === undefined) {
+        let q = KiteInstrument.findOne({ instrument_token }).select('segment settlement_price').lean();
+        if (session) q = q.session(session);
+        inst = await q;
+    }
+    if (!isBelowMinPrice(minPrice, inst)) return;
+    let agg = Trade.aggregate([
+        { $match: { user_id: user._id, instrument_token, status: 'completed', deleted_at: null } },
+        { $group: { _id: null,
+            total_buy_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'BUY'] }, '$executed_quantity', 0] } },
+            total_sell_qty: { $sum: { $cond: [{ $eq: ['$transaction_type', 'SELL'] }, '$executed_quantity', 0] } }
+        }}
+    ]);
+    if (session) agg = agg.session(session);
+    const pos = await agg;
+    const net = pos.length > 0 ? pos[0].total_buy_qty - pos[0].total_sell_qty : 0;
+    const isClosing = (transaction_type === 'SELL' && net > 0) || (transaction_type === 'BUY' && net < 0);
+    if (!isClosing || Number(quantity) > Math.abs(net)) {
+        throw Object.assign(
+            new Error(`${belowMinMessage(minPrice)}${net !== 0 ? ` You can only close your existing ${Math.abs(net)} qty position.` : ''}`),
+            { status: 403 },
+        );
+    }
+}
+
+/**
  * High-Low Trade Limit check — independent of the FSL limit above. Runs for
  * ALL LIMIT orders from non-admin users. Shared between placeTrade and
  * modifyTrade.
@@ -850,7 +888,7 @@ const placeTrade = async (req, res) => {
             // ever checked expiry at all. Date-only comparison (matches
             // fetchInstruments.js's own "expired" boundary) so trading is
             // still allowed through the end of the expiry day itself.
-            const instCheckExpiry = await KiteInstrument.findOne({ instrument_token }).select('enabled deleted_at expiry nse_banned ban_reason tradingsymbol exchange segment').lean().session(session);
+            const instCheckExpiry = await KiteInstrument.findOne({ instrument_token }).select('enabled deleted_at expiry nse_banned ban_reason tradingsymbol exchange segment settlement_price').lean().session(session);
             if (instCheckExpiry?.expiry) {
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
@@ -1026,6 +1064,9 @@ const placeTrade = async (req, res) => {
                     }
                 }
             }
+
+            // Min NSE FUT script price — only closing/reducing below it.
+            await _validateMinNseFutPrice(!!req.admin, user, instCheckExpiry, instrument_token, transaction_type, quantity, session);
 
             // 0. Options sell restriction: prevent naked short selling
             // Users can only SELL options they already own (to close a position)
@@ -2103,6 +2144,7 @@ const modifyTrade = async (req, res) => {
             await _validateFreshStoplossHoldTime(isAdmin, user, trade.instrument_token, trade.order_type, trade.transaction_type, newPrice, trade.segment, trade.exchange, instrumentRawName, null, newQuantity);
             await _validateFreshStoplossPriceOffset(isAdmin, user, trade.instrument_token, trade.order_type, trade.transaction_type, newPrice, trade.segment, trade.exchange, instrumentRawName);
             await _validateFreshStoplossOpenPosition(isAdmin, user, trade.instrument_token, trade.order_type, trade.transaction_type, null);
+            await _validateMinNseFutPrice(isAdmin, user, null, trade.instrument_token, trade.transaction_type, newQuantity, null);
             const adminCanCustomPrice = isAdmin && (req.admin.isSuperAdmin || (req.admin.permissions || []).includes('TRADE_CUSTOM'));
             await _validateHighLowLimit(adminCanCustomPrice, user, trade.instrument_token, trade.order_type, trade.transaction_type, newPrice, trade.segment, trade.exchange, instrumentRawName);
             // Re-checked against every OTHER pending order — a quantity
@@ -2679,5 +2721,5 @@ module.exports = {
     autoSquareOffExpired,
     getInstrumentInfo,
     rolloverPositions,
-    _private: { _validateScriptQuantityLimit, _validateFreshStoplossHoldTime, _validatePendingWalletCover },
+    _private: { _validateScriptQuantityLimit, _validateFreshStoplossHoldTime, _validatePendingWalletCover, _validateMinNseFutPrice },
 };

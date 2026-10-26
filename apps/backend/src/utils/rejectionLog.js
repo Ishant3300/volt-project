@@ -49,6 +49,7 @@ const SERVER_REFUSAL_PATTERNS = [
   'You already have a pending', // one pending order type per script (Limit vs Stop-Loss)
   'Price restriction', // Fresh Stop-Loss price offset
   'COMEX trades in whole lots only', // utils/comexLots.js
+  'NSE FUT scripts priced below', // client's min NSE FUT price (utils/minScriptPrice.js)
   GIFT_NOT_LIVE_MESSAGE,
   EXCHANGE_NOT_LIVE_TEXT,
 ];

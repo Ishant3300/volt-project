@@ -205,8 +205,15 @@ const createUser = async (req, res) => {
       change_pass_on_first_login,
       server_id,
       status,
-      profit_book_minutes
+      profit_book_minutes,
+      min_nse_fut_price
     } = req.body;
+
+    // Min NSE FUT script price (utils/minScriptPrice.js); not sent = 0 (off).
+    const minPrice = require('../utils/minScriptPrice').parseMinNseFutPrice(min_nse_fut_price);
+    if (minPrice.error) {
+      return res.status(400).json({ success: false, message: minPrice.error, data: null });
+    }
 
     // Profit book time: may not be below the owning master's base (checked
     // below once that master is loaded; utils/profitBookTime.js). Old app
@@ -380,7 +387,8 @@ const createUser = async (req, res) => {
         server_id,
         master_id: parentMaster._id,
         status: status || 'active',
-        profit_book_minutes: profitBook.value
+        profit_book_minutes: profitBook.value,
+        min_nse_fut_price: minPrice.value
       });
       await user.save({ session });
 
@@ -583,8 +591,16 @@ const updateUserDetails = async (req, res) => {
       close_only,
       bet,
       fresh_stoploss,
-      profit_book_minutes
+      profit_book_minutes,
+      min_nse_fut_price
     } = req.body;
+
+    let minPriceValue;
+    if (min_nse_fut_price !== undefined) {
+      const parsed = require('../utils/minScriptPrice').parseMinNseFutPrice(min_nse_fut_price);
+      if (parsed.error) return res.status(400).json({ success: false, message: parsed.error, data: null });
+      minPriceValue = parsed.value;
+    }
 
     let profitBookValue;
     if (profit_book_minutes !== undefined) {
@@ -771,6 +787,7 @@ const updateUserDetails = async (req, res) => {
     if (close_only !== undefined) user.close_only = close_only;
     if (bet !== undefined) user.bet = bet;
     if (fresh_stoploss !== undefined) user.fresh_stoploss = fresh_stoploss;
+    if (minPriceValue !== undefined) user.min_nse_fut_price = minPriceValue;
     if (profitBookValue !== undefined && profitBookValue !== user.profit_book_minutes) {
       // Not below the client's master's base (utils/profitBookTime.js).
       const { masterBaseById } = require('../utils/profitBookTime');
