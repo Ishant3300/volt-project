@@ -86,6 +86,21 @@ function leaveGate() {
 const round2 = (n) => Math.round(n * 100) / 100;
 const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+/**
+ * NSE F&O ban (nse_banned, synced each morning by nseBanListService): a
+ * banned script can't be rolled over — the reopen is a new position in the
+ * next month, which a ban doesn't allow; the position can still be squared
+ * off. Admin bypasses. (26 Oct 2026, the user: "no rollover allow in ban
+ * script" — reversing the morning's "allow"; SAIL was rolled by 824168 and
+ * 192977 that day.) Returns the refusal message, or null.
+ */
+function banRolloverRefusal(oldInstrument, newInstrument, actor) {
+  if (actor?.isAdmin) return null;
+  if (oldInstrument?.nse_banned !== true && newInstrument?.nse_banned !== true) return null;
+  const name = newInstrument?.name || oldInstrument?.name || oldInstrument?.tradingsymbol || 'This script';
+  return `${name} is under NSE F&O ban — rollover is not allowed. You can square off the position instead.`;
+}
+
 function rejection(token, symbol, message) {
   return { token, tradingsymbol: symbol || null, message: symbol ? `${symbol}: ${message}` : message };
 }
@@ -323,6 +338,8 @@ async function rolloverPositions({ targetUserId, tokens, actor }) {
       if (!newInstrument) { errors.push(rejection(token, sym, "The next contract isn't available yet, so this position can't be rolled over.")); continue; }
       if (newInstrument.deleted_at) { errors.push(rejection(token, sym, 'Admin has deactivated the next-expiry script. Rollover is not allowed.')); continue; }
       if (newInstrument.enabled === false) { errors.push(rejection(token, sym, await notOpenMessage(newInstrument))); continue; }
+      const banRefusal = banRolloverRefusal(oldInstrument, newInstrument, actor);
+      if (banRefusal) { errors.push(rejection(token, sym, banRefusal)); continue; }
       if (accountBlock) { errors.push(rejection(token, sym, accountBlock)); continue; }
 
       const rawSegment = (newInstrument.segment || newInstrument.exchange || '').toUpperCase();
@@ -481,4 +498,4 @@ async function rolloverPositions({ targetUserId, tokens, actor }) {
   }
 }
 
-module.exports = { rolloverPositions, _private: { gate, enterGate, leaveGate, MAX_ACTIVE, MAX_WAIT_MS } };
+module.exports = { rolloverPositions, _private: { banRolloverRefusal, gate, enterGate, leaveGate, MAX_ACTIVE, MAX_WAIT_MS } };
