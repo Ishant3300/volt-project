@@ -550,15 +550,23 @@ const getOptionChain = async (req, res) => {
     
     const KiteInstrument = require('../models/KiteInstrument');
     
-    // Build query
+    // Only live contracts — same rule as browse/search. Without it the chain
+    // listed every expired option still stored (BANKNIFTY May–Sep 2026), so
+    // 938184 opened JUN/JUL 2026 calls at months-old prices (26 Oct 2026).
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const query = {
       tradingsymbol: new RegExp(`^${tradingSymbol}`, 'i'),
       instrument_type: { $in: ['CE', 'PE'] },
-      segment: 'NFO-OPT'
+      segment: 'NFO-OPT',
+      is_active: true,
+      deleted_at: null,
+      expiry: { $gte: today },
     };
-    
+
     if (expiry) {
-      query.expiry = new Date(expiry);
+      const wanted = new Date(expiry);
+      query.expiry = wanted >= today ? wanted : { $gte: today, $lt: today }; // a past expiry → nothing
     }
     
     // Get all options for this symbol
