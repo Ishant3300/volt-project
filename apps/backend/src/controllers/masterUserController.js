@@ -12,7 +12,7 @@ const KiteInstrument = require('../models/KiteInstrument');
 const { beginTradeWrite } = require('../services/tradeWriteFenceService');
 const walletService = require('../services/walletService');
 const { categoryForSegment, categoryLabel } = require('../utils/walletCategory');
-const { applyWalletFunding } = require('./walletController');
+const { applyWalletFunding, checkWalletFunding } = require('./walletController');
 const { calculateBrokerage } = require('../services/brokerageService');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 
@@ -704,9 +704,21 @@ const updateUserDetails = async (req, res) => {
         if (name === 'GLOBAL') name = 'INDICES';
         return {
           ...ex,
-          exchange_name: name
+          exchange_name: name,
+          // An empty group (an app screen showing stale data) keeps the
+          // exchange's current group instead of failing validation as a
+          // vague 500 (801351 COMEX-FUT, 26 Oct 2026).
+          group_name: ex.group_name || oldGroupByExchange.get(name) || ''
         };
       });
+      const noGroup = user.exchanges_allowed.find(ex => !ex.group_name);
+      if (noGroup) {
+        return res.status(400).json({
+          success: false,
+          message: `Select a group for ${noGroup.exchange_name === 'INDICES' ? 'GLOBAL' : noGroup.exchange_name}`,
+          data: null
+        });
+      }
 
       // A user's assigned Group is the ceiling any later per-script edit
       // for that user must respect — switching them to a different group
@@ -767,6 +779,13 @@ const updateUserDetails = async (req, res) => {
         return res.status(400).json({ success: false, message: `Profit book time cannot be less than ${profitBookBase} minutes (base of the client's master)`, data: null });
       }
       user.profit_book_minutes = profitBookValue;
+    }
+
+    // Refuse the whole edit if the inline top-up can't be covered — checked
+    // before the save so the settings aren't saved behind an "insufficient"
+    // message (walletController.checkWalletFunding).
+    if (req.body.wallet) {
+      await checkWalletFunding({ req, targetType: 'User', targetId: user._id, walletMap: req.body.wallet });
     }
 
     await user.save();
@@ -844,7 +863,9 @@ const updateUserDetails = async (req, res) => {
     });
   } catch (error) {
     // Task 13: an inline wallet top-up the master's pool can't cover → 400 with a
-    // clear message. The profile fields were already saved; only funding failed.
+    // clear message. Normally caught by checkWalletFunding before anything is
+    // saved; if the pool shrank in between, the profile is saved and only the
+    // funding failed.
     if (error.code === 'INSUFFICIENT_WALLET') {
       return res.status(400).json({
         success: false,

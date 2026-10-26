@@ -163,6 +163,44 @@ async function applyWalletFunding({ req, targetType, targetId, walletMap, sessio
 }
 
 /**
+ * Read-only twin of applyWalletFunding: throws the same INSUFFICIENT_WALLET
+ * error (with .category) if the paying master's pool can't cover the inline
+ * top-up, without moving any money. Edit-account handlers call it BEFORE
+ * saving the profile, so a short wallet refuses the whole edit instead of
+ * saving the settings and then reporting "insufficient" (Admin03 editing
+ * 801351, 26 Oct 2026). applyWalletFunding still does the guarded move — this
+ * only moves the common failure ahead of the save.
+ */
+async function checkWalletFunding({ req, targetType, targetId, walletMap, actor: actorOverride }) {
+  const actor = actorOverride || resolveActor(req);
+  if (!actor) return;
+  const wanted = walletService.CATEGORIES
+    .map((category) => [category, Number(walletMap && walletMap[category])])
+    .filter(([, amount]) => Number.isFinite(amount) && amount > 0);
+  if (wanted.length === 0) return;
+  // Admin funding a MASTER is a grant (no pool debited) — nothing to check.
+  if (actor.type === 'Admin' && targetType !== 'User') return;
+  const Model = targetType === 'User' ? User : Master;
+  const target = await Model.findById(targetId).select('master_id').lean();
+  // Same payer as walletService.assign: the target's direct parent master
+  // (a top-level master target falls back to the acting master).
+  const payerId = (target && target.master_id) || (targetType === 'User' ? null : actor.id);
+  if (!payerId) return; // assign() raises its own error for this case
+  const payer = await Master.findById(payerId).select('wallet').lean();
+  const wallet = (payer && payer.wallet) || {};
+  for (const [category, amount] of wanted) {
+    const need = Math.round(amount * 100) / 100;
+    if ((Number(wallet[category]) || 0) < need) {
+      const err = new Error(`${walletService.INSUFFICIENT_WALLET}: ${category} wallet cannot cover ${need}`);
+      err.code = walletService.INSUFFICIENT_WALLET;
+      err.category = category;
+      err.requested = need;
+      throw err;
+    }
+  }
+}
+
+/**
  * Authorize an actor against a funding/withdrawal target and return the loaded
  * target doc (Requirement 5.6).
  *
@@ -430,6 +468,7 @@ module.exports = {
   reconcile,
   // Shared inline create/edit funding helper (Task 13, design §13.3).
   applyWalletFunding,
+  checkWalletFunding,
   // Exposed for unit tests / reuse.
   resolveActor,
   assertAuthorizedTarget,

@@ -8,7 +8,7 @@ const ScriptQuantity = require('../models/ScriptQuantity');
 const BrokerageSettings = require('../models/BrokerageSettings');
 const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
-const { applyWalletFunding } = require('./walletController');
+const { applyWalletFunding, checkWalletFunding } = require('./walletController');
 const { sanitizeErrorMessage } = require('../utils/sanitizeError');
 const { masterScriptQtyGate } = require('../services/scriptQuantityGate');
 
@@ -496,8 +496,11 @@ const updateUser = async (req, res) => {
       user.exchanges_allowed = exchanges_allowed.map(ex => {
         let name = ex.exchange_name.toUpperCase();
         if (name === 'GLOBAL') name = 'INDICES';
-        return { ...ex, exchange_name: name };
+        // Empty group keeps the current one (same as masterUserController).
+        return { ...ex, exchange_name: name, group_name: ex.group_name || oldGroupByExchange.get(name) || '' };
       });
+      const noGroup = user.exchanges_allowed.find(ex => !ex.group_name);
+      if (noGroup) return res.status(400).json({ success: false, message: `Select a group for ${noGroup.exchange_name === 'INDICES' ? 'GLOBAL' : noGroup.exchange_name}`, data: null });
       groupChanges = user.exchanges_allowed.filter(ex =>
         ex.group_name && ex.group_name !== oldGroupByExchange.get(ex.exchange_name)
       );
@@ -509,6 +512,12 @@ const updateUser = async (req, res) => {
         if (name === 'GLOBAL') name = 'INDICES';
         return name;
       });
+    }
+
+    // Refuse the whole edit if the inline top-up can't be covered, before
+    // anything is saved (walletController.checkWalletFunding).
+    if (req.body.wallet) {
+      await checkWalletFunding({ req, targetType: 'User', targetId: user._id, walletMap: req.body.wallet });
     }
 
     await user.save();
@@ -534,6 +543,16 @@ const updateUser = async (req, res) => {
       data: user.toJSON()
     });
   } catch (error) {
+    // The parent master's pool can't cover the inline top-up — a clear 400
+    // (this route used to answer it as a 500 "internal error").
+    if (error.code === 'INSUFFICIENT_WALLET') {
+      const { categoryLabel } = require('../utils/walletCategory');
+      return res.status(400).json({
+        success: false,
+        message: `Insufficient ${categoryLabel(error.category)} wallet balance to fund the account.`,
+        data: null
+      });
+    }
     res.status(500).json({
       success: false,
       message: sanitizeErrorMessage(error),
