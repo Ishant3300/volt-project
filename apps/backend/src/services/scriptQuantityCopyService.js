@@ -139,6 +139,45 @@ async function copyFromMasterToSubMaster(parentMasterId, childMasterId, session)
 }
 
 /**
+ * Scripts the client's own (direct) master has blocked — max_qty 0 — on these
+ * exchanges: exchange -> Map(script -> lot_size). A master's block carries to
+ * every client it creates or moves to another group (26 Oct 2026: KK20 had
+ * blocked 11 scripts, but a new client would have got them from the group).
+ * Only blocks carry — every other limit still comes from the group (masters'
+ * own numbers are mostly far below their clients', so a full cap would cut
+ * them). Sub-masters and their clients are not touched.
+ */
+async function masterBlockedScripts(userId, exchangeNames, session) {
+  const out = new Map();
+  if (!exchangeNames.length) return out;
+  const uq = User.findById(userId).select('master_id');
+  if (session) uq.session(session);
+  const user = await uq.lean();
+  if (!user?.master_id) return out;
+  const q = ScriptQuantity.find({ owner_id: user.master_id, owner_type: 'Master', exchange_name: { $in: exchangeNames }, max_qty: 0, deleted_at: null })
+    .select('exchange_name script_name lot_size');
+  if (session) q.session(session);
+  for (const r of await q.lean()) {
+    if (!out.has(r.exchange_name)) out.set(r.exchange_name, new Map());
+    out.get(r.exchange_name).set(r.script_name, r.lot_size || 1);
+  }
+  return out;
+}
+
+/** One exchange's rows with the master's blocks applied; a blocked script the group doesn't list still gets a 0 row (no row = no limit). */
+function applyMasterBlocks(docs, userId, exchangeName, blocked) {
+  if (!blocked || blocked.size === 0) return docs;
+  const seen = new Set();
+  for (const d of docs) {
+    if (blocked.has(d.script_name)) { d.max_qty = 0; d.brk_qty = 0; seen.add(d.script_name); }
+  }
+  for (const [script, lotSize] of blocked) {
+    if (!seen.has(script)) docs.push({ owner_id: userId, owner_type: 'User', exchange_name: exchangeName, script_name: script, lot_size: lotSize, max_qty: 0, brk_qty: 0 });
+  }
+  return docs;
+}
+
+/**
  * Seeds a new user's ScriptQuantity from the per-exchange "Group" selected
  * at creation (the mobile app's Create User screen: an exchange row, a
  * turnover/lot toggle, and a Group dropdown — `exchanges_allowed[].group_name`).
@@ -161,8 +200,9 @@ async function copyFromMasterToSubMaster(parentMasterId, childMasterId, session)
  * For each exchange the new user is being granted, looks up GroupedQuantity
  * rows for that (exchange_name, lot_name === group_name) pair — that's
  * what a "named group" actually is in this data model — and seeds one
- * ScriptQuantity row per script in that group with the group's own values,
- * unmodified.
+ * ScriptQuantity row per script in that group with the group's own values —
+ * except scripts the client's master has blocked (0), which stay 0
+ * (masterBlockedScripts).
  *
  * @param {string} userId
  * @param {Array<{exchange_name: string, group_name: string}>} exchangesAllowed
@@ -171,27 +211,33 @@ async function copyFromMasterToSubMaster(parentMasterId, childMasterId, session)
 async function seedUserScriptQuantityFromGroups(userId, exchangesAllowed, session) {
   try {
     const docs = [];
+    const exchangeNames = [...new Set((exchangesAllowed || []).map((ex) => (ex.exchange_name || '').toUpperCase()).filter(Boolean))];
+    const blocked = await masterBlockedScripts(userId, exchangeNames, session);
 
     for (const ex of exchangesAllowed || []) {
       const exchangeName = (ex.exchange_name || '').toUpperCase();
-      if (!exchangeName || !ex.group_name) continue;
+      if (!exchangeName) continue;
+      if (!ex.group_name) {
+        // No group: nothing from a group, but the master's blocks still apply.
+        docs.push(...applyMasterBlocks([], userId, exchangeName, blocked.get(exchangeName)));
+        continue;
+      }
 
       const groupRows = await (session
         ? GroupedQuantity.find({ exchange_name: exchangeName, lot_name: ex.group_name, deleted_at: null }).session(session)
         : GroupedQuantity.find({ exchange_name: exchangeName, lot_name: ex.group_name, deleted_at: null })
       ).lean();
 
-      for (const gq of groupRows) {
-        docs.push({
-          owner_id: userId,
-          owner_type: 'User',
-          exchange_name: exchangeName,
-          script_name: gq.raw_name,
-          lot_size: gq.lot_size || 1,
-          max_qty: gq.max_qty || 0,
-          brk_qty: gq.break_qty || 0,
-        });
-      }
+      const exDocs = groupRows.map((gq) => ({
+        owner_id: userId,
+        owner_type: 'User',
+        exchange_name: exchangeName,
+        script_name: gq.raw_name,
+        lot_size: gq.lot_size || 1,
+        max_qty: gq.max_qty || 0,
+        brk_qty: gq.break_qty || 0,
+      }));
+      docs.push(...applyMasterBlocks(exDocs, userId, exchangeName, blocked.get(exchangeName)));
     }
 
     if (docs.length > 0) {
@@ -239,12 +285,9 @@ async function reseedUserScriptQuantityForExchange(userId, exchangeName, groupNa
       await ScriptQuantity.updateMany(deleteQuery, { $set: { deleted_at: new Date() } });
     }
 
-    if (groupRows.length === 0) {
-      console.log(`📋 [ScriptQtyCopy] User ${userId} switched to group "${groupName}" on ${normalizedExchange}, but that group has no data — exchange now has no script limits`);
-      return;
-    }
-
-    const docs = groupRows.map(gq => ({
+    // The master's blocks apply on top of the new group (masterBlockedScripts).
+    const blocked = (await masterBlockedScripts(userId, [normalizedExchange], session)).get(normalizedExchange);
+    const docs = applyMasterBlocks(groupRows.map(gq => ({
       owner_id: userId,
       owner_type: 'User',
       exchange_name: normalizedExchange,
@@ -252,7 +295,12 @@ async function reseedUserScriptQuantityForExchange(userId, exchangeName, groupNa
       lot_size: gq.lot_size || 1,
       max_qty: gq.max_qty || 0,
       brk_qty: gq.break_qty || 0,
-    }));
+    })), userId, normalizedExchange, blocked);
+
+    if (docs.length === 0) {
+      console.log(`📋 [ScriptQtyCopy] User ${userId} switched to group "${groupName}" on ${normalizedExchange}, but that group has no data — exchange now has no script limits`);
+      return;
+    }
 
     if (session) {
       await ScriptQuantity.insertMany(docs, { session });
@@ -773,6 +821,7 @@ module.exports = {
   copyFromMasterToSubMaster,
   seedUserScriptQuantityFromGroups,
   reseedUserScriptQuantityForExchange,
+  masterBlockedScripts,
   reseedMasterScriptQuantityForExchange,
   cascadeToDirectUsers,
   cascadeNewScriptToUsers,
