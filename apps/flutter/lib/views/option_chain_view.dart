@@ -1,6 +1,8 @@
 ﻿import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:stocker/models/kite_instrument.dart';
+import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/models/option_chain.dart';
 import 'package:stocker/models/watchlist_item.dart';
 import 'package:stocker/services/api_service.dart';
@@ -11,6 +13,10 @@ import 'trade_card_view.dart';
 class OptionChainView extends StatefulWidget {
   final KiteInstrument instrument;
   const OptionChainView({super.key, required this.instrument});
+
+  /// The options segment of [instrument]'s underlying (MCX-OPT or NFO-OPT).
+  static String optionSegmentFor(KiteInstrument instrument) =>
+      instrument.exchange.toUpperCase() == 'MCX' ? 'MCX-OPT' : 'NFO-OPT';
   @override
   State<OptionChainView> createState() => _OptionChainViewState();
 }
@@ -26,10 +32,20 @@ class _OptionChainViewState extends State<OptionChainView> {
   List<DateTime> _availableExpiries = [];
   DateTime? _selectedExpiry;
 
+  // A client not allowed this segment's options sees a notice instead of the
+  // chain — from here 938184 opened option order windows the server refused.
+  bool _notPermitted = false;
+
   @override
   void initState() {
     super.initState();
     _kiteService = KiteService(ApiService(backendUrl));
+    final profile = Provider.of<UserProfileProvider>(context, listen: false);
+    if (!profile.allowsSegment(OptionChainView.optionSegmentFor(widget.instrument))) {
+      _notPermitted = true;
+      _isLoading = false;
+      return;
+    }
     _loadOptionChain();
     _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) => _silentRefresh());
   }
@@ -221,6 +237,7 @@ class _OptionChainViewState extends State<OptionChainView> {
             ),
 
           // Column headers
+          if (!_notPermitted)
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16),
             padding: const EdgeInsets.symmetric(vertical: 10),
@@ -246,6 +263,19 @@ class _OptionChainViewState extends State<OptionChainView> {
   }
 
   Widget _buildBody() {
+    if (_notPermitted) {
+      final seg = OptionChainView.optionSegmentFor(widget.instrument);
+      return Center(child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.block, size: 40, color: kColorSell),
+          const SizedBox(height: 12),
+          Text('Your account is not permitted to trade $seg. Contact your master/admin.',
+              style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
+              textAlign: TextAlign.center),
+        ]),
+      ));
+    }
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5));
     }

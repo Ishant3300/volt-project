@@ -506,6 +506,16 @@ class _TradeCardPageState extends State<TradeCardPage> {
   /// the Rejection Log (who, when, which script, why). Clients only — admin
   /// and master blocks are their own UI. Fire-and-forget: never awaited and
   /// never changes what the user sees.
+  /// The logged-in client isn't allowed this instrument's segment.
+  bool _segmentNotPermitted(UserProfileProvider profile) =>
+      profile.isUser && !profile.allowsSegment(widget.item.instrument.segment);
+
+  String _notPermittedMessage(int net) {
+    final seg = UserProfileProvider.normalizeSegment(widget.item.instrument.segment);
+    return 'Your account is not permitted to trade $seg. Contact your master/admin.'
+        '${net != 0 ? ' You can only close your existing ${net.abs()} qty position.' : ''}';
+  }
+
   void _reportBlocked(
       String code, String message, String transactionType, double price) {
     final profile = Provider.of<UserProfileProvider>(context, listen: false);
@@ -556,6 +566,23 @@ class _TradeCardPageState extends State<TradeCardPage> {
         ),
       );
       return;
+    }
+
+    // A segment this client isn't allowed: only closing an existing position
+    // goes through (same rule the server enforces) — say so up front instead
+    // of failing on some other check (938184 got a stale-price message, 26 Oct).
+    if (_segmentNotPermitted(profile)) {
+      final net = _getKnownNetPosition(context) ?? 0;
+      final closing = (transactionType == 'SELL' && net > 0) ||
+          (transactionType == 'BUY' && net < 0);
+      if (!closing) {
+        final msg = _notPermittedMessage(net);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: kColorSell),
+        );
+        _reportBlocked('NOT_PERMITTED', msg, transactionType, currentPrice);
+        return;
+      }
     }
 
     // Check market hours for this instrument's exchange (admin/master bypass this)
@@ -2376,6 +2403,39 @@ class _TradeCardPageState extends State<TradeCardPage> {
 
             const SizedBox(height: 16),
 
+            // Segment not permitted for this client
+            Builder(
+              builder: (context) {
+                final profile = Provider.of<UserProfileProvider>(context);
+                if (!_segmentNotPermitted(profile)) return const SizedBox.shrink();
+                return Container(
+                  margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: kColorSell.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.block, size: kIconSizeDefault, color: kColorSell),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _notPermittedMessage(_getKnownNetPosition(context) ?? 0),
+                          style: const TextStyle(
+                            color: kColorSell,
+                            fontSize: kFontSizeSubtitle,
+                            fontFamily: kFontFamily,
+                            fontWeight: kFontWeightMedium,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+
             // Market closed warning (hidden for admin)
             Builder(
               builder: (context) {
@@ -2425,6 +2485,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  // Hidden for a client who isn't allowed this underlying's options.
+                  if (Provider.of<UserProfileProvider>(context).allowsSegment(
+                      OptionChainView.optionSegmentFor(widget.item.instrument)))
                   GestureDetector(
                     onTap: () {
                       Navigator.push(

@@ -47,6 +47,33 @@ class UserProfileProvider with ChangeNotifier {
 
   bool get isWatchOnlyAdmin => isAdmin && _admin is Map && _admin['watch_only'] == true;
 
+  /// GLOBAL and INDICES are the same permission (server: utils/exchangeAccess.js).
+  static String normalizeSegment(String? segment) {
+    final s = (segment ?? '').toUpperCase();
+    return s == 'INDICES' ? 'GLOBAL' : s;
+  }
+
+  /// Segments this client may open positions in: exchanges_allowed rows with
+  /// T/O or Lot ticked — the same rule the server enforces on every order.
+  /// null for admin/master, or before the profile has loaded: then nothing
+  /// is hidden and the server still decides.
+  Set<String>? get allowedSegments {
+    if (!isUser || _user == null) return null;
+    return _user!.exchangesAllowed
+        .where((e) => e.turnover || e.lot)
+        .map((e) => normalizeSegment(e.exchangeName))
+        .toSet();
+  }
+
+  /// Whether this client may open positions in [segment] (true when unknown).
+  /// A client could see and open options in a segment they weren't allowed
+  /// from the option chain (938184, 26 Oct 2026) — the server refused, but
+  /// the app never said why.
+  bool allowsSegment(String? segment) {
+    final allowed = allowedSegments;
+    return allowed == null || allowed.contains(normalizeSegment(segment));
+  }
+
   // Check if master can add child masters
   bool get canAddMaster {
     if (_master != null) {

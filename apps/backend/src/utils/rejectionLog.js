@@ -68,6 +68,7 @@ const APP_BLOCK_REASONS = {
   OPTION_SELL: 'Option sell without enough holding',
   LIMIT_PRICE: 'Limit price on the wrong side of CMP',
   CIRCUIT: 'Price outside circuit limit',
+  NOT_PERMITTED: 'Segment not permitted for this account',
 };
 
 const MAX_DETAIL_LENGTH = 200;

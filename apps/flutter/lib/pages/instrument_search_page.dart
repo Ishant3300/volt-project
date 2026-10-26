@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:stocker/models/kite_instrument.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/providers/investor_mode_provider.dart';
+import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/services/kite_service.dart';
 import '../utils/contants.dart';
 
@@ -55,6 +56,10 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _searchFocusNode.requestFocus();
+      // Fresh permissions, so a segment an admin just allowed (or removed)
+      // shows up here at once.
+      final profile = Provider.of<UserProfileProvider>(context, listen: false);
+      if (profile.isUser) profile.fetchProfile();
     });
   }
 
@@ -282,11 +287,15 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
       'Other'
     ];
 
+    final profile = Provider.of<UserProfileProvider>(context, listen: false);
     for (final item in items) {
       final map = Map<String, dynamic>.from(item as Map);
       final type = (map['instrument_type'] ?? '').toString();
       final segment = (map['segment'] ?? '').toString();
       final exchange = (map['exchange'] ?? '').toString();
+      // Only segments this client is allowed (server search already filters;
+      // tab browsing doesn't).
+      if (!profile.allowsSegment(segment.isNotEmpty ? segment : exchange)) continue;
       String label;
       if (segment == 'INDICES' || type == 'IDX') {
         label = 'Index';
@@ -461,7 +470,10 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 6),
           child: Row(
+            // A client sees only the segments their account is allowed.
             children: _tabs
+                .where((tab) => tab['key'] == 'ALL' ||
+                    Provider.of<UserProfileProvider>(context).allowsSegment(tab['key']))
                 .map((tab) => _buildTab(tab['key']!, tab['label']!))
                 .toList(),
           ),
