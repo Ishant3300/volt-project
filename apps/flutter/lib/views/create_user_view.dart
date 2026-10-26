@@ -41,6 +41,8 @@ class _CreateUserViewState extends State<CreateUserView> {
   // Profit book time (minutes) — mandatory; empty on a new client so the
   // creator always decides it (backend utils/profitBookTime.js).
   final TextEditingController _profitBookController = TextEditingController();
+  // Minimum NSE FUT script price, 0 = off (backend utils/minScriptPrice.js).
+  final TextEditingController _minPriceController = TextEditingController(text: '0');
   // Minimum = the base of the client's master (backend utils/profitBookTime.js):
   // a new client starts at it (refilled when the owner changes); a CHANGED
   // time may not go below it.
@@ -226,6 +228,10 @@ class _CreateUserViewState extends State<CreateUserView> {
       _creditController.text = widget.user!.credits.toString();
       _profitBookController.text =
           (widget.user!.profitBookMinutes ?? kDefaultProfitBookBase).toString();
+      final minPrice = widget.user!.minNseFutPrice ?? 0;
+      _minPriceController.text = minPrice == minPrice.roundToDouble()
+          ? minPrice.toInt().toString()
+          : minPrice.toString();
       _noteController.text = widget.user!.note;
       _marginSquareOff = widget.user!.marginSquareOff;
       _changePasswordOnFirstLogin = widget.user!.changePassOnFirstLogin;
@@ -711,6 +717,7 @@ class _CreateUserViewState extends State<CreateUserView> {
     _confirmInvestorPasswordController.dispose();
     _creditController.dispose();
     _profitBookController.dispose();
+    _minPriceController.dispose();
     _noteController.dispose();
     for (final entry in _brokerageSettings.values) {
       (entry['controller'] as TextEditingController?)?.dispose();
@@ -809,6 +816,12 @@ class _CreateUserViewState extends State<CreateUserView> {
       return;
     }
 
+    final minPriceText = _minPriceController.text.trim();
+    final minNseFutPrice = minPriceText.isEmpty ? 0.0 : double.tryParse(minPriceText);
+    if (minNseFutPrice == null || minNseFutPrice < 0) {
+      _showSnack('Min NSE FUT price must be 0 or more', isError: true);
+      return;
+    }
     final profitBookMinutes = int.tryParse(_profitBookController.text.trim());
     if (profitBookMinutes == null ||
         profitBookMinutes < 0 ||
@@ -968,6 +981,7 @@ class _CreateUserViewState extends State<CreateUserView> {
           changePassOnFirstLogin: _changePasswordOnFirstLogin,
           wallet: walletMap.isEmpty ? null : walletMap,
           profitBookMinutes: profitBookMinutes,
+          minNseFutPrice: minNseFutPrice,
         );
       } else {
         // Initial Trade Wallet funding (optional; only for allowed categories).
@@ -992,6 +1006,7 @@ class _CreateUserViewState extends State<CreateUserView> {
           changePassOnFirstLogin: _changePasswordOnFirstLogin,
           serverId: _ownerMaster!.serverId,
           profitBookMinutes: profitBookMinutes,
+          minNseFutPrice: minNseFutPrice,
           forMasterId: _forMaster?.id,
           wallet: walletMap.isEmpty ? null : walletMap,
         );
@@ -1135,6 +1150,21 @@ class _CreateUserViewState extends State<CreateUserView> {
                             child: Text(
                               "Can't close in profit until this long after opening; a loss can be closed any time. Minimum $_profitBookMin min (base of ${_profitBookMinOf ?? 'the master'}).",
                               style: const TextStyle(
+                                  color: kColorTextMuted,
+                                  fontSize: 11,
+                                  fontFamily: kFontFamily),
+                            ),
+                          ),
+                          _divider(),
+                          _buildTextField(
+                              label: 'Min NSE FUT price',
+                              controller: _minPriceController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+                          const Padding(
+                            padding: EdgeInsets.only(left: 100, bottom: 6),
+                            child: Text(
+                              "NSE FUT scripts whose last close is below this are hidden and can't be opened or added to; existing positions can still be closed. 0 = off.",
+                              style: TextStyle(
                                   color: kColorTextMuted,
                                   fontSize: 11,
                                   fontFamily: kFontFamily),

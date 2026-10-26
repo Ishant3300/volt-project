@@ -22,6 +22,9 @@ class User {
   /// opening; a loss can be closed any time; 0 = no restriction. Null on
   /// accounts the server hasn't sent it for (the backend applies 10 then).
   final int? profitBookMinutes;
+  /// Minimum NSE FUT script price (0 = off): NSE futures whose last close is
+  /// below it are hidden and can't be opened (backend utils/minScriptPrice.js).
+  final double? minNseFutPrice;
   final bool changePassOnFirstLogin;
   final String serverId;
   final String masterId;
@@ -52,6 +55,7 @@ class User {
     required this.bet,
     required this.freshStoploss,
     this.profitBookMinutes,
+    this.minNseFutPrice,
     required this.changePassOnFirstLogin,
     required this.serverId,
     required this.masterId,
@@ -130,6 +134,7 @@ class User {
       bet: json['bet'] as bool? ?? false,
       freshStoploss: json['fresh_stoploss'] as bool? ?? false,
       profitBookMinutes: (json['profit_book_minutes'] as num?)?.toInt(),
+      minNseFutPrice: (json['min_nse_fut_price'] as num?)?.toDouble(),
       changePassOnFirstLogin:
           json['change_pass_on_first_login'] as bool? ?? false,
       serverId: serverIdValue,
@@ -165,6 +170,7 @@ class User {
         'margin_square_off_percentage': marginSquareOffPercentage,
       'margin_square_off': marginSquareOff,
       if (profitBookMinutes != null) 'profit_book_minutes': profitBookMinutes,
+      if (minNseFutPrice != null) 'min_nse_fut_price': minNseFutPrice,
       'change_pass_on_first_login': changePassOnFirstLogin,
       'server_id': serverId,
       'master_id': masterId,

@@ -315,6 +315,8 @@ class AdminService {
     required String serverId,
     // Profit book time (minutes) — mandatory when creating a client.
     required int profitBookMinutes,
+    // Minimum NSE FUT script price (0 = off).
+    double? minNseFutPrice,
     String? status,
     Map<String, double>? wallet,
     // "Create account for": a downline master who owns/funds the new client.
@@ -337,6 +339,7 @@ class AdminService {
       'change_pass_on_first_login': changePassOnFirstLogin,
       'server_id': serverId,
       'profit_book_minutes': profitBookMinutes,
+      if (minNseFutPrice != null) 'min_nse_fut_price': minNseFutPrice,
       if (status != null) 'status': status,
       if (wallet != null && wallet.isNotEmpty) 'wallet': wallet,
     };
@@ -437,6 +440,7 @@ class AdminService {
     String? investorPassword,
     Map<String, double>? wallet,
     int? profitBookMinutes,
+    double? minNseFutPrice,
   }) async {
     final data = {
       if (name != null) 'name': name,
@@ -454,6 +458,7 @@ class AdminService {
         'change_pass_on_first_login': changePassOnFirstLogin,
       if (wallet != null) 'wallet': wallet,
       if (profitBookMinutes != null) 'profit_book_minutes': profitBookMinutes,
+      if (minNseFutPrice != null) 'min_nse_fut_price': minNseFutPrice,
     };
 
     final token = await _storage.getToken();
