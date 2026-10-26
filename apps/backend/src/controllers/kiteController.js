@@ -232,8 +232,14 @@ const searchInstruments = async (req, res) => {
       });
     }
 
-    const instruments = await kiteService.searchInstruments(q, exchange, instrument_type);
-    
+    const found = await kiteService.searchInstruments(q, exchange, instrument_type);
+    // Only segments the caller is allowed — same gate as smart-search (admin bypasses).
+    const { getAllowedExchangeSet, isExchangeAllowed } = require('../utils/exchangeAccess');
+    const allowedExchanges = await getAllowedExchangeSet(req);
+    const instruments = allowedExchanges === null
+      ? found
+      : found.filter((i) => isExchangeAllowed(allowedExchanges, i.segment || i.exchange));
+
     const limitedResults = limit ? instruments.slice(0, parseInt(limit)) : instruments;
 
     res.status(200).json({
@@ -339,6 +345,14 @@ const browseInstruments = async (req, res) => {
     const catFilter = CATEGORY_FILTERS[category.toUpperCase()];
     if (!catFilter) {
       return res.status(400).json({ success: false, message: `Unknown category: ${category}` });
+    }
+
+    // A segment the caller isn't allowed lists nothing — same gate as search,
+    // watchlist and placeTrade (each category key is the permission name).
+    // Browse was the one list left open (26 Oct 2026). Admin bypasses.
+    const { getAllowedExchangeSet, isExchangeAllowed } = require('../utils/exchangeAccess');
+    if (!isExchangeAllowed(await getAllowedExchangeSet(req), category)) {
+      return res.status(200).json({ success: true, data: { groups: [], total: 0, page: parseInt(page), hasMore: false } });
     }
 
     // Only non-expired for FUT/OPT. GLOBAL is mixed: true indices (segment
@@ -549,7 +563,15 @@ const getOptionChain = async (req, res) => {
     console.log(`📊 Fetching option chain for ${tradingSymbol}`);
     
     const KiteInstrument = require('../models/KiteInstrument');
-    
+
+    // NFO options are a segment like any other: a caller not allowed NFO-OPT
+    // gets no chain (938184 opened BANKNIFTY options from here without it,
+    // 26 Oct 2026). Same gate as search/watchlist/placeTrade; admin bypasses.
+    const { getAllowedExchangeSet, isExchangeAllowed } = require('../utils/exchangeAccess');
+    if (!isExchangeAllowed(await getAllowedExchangeSet(req), 'NFO-OPT')) {
+      return res.status(403).json({ success: false, message: 'Your account is not permitted to trade NFO-OPT. Contact your master/admin.' });
+    }
+
     // Only live contracts — same rule as browse/search. Without it the chain
     // listed every expired option still stored (BANKNIFTY May–Sep 2026), so
     // 938184 opened JUN/JUL 2026 calls at months-old prices (26 Oct 2026).
