@@ -82,7 +82,10 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
           }
           setState(() {
             _scriptItems = items.map((json) => ScriptQuantity.fromJson(json)).toList();
-            _filteredItems = _scriptItems;
+            // Keep the search box's filter (it used to show every script while
+            // the box still said e.g. "RELIANCE"), and start with nothing ticked.
+            _filteredItems = _searchFiltered(_searchController.text);
+            _selectedIds.clear();
             _isLoading = false;
           });
           log('✅ Loaded ${_scriptItems.length} script quantities');
@@ -96,15 +99,19 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
     }
   }
 
+  List<ScriptQuantity> _searchFiltered(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return _scriptItems;
+    return _scriptItems.where((item) => item.scriptName.toLowerCase().contains(q)).toList();
+  }
+
   void _filterScripts(String query) {
     setState(() {
-      if (query.isEmpty) {
-        _filteredItems = _scriptItems;
-      } else {
-        _filteredItems = _scriptItems
-            .where((item) => item.scriptName.toLowerCase().contains(query.toLowerCase()))
-            .toList();
-      }
+      _filteredItems = _searchFiltered(query);
+      // A tick on a script the search hides would still get the new value on
+      // APPLY without the admin seeing it — only visible scripts stay ticked.
+      final visible = _filteredItems.map((s) => s.id).toSet();
+      _selectedIds.retainWhere(visible.contains);
     });
   }
 
@@ -144,7 +151,10 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
   }
 
   Future<void> _applyUpdates() async {
-    if (_selectedIds.isEmpty) {
+    // Only scripts the admin can see in the list (see _filterScripts).
+    final visible = {for (final s in _filteredItems) s.id: s};
+    final targets = _selectedIds.where(visible.containsKey).toList();
+    if (targets.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select at least one script')),
       );
@@ -161,32 +171,67 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
       return;
     }
 
+    // Confirm the exact scope first — one tap on "select all" used to change
+    // every script of the account with no warning.
+    final names = targets.map((id) => visible[id]!.scriptName).toList();
+    final shown = names.take(6).join(', ') + (names.length > 6 ? ' +${names.length - 6} more' : '');
+    final values = [
+      if (maxQty != null) 'Max Qty ${maxQty.toInt()}',
+      if (brkQty != null) 'Breakup ${brkQty.toInt()}',
+    ].join(' · ');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          'Change ${targets.length} script${targets.length == 1 ? '' : 's'}?',
+          style: const TextStyle(fontFamily: kFontFamily, fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          '$values\n\n$shown',
+          style: const TextStyle(fontFamily: kFontFamily),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Apply to ${targets.length}', style: const TextStyle(color: kBrandPrimary)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
     setState(() {
       _isUpdating = true;
     });
 
     try {
-      log('💾 Updating ${_selectedIds.length} script quantities');
+      log('💾 Updating ${targets.length} script quantities');
       final apiService = Provider.of<ApiService>(context, listen: false);
       final adminService = AdminService(apiService);
-      
+
+      // A few at a time, so a long list finishes quickly instead of one by one.
       int successCount = 0;
-      for (final id in _selectedIds) {
-        final response = await adminService.updateScriptQuantity(
-          id: id,
-          maxQty: maxQty?.toInt(),
-          brkQty: brkQty?.toInt(),
-        );
-        
-        if (response.statusCode == 200) {
-          successCount++;
-        }
+      for (var i = 0; i < targets.length; i += 5) {
+        final batch = targets.skip(i).take(5);
+        final responses = await Future.wait(batch.map((id) => adminService.updateScriptQuantity(
+              id: id,
+              maxQty: maxQty?.toInt(),
+              brkQty: brkQty?.toInt(),
+            )));
+        successCount += responses.where((r) => r.statusCode == 200).length;
       }
-      
-      log('✅ Updated $successCount script quantities');
+
+      log('✅ Updated $successCount of ${targets.length} script quantities');
       if (mounted) {
+        final allDone = successCount == targets.length;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Updated $successCount script quantities successfully')),
+          SnackBar(
+            content: Text(allDone
+                ? 'Updated $successCount script quantit${successCount == 1 ? 'y' : 'ies'}'
+                : 'Updated only $successCount of ${targets.length} — check the list and try again'),
+            backgroundColor: allDone ? null : kColorSell,
+          ),
         );
         _selectedIds.clear();
         _maxQtyController.clear();
@@ -353,6 +398,20 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
             ),
 
             const SizedBox(height: 16),
+
+            if (_selectedIds.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Text(
+                  '${_selectedIds.length} of ${_filteredItems.length} selected',
+                  style: const TextStyle(
+                    color: kBrandPrimary,
+                    fontSize: kFontSizeBodySmall,
+                    fontFamily: kFontFamily,
+                    fontWeight: kFontWeightMedium,
+                  ),
+                ),
+              ),
 
             // Action Buttons Row
             Container(
