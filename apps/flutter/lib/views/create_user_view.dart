@@ -893,6 +893,18 @@ class _CreateUserViewState extends State<CreateUserView> {
         _showSnack('Select either T/O or Lot for $name', isError: true);
         return;
       }
+      // Every ticked exchange needs a group — the server refuses an empty one
+      // (it came back as a vague "internal error").
+      if ((ex['group_name'] as String).isEmpty) {
+        final displayName = name == 'INDICES' ? 'GLOBAL' : name;
+        final hasGroups = _exchangeLotNames[displayName]?.isNotEmpty ?? false;
+        _showSnack(
+            hasGroups
+                ? 'Select a group for $displayName'
+                : 'No group exists for $displayName yet — create one first or untick it',
+            isError: true);
+        return;
+      }
     }
 
     List<String> tradeLimitList = [];
