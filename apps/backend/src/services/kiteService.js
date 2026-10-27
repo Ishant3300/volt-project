@@ -401,7 +401,6 @@ class KiteService {
           // after its expiry close) was not just listed but, being the
           // nearest expiry, shown INSTEAD of the open next contract.
           enabled: { $ne: false },
-          nse_banned: { $ne: true },
           deleted_at: null,
         };
 

@@ -48,7 +48,7 @@ const LEAN_PROJECTION = {
   instrument_token: 1, tradingsymbol: 1, name: 1,
   instrument_type: 1, exchange: 1, segment: 1,
   strike: 1, expiry: 1, lot_size: 1, tick_size: 1,
-  raw_name: 1, display_name: 1, _id: 0,
+  raw_name: 1, display_name: 1, nse_banned: 1, _id: 0,
 };
 
 // ── Cache state (loaded once on server start) ──────────────
@@ -147,11 +147,14 @@ const _buildAndSetCache = async () => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Single optimized query: only active, enabled, non-NSE-banned, non-expired derivatives + indices + global
+  // Single optimized query: only active, enabled, non-expired derivatives + indices + global.
+  // NSE F&O-banned scripts stay visible (search, browse, watchlist) with their
+  // nse_banned flag so the app can tag them BAN — trading them is closing-only
+  // and rollover is refused (tradeController / rolloverService). Hidden until
+  // 27 Oct 2026, a client holding a banned script couldn't even watch it.
   const rawInstruments = await KiteInstrument.find({
     is_active: true,
     enabled: { $ne: false },
-    nse_banned: { $ne: true },
     deleted_at: null,
     $or: [
       // Derivatives: only non-expired

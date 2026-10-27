@@ -378,8 +378,9 @@ const browseInstruments = async (req, res) => {
     // expiry — those still need filtering, or an expired contract sits in
     // the browse list forever showing dead 0.00/— prices. `expiry: null`
     // lets the true indices through while still excluding expired futures.
-    // Exclude disabled, NSE-banned, and soft-deleted instruments
-    const filter = { ...catFilter, is_active: true, enabled: { $ne: false }, nse_banned: { $ne: true }, deleted_at: null };
+    // Exclude disabled and soft-deleted instruments (NSE-banned ones stay listed)
+    // Banned scripts are listed too (tagged BAN by the app; trading them is closing-only).
+    const filter = { ...catFilter, is_active: true, enabled: { $ne: false }, deleted_at: null };
     if (category !== 'GLOBAL') {
       filter.expiry = { $gte: today };
     } else {
