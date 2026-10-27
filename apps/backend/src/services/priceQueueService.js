@@ -857,6 +857,12 @@ const init = () => {
   const connection = {
     host: redisService.getClient().options.host || '127.0.0.1',
     port: redisService.getClient().options.port || 6379,
+    // The same Redis DB as the rest of this process (REDIS_URL): practice
+    // runs on db 5, live on db 0. Without it both used db 0 and shared one
+    // 'price-updates' queue — on 27 Oct a practice (simulated) GOLD price,
+    // 154051, filled a live SL BUY at 144322, and each worker took some of
+    // the other's price updates.
+    db: redisService.getClient().options.db || 0,
     maxRetriesPerRequest: null,
   };
   queue = new Queue(QUEUE_NAME, { connection });
