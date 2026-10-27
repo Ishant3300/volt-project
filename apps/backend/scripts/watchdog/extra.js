@@ -802,8 +802,12 @@ async function collusion(c) {
   const p = lib.istParts();
   const dayStart = new Date(Date.parse(`${p.ymd}T00:00:00+05:30`));
   const trades = await d.collection('trades').find({ status: 'completed', executed_at: { $gte: dayStart }, trade_type: { $ne: 'carry_forward' } })
-    .project({ user_id: 1, instrument_token: 1, tradingsymbol: 1, transaction_type: 1, executed_quantity: 1, quantity: 1, executed_price: 1, executed_at: 1, placed_by: 1, createdAt: 1 }).sort({ executed_at: 1 }).toArray();
-  const own = trades.filter((t) => t.placed_by === 'USER' || t.placed_by === 'MASTER');
+    .project({ user_id: 1, instrument_token: 1, tradingsymbol: 1, transaction_type: 1, executed_quantity: 1, quantity: 1, executed_price: 1, executed_at: 1, placed_by: 1, createdAt: 1, rollover_group_id: 1 }).sort({ executed_at: 1 }).toArray();
+  // Orders the client (or their master) actually placed. Rollover legs are
+  // left out: they have no order request of their own and are booked in the
+  // same second as other clients' orders — that paired AR103 with OJAS and
+  // PANKAJ with AR144 M2 on 26 Oct 2026 though they never shared an IP.
+  const own = trades.filter((t) => (t.placed_by === 'USER' || t.placed_by === 'MASTER') && !t.rollover_group_id);
   const byTok = new Map();
   for (const t of own) { const k = t.instrument_token; if (!byTok.has(k)) byTok.set(k, []); byTok.get(k).push({ ...t, ts: new Date(t.executed_at).getTime(), q: t.executed_quantity ?? t.quantity }); }
   const opp = new Map();
@@ -818,8 +822,17 @@ async function collusion(c) {
       if (a.transaction_type === b.transaction_type && (b.ts - a.ts) / 1000 <= 30) copy.set(k, [...(copy.get(k) || []), a.tradingsymbol]);
     }
   }
-  // Order IPs from today's nginx log, matched to orders by second.
+  // Order IPs from today's nginx log, matched to orders by second — only when
+  // that moment (±1 s) has no other client's order, so a busy second can't
+  // pair two strangers. ip -> Map(user -> orders).
   const ipAccts = new Map();
+  const usersBySec = new Map();
+  for (const t of own) {
+    if (t.placed_by !== 'USER') continue;
+    const s0 = Math.floor(new Date(t.createdAt).getTime() / 1000);
+    if (!usersBySec.has(s0)) usersBySec.set(s0, new Set());
+    usersBySec.get(s0).add(String(t.user_id));
+  }
   try {
     const raw = execFileSync('sudo', ['-n', 'cat', '/var/log/nginx/access.log'], { timeout: 30000, maxBuffer: 64 * 1024 * 1024 }).toString();
     const posts = new Map();
@@ -832,17 +845,21 @@ async function collusion(c) {
     for (const t of own) {
       if (t.placed_by !== 'USER') continue;
       const s = Math.floor(new Date(t.createdAt).getTime() / 1000);
+      const others = [s - 1, s, s + 1].some((x) => [...(usersBySec.get(x) || [])].some((u) => u !== String(t.user_id)));
+      if (others) continue;
       const ips = new Set([...(posts.get(s) || []), ...(posts.get(s + 1) || [])]);
       if (ips.size !== 1) continue;
       const ip = [...ips][0];
-      ipAccts.set(ip, new Set([...(ipAccts.get(ip) || []), String(t.user_id)]));
+      if (!ipAccts.has(ip)) ipAccts.set(ip, new Map());
+      const byUser = ipAccts.get(ip);
+      byUser.set(String(t.user_id), (byUser.get(String(t.user_id)) || 0) + 1);
     }
   } catch (_) { /* log not readable today */ }
   const sharedIp = [...ipAccts.entries()].filter(([, s]) => s.size >= 2);
   // Scalping: positions closed within 2 min.
   const quick = new Map();
   const perUserTok = new Map();
-  for (const t of trades) { const k = `${t.user_id}|${t.instrument_token}`; if (!perUserTok.has(k)) perUserTok.set(k, []); perUserTok.get(k).push(t); }
+  for (const t of own) { const k = `${t.user_id}|${t.instrument_token}`; if (!perUserTok.has(k)) perUserTok.set(k, []); perUserTok.get(k).push(t); }
   for (const [k, list] of perUserTok) {
     const lots = []; let side = 0;
     for (const t of list) {
@@ -854,24 +871,30 @@ async function collusion(c) {
   }
   const scalpers = [...quick.entries()].filter(([, n]) => n >= 5).sort((a, b) => b[1] - a[1]);
   const pairs = (m, min) => [...m.entries()].filter(([, v]) => v.length >= min).sort((a, b) => b[1].length - a[1].length).slice(0, 5)
-    .map(([k, v]) => `${k.split('|').map(who).join(' ↔ ')} (${v.length}×: ${[...new Set(v)].slice(0, 3).join(', ')})`);
+    .map(([k, v]) => `${k.split('|').map(who).join(' and ')} — ${v.length} time${v.length === 1 ? '' : 's'} (${[...new Set(v)].slice(0, 3).join(', ')})`);
+  const oppPairs = pairs(opp, 1);
+  const copyPairs = pairs(copy, 3);
+  const fill = (c.state.fillStats || {})[p.ymd];
+  const gains = fill ? Object.entries(fill.gain).sort((a, b) => b[1] - a[1]) : [];
+  // Plain language: one numbered finding per check, what it means, then who.
   const lines = [
-    `Same order IP, 2+ clients: ${sharedIp.length ? '' : 'none'}`,
-    ...sharedIp.slice(0, 5).map(([ip, s]) => `   ${ip}: ${[...s].map(who).join(', ')}`),
-    `Opposite trades between clients (≤2 min): ${opp.size ? '' : 'none'}`,
-    ...pairs(opp, 1).map((x) => `   ${x}`),
-    `Copy trades (same side ≤30 s, 3+ times): ${pairs(copy, 3).length ? '' : 'none'}`,
-    ...pairs(copy, 3).map((x) => `   ${x}`),
-    `Scalping (5+ closes within 2 min): ${scalpers.length ? '' : 'none'}`,
-    ...scalpers.slice(0, 5).map(([u, n]) => `   ${who(u)}: ${n}`),
-    ...(() => {
-      const st = (c.state.fillStats || {})[p.ymd];
-      if (!st) return ['Fills vs exchange: not checked today'];
-      const g = Object.entries(st.gain).sort((a, b) => b[1] - a[1]);
-      return [`Fills better than the market: ${st.better} of ${st.checked} checked${g.length ? '' : ''}`, ...g.slice(0, 5).map(([u, v]) => `   ${who(u)}: ${rupees(v)}`)];
-    })(),
+    "Today's client orders (rollovers and system trades left out):",
+    '',
+    `1. Same internet connection used by 2+ clients: ${sharedIp.length ? `${sharedIp.length} found` : 'none'}`,
+    ...sharedIp.slice(0, 5).map(([ip, m]) => `   • ${ip} — ${[...m.entries()].map(([u, n]) => `${who(u)} (${n} order${n === 1 ? '' : 's'})`).join(' and ')}`),
+    ...(sharedIp.length ? ['   Same person, or a shared office / Wi-Fi — check whether they should be linked.'] : []),
+    `2. Clients taking opposite sides of the same trade within 2 min: ${oppPairs.length ? `${oppPairs.length} pair${oppPairs.length === 1 ? '' : 's'}` : 'none'}`,
+    ...oppPairs.map((x) => `   • ${x}`),
+    `3. Clients copying each other (same side within 30 s, 3+ times): ${copyPairs.length ? `${copyPairs.length} pair${copyPairs.length === 1 ? '' : 's'}` : 'none'}`,
+    ...copyPairs.map((x) => `   • ${x}`),
+    `4. Very fast in-and-out trading (5+ positions closed within 2 min): ${scalpers.length ? `${scalpers.length} client${scalpers.length === 1 ? '' : 's'}` : 'none'}`,
+    ...scalpers.slice(0, 5).map(([u, n]) => `   • ${who(u)} — ${n} quick closes`),
+    fill
+      ? `5. Fills at a better price than the exchange traded: ${fill.better} of ${fill.checked} fills checked`
+      : '5. Fills vs the exchange price: not checked today',
+    ...gains.slice(0, 5).map(([u, v]) => `   • ${who(u)} — gained ${rupees(v)} vs the exchange price`),
   ];
-  send(lib.formatAlert('info', `Collusion check ${p.ymd}`, lines));
+  send(lib.formatAlert('info', `Client trading check — ${p.ymd}`, lines));
 }
 
 // ------------------------------------------------------------ fill check ----
@@ -915,7 +938,8 @@ function spikeCatch(f, own) {
 async function fillCheck(c) {
   const { d, state, raise, lib, who } = c;
   state.fillQueue = state.fillQueue || [];
-  for (const t of await c.newDocs(d, 'trades', { status: 'completed', placed_by: { $in: ['USER', 'MASTER'] }, exchange: { $in: KITE_EXCHANGES }, trade_type: { $ne: 'carry_forward' } },
+  // Rollover legs are left out: they fill at the quote taken for the rollover, not a client order.
+  for (const t of await c.newDocs(d, 'trades', { status: 'completed', placed_by: { $in: ['USER', 'MASTER'] }, exchange: { $in: KITE_EXCHANGES }, trade_type: { $ne: 'carry_forward' }, rollover_group_id: null },
     { user_id: 1, instrument_token: 1, tradingsymbol: 1, transaction_type: 1, order_type: 1, executed_price: 1, executed_quantity: 1, quantity: 1, executed_at: 1 }, 'trades-fillcheck')) {
     if (!(t.executed_price > 0) || !t.executed_at) continue;
     state.fillQueue.push({ id: String(t._id), token: String(t.instrument_token), sym: t.tradingsymbol, side: t.transaction_type, ot: t.order_type, price: t.executed_price, qty: t.executed_quantity ?? t.quantity, at: new Date(t.executed_at).getTime(), user: String(t.user_id), tries: 0 });
