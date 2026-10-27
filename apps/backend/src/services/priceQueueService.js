@@ -53,12 +53,26 @@ const _ts = () => new Date().toISOString();
 // Redis ZRANGEBYSCORE per instrument) already scale independently of total
 // pending-order count — this was never actually a lookup-speed problem.
 const _pendingPricePublish = new Map(); // instrumentToken -> latest livePrice
+// instrumentToken -> touch ({ low, high, since, at, source }): a price the
+// exchange traded between two feed snapshots (services/missedTouchService.js).
+// Coalesced ticks merge into one, so a touch is never dropped by the window.
+const _pendingTouch = new Map();
 let _publishFlushTimer = null;
 const PUBLISH_THROTTLE_MS = 150;
 
-const publishPriceUpdate = async (instrumentToken, livePrice) => {
+const _minOf = (a, b) => (a == null ? b : b == null ? a : Math.min(a, b));
+const _maxOf = (a, b) => (a == null ? b : b == null ? a : Math.max(a, b));
+/** Two touches as one: the widest range, and the EARLIER since (stricter — fewer orders qualify). */
+function mergeTouch(a, b) {
+  if (!a) return b || null;
+  if (!b) return a;
+  return { low: _minOf(a.low, b.low), high: _maxOf(a.high, b.high), since: Math.min(a.since, b.since), at: Math.max(a.at, b.at), source: a.source };
+}
+
+const publishPriceUpdate = async (instrumentToken, livePrice, touch = null) => {
   if (!queue) return;
   _pendingPricePublish.set(instrumentToken, livePrice);
+  if (touch) _pendingTouch.set(instrumentToken, mergeTouch(_pendingTouch.get(instrumentToken), touch));
   if (_publishFlushTimer) return;
   _publishFlushTimer = setTimeout(_flushPendingPricePublishes, PUBLISH_THROTTLE_MS);
 };
@@ -68,6 +82,8 @@ async function _flushPendingPricePublishes() {
   if (!queue || _pendingPricePublish.size === 0) return;
   const entries = Array.from(_pendingPricePublish.entries());
   _pendingPricePublish.clear();
+  const touches = new Map(_pendingTouch);
+  _pendingTouch.clear();
 
   await Promise.all(entries.map(async ([instrumentToken, livePrice]) => {
     try {
@@ -76,6 +92,7 @@ async function _flushPendingPricePublishes() {
         instrument_token: instrumentToken,
         live_price: livePrice,
         timestamp: Date.now(),
+        ...(touches.has(instrumentToken) ? { touch: touches.get(instrumentToken) } : {}),
       }, {
         jobId,
         removeOnComplete: 100,
@@ -198,6 +215,29 @@ function realisedPnlFor(trade, state) {
   return 0;
 }
 
+/** When a pending order was placed or last modified (modify saves → updatedAt). */
+const orderChangedAt = (trade) => new Date(trade.updatedAt || trade.createdAt || 0).getTime();
+
+/**
+ * Can this pending order fill from `touch` — a low/high the exchange traded
+ * in a window starting at touch.since? null = yes; otherwise why not:
+ * 'placed_after' (placed/modified at or after the window started — a price
+ * from before the order existed can never fill it) or 'price' (its current
+ * price/direction isn't crossed by the range). Same crossing rules as a tick:
+ * LIMIT BUY / stop FALL by the low, LIMIT SELL / stop RISE by the high.
+ */
+function touchVerdict(trade, touch) {
+  if (!(orderChangedAt(trade) < touch.since)) return 'placed_after';
+  const price = Number(trade.price);
+  const lowHit = touch.low != null && touch.low <= price;
+  const highHit = touch.high != null && touch.high >= price;
+  const stop = trade.order_type === 'SL' || trade.order_type === 'SL-M';
+  const fall = stop
+    ? (trade.trigger_direction || (trade.transaction_type === 'BUY' ? 'RISE' : 'FALL')) === 'FALL'
+    : trade.transaction_type === 'BUY';
+  return (fall ? lowHit : highHit) ? null : 'price';
+}
+
 async function executeMatchedOrder(match, livePrice, options = {}) {
   let lease = null;
   let session = null;
@@ -211,6 +251,16 @@ async function executeMatchedOrder(match, livePrice, options = {}) {
       await lease.assertActive({ session });
       const trade = await Trade.findById(match.id).session(session);
       if (!trade || trade.status !== 'pending' || trade.deleted_at) return;
+      // A missed-touch fill: only if the order existed before the price traded
+      // there and the range really crosses its CURRENT price. Not eligible
+      // stays pending in the book (no cleanup).
+      if (options.touch) {
+        const why = touchVerdict(trade, options.touch);
+        if (why) {
+          outcome = { kind: 'not_eligible', reason: why, placedAt: orderChangedAt(trade), trade: null };
+          return;
+        }
+      }
 
       const state = await positionStateSinceLastFlat(trade.user_id, trade.instrument_token, session);
       const previousNetQty = state.totalBuyQty - state.totalSellQty;
@@ -483,6 +533,7 @@ async function executeMatchedOrder(match, livePrice, options = {}) {
       trade.pnl = realisedPnl;
       trade.brokerage = brokerage;
       trade.net_amount = realisedPnl - brokerage;
+      if (options.touch) trade.price_touched_at = new Date(options.touch.at);
       await trade.save({ session });
 
       const balanceBefore = currentEquity;
@@ -511,6 +562,7 @@ async function executeMatchedOrder(match, livePrice, options = {}) {
           positionClosed: realisedPnl !== 0,
           order_type: trade.order_type,
           executedBy: 'redis_queue_engine',
+          ...(options.touch ? { touch: { source: options.touch.source, low: options.touch.low, high: options.touch.high, at: new Date(options.touch.at) } } : {}),
         },
       });
       await transaction.save({ session });
@@ -673,14 +725,63 @@ const _processJob = async job => {
     ...matchingStopRise.map(id => ({ id, orderType: 'SL', direction: 'RISE' })),
     ...matchingStopFall.map(id => ({ id, orderType: 'SL', direction: 'FALL' })),
   ];
-  if (matches.length === 0) return;
+  const touch = job.data.touch || null;
+  if (matches.length === 0 && !touch) return;
 
-  console.log(`⚡ [PriceQueue] [${_ts()}] Token ${instrument_token} @ ${live_price} → ${matches.length} order(s) to execute | limitBuy=${matchingBuys.length} limitSell=${matchingSells.length} stopRise=${matchingStopRise.length} stopFall=${matchingStopFall.length}`);
-  if (LOG_REDIS_ORDERS) {
-    for (const match of matches) {
-      console.log(`   ↳ [PriceQueue] executing tradeId=${match.id} ${match.orderType} ${match.side || match.direction} | livePrice=${live_price}`);
+  if (matches.length > 0) {
+    console.log(`⚡ [PriceQueue] [${_ts()}] Token ${instrument_token} @ ${live_price} → ${matches.length} order(s) to execute | limitBuy=${matchingBuys.length} limitSell=${matchingSells.length} stopRise=${matchingStopRise.length} stopFall=${matchingStopFall.length}`);
+    await _executeMatches(instrument_token, matches, live_price);
+  }
+  // The day's low/high moved past the live price since the previous tick —
+  // a trade printed there in between (services/missedTouchService.js).
+  if (touch) {
+    try {
+      await processTouch(instrument_token, touch, live_price, { skipIds: new Set(matches.map((m) => m.id)) });
+    } catch (error) {
+      console.error(`❌ [PriceQueue] [${_ts()}] Touch check error | token=${instrument_token}: ${error.message}`);
     }
   }
+};
+
+/**
+ * Pending orders the exchange traded through in a window the live feed
+ * didn't show (a "touch", see services/missedTouchService.js): the LIMIT
+ * BUY / stop-FALL orders at or above its low, LIMIT SELL / stop-RISE at or
+ * below its high. Each fills at its own price, only if placed/modified
+ * before touch.since (executeMatchedOrder). `onlyIds` limits it to given
+ * orders (a client's cancel check); `skipIds` leaves out ones this tick
+ * already handled. Returns the per-order outcomes.
+ */
+async function processTouch(instrumentToken, touch, livePrice, { onlyIds = null, skipIds = null } = {}) {
+  const low = Number.isFinite(touch.low) ? touch.low : null;
+  const high = Number.isFinite(touch.high) ? touch.high : null;
+  if (low == null && high == null) return [];
+  const t = { ...touch, low, high };
+  const [buys, sells, rise, fall] = await Promise.all([
+    low != null ? orderBookService.getMatchingBuyOrders(instrumentToken, low) : [],
+    high != null ? orderBookService.getMatchingSellOrders(instrumentToken, high) : [],
+    high != null ? orderBookService.getMatchingStopRiseOrders(instrumentToken, high) : [],
+    low != null ? orderBookService.getMatchingStopFallOrders(instrumentToken, low) : [],
+  ]);
+  const matches = [
+    ...buys.map(id => ({ id, side: 'BUY', orderType: 'LIMIT' })),
+    ...sells.map(id => ({ id, side: 'SELL', orderType: 'LIMIT' })),
+    ...rise.map(id => ({ id, orderType: 'SL', direction: 'RISE' })),
+    ...fall.map(id => ({ id, orderType: 'SL', direction: 'FALL' })),
+  ].filter((m) => (!onlyIds || onlyIds.has(m.id)) && !(skipIds && skipIds.has(m.id)));
+  if (matches.length === 0) return [];
+  return _executeMatches(instrumentToken, matches, livePrice, { touch: t });
+}
+
+/** Execute matched orders, clean the done ones out of the book, notify. Returns [{ id, ...outcome }]. */
+async function _executeMatches(instrument_token, matches, live_price, execOptions = {}) {
+  const touch = execOptions.touch || null;
+  if (LOG_REDIS_ORDERS) {
+    for (const match of matches) {
+      console.log(`   ↳ [PriceQueue] executing tradeId=${match.id} ${match.orderType} ${match.side || match.direction} | livePrice=${live_price}${touch ? ` | touch ${touch.source} low=${touch.low} high=${touch.high}` : ''}`);
+    }
+  }
+  const results = [];
   const executedBuys = [];
   const executedSells = [];
   const executedStopRise = [];
@@ -713,12 +814,16 @@ const _processJob = async job => {
     const chunk = matches.slice(i, i + MATCH_EXECUTION_CONCURRENCY);
     await Promise.all(chunk.map(async (match) => {
       try {
-        const outcome = await executeMatchedOrder(match, live_price);
+        const outcome = await executeMatchedOrder(match, live_price, touch ? { touch } : {});
+        results.push({ id: match.id, ...outcome });
         if (['unchanged', 'cancelled', 'rejected', 'completed'].includes(outcome.kind)) {
           addCleanupId(match, executedBuys, executedSells, executedStopRise, executedStopFall);
         }
         if (LOG_REDIS_ORDERS && outcome.kind === 'unchanged') {
           console.log(`   ↳ [PriceQueue] [${_ts()}] tradeId=${match.id} outcome=unchanged (already not pending or deleted)`);
+        }
+        if (touch && outcome.kind === 'completed') {
+          console.log(`🎯 [PriceQueue] [${_ts()}] Missed-touch fill (${touch.source}) tradeId=${match.id} ${outcome.trade.order_type} ${outcome.trade.transaction_type} ${outcome.trade.tradingsymbol} @ ${outcome.trade.price} | exchange traded low=${touch.low} high=${touch.high} at ${new Date(touch.at).toISOString()} | live ${live_price}`);
         }
         await notifyOutcome(outcome, live_price);
       } catch (error) {
@@ -739,7 +844,8 @@ const _processJob = async job => {
   if (executedSells.length > 0) await orderBookService.removeMany(instrument_token, 'SELL', executedSells, 'LIMIT');
   if (executedStopRise.length > 0) await orderBookService.removeMany(instrument_token, null, executedStopRise, 'SL', 'RISE');
   if (executedStopFall.length > 0) await orderBookService.removeMany(instrument_token, null, executedStopFall, 'SL', 'FALL');
-};
+  return results;
+}
 
 const init = () => {
   if (!redisService.isAvailable()) {
@@ -779,10 +885,13 @@ const init = () => {
     });
   }
   console.log(`✅ [PriceQueue] [${_ts()}] Queue and worker initialised | concurrency=5, limiter=100/s`);
+  // Kite-candle checks for prices traded between feed snapshots.
+  try { require('./missedTouchService').start(); } catch (e) { console.error(`❌ [PriceQueue] missed-touch checks not started: ${e.message}`); }
 };
 
 const shutdown = async () => {
   console.log(`🛑 [PriceQueue] [${_ts()}] Shutting down... | totalJobsProcessed=${_jobsProcessed}`);
+  try { require('./missedTouchService').stop(); } catch (_) { /* never blocks shutdown */ }
   if (worker) await worker.close();
   if (queue) await queue.close();
   worker = null;
@@ -792,7 +901,8 @@ const shutdown = async () => {
 module.exports = {
   init,
   publishPriceUpdate,
+  processTouch,
   shutdown,
   calculateBrokerage,
-  _private: { executeMatchedOrder, positionStateSinceLastFlat, realisedPnlFor, _processJob },
+  _private: { executeMatchedOrder, positionStateSinceLastFlat, realisedPnlFor, _processJob, touchVerdict, mergeTouch, _flushPendingPricePublishes, _setQueue: (q) => { queue = q; } },
 };

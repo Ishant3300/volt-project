@@ -7,6 +7,7 @@ const WebSocket = require('ws');
 const jwt = require('jsonwebtoken');
 const kiteService = require('./kiteService');
 const priceQueueService = require('./priceQueueService');
+const missedTouchService = require('./missedTouchService');
 const syntheticInstrumentService = require('./syntheticInstrumentService');
 const KiteInstrument = require('../models/KiteInstrument');
 const KiteMarketQuote = require('../models/KiteMarketQuote');
@@ -718,8 +719,10 @@ class LivePriceService {
             // ALWAYS update metricsEngine (positions need live data, independent of watchlist)
             metricsEngine.onTick(t.instrument_token, t.last_price, t.bid_price, t.ask_price);
 
-            // Publish price update to BullMQ for order matching
-            priceQueueService.publishPriceUpdate(t.instrument_token.toString(), t.last_price);
+            // Publish price update to BullMQ for order matching — with the
+            // day's low/high when it moved past the live price since the
+            // previous tick (a trade printed between snapshots).
+            priceQueueService.publishPriceUpdate(t.instrument_token.toString(), t.last_price, missedTouchService.dayRangeTouch(t));
 
             // Update synthetic instruments that depend on this source
             syntheticInstrumentService.onTick(t.instrument_token, t.last_price);

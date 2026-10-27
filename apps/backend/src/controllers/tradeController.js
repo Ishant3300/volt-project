@@ -1973,6 +1973,27 @@ getPositions = async (req, res) => {
 
 
 /**
+ * A client's own cancel/modify of a pending LIMIT/SL first checks whether the
+ * exchange already traded through its price between two live-feed updates
+ * (services/missedTouchService.js) — if it did, the order has just filled at
+ * its price. Returns the message to answer with, or null to go ahead. Never
+ * blocks the change on an error.
+ */
+async function _missedTouchBeforeChange(trade, action) {
+    try {
+        const { executed } = await require('../services/missedTouchService').checkBeforeChange(trade);
+        if (!executed) return null;
+        const fresh = await Trade.findById(trade._id).select('status executed_price remarks').lean();
+        if (!fresh || fresh.status === 'pending') return null;
+        if (fresh.status === 'completed') return `This order was already executed at ${fresh.executed_price}: the price traded there before your ${action}.`;
+        return fresh.remarks || `Cannot ${action} trade with status: ${fresh.status}`;
+    } catch (error) {
+        console.error(`[MissedTouch] ${action} check for trade ${trade._id}: ${error.message}`);
+        return null;
+    }
+}
+
+/**
  * Cancel a pending limit order
  */
 const cancelTrade = async (req, res) => {
@@ -2015,6 +2036,11 @@ const cancelTrade = async (req, res) => {
                 success: false,
                 message: `Cannot cancel trade with status: ${trade.status}`
             });
+        }
+
+        if (req.user) {
+            const touchedMessage = await _missedTouchBeforeChange(trade, 'cancel');
+            if (touchedMessage) return res.status(400).json({ success: false, message: touchedMessage });
         }
 
         // Update status in DB
@@ -2095,6 +2121,10 @@ const modifyTrade = async (req, res) => {
         }
         if (trade.order_type === 'MARKET') {
             return res.status(400).json({ success: false, message: 'MARKET orders execute immediately and cannot be modified.' });
+        }
+        if (req.user) {
+            const touchedMessage = await _missedTouchBeforeChange(trade, 'change');
+            if (touchedMessage) return res.status(400).json({ success: false, message: touchedMessage });
         }
         // NFO closing window (3:20–3:40 PM IST): masters and clients can't
         // modify a limit/stop-loss order either — same rule as placeTrade.

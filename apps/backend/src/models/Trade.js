@@ -72,6 +72,12 @@ const tradeSchema = new mongoose.Schema({
     enum: ['RISE', 'FALL', null],
     default: null
   },
+  // LIMIT/SL filled by a missed-touch check (services/missedTouchService.js):
+  // when the exchange traded at/through its price between two live-feed
+  // updates. executed_at stays the real fill time. Unset for every other fill.
+  price_touched_at: {
+    type: Date
+  },
   placed_by: {
     type: String,
     enum: ['USER', 'ADMIN', 'MASTER', 'SYSTEM'],

@@ -940,9 +940,11 @@ async function fillCheck(c) {
   state.fillQueue = state.fillQueue || [];
   // Rollover legs are left out: they fill at the quote taken for the rollover, not a client order.
   for (const t of await c.newDocs(d, 'trades', { status: 'completed', placed_by: { $in: ['USER', 'MASTER'] }, exchange: { $in: KITE_EXCHANGES }, trade_type: { $ne: 'carry_forward' }, rollover_group_id: null },
-    { user_id: 1, instrument_token: 1, tradingsymbol: 1, transaction_type: 1, order_type: 1, executed_price: 1, executed_quantity: 1, quantity: 1, executed_at: 1 }, 'trades-fillcheck')) {
+    { user_id: 1, instrument_token: 1, tradingsymbol: 1, transaction_type: 1, order_type: 1, executed_price: 1, executed_quantity: 1, quantity: 1, executed_at: 1, price_touched_at: 1 }, 'trades-fillcheck')) {
     if (!(t.executed_price > 0) || !t.executed_at) continue;
-    state.fillQueue.push({ id: String(t._id), token: String(t.instrument_token), sym: t.tradingsymbol, side: t.transaction_type, ot: t.order_type, price: t.executed_price, qty: t.executed_quantity ?? t.quantity, at: new Date(t.executed_at).getTime(), user: String(t.user_id), tries: 0 });
+    // A missed-touch fill (price traded between feed updates, filled up to
+    // ~90 s later) is checked against the minute the price traded.
+    state.fillQueue.push({ id: String(t._id), token: String(t.instrument_token), sym: t.tradingsymbol, side: t.transaction_type, ot: t.order_type, price: t.executed_price, qty: t.executed_quantity ?? t.quantity, at: new Date(t.price_touched_at || t.executed_at).getTime(), user: String(t.user_id), tries: 0 });
   }
   if (state.fillQueue.length > 3000) state.fillQueue = state.fillQueue.slice(-3000);
   const now = Date.now();
@@ -961,14 +963,14 @@ async function fillCheck(c) {
   for (const k of Object.keys(state.fillStats)) if (k < p.ymd) delete state.fillStats[k];
   let calls = 0;
   for (const [, list] of groups) {
-    if (calls >= 20) break; // the rest next minute (Kite allows 3 requests/s)
+    if (calls >= 20) break; // the rest next minute (Kite allows 3 requests/s; the backend's missed-touch checks use up to 1/s)
     const ts = list.map((f) => f.at);
     let candles = [];
     try {
       calls++;
       candles = (await ks.getHistoricalData(list[0].token, 'minute', `${istStr(Math.min(...ts) - 120_000).slice(0, 16)}:00`, `${istStr(Math.max(...ts) + 120_000).slice(0, 16)}:00`, { silent: true })) || [];
     } catch (_) { candles = []; }
-    await new Promise((r) => setTimeout(r, 350));
+    await new Promise((r) => setTimeout(r, 600));
     const byMin = new Map(candles.map((cd) => [String(cd.date).slice(0, 16), cd]));
     for (const f of list) {
       const key = (ms) => istStr(ms).slice(0, 16).replace(' ', 'T');
@@ -1083,7 +1085,7 @@ async function quickProfitCheck(c, f, ks) {
   try {
     candles = (await ks.getHistoricalData(f.token, 'minute', `${istStr(firstEntry - 30 * 60_000).slice(0, 16)}:00`, `${istStr(f.at + 5 * 60_000).slice(0, 16)}:00`, { silent: true })) || [];
   } catch (_) { /* no candles */ }
-  await new Promise((r) => setTimeout(r, 350));
+  await new Promise((r) => setTimeout(r, 600));
   const startMin = Math.floor(firstEntry / 60_000) * 60_000;
   const endMin = Math.floor(f.at / 60_000) * 60_000;
   const inWin = candles.filter((cd) => candleMs(cd) >= startMin && candleMs(cd) <= endMin);
@@ -1194,7 +1196,7 @@ async function sendFillImages(c, list) {
     const fromMs = b.rt ? b.rt.entryAt - 8 * 60_000 : f.at - 12 * 60_000;
     const toMs = b.rt ? f.at + 5 * 60_000 : f.at + 12 * 60_000;
     try { candles = (await ks.getHistoricalData(f.token, 'minute', `${istStr(fromMs).slice(0, 16)}:00`, `${istStr(toMs).slice(0, 16)}:00`, { silent: true })) || []; } catch (_) { /* skip */ }
-    await new Promise((r) => setTimeout(r, 350));
+    await new Promise((r) => setTimeout(r, 600));
     if (!candles.length) continue;
     const u = c.names.users.get(String(b.user));
     items.push({ b, fill: { ...f, client: u ? `${u.username} ${u.name || ''}`.trim() : who(b.user), spike: b.spike || null, rt: b.rt || null }, candles });
