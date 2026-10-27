@@ -2043,9 +2043,24 @@ const cancelTrade = async (req, res) => {
             if (touchedMessage) return res.status(400).json({ success: false, message: touchedMessage });
         }
 
-        // Update status in DB
+        // Update status in DB — only while still pending. A fill can commit
+        // between the load above and here (a tick, or the missed-touch check);
+        // an unconditional save turned that completed trade into 'cancelled'
+        // with its wallet/equity/position effects still booked.
+        const cancelled = await withTradeWriteLease('cancel_order', () => Trade.updateOne(
+            { _id: trade._id, status: 'pending', deleted_at: null },
+            { $set: { status: 'cancelled' } }
+        ));
+        if (!cancelled.modifiedCount) {
+            const fresh = await Trade.findById(trade._id).select('status executed_price').lean();
+            return res.status(400).json({
+                success: false,
+                message: fresh?.status === 'completed'
+                    ? `This order was already executed at ${fresh.executed_price}.`
+                    : `Cannot cancel trade with status: ${fresh?.status || 'unknown'}`
+            });
+        }
         trade.status = 'cancelled';
-        await withTradeWriteLease('cancel_order', () => trade.save());
 
         // Remove from Redis order book
         await orderBookService.removeOrder(
@@ -2238,11 +2253,16 @@ const modifyTrade = async (req, res) => {
             oldTriggerDirection
         );
 
+        // Only while still pending at the values this modify was checked
+        // against — a fill (or another modify) can commit in between, and an
+        // unconditional save wrote the new price onto a completed trade (or
+        // replaced a newer price) and put it back in the book.
+        let modified;
         try {
-            trade.price = newPrice;
-            trade.quantity = newQuantity;
-            trade.trigger_direction = newTriggerDirection;
-            await withTradeWriteLease('modify_order', () => trade.save());
+            modified = await withTradeWriteLease('modify_order', () => Trade.updateOne(
+                { _id: trade._id, status: 'pending', deleted_at: null, price: oldPrice, quantity: trade.quantity },
+                { $set: { price: newPrice, quantity: newQuantity, trigger_direction: newTriggerDirection } }
+            ));
         } catch (saveErr) {
             await orderBookService.addOrder(
                 trade._id.toString(),
@@ -2254,6 +2274,26 @@ const modifyTrade = async (req, res) => {
             );
             throw saveErr;
         }
+        // matchedCount, not modifiedCount: a modify to the same values matches
+        // but changes nothing — that's still a success.
+        if (!modified.matchedCount) {
+            // Not changed: filled, cancelled or modified meanwhile. A still-
+            // pending order goes back in the book at its CURRENT values.
+            const fresh = await Trade.findById(trade._id).select('status price transaction_type order_type trigger_direction executed_price').lean();
+            if (fresh?.status === 'pending') {
+                await orderBookService.addOrder(trade._id.toString(), trade.instrument_token, fresh.price, fresh.transaction_type, fresh.order_type, fresh.trigger_direction);
+                return res.status(409).json({ success: false, message: 'This order changed while you were modifying it. Please check it and try again.' });
+            }
+            return res.status(400).json({
+                success: false,
+                message: fresh?.status === 'completed'
+                    ? `This order was already executed at ${fresh.executed_price}.`
+                    : `Cannot modify trade with status: ${fresh?.status || 'unknown'}`
+            });
+        }
+        trade.price = newPrice;
+        trade.quantity = newQuantity;
+        trade.trigger_direction = newTriggerDirection;
 
         await orderBookService.addOrder(
             trade._id.toString(),

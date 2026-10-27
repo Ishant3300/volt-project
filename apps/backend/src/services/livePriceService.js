@@ -849,6 +849,9 @@ class LivePriceService {
         // Exchange timestamp (full mode): when the exchange itself last
         // updated this quote — kept per segment for isExchangeLive().
         if (packet.length >= 64) this._noteExchangeTimestamp(segment, packet.readInt32BE(60));
+        // Exchange time of this snapshot (seconds) — missedTouchService needs
+        // when the PREVIOUS snapshot was taken, not when we received it.
+        if (packet.length >= 64) tick.exchange_timestamp = packet.readInt32BE(60);
 
         // Full mode (184 bytes) includes market depth starting at byte 64
         if (packet.length >= 184) {

@@ -150,14 +150,20 @@ function dayRangeTouch(tick) {
   const now = Date.now();
   const prev = _day.get(token);
   if (!(low > 0) || !(high > 0) || !(ltp > 0)) return null;
-  _day.set(token, { low, high, at: now });
+  const exch = Number(tick.exchange_timestamp) > 0 ? Number(tick.exchange_timestamp) * 1000 : null;
+  _day.set(token, { low, high, at: now, exch });
   if (!prev || now - prev.at > DAY_RANGE_MAX_GAP_MS) return null;
+  // The new extreme printed after the previous SNAPSHOT was taken — use the
+  // exchange's time for it (whole seconds, so never later), not when we
+  // received it: a lagging feed must not let an order placed after the print
+  // qualify.
+  const prevAt = prev.exch != null ? Math.min(prev.at, prev.exch) : prev.at;
   let tLow = low < prev.low && low < ltp ? low : null;
   let tHigh = high > prev.high && high > ltp ? high : null;
   if (tLow != null && (ltp - tLow) / ltp > DAY_RANGE_MAX_PCT) tLow = null;
   if (tHigh != null && (tHigh - ltp) / ltp > DAY_RANGE_MAX_PCT) tHigh = null;
   if (tLow == null && tHigh == null) return null;
-  return { low: tLow, high: tHigh, since: prev.at - CLOCK_MARGIN_MS, at: now, source: 'day_range' };
+  return { low: tLow, high: tHigh, since: prevAt - CLOCK_MARGIN_MS, at: now, source: 'day_range' };
 }
 
 // ── Kite request slots (≤ 1/s, cancel checks first) ────────────────────────
@@ -282,7 +288,9 @@ function _nextDue(now = Date.now()) {
     if (st?.cursor && tickAt < st.cursor) continue;
     let prio = null;
     if (info.near && now - last >= NEAR_INTERVAL_MS) prio = PRIO.NEAR;
-    else if (now - last >= SWEEP_INTERVAL_MS) prio = PRIO.SWEEP;
+    // A sweep twice overdue competes with the near checks (oldest first),
+    // so many near scripts can't starve the others.
+    else if (now - last >= SWEEP_INTERVAL_MS) prio = now - last >= 2 * SWEEP_INTERVAL_MS ? PRIO.NEAR : PRIO.SWEEP;
     if (prio == null) continue;
     if (!best || prio > best.prio || (prio === best.prio && last < best.last)) best = { token, prio, last };
   }

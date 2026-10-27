@@ -107,7 +107,12 @@ const addOrder = async (tradeId, instrumentToken, limitPrice, side, orderType = 
 /**
  * Remove an order from the book (on cancel or execution).
  */
-const removeOrder = async (tradeId, instrumentToken, side, orderType = 'LIMIT') => {
+// `direction` (SL/SL-M trigger_direction) picks the stop set the order was
+// added to. Every caller passed it, but it was not a parameter, so an SL BUY
+// with direction FALL (or SL SELL with RISE) was looked up in the wrong set
+// and never removed on cancel/modify — a modify left a stale entry at the
+// old trigger.
+const removeOrder = async (tradeId, instrumentToken, side, orderType = 'LIMIT', direction = null) => {
   if (!redisService.isAvailable()) {
     if (LOG_REDIS_ORDERS) {
       console.log(`⚠️  [OrderBook] [${_ts()}] removeOrder SKIPPED — Redis unavailable | tradeId=${tradeId} token=${instrumentToken} ${orderType} ${side}`);
@@ -116,7 +121,7 @@ const removeOrder = async (tradeId, instrumentToken, side, orderType = 'LIMIT') 
   }
 
   try {
-    const key = _key(instrumentToken, side, orderType);
+    const key = _key(instrumentToken, side, orderType, direction);
     const removed = await redisService.getClient().zrem(key, tradeId);
     if (LOG_REDIS_ORDERS) {
       console.log(`📕 [OrderBook] [${_ts()}] removeOrder | tradeId=${tradeId} token=${instrumentToken} ${orderType} ${side} | removed=${removed} key=${key}`);

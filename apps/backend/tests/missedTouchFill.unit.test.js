@@ -8,7 +8,7 @@
 // fill it), and only when the range crosses the order's CURRENT price.
 
 jest.mock('bullmq', () => ({ Queue: jest.fn(), Worker: jest.fn() }));
-jest.mock('../src/models/Trade', () => ({ findById: jest.fn(), find: jest.fn(), create: jest.fn() }));
+jest.mock('../src/models/Trade', () => ({ findById: jest.fn(), find: jest.fn(), create: jest.fn(), exists: jest.fn() }));
 jest.mock('../src/models/User', () => ({ findById: jest.fn() }));
 jest.mock('../src/models/KiteInstrument', () => ({ findOne: jest.fn() }));
 jest.mock('../src/models/Transaction', () => jest.fn().mockImplementation((doc) => ({ doc, save: jest.fn().mockResolvedValue(undefined) })));
@@ -92,6 +92,7 @@ beforeEach(() => {
   // Long 100 @ 9533 — the SL SELL closes it.
   Trade.find.mockReturnValue(chain([{ transaction_type: 'BUY', executed_quantity: 100, executed_price: 9533, executed_at: new Date(T('20:40:35')) }]));
   Trade.create.mockResolvedValue([{}]);
+  Trade.exists.mockReturnValue({ session: jest.fn().mockResolvedValue(null) }); // no trade since the window
   KiteInstrument.findOne.mockImplementation(() => chain({ segment: 'MCX-FUT', enabled: true }));
   const gateUser = { bet: true, close_only: false, exchanges_allowed: [{ exchange_name: 'MCX-FUT', turnover: true }], credits: 100000 };
   const userDoc = { equity: 100000, save: jest.fn().mockResolvedValue(undefined) };
@@ -153,7 +154,8 @@ test('mergeTouch keeps the widest range and the earlier since', () => {
 });
 
 describe('processTouch', () => {
-  const touch = { low: 9501, high: null, since: T('21:13:02'), at: T('21:13:03'), source: 'kite_window' };
+  let touch;
+  beforeEach(() => { touch = { low: 9501, high: null, since: Date.now() - 31_000, at: Date.now() - 30_000, source: 'kite_window' }; });
 
   test('fills the SL at its own price, records when the price traded, cleans it from the stop-fall book', async () => {
     orderBookService.getMatchingStopFallOrders.mockResolvedValue(['sl1']);
@@ -165,19 +167,37 @@ describe('processTouch', () => {
     expect(out).toEqual([expect.objectContaining({ id: 'sl1', kind: 'completed' })]);
     expect(tradeDoc.status).toBe('completed');
     expect(tradeDoc.executed_price).toBe(9502);
-    expect(tradeDoc.price_touched_at).toEqual(new Date(T('21:13:03')));
+    expect(tradeDoc.price_touched_at).toEqual(new Date(touch.at));
     expect(tradeDoc.pnl).toBe((9502 - 9533) * 100);
     expect(orderBookService.removeMany).toHaveBeenCalledWith('146796039', null, ['sl1'], 'SL', 'FALL');
   });
 
   test('an order placed after the window began stays pending and stays in the book', async () => {
-    tradeDoc = makeTrade({ updatedAt: new Date(T('21:13:10')) });
+    const placed = Date.now() - 10_000;
+    tradeDoc = makeTrade({ updatedAt: new Date(placed) });
     orderBookService.getMatchingStopFallOrders.mockResolvedValue(['sl1']);
     const out = await pq.processTouch('146796039', touch, 9530);
-    expect(out).toEqual([expect.objectContaining({ id: 'sl1', kind: 'not_eligible', reason: 'placed_after', placedAt: T('21:13:10') })]);
+    expect(out).toEqual([expect.objectContaining({ id: 'sl1', kind: 'not_eligible', reason: 'placed_after', placedAt: placed })]);
     expect(tradeDoc.status).toBe('pending');
     expect(tradeDoc.save).not.toHaveBeenCalled();
     expect(orderBookService.removeMany).not.toHaveBeenCalled();
+  });
+
+  test('the client traded this script after the price touched: no late fill on a changed position', async () => {
+    Trade.exists.mockReturnValue({ session: jest.fn().mockResolvedValue({ _id: 'manualClose' }) });
+    orderBookService.getMatchingStopFallOrders.mockResolvedValue(['sl1']);
+    const out = await pq.processTouch('146796039', touch, 9530);
+    expect(out).toEqual([expect.objectContaining({ id: 'sl1', kind: 'not_eligible', reason: 'position_changed' })]);
+    expect(Trade.exists).toHaveBeenCalledWith(expect.objectContaining({ user_id: 'u720722', instrument_token: '146796039', status: 'completed', executed_at: { $gte: new Date(touch.since) } }));
+    expect(tradeDoc.status).toBe('pending');
+    expect(orderBookService.removeMany).not.toHaveBeenCalled();
+  });
+
+  test("a window over 3 minutes old fills nothing — except for the client's own cancel check", async () => {
+    orderBookService.getMatchingStopFallOrders.mockResolvedValue(['sl1']);
+    const old = { ...touch, since: Date.now() - 241_000, at: Date.now() - 240_000 };
+    expect(await pq.processTouch('146796039', old, 9530)).toEqual([expect.objectContaining({ kind: 'not_eligible', reason: 'too_old' })]);
+    expect(await pq.processTouch('146796039', { ...old, source: 'cancel_check' }, 9530)).toEqual([expect.objectContaining({ kind: 'completed' })]);
   });
 
   test('onlyIds limits it to the given orders', async () => {
@@ -190,7 +210,7 @@ describe('processTouch', () => {
 describe('_processJob with a day-range touch', () => {
   test('no live-price match, but the touch fills the stop', async () => {
     orderBookService.getMatchingStopFallOrders.mockImplementation(async (_t, price) => (price <= 9502 ? ['sl1'] : []));
-    await _processJob({ data: { instrument_token: '146796039', live_price: 9503, timestamp: Date.now(), touch: { low: 9501, high: null, since: T('21:13:03'), at: T('21:13:04'), source: 'day_range' } } });
+    await _processJob({ data: { instrument_token: '146796039', live_price: 9503, timestamp: Date.now(), touch: { low: 9501, high: null, since: Date.now() - 2000, at: Date.now(), source: 'day_range' } } });
     expect(tradeDoc.status).toBe('completed');
     expect(tradeDoc.executed_price).toBe(9502);
   });

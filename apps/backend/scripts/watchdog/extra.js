@@ -924,6 +924,8 @@ async function kite() {
  * high). Returns { rangePct, edgePct, volShare } or null.
  */
 const SPIKE_MIN_PCT = () => num(process.env.WATCHDOG_SPIKE_PCT, 0.5);
+// Alert when a LIMIT/SL was triggered by a price this far (%) outside the exchange's ±1 min range.
+const BAD_TRIGGER_PCT = () => num(process.env.WATCHDOG_BAD_TRIGGER_PCT, 0.5);
 function spikeCatch(f, own) {
   if (!own || !['LIMIT', 'SL', 'SL-M'].includes(f.ot)) return null;
   const range = own.high - own.low;
@@ -944,7 +946,7 @@ async function fillCheck(c) {
     if (!(t.executed_price > 0) || !t.executed_at) continue;
     // A missed-touch fill (price traded between feed updates, filled up to
     // ~90 s later) is checked against the minute the price traded.
-    state.fillQueue.push({ id: String(t._id), token: String(t.instrument_token), sym: t.tradingsymbol, side: t.transaction_type, ot: t.order_type, price: t.executed_price, qty: t.executed_quantity ?? t.quantity, at: new Date(t.price_touched_at || t.executed_at).getTime(), user: String(t.user_id), tries: 0 });
+    state.fillQueue.push({ id: String(t._id), token: String(t.instrument_token), sym: t.tradingsymbol, side: t.transaction_type, ot: t.order_type, price: t.executed_price, qty: t.executed_quantity ?? t.quantity, at: new Date(t.price_touched_at || t.executed_at).getTime(), touched: !!t.price_touched_at, user: String(t.user_id), tries: 0 });
   }
   if (state.fillQueue.length > 3000) state.fillQueue = state.fillQueue.slice(-3000);
   const now = Date.now();
@@ -972,6 +974,17 @@ async function fillCheck(c) {
     } catch (_) { candles = []; }
     await new Promise((r) => setTimeout(r, 600));
     const byMin = new Map(candles.map((cd) => [String(cd.date).slice(0, 16), cd]));
+    // The price that triggered each LIMIT/SL fill (Transaction metadata.livePrice).
+    const trigBy = new Map();
+    const pend = list.filter((f) => ['LIMIT', 'SL', 'SL-M'].includes(f.ot) && !f.touched);
+    if (pend.length) {
+      try {
+        const { Types } = require(path.join(APP, 'node_modules', 'mongoose'));
+        // Only the fill's own record carries livePrice (a later delete/edit adds an ADJUSTMENT without one).
+        const txs = await d.collection('transactions').find({ referenceId: { $in: pend.map((f) => new Types.ObjectId(f.id)) }, 'metadata.livePrice': { $gt: 0 } }, { projection: { referenceId: 1, 'metadata.livePrice': 1 } }).toArray();
+        for (const tx of txs) trigBy.set(String(tx.referenceId), Number(tx.metadata?.livePrice));
+      } catch (e) { console.error('[watchdog] fill trigger prices:', e.message); }
+    }
     for (const f of list) {
       const key = (ms) => istStr(ms).slice(0, 16).replace(' ', 'T');
       const own = byMin.get(key(f.at));
@@ -983,6 +996,21 @@ async function fillCheck(c) {
       const cs = [byMin.get(key(f.at - 60_000)), own, byMin.get(key(f.at + 60_000))].filter(Boolean);
       const low = Math.min(...cs.map((x) => x.low));
       const high = Math.max(...cs.map((x) => x.high));
+      // The price that FIRED a LIMIT/SL vs what the exchange traded (±1 min):
+      // far outside = a bad price reached order matching (27 Oct: practice's
+      // simulated GOLD DEC 154051 filled a live SL BUY 144322, exchange ~144083).
+      const trig = trigBy.get(f.id);
+      if (trig > 0) {
+        const off = trig < low ? (low - trig) / low : trig > high ? (trig - high) / high : 0;
+        if (off * 100 > BAD_TRIGGER_PCT()) {
+          raise(`badprice:${f.id}`, 'critical', 'Order filled on a price the exchange never traded', [
+            who(f.user),
+            `${f.sym} ${f.side} ${f.qty} ${f.ot} @ ${f.price} at ${istStr(f.at).slice(11)}`,
+            `It was triggered by price ${trig}, but the exchange traded only ${low}–${high} around then (${(off * 100).toFixed(2)}% away).`,
+            'A wrong price reached order matching. Check the price feed; this fill may need to be reversed.',
+          ], { cooldownMs: 0 });
+        }
+      }
       const tol = Math.max(0.05, f.price * 0.0002);
       const day = istStr(f.at).slice(0, 10);
       const st = state.fillStats[day] || (state.fillStats[day] = { checked: 0, better: 0, worse: 0, gain: {} });
@@ -1006,7 +1034,16 @@ async function fillCheck(c) {
       }
       const better = (f.side === 'BUY' && f.price < low) || (f.side === 'SELL' && f.price > high);
       const gap = f.price < low ? low - f.price : f.price - high;
-      if (!better) { st.worse++; win.worse++; continue; }
+      if (!better) {
+        st.worse++;
+        win.worse++;
+        win.worseList = win.worseList || [];
+        if (win.worseList.length < 60) {
+          win.worseList.push({ user: f.user, ex: { low, high }, value: gap * f.qty,
+            fill: { id: f.id, token: f.token, sym: f.sym, side: f.side, qty: f.qty, ot: f.ot, price: f.price, at: f.at } });
+        }
+        continue;
+      }
       st.better++;
       st.gain[f.user] = (st.gain[f.user] || 0) + gap * f.qty;
       if (win.better.length < 60) {
@@ -1164,6 +1201,10 @@ async function fillReport(c) {
       ...win.better.slice(0, 20).flatMap((b) => [`• ${who(b.user)} · ${sym(b.fill.sym)}`,
         `   ${b.fill.side} ${b.fill.qty} @ ${n2(b.fill.price)} at ${hm(b.fill.at)} · market was ${n2(b.ex?.low)}–${n2(b.ex?.high)} · difference ${rupees(b.value)}`]),
       win.better.length > 20 ? `…and ${win.better.length - 20} more` : ''] : []),
+    ...((win.worseList || []).length ? [gap, `At a price worse than the market for the client (${win.worseList.length}${win.worse > win.worseList.length ? ` of ${win.worse}` : ''}) · ${rupees(win.worseList.reduce((s2, b) => s2 + b.value, 0))} against clients`,
+      ...win.worseList.slice().sort((a, b) => b.value - a.value).slice(0, 10).flatMap((b) => [`• ${who(b.user)} · ${sym(b.fill.sym)} · ${b.fill.ot}`,
+        `   ${b.fill.side} ${b.fill.qty} @ ${n2(b.fill.price)} at ${hm(b.fill.at)} · market was ${n2(b.ex?.low)}–${n2(b.ex?.high)} · difference ${rupees(b.value)}`]),
+      win.worseList.length > 10 ? `…and ${win.worseList.length - 10} more` : ''] : []),
     ...(win.spikes.length ? [gap, `⚡ Filled at the edge of a sudden spike (${win.spikes.length})`,
       ...win.spikes.slice(0, 15).flatMap((b) => [`• ${who(b.user)} · ${sym(b.fill.sym)}`,
         `   ${b.fill.side} ${b.fill.qty} @ ${n2(b.fill.price)} at ${hm(b.fill.at)} · that minute ${n2(b.ex?.low)}–${n2(b.ex?.high)} (${b.spike.rangePct.toFixed(1)}% move)${b.spike.volShare != null ? ` · client was ${b.spike.volShare < 10 ? b.spike.volShare.toFixed(1) : Math.round(b.spike.volShare)}% of its volume` : ''}`])] : []),
@@ -1232,4 +1273,4 @@ async function slow(c) {
   if (p.day >= 1 && p.day <= 5 && p.hhmm >= '23:40' && !state.digests[`collusion ${p.ymd}`]) { state.digests[`collusion ${p.ymd}`] = true; await collusion(c); }
 }
 
-module.exports = { internal, events, slow, sendFillImages, _test: { fillReport, brokerageChanges, brokerageChangeLines, certDaysLeft, spikeCatch, closedLots, exchangeDiff, fieldDiff, summarizeBody, COVERED_ACCOUNT, COVERED_MONEY, TRADE_EDIT, CREATE_PATH, newAccountMessage, partOfCreation } };
+module.exports = { internal, events, slow, sendFillImages, _test: { fillReport, fillCheck, brokerageChanges, brokerageChangeLines, certDaysLeft, spikeCatch, closedLots, exchangeDiff, fieldDiff, summarizeBody, COVERED_ACCOUNT, COVERED_MONEY, TRADE_EDIT, CREATE_PATH, newAccountMessage, partOfCreation } };

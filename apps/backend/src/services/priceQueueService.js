@@ -215,6 +215,10 @@ function realisedPnlFor(trade, state) {
   return 0;
 }
 
+// Missed-touch fills from a window that started longer ago than this are not
+// made (the client has been looking at an unfilled order for minutes).
+const TOUCH_MAX_AGE_MS = 180_000;
+
 /** When a pending order was placed or last modified (modify saves → updatedAt). */
 const orderChangedAt = (trade) => new Date(trade.updatedAt || trade.createdAt || 0).getTime();
 
@@ -255,7 +259,19 @@ async function executeMatchedOrder(match, livePrice, options = {}) {
       // there and the range really crosses its CURRENT price. Not eligible
       // stays pending in the book (no cleanup).
       if (options.touch) {
-        const why = touchVerdict(trade, options.touch);
+        let why = touchVerdict(trade, options.touch);
+        // A late fill must not land on a position the client has changed
+        // since the price traded (e.g. closed by hand — the stop would open a
+        // new position), nor come from a dip minutes old. A client's own
+        // cancel/modify check may use older windows (they asked for it).
+        if (!why && options.touch.source !== 'cancel_check' && Date.now() - options.touch.at > TOUCH_MAX_AGE_MS) why = 'too_old';
+        if (!why) {
+          const tradedSince = await Trade.exists({
+            user_id: trade.user_id, instrument_token: trade.instrument_token, status: 'completed', deleted_at: null,
+            executed_at: { $gte: new Date(options.touch.since) },
+          }).session(session);
+          if (tradedSince) why = 'position_changed';
+        }
         if (why) {
           outcome = { kind: 'not_eligible', reason: why, placedAt: orderChangedAt(trade), trade: null };
           return;

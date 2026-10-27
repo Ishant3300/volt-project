@@ -49,6 +49,13 @@ describe('A: day low/high on each tick', () => {
     expect(touch.since).toBe(prevAt - P.CONST.CLOCK_MARGIN_MS);
   });
 
+  test('the window starts at the previous snapshot\'s EXCHANGE time when that is earlier than when we got it (lagging feed)', () => {
+    const exchSec = Math.floor(Date.now() / 1000) - 3; // previous snapshot taken 3 s before we received it
+    svc.dayRangeTouch({ instrument_token: 146796039, last_price: 9507, low: 9505, high: 9800, exchange_timestamp: exchSec });
+    const touch = svc.dayRangeTouch({ instrument_token: 146796039, last_price: 9503, low: 9501, high: 9800, exchange_timestamp: exchSec + 3 });
+    expect(touch.since).toBe(exchSec * 1000 - P.CONST.CLOCK_MARGIN_MS);
+  });
+
   test('a new low AT the live price is already seen by the normal tick match — no touch', () => {
     svc.dayRangeTouch({ instrument_token: 146796039, last_price: 9507, low: 9505, high: 9800 });
     expect(svc.dayRangeTouch({ instrument_token: 146796039, last_price: 9503, low: 9503, high: 9800 })).toBeNull();
@@ -132,6 +139,16 @@ describe('which script is checked next', () => {
     expect(P._nextDue(now)).toMatchObject({ token: '1' });
     P._state.get('1').lastCheckAt = now;
     expect(P._nextDue(now)).toBeNull();
+  });
+
+  test('a sweep twice overdue is not starved by near scripts', () => {
+    const now = Date.now();
+    P._setTracked(new Map([['near', { near: true }], ['far', { near: false }]]));
+    P._state.set('near', { cursor: now - 90_000, lastCheckAt: now - 2_500 });
+    P._state.set('far', { cursor: now - 90_000, lastCheckAt: now - 125_000 });
+    P._day.set('near', { at: now - 500 });
+    P._day.set('far', { at: now - 500 });
+    expect(P._nextDue(now)).toMatchObject({ token: 'far' });
   });
 });
 
