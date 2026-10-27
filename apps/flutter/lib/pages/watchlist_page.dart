@@ -1,3 +1,4 @@
+import 'package:stocker/widgets/nse_ban_chip.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stocker/pages/instrument_search_page.dart';
@@ -431,16 +432,22 @@ class _WatchlistPageState extends State<WatchlistPage> {
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     alignment: Alignment.centerLeft,
-                    child: Text(
-                      _buildInstrumentTitle(
-                          instrument, instType, strike, isOption, isFut),
-                      style: const TextStyle(
-                        color: Color(0xFF111417),
-                        fontSize: 14,
-                        fontFamily: kFontFamily,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 1,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _buildInstrumentTitle(
+                              instrument, instType, strike, isOption, isFut),
+                          style: const TextStyle(
+                            color: Color(0xFF111417),
+                            fontSize: 14,
+                            fontFamily: kFontFamily,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                        ),
+                        if (instrument.nseBanned) const NseBanChip(),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 1),

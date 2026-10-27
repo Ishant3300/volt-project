@@ -1,3 +1,4 @@
+import 'package:stocker/widgets/nse_ban_chip.dart';
 import 'dart:async';
 import 'dart:developer';
 import 'package:flutter/material.dart';
@@ -714,6 +715,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                             _searchController.text,
                           ),
                         ),
+                        if (instrument.nseBanned) const NseBanChip(),
                       ],
                     ),
                     Row(

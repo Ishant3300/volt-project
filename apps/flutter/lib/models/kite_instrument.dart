@@ -21,6 +21,9 @@ class KiteInstrument {
   final String exchange;
   final bool isActive;
   final DateTime updatedAt;
+  /// Under NSE F&O ban today: still listed (tagged NSE BAN), trading is
+  /// closing-only and rollover is refused (server rules).
+  final bool nseBanned;
 
   KiteInstrument({
     required this.id,
@@ -44,6 +47,7 @@ class KiteInstrument {
     required this.exchange,
     required this.isActive,
     required this.updatedAt,
+    this.nseBanned = false,
   });
 
   factory KiteInstrument.fromJson(Map<String, dynamic> json) {
@@ -71,6 +75,7 @@ class KiteInstrument {
       segment: json['segment'] ?? '',
       exchange: json['exchange'] ?? '',
       isActive: json['is_active'] ?? true,
+      nseBanned: json['nse_banned'] == true,
       updatedAt: json['updated_at'] != null
           ? DateTime.tryParse(json['updated_at'].toString()) ?? DateTime.now()
           : DateTime.now(),
@@ -99,6 +104,7 @@ class KiteInstrument {
       'segment': segment,
       'exchange': exchange,
       'is_active': isActive,
+      'nse_banned': nseBanned,
       'updated_at': updatedAt.toIso8601String(),
     };
   }
