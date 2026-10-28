@@ -439,7 +439,10 @@ class CronService {
         // close" below), COMEX metals do have this real daily gap, so an
         // intraday-enabled COMEX position should square off here the same
         // way NSE/MCX square off at their own close.
-        const intradaySquareOffCOMEX = cron.schedule('0 2 * * 1-5', async () => {
+        // Tue–Sat: each night session (Mon–Fri) ends the next morning —
+        // Saturday 2:00 AM closes Friday's; there is no Monday run, the
+        // market is shut over the weekend (it would close at Friday prices).
+        const intradaySquareOffCOMEX = cron.schedule('0 2 * * 2-6', async () => {
             console.log('🔄 [CRON] Intraday square-off (COMEX close)...');
             try {
                 await this.runIntradaySquareOff(['COMEX-FUT']);
@@ -454,8 +457,8 @@ class CronService {
         // Nikkei): 2:00 AM IST, the start of the platform's 2:00–3:30 AM
         // global break (market_hours.dart), same as COMEX. GIFT NIFTY is
         // under the same GLOBAL switch but still trades until 2:45 AM, so it
-        // is left to its own run below.
-        const intradaySquareOffGLOBAL = cron.schedule('0 2 * * 1-5', async () => {
+        // is left to its own run below. Tue–Sat, like COMEX.
+        const intradaySquareOffGLOBAL = cron.schedule('0 2 * * 2-6', async () => {
             console.log('🔄 [CRON] Intraday square-off (GLOBAL close)...');
             try {
                 await this.runIntradaySquareOff(['GLOBAL'], { excludeExchanges: ['NSEIX'] });
@@ -467,8 +470,8 @@ class CronService {
         this.jobs.push(intradaySquareOffGLOBAL);
 
         // GIFT NIFTY (NSE IX): 2:46 AM IST, one minute after its night
-        // session closes at 2:45 (market_hours.dart). GLOBAL switch.
-        const intradaySquareOffGIFT = cron.schedule('46 2 * * 1-5', async () => {
+        // session closes at 2:45 (market_hours.dart). GLOBAL switch. Tue–Sat.
+        const intradaySquareOffGIFT = cron.schedule('46 2 * * 2-6', async () => {
             console.log('🔄 [CRON] Intraday square-off (GIFT NIFTY close)...');
             try {
                 await this.runIntradaySquareOff(['GLOBAL'], { onlyExchanges: ['NSEIX'] });
@@ -478,25 +481,6 @@ class CronService {
             }
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(intradaySquareOffGIFT);
-
-        // Friday night: the platform closes COMEX, GLOBAL and GIFT NIFTY for
-        // the weekend at midnight (market_hours.dart has no Saturday hours)
-        // while their feeds still run until 2:30–2:45 AM — so an intraday
-        // position from Friday's session is squared off at Saturday 00:00
-        // IST at a live bid/ask, not carried over the weekend by settlement.
-        // The weekday 2:00 / 2:46 AM runs above cover Monday–Thursday nights.
-        const intradaySquareOffWeekend = cron.schedule('0 0 * * 6', async () => {
-            console.log('🔄 [CRON] Intraday square-off (weekend close: COMEX, GLOBAL, GIFT NIFTY)...');
-            for (const segments of [['COMEX-FUT'], ['GLOBAL']]) {
-                try {
-                    await this.runIntradaySquareOff(segments);
-                } catch (error) {
-                    console.error(`❌ [CRON] Error during weekend intraday square-off (${segments.join(', ')}):`, error);
-                }
-            }
-            console.log('✅ [CRON] Weekend intraday square-off completed.');
-        }, { timezone: 'Asia/Kolkata' });
-        this.jobs.push(intradaySquareOffWeekend);
 
         // ── NFO closing window: 3:20 PM IST ─────────────────────────────
         // From 3:20 to 3:40 PM only MARKET orders are allowed in NFO-FUT /
