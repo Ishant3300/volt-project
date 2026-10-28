@@ -526,8 +526,10 @@ class CronService {
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(cancelPendingMCX);
 
-        // COMEX-FUT: 2:02 AM IST
-        const cancelPendingCOMEX = cron.schedule('2 2 * * 1-5', async () => {
+        // COMEX-FUT: 2:02 AM IST, Tue–Sat — right after the 2:00 AM close of
+        // each Mon–Fri night session (Saturday 2:02 cancels Friday's), like
+        // GIFT NIFTY below. Never on Monday: the market is shut then.
+        const cancelPendingCOMEX = cron.schedule('2 2 * * 2-6', async () => {
             console.log('🗑️ [CRON] Cancelling pending orders (COMEX close)...');
             try {
                 const count = await this.cancelPendingOrdersBySegment(['COMEX-FUT']);
