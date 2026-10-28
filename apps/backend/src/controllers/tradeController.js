@@ -940,6 +940,15 @@ const placeTrade = async (req, res) => {
                     && !require('../services/livePriceService').isExchangeLive(instrument_token)) {
                     throw Object.assign(new Error(exchangeNotLiveMessage(liveExchange)), { status: 403 });
                 }
+                // COMEX / GLOBAL index futures (CME Globex): refused during
+                // CME's daily break and over the weekend, by CME's own hours
+                // in Chicago time (utils/cmeHours.js) — the price held then is
+                // frozen, and the apps' fixed 2:00–3:30 AM IST window doesn't
+                // follow US daylight saving.
+                if (['COMEX', 'GLOBAL'].includes(liveExchange)) {
+                    const cme = require('../utils/cmeHours');
+                    if (!cme.isCmeOpen()) throw Object.assign(new Error(cme.cmeClosedMessage()), { status: 403 });
+                }
                 const isDisabled = instCheck && instCheck.enabled === false;
                 const isNseBanned = instCheck && instCheck.nse_banned === true;
                 // GIFT NIFTY expiry day, 3:30–4:00 PM: NSE IX has stopped the
