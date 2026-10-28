@@ -111,6 +111,15 @@ async function loadHolidays(calendar, contracts) {
 }
 
 /**
+ * A contract counts as newly loaded if its document was created after the
+ * cut-off OR the daily sync listed it after the cut-off on a token Kite
+ * re-used (KiteInstrument.listed_at) — that keeps the old document's _id.
+ */
+function listedSince(cutoffId) {
+  return { $or: [{ _id: { $gt: cutoffId } }, { listed_at: { $gt: NEW_CONTRACTS_CLOSED_FROM } }] };
+}
+
+/**
  * Keep a contract the planner had to skip (its calendar year unavailable)
  * closed, the same way closeNewTargetsUntilOpen keeps a not-yet-open target
  * closed: only contracts loaded after NEW_CONTRACTS_CLOSED_FROM, only if
@@ -132,7 +141,7 @@ async function closeSkippedContracts(group, skipped, allContracts, now) {
     const day = new Date(c.expiry);
     const res = await KiteInstrument.updateMany(
       {
-        _id: { $gt: cutoff },
+        ...listedSince(cutoff),
         segment: { $in: group.segments },
         instrument_type: typesOf(group),
         name: exactName(c.name),
@@ -340,7 +349,7 @@ async function closeNewTargetsUntilOpen(now) {
       const day = new Date(t.expiry);
       const res = await KiteInstrument.updateMany(
         {
-          _id: { $gt: cutoff },
+          ...listedSince(cutoff),
           segment: { $in: action.segments },
           instrument_type: typesOf(groupByKey.get(action.group_key)),
           name: exactName(t.name),

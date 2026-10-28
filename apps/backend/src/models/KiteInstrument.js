@@ -91,6 +91,13 @@ const kiteInstrumentSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  // When this contract was first loaded by the daily sync (scripts/fetchInstruments.js)
+  // — including when Kite re-used an old instrument_token for a new contract, which
+  // keeps the old document (_id). The expiry planner uses it with _id to tell a
+  // newly listed contract (28 Oct 2026: 145 JAN futures on re-used tokens stayed open).
+  listed_at: {
+    type: Date
+  },
   // Set/cleared automatically by the daily NSE F&O ban-list sync (nseBanListService).
   // Independent of the admin-driven `enabled` flag above: this reflects NSE's own
   // MWPL-breach ban period for the underlying symbol and lifts on its own the day

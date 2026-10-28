@@ -338,20 +338,38 @@ function filterNearestExpiry(instruments) {
 
 const { platformSegment } = require('../src/utils/platformSegment');
 
-function buildInstrumentUpsertOperation(inst) {
+/**
+ * Kite re-uses instrument_tokens: a new contract can arrive on the token of an
+ * old, expired one. Matched by token, it kept the old document's _id and its
+ * admin/schedule state, so the expiry planner (which closes only contracts
+ * listed after NEW_CONTRACTS_CLOSED_FROM) took it for an old contract — on
+ * 28 Oct 2026, 145 NFO JAN futures on re-used tokens stayed open. A re-used
+ * token is now listed like a new contract.
+ */
+function isReusedToken(existing, setFields) {
+  if (!existing) return false;
+  if (existing.tradingsymbol && setFields.tradingsymbol && existing.tradingsymbol !== setFields.tradingsymbol) return true;
+  const day = (d) => (d ? new Date(d).toISOString().slice(0, 10) : '');
+  return Boolean(existing.expiry && setFields.expiry && day(existing.expiry) !== day(setFields.expiry));
+}
+
+function buildInstrumentUpsertOperation(inst, existing = null, now = new Date()) {
   // Never copy Kite CSV last_price into an existing instrument. The daily CSV
   // normally contains zero and used to erase the weekend settlement CMP.
   const { instrument_token, lot_size, last_price: _ignoredCsvLastPrice, ...rest } = inst;
   const setFields = { ...rest };
   if (setFields.segment) setFields.segment = platformSegment(setFields.segment); // SENSEX under NFO
   if (lot_size > 1) setFields.lot_size = lot_size;
+  // A new contract on a re-used token starts like an inserted one: open by
+  // the schema default, no old ban — the planner closes it until it opens.
+  if (isReusedToken(existing, setFields)) Object.assign(setFields, { enabled: true, ban_reason: null, banned_at: null, listed_at: now });
 
   return {
     updateOne: {
       filter: { instrument_token },
       update: {
         $set: setFields,
-        $setOnInsert: { instrument_token, ...(lot_size > 1 ? {} : { lot_size: 1 }) },
+        $setOnInsert: { instrument_token, ...(lot_size > 1 ? {} : { lot_size: 1 }), ...(setFields.listed_at ? {} : { listed_at: now }) },
       },
       upsert: true,
     },
@@ -487,10 +505,16 @@ async function fetchInstruments() {
     const BATCH_SIZE = 500;
     let upserted = 0;
     let modified = 0;
+    let reused = 0;
 
     for (let i = 0; i < uniqueInstruments.length; i += BATCH_SIZE) {
       const batch = uniqueInstruments.slice(i, i + BATCH_SIZE);
-      const ops = batch.map(buildInstrumentUpsertOperation);
+      // What each token carries today — to spot a token Kite re-used for a new contract.
+      const existing = new Map((await KiteInstrument.find({ instrument_token: { $in: batch.map((b) => b.instrument_token) } })
+        .select('instrument_token tradingsymbol expiry').lean()).map((d) => [String(d.instrument_token), d]));
+      const listedAt = new Date();
+      const ops = batch.map((inst) => buildInstrumentUpsertOperation(inst, existing.get(String(inst.instrument_token)) || null, listedAt));
+      reused += ops.filter((op) => op.updateOne.update.$set.listed_at).length;
 
       const res = await KiteInstrument.bulkWrite(ops, { ordered: false });
       upserted += res.upsertedCount || 0;
@@ -535,6 +559,7 @@ async function fetchInstruments() {
     console.log('  ✅ SYNC COMPLETE');
     console.log('═══════════════════════════════════════════════════════════════');
     console.log(`   New instruments inserted: ${upserted}`);
+    console.log(`   New contracts on re-used Kite tokens: ${reused}`);
     console.log(`   Existing instruments updated: ${modified}`);
     console.log(`   Instruments marked inactive: ${deactivated.modifiedCount}`);
     console.log(`   Raw CSV: ${rawFilepath}`);
