@@ -433,16 +433,15 @@ class CronService {
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(intradaySquareOffMCX);
 
-        // COMEX: 2:00 AM IST — CME/COMEX Globex's daily maintenance break
-        // (see market_hours.dart on the Flutter side, same window). Unlike
-        // GLOBAL's Massive-fed index futures (documented as "24hr, no fixed
-        // close" below), COMEX metals do have this real daily gap, so an
-        // intraday-enabled COMEX position should square off here the same
-        // way NSE/MCX square off at their own close.
-        // Tue–Sat: each night session (Mon–Fri) ends the next morning —
-        // Saturday 2:00 AM closes Friday's; there is no Monday run, the
-        // market is shut over the weekend (it would close at Friday prices).
-        const intradaySquareOffCOMEX = cron.schedule('0 2 * * 2-6', async () => {
+        // COMEX and GLOBAL index futures (Dow, Nasdaq, S&P, Russell, Nikkei)
+        // are CME Globex: Sunday–Friday 5:00 PM – 4:00 PM Chicago time, a
+        // daily break 4–5 PM (cmegroup.com contract specs). Scheduled in
+        // Chicago time so the close follows US daylight saving by itself —
+        // 2:30 AM IST in US summer, 3:30 AM IST in US winter (from 2 Nov 2026).
+        // Mon–Fri in Chicago = each session; Friday's 4 PM close is Saturday
+        // morning IST. No run while the market is shut over the weekend.
+        // COMEX intraday square-off: at the close, 4:00 PM Chicago.
+        const intradaySquareOffCOMEX = cron.schedule('0 16 * * 1-5', async () => {
             console.log('🔄 [CRON] Intraday square-off (COMEX close)...');
             try {
                 await this.runIntradaySquareOff(['COMEX-FUT']);
@@ -450,15 +449,13 @@ class CronService {
             } catch (error) {
                 console.error('❌ [CRON] Error during COMEX intraday square-off:', error);
             }
-        }, { timezone: 'Asia/Kolkata' });
+        }, { timezone: 'America/Chicago' });
         this.jobs.push(intradaySquareOffCOMEX);
 
-        // GLOBAL (Massive-fed index futures — Dow, Nasdaq, S&P, Russell,
-        // Nikkei): 2:00 AM IST, the start of the platform's 2:00–3:30 AM
-        // global break (market_hours.dart), same as COMEX. GIFT NIFTY is
-        // under the same GLOBAL switch but still trades until 2:45 AM, so it
-        // is left to its own run below. Tue–Sat, like COMEX.
-        const intradaySquareOffGLOBAL = cron.schedule('0 2 * * 2-6', async () => {
+        // GLOBAL index futures intraday square-off: at the CME close, 4:00 PM
+        // Chicago (see COMEX above). GIFT NIFTY is under the same GLOBAL
+        // switch but is NSE IX (closes 2:45 AM IST), so it has its own run.
+        const intradaySquareOffGLOBAL = cron.schedule('0 16 * * 1-5', async () => {
             console.log('🔄 [CRON] Intraday square-off (GLOBAL close)...');
             try {
                 await this.runIntradaySquareOff(['GLOBAL'], { excludeExchanges: ['NSEIX'] });
@@ -466,7 +463,7 @@ class CronService {
             } catch (error) {
                 console.error('❌ [CRON] Error during GLOBAL intraday square-off:', error);
             }
-        }, { timezone: 'Asia/Kolkata' });
+        }, { timezone: 'America/Chicago' });
         this.jobs.push(intradaySquareOffGLOBAL);
 
         // GIFT NIFTY (NSE IX): 2:46 AM IST, one minute after its night
@@ -526,10 +523,11 @@ class CronService {
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(cancelPendingMCX);
 
-        // COMEX-FUT: 2:02 AM IST, Tue–Sat — right after the 2:00 AM close of
-        // each Mon–Fri night session (Saturday 2:02 cancels Friday's), like
-        // GIFT NIFTY below. Never on Monday: the market is shut then.
-        const cancelPendingCOMEX = cron.schedule('2 2 * * 2-6', async () => {
+        // COMEX-FUT and GLOBAL index futures: 4:02 PM Chicago, Mon–Fri —
+        // right after the CME close (2:32 AM IST in US summer, 3:32 AM IST in
+        // US winter; Friday's is Saturday morning IST). Never while the
+        // market is shut over the weekend.
+        const cancelPendingCOMEX = cron.schedule('2 16 * * 1-5', async () => {
             console.log('🗑️ [CRON] Cancelling pending orders (COMEX close)...');
             try {
                 const count = await this.cancelPendingOrdersBySegment(['COMEX-FUT']);
@@ -537,15 +535,28 @@ class CronService {
             } catch (error) {
                 console.error('❌ [CRON] Error cancelling COMEX pending orders:', error);
             }
-        }, { timezone: 'Asia/Kolkata' });
+        }, { timezone: 'America/Chicago' });
         this.jobs.push(cancelPendingCOMEX);
+
+        // GLOBAL index futures — selected by exchange GLOBAL, so GIFT NIFTY
+        // (exchange NSEIX, same INDICES segment) is left to its own cancel.
+        const cancelPendingGLOBAL = cron.schedule('2 16 * * 1-5', async () => {
+            console.log('🗑️ [CRON] Cancelling pending orders (GLOBAL close)...');
+            try {
+                const count = await this.cancelPendingOrdersForInstruments({ exchange: 'GLOBAL' });
+                console.log(`✅ [CRON] Cancelled ${count} pending GLOBAL order(s).`);
+            } catch (error) {
+                console.error('❌ [CRON] Error cancelling GLOBAL pending orders:', error);
+            }
+        }, { timezone: 'America/Chicago' });
+        this.jobs.push(cancelPendingGLOBAL);
 
         // GIFT NIFTY (NSE IX): 2:47 AM IST, Tue–Sat — right after the night
         // session ends (2:45 AM) for each Mon–Fri trading day, so a pending
         // GIFT order lives through that trading day's day and night sessions
         // and is cancelled at its close, like every other segment. Selected
         // by exchange, not segment: GIFT's segment (INDICES) is shared with
-        // the 24h GLOBAL indices, which must NOT be cancelled.
+        // the GLOBAL index futures, which close at the CME time (above).
         const cancelPendingGIFT = cron.schedule('47 2 * * 2-6', async () => {
             console.log('🗑️ [CRON] Cancelling pending orders (GIFT NIFTY night-session close)...');
             try {
@@ -556,8 +567,6 @@ class CronService {
             }
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(cancelPendingGIFT);
-
-        // GLOBAL indices: no fixed close — skip for now (24hr market)
 
         // Weekend carry-forward is handled by settlementService.js (durable,
         // transactional). The old weekendCarryForwardService module was removed.
