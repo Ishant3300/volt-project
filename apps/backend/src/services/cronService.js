@@ -479,6 +479,25 @@ class CronService {
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(intradaySquareOffGIFT);
 
+        // Friday night: the platform closes COMEX, GLOBAL and GIFT NIFTY for
+        // the weekend at midnight (market_hours.dart has no Saturday hours)
+        // while their feeds still run until 2:30–2:45 AM — so an intraday
+        // position from Friday's session is squared off at Saturday 00:00
+        // IST at a live bid/ask, not carried over the weekend by settlement.
+        // The weekday 2:00 / 2:46 AM runs above cover Monday–Thursday nights.
+        const intradaySquareOffWeekend = cron.schedule('0 0 * * 6', async () => {
+            console.log('🔄 [CRON] Intraday square-off (weekend close: COMEX, GLOBAL, GIFT NIFTY)...');
+            for (const segments of [['COMEX-FUT'], ['GLOBAL']]) {
+                try {
+                    await this.runIntradaySquareOff(segments);
+                } catch (error) {
+                    console.error(`❌ [CRON] Error during weekend intraday square-off (${segments.join(', ')}):`, error);
+                }
+            }
+            console.log('✅ [CRON] Weekend intraday square-off completed.');
+        }, { timezone: 'Asia/Kolkata' });
+        this.jobs.push(intradaySquareOffWeekend);
+
         // ── NFO closing window: 3:20 PM IST ─────────────────────────────
         // From 3:20 to 3:40 PM only MARKET orders are allowed in NFO-FUT /
         // NFO-OPT (utils/nfoMarketOnlyWindow.js — placeTrade/modifyTrade
