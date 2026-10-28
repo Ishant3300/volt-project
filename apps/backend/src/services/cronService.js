@@ -450,6 +450,35 @@ class CronService {
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(intradaySquareOffCOMEX);
 
+        // GLOBAL (Massive-fed index futures — Dow, Nasdaq, S&P, Russell,
+        // Nikkei): 2:00 AM IST, the start of the platform's 2:00–3:30 AM
+        // global break (market_hours.dart), same as COMEX. GIFT NIFTY is
+        // under the same GLOBAL switch but still trades until 2:45 AM, so it
+        // is left to its own run below.
+        const intradaySquareOffGLOBAL = cron.schedule('0 2 * * 1-5', async () => {
+            console.log('🔄 [CRON] Intraday square-off (GLOBAL close)...');
+            try {
+                await this.runIntradaySquareOff(['GLOBAL'], { excludeExchanges: ['NSEIX'] });
+                console.log('✅ [CRON] GLOBAL intraday square-off completed.');
+            } catch (error) {
+                console.error('❌ [CRON] Error during GLOBAL intraday square-off:', error);
+            }
+        }, { timezone: 'Asia/Kolkata' });
+        this.jobs.push(intradaySquareOffGLOBAL);
+
+        // GIFT NIFTY (NSE IX): 2:46 AM IST, one minute after its night
+        // session closes at 2:45 (market_hours.dart). GLOBAL switch.
+        const intradaySquareOffGIFT = cron.schedule('46 2 * * 1-5', async () => {
+            console.log('🔄 [CRON] Intraday square-off (GIFT NIFTY close)...');
+            try {
+                await this.runIntradaySquareOff(['GLOBAL'], { onlyExchanges: ['NSEIX'] });
+                console.log('✅ [CRON] GIFT NIFTY intraday square-off completed.');
+            } catch (error) {
+                console.error('❌ [CRON] Error during GIFT NIFTY intraday square-off:', error);
+            }
+        }, { timezone: 'Asia/Kolkata' });
+        this.jobs.push(intradaySquareOffGIFT);
+
         // ── NFO closing window: 3:20 PM IST ─────────────────────────────
         // From 3:20 to 3:40 PM only MARKET orders are allowed in NFO-FUT /
         // NFO-OPT (utils/nfoMarketOnlyWindow.js — placeTrade/modifyTrade
@@ -540,16 +569,19 @@ class CronService {
      * Finds all users who have intraday_squareoff enabled for any of the segments,
      * then squares off their open positions in those segments using bid/ask CMP.
      */
-    async runIntradaySquareOff(segments) {
+    async runIntradaySquareOff(segments, options = {}) {
         const Trade = require('../models/Trade');
         const metricsEngine = require('./metricsEngine');
         const { _squareOffUserSegments } = require('../controllers/masterUserController');
 
-        // Find all users who have intraday_squareoff enabled for any of these segments
+        // Find all users who have intraday_squareoff enabled for any of these segments.
+        // GLOBAL may be stored under its legacy name INDICES.
+        const segmentNames = segments.map(s => s.toUpperCase());
+        if (segmentNames.includes('GLOBAL') && !segmentNames.includes('INDICES')) segmentNames.push('INDICES');
         const users = await User.find({
             deleted_at: null,
             intraday_squareoff: {
-                $elemMatch: { enabled: true, exchange_name: { $in: segments.map(s => s.toUpperCase()) } },
+                $elemMatch: { enabled: true, exchange_name: { $in: segmentNames } },
             },
         }).select('_id username intraday_squareoff').lean();
 
@@ -576,7 +608,7 @@ class CronService {
             .map(u => ({
                 user: u,
                 userEnabledSegments: (u.intraday_squareoff || [])
-                    .filter(s => s.enabled && segments.map(seg => seg.toUpperCase()).includes(s.exchange_name.toUpperCase()))
+                    .filter(s => s.enabled && segmentNames.includes(s.exchange_name.toUpperCase()))
                     .map(s => s.exchange_name),
             }))
             .filter(e => e.userEnabledSegments.length > 0);
@@ -585,7 +617,7 @@ class CronService {
             const chunk = eligibleUsers.slice(i, i + INTRADAY_SQUAREOFF_CONCURRENCY);
             await Promise.all(chunk.map(async ({ user: u, userEnabledSegments }) => {
                 try {
-                    const count = await _squareOffUserSegments(u._id.toString(), userEnabledSegments);
+                    const count = await _squareOffUserSegments(u._id.toString(), userEnabledSegments, options);
                     if (count > 0) {
                         totalSquaredOff += count;
                         console.log(`   ✅ ${u.username}: squared off ${count} position(s) in ${userEnabledSegments.join(', ')}`);

@@ -38,6 +38,8 @@ function actedByMeta(req, owningMaster) {
 /**
  * Square off all open positions for a user in the given segments.
  * Uses bid/ask from metricsEngine (same as orders page CMP).
+ * options.onlyExchanges / options.excludeExchanges (e.g. ['NSEIX']) narrow
+ * it by the position's exchange.
  * Returns the number of positions squared off.
  */
 async function _squareOffUserSegments(userId, segments, options = {}) {
@@ -72,6 +74,10 @@ async function _squareOffUserSegments(userId, segments, options = {}) {
         || (segment === 'GLOBAL' && (posSeg === 'INDICES' || posExchange === 'GLOBAL'))
       );
       if (!matches) continue;
+      // GIFT NIFTY (exchange NSEIX) is under the GLOBAL switch but closes at
+      // 2:45 AM, 45 min after the global index futures — each has its own run.
+      if (options.onlyExchanges && !options.onlyExchanges.includes(posExchange)) continue;
+      if (options.excludeExchanges && options.excludeExchanges.includes(posExchange)) continue;
 
       const closeSide = pos.net_qty > 0 ? 'SELL' : 'BUY';
       const absQty = Math.abs(pos.net_qty);
