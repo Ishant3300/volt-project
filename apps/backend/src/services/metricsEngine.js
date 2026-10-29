@@ -19,6 +19,9 @@ const { dateRange, isWeekendInIndia, getLatestDueSettlementFriday, toIndiaDateOn
 const { allowedCategories, CATEGORY_ORDER } = require('../utils/walletCategory');
 const { GLOBAL_INDEX_NAMES } = require('../constants/massiveInstruments');
 
+/** Ticks are batched for at most this long before M2M / margin checks run. */
+const TICK_BATCH_MS = 100;
+
 class MetricsEngine {
   constructor() {
     this.livePriceService = null;
@@ -455,9 +458,17 @@ class MetricsEngine {
     if (askPrice && askPrice > 0) this._askMap.set(token, askPrice);
     this._pendingTokens.add(token);
 
-    // Debounce: process all pending tokens after 50ms of quiet
-    if (this._tickTimer) clearTimeout(this._tickTimer);
-    this._tickTimer = setTimeout(() => this._processPendingTicks(), 50);
+    // Batch window, not a debounce: the first tick of a batch starts it and
+    // every pending token is processed TICK_BATCH_MS later. A debounce (each
+    // tick restarting a 50 ms timer) never fired while ticks kept arriving
+    // under 50 ms apart — M2M and the margin square-off checks below waited
+    // for a quiet gap (29 Oct 2026 scale audit).
+    if (!this._tickTimer) {
+      this._tickTimer = setTimeout(() => {
+        this._tickTimer = null;
+        this._processPendingTicks();
+      }, TICK_BATCH_MS);
+    }
   }
 
   /**

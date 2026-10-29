@@ -59,4 +59,8 @@ watchlistSchema.index({ owner_id: 1, owner_type: 1, instrument_token: 1, deleted
 // ─── NEW: livePriceService distinct('instrument_token', { deleted_at: null }) ───
 watchlistSchema.index({ deleted_at: 1 });
 
+// Every client's rows for one contract — the expiry swap
+// (expiryActionService) looks watchlists up by instrument_token alone.
+watchlistSchema.index({ instrument_token: 1, deleted_at: 1 });
+
 module.exports = mongoose.model('Watchlist', watchlistSchema);

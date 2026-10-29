@@ -722,6 +722,7 @@ class LivePriceService {
             // Publish price update to BullMQ for order matching — with the
             // day's low/high when it moved past the live price since the
             // previous tick (a trade printed between snapshots).
+            this._noteQuote(t);
             priceQueueService.publishPriceUpdate(t.instrument_token.toString(), t.last_price, missedTouchService.dayRangeTouch(t));
 
             // Update synthetic instruments that depend on this source
@@ -923,6 +924,24 @@ class LivePriceService {
    * trading — tradeController uses this to refuse orders against a frozen
    * price (20 Oct 2026: MCX evening-only session, NSE holiday).
    */
+  /**
+   * Best bid/ask and day high/low of a contract's latest full Kite tick,
+   * with when it arrived — order placement uses these instead of a Kite
+   * REST quote when they are fresh (tradeController; Kite allows about one
+   * quote request a second, 29 Oct 2026 scale audit).
+   */
+  _noteQuote(t) {
+    if (!(t.last_price > 0)) return;
+    if (!this._quotes) this._quotes = new Map();
+    this._quotes.set(String(t.instrument_token), { bid: t.bid_price, ask: t.ask_price, high: t.high, low: t.low, at: Date.now() });
+  }
+
+  /** That quote if it arrived within maxAgeMs, else null. */
+  freshQuote(instrumentToken, maxAgeMs, now = Date.now()) {
+    const q = this._quotes?.get(String(instrumentToken));
+    return q && now - q.at <= maxAgeMs ? q : null;
+  }
+
   isExchangeLive(instrumentToken, now = Date.now()) {
     const token = Number(instrumentToken);
     if (!Number.isFinite(token)) return true;

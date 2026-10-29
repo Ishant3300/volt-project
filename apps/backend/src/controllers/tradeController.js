@@ -6,6 +6,8 @@ const { validateComexWholeLots, tradingModeFor } = require('../utils/comexLots')
 const KiteInstrument = require('../models/KiteInstrument');
 const BrokerageSettings = require('../models/BrokerageSettings');
 const kiteService = require('../services/kiteService');
+/** A feed tick's bid/ask and day high/low are used for an order when this fresh (ms); older → Kite quote. */
+const FEED_QUOTE_FRESH_MS = 3000;
 const ScriptQuantity = require('../models/ScriptQuantity');
 const GroupedQuantity = require('../models/GroupedQuantity');
 const mongoose = require('mongoose');
@@ -575,7 +577,13 @@ async function _validateHighLowLimit(canCustomPrice, user, instrument_token, ord
         if (kiteInstHL) {
             const quoteKey = `${kiteInstHL.exchange}:${kiteInstHL.tradingsymbol}`;
             let dayHigh, dayLow;
-            try {
+            // The feed's day high/low when its last tick is fresh, else a Kite
+            // ohlc quote as before (Kite allows ~1 quote request a second).
+            const feedQuoteHL = require('../services/livePriceService').freshQuote?.(String(instrument_token), FEED_QUOTE_FRESH_MS);
+            if (feedQuoteHL && feedQuoteHL.high > 0 && feedQuoteHL.low > 0) {
+                dayHigh = feedQuoteHL.high;
+                dayLow = feedQuoteHL.low;
+            } else try {
                 const ohlcData = await kiteService.getMarketQuotes([quoteKey], 'ohlc');
                 const quote = ohlcData?.[quoteKey];
                 dayHigh = quote?.ohlc?.high;
@@ -1201,10 +1209,17 @@ const placeTrade = async (req, res) => {
                 const tokenStrBidAsk = instrument_token.toString();
                 const livePriceSvcBA = require('../services/livePriceService');
 
-                // Fetch fresh bid/ask from Kite full quote API (not from cache)
+                // Fresh bid/ask: the feed's last tick when it is a few seconds
+                // old at most (most orders), else a Kite full quote as before.
+                // Kite allows about one quote request a second, so asking it on
+                // every order fails once orders come faster (29 Oct 2026 audit).
                 let freshBid = null;
                 let freshAsk = null;
-                try {
+                const feedQuote = livePriceSvcBA.freshQuote?.(tokenStrBidAsk, FEED_QUOTE_FRESH_MS);
+                if (feedQuote && feedQuote.bid > 0 && feedQuote.ask > 0) {
+                    freshBid = feedQuote.bid;
+                    freshAsk = feedQuote.ask;
+                } else try {
                     const kiteInstBA = await KiteInstrument.findOne({ instrument_token }).select('exchange tradingsymbol').lean();
                     if (kiteInstBA) {
                         const quoteKeyBA = `${kiteInstBA.exchange}:${kiteInstBA.tradingsymbol}`;

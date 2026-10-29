@@ -75,6 +75,11 @@ transactionSchema.index({ status: 1 });
 // ─── NEW: Transaction history listing with status filter + sort ───
 transactionSchema.index({ userId: 1, status: 1, createdAt: -1 });
 
+// A trade's own transaction(s) — the watchdog's fill check looks up the
+// price that triggered a LIMIT/SL fill by referenceId; without an index
+// that was a full scan of every transaction (29 Oct 2026 scale audit).
+transactionSchema.index({ referenceId: 1 });
+
 const Transaction = mongoose.model('Transaction', transactionSchema);
 
 module.exports = Transaction;

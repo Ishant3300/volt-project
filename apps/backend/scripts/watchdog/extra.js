@@ -937,18 +937,56 @@ function spikeCatch(f, own) {
   return { rangePct, edgePct: Math.max(0, edge) * 100 + 0.0001, volShare: own.volume > 0 ? (Number(f.qty) / own.volume) * 100 : null };
 }
 
-async function fillCheck(c) {
-  const { d, state, raise, lib, who } = c;
-  state.fillQueue = state.fillQueue || [];
+const FILL_QUEUE_MAX = 3000;
+
+/**
+ * Client fills since the last run, found by WHEN they filled (executed_at).
+ * An _id cursor (newDocs) skipped every LIMIT/SL that filled after newer
+ * trades were placed — it keeps the _id of when it was placed — so the
+ * pending-order fills (and the bad-price alert) were never checked.
+ * `$gte` the last fill time, minus the ids already taken at that instant.
+ */
+async function newFills(c) {
+  const { d, state } = c;
+  const key = 'fillcheck:executed_at';
+  if (!state.last[key]) {
+    state.last[key] = new Date().toISOString();
+    state.fillSeen = [];
+    return [];
+  }
   // Rollover legs are left out: they fill at the quote taken for the rollover, not a client order.
-  for (const t of await c.newDocs(d, 'trades', { status: 'completed', placed_by: { $in: ['USER', 'MASTER'] }, exchange: { $in: KITE_EXCHANGES }, trade_type: { $ne: 'carry_forward' }, rollover_group_id: null },
-    { user_id: 1, instrument_token: 1, tradingsymbol: 1, transaction_type: 1, order_type: 1, executed_price: 1, executed_quantity: 1, quantity: 1, executed_at: 1, price_touched_at: 1 }, 'trades-fillcheck')) {
+  const docs = await d.collection('trades').find(
+    { status: 'completed', placed_by: { $in: ['USER', 'MASTER'] }, exchange: { $in: KITE_EXCHANGES }, trade_type: { $ne: 'carry_forward' }, rollover_group_id: null, executed_at: { $gte: new Date(state.last[key]) } },
+    { projection: { user_id: 1, instrument_token: 1, tradingsymbol: 1, transaction_type: 1, order_type: 1, executed_price: 1, executed_quantity: 1, quantity: 1, executed_at: 1, price_touched_at: 1 } },
+  ).sort({ executed_at: 1 }).limit(2000).toArray();
+  const seen = new Set(state.fillSeen || []);
+  const fresh = docs.filter((t) => !seen.has(String(t._id)));
+  if (docs.length) {
+    const edge = new Date(docs[docs.length - 1].executed_at).getTime();
+    state.last[key] = new Date(edge).toISOString();
+    state.fillSeen = docs.filter((t) => new Date(t.executed_at).getTime() === edge).map((t) => String(t._id));
+  }
+  return fresh;
+}
+
+async function fillCheck(c) {
+  const { d, state, raise, lib, who, MIN } = c;
+  state.fillQueue = state.fillQueue || [];
+  for (const t of await newFills(c)) {
     if (!(t.executed_price > 0) || !t.executed_at) continue;
     // A missed-touch fill (price traded between feed updates, filled up to
     // ~90 s later) is checked against the minute the price traded.
     state.fillQueue.push({ id: String(t._id), token: String(t.instrument_token), sym: t.tradingsymbol, side: t.transaction_type, ot: t.order_type, price: t.executed_price, qty: t.executed_quantity ?? t.quantity, at: new Date(t.price_touched_at || t.executed_at).getTime(), touched: !!t.price_touched_at, user: String(t.user_id), tries: 0 });
   }
-  if (state.fillQueue.length > 3000) state.fillQueue = state.fillQueue.slice(-3000);
+  if (state.fillQueue.length > FILL_QUEUE_MAX) {
+    // Falling behind: the oldest are dropped — say so instead of silently.
+    const dropped = state.fillQueue.length - FILL_QUEUE_MAX;
+    state.fillQueue = state.fillQueue.slice(-FILL_QUEUE_MAX);
+    raise(`fillqueue-drop:${lib.istParts().ymd}`, 'warning', 'Fill check falling behind', [
+      `${dropped} fill(s) could not be compared with the exchange's prices — more fills than the watchdog can check each minute (queue over ${FILL_QUEUE_MAX}).`,
+      'Orders are not affected; only this check is behind.',
+    ], { cooldownMs: 60 * MIN });
+  }
   const now = Date.now();
   const ready = state.fillQueue.filter((f) => now - f.at >= 150_000);
   if (!ready.length) return;
@@ -1254,6 +1292,8 @@ ${tail}`), `fill-${it.fill.sym}-${it.fill.id}.png`);
   });
 }
 
+let fillCheckRunning = false;
+
 async function slow(c) {
   const { state, lib, MIN } = c;
   const due = (key, everyMs) => {
@@ -1266,7 +1306,15 @@ async function slow(c) {
   if (due('slow:weekly', 5 * MIN)) await weekly(c);
   if (due('slow:db', 30 * MIN)) await dbLimits(c);
   if (due('slow:notices', 60_000)) { try { await require('./notices').run(c); } catch (e) { console.error('[watchdog] notices:', e.message); } }
-  if (due('slow:fills', 60_000)) { try { await fillCheck(c); } catch (e) { console.error('[watchdog] fill check:', e.message); } }
+  // Fill check runs on its own (not awaited): with many fills it takes tens of
+  // seconds (Kite candles, 600 ms apart) and held up the 5 s login / order /
+  // square-off alerts. One run at a time.
+  if (!fillCheckRunning && due('slow:fills', 60_000)) {
+    fillCheckRunning = true;
+    fillCheck(c)
+      .catch((e) => console.error('[watchdog] fill check:', e.message))
+      .finally(() => { fillCheckRunning = false; });
+  }
   try { await fillReport(c); } catch (e) { console.error('[watchdog] fill report:', e.message); }
   const p = lib.istParts();
   if (p.hhmm >= '10:05' && !state.digests[`ssl ${p.ymd}`]) { state.digests[`ssl ${p.ymd}`] = true; await ssl(c); }
