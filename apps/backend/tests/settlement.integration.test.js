@@ -1550,4 +1550,116 @@ describeIntegration('isolated replica-set weekend settlement', () => {
     await afterLease.release();
     expect(await TradeWriteLease.countDocuments({})).toBe(0);
   });
+
+  // ── Batched commit (SETTLEMENT_BATCHED=1, 29 Oct 2026 scale audit) ──────
+  // The same week settled one client per transaction must end exactly like
+  // the single transaction — every ledger row, trade, settled P&L and wallet.
+
+  /** The settled state with ids/timestamps left out (they differ run to run). */
+  async function canonicalSettledState() {
+    const users = await User.find({}).select('_id username settled_pnl wallet').lean();
+    const name = new Map(users.map(user => [user._id.toString(), user.username]));
+    const round = value => Math.round(Number(value || 0) * 1e6) / 1e6;
+    const history = (await SettlementHistory.find({}).lean()).map(row => ({
+      user: name.get(row.user_id.toString()),
+      symbol: row.tradingsymbol,
+      exchange: row.exchange,
+      display_name: row.display_name,
+      opening: [row.opening_qty, round(row.opening_price), row.opening_side],
+      buys: [row.total_buy_qty, round(row.total_buy_value), round(row.avg_buy_price)],
+      sells: [row.total_sell_qty, round(row.total_sell_value), round(row.avg_sell_price)],
+      closing: [row.closing_qty, row.closing_side, round(row.settlement_price), row.settlement_price_source],
+      pnl: [round(row.realized_pnl), round(row.settlement_pnl), round(row.total_pnl), round(row.brokerage), round(row.net_pnl)],
+      carry: [row.carry_forward_qty, round(row.carry_forward_price), row.carry_forward_side],
+      fills: row.fills.map(fill => [fill.transaction_type, fill.executed_quantity, round(fill.executed_price), round(fill.pnl), round(fill.brokerage), fill.trade_type]),
+    })).sort((a, b) => `${a.user}${a.symbol}`.localeCompare(`${b.user}${b.symbol}`));
+    const trades = (await Trade.find({}).lean()).map(trade => ({
+      user: name.get(trade.user_id.toString()),
+      symbol: trade.tradingsymbol,
+      type: trade.trade_type,
+      side: trade.transaction_type,
+      status: trade.status,
+      qty: trade.executed_quantity ?? trade.quantity,
+      price: round(trade.executed_price ?? trade.price),
+      pnl: round(trade.pnl),
+      reset: Boolean(trade.deleted_at),
+      period: trade.settlement_period_key || null,
+      remarks: trade.remarks || null,
+    })).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+    const balances = users.map(user => ({ user: user.username, settled_pnl: round(user.settled_pnl), wallet: user.wallet }))
+      .sort((a, b) => a.user.localeCompare(b.user));
+    const run = await SettlementRun.findOne({}).select('status verification').lean();
+    return { history, trades, balances, run: { status: run.status, verification: run.verification } };
+  }
+
+  async function settleScenarioWeek(scenario) {
+    return settlementService.runSettlement({
+      tradingDate: scenario.tradingDate,
+      priceDates: { nse: scenario.tradingDate, mcx: scenario.tradingDate },
+      refreshPrices: false,
+      applySettlementPrices: true,
+      waitForCompletion: true,
+    });
+  }
+
+  async function withBatched(fn) {
+    const before = { batched: process.env.SETTLEMENT_BATCHED, size: process.env.SETTLEMENT_BATCH_USERS };
+    process.env.SETTLEMENT_BATCHED = '1';
+    process.env.SETTLEMENT_BATCH_USERS = '1';
+    try {
+      return await fn();
+    } finally {
+      if (before.batched === undefined) delete process.env.SETTLEMENT_BATCHED; else process.env.SETTLEMENT_BATCHED = before.batched;
+      if (before.size === undefined) delete process.env.SETTLEMENT_BATCH_USERS; else process.env.SETTLEMENT_BATCH_USERS = before.size;
+    }
+  }
+
+  test('batched commit, one client per transaction, ends exactly like the single transaction', async () => {
+    const single = await settleScenarioWeek(await seedScenario({ includeFlat: true, includePending: true, prefix: 'eqv' }));
+    expect(single).toMatchObject({ success: true, completed: true });
+    const expected = await canonicalSettledState();
+
+    await clearDatabase();
+    const batched = await withBatched(async () => settleScenarioWeek(await seedScenario({ includeFlat: true, includePending: true, prefix: 'eqv' })));
+    expect(batched).toMatchObject({ success: true, completed: true });
+    expect(await canonicalSettledState()).toEqual(expected);
+
+    const run = await SettlementRun.findOne({}).lean();
+    expect(run.stats).toMatchObject({ batched: true, batches: 3, batch_users: 1, ledger_rows: 3, users_affected: 3 });
+  });
+
+  test('a batched commit stopped after the first client resumes on the retry and ends exactly the same', async () => {
+    const single = await settleScenarioWeek(await seedScenario({ includeFlat: true, includePending: true, prefix: 'eqv' }));
+    expect(single).toMatchObject({ success: true, completed: true });
+    const expected = await canonicalSettledState();
+
+    await clearDatabase();
+    const scenario = await seedScenario({ includeFlat: true, includePending: true, prefix: 'eqv' });
+    const originalUpdateOne = SettlementRun.updateOne.bind(SettlementRun);
+    let injected = false;
+    const spy = jest.spyOn(SettlementRun, 'updateOne').mockImplementation((filter, update, ...rest) => {
+      const fields = Object.keys(update?.$set || {});
+      if (!injected && fields.length === 1 && fields[0] === 'lease_expires_at') {
+        injected = true; // the lease renewal right after the first batch
+        throw new Error('injected stop after the first batch');
+      }
+      return originalUpdateOne(filter, update, ...rest);
+    });
+    let first;
+    try {
+      first = await withBatched(() => settleScenarioWeek(scenario));
+    } finally {
+      spy.mockRestore();
+    }
+    expect(injected).toBe(true);
+    expect(first).toMatchObject({ success: false, started: true });
+    const failedRun = await SettlementRun.findOne({}).lean();
+    expect(failedRun.status).toBe('failed');
+    expect(await SettlementHistory.countDocuments({ settlement_run_id: failedRun._id })).toBe(1); // one client written
+
+    const retry = await withBatched(() => settleScenarioWeek(scenario));
+    expect(retry).toMatchObject({ success: true, completed: true });
+    expect(await canonicalSettledState()).toEqual(expected);
+    expect(await SettlementHistory.countDocuments({})).toBe(3); // nobody settled twice
+  });
 });

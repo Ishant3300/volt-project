@@ -1030,7 +1030,9 @@ async function executeOwnedRun(context) {
       stopHeartbeat = () => {};
 
       setPhase('processing', 'Validating positions and committing transaction');
-      commitResult = await commitSettlementTransaction({ run, lockOwner, tradingDate });
+      commitResult = process.env.SETTLEMENT_BATCHED === '1'
+        ? await commitSettlementBatched({ run, lockOwner, tradingDate })
+        : await commitSettlementTransaction({ run, lockOwner, tradingDate });
       stopHeartbeat = startLeaseHeartbeat(run._id, lockOwner);
       await SettlementRun.updateOne({
         _id: run._id,
@@ -1286,396 +1288,513 @@ function buildSnapshot({ group, instrument, settlementPrice, settlementPriceDate
   };
 }
 
+/**
+ * Everything a settlement writes, worked out before anything is written:
+ * validation (later-period trades, official prices, invalid positions, COMEX
+ * rate), the ledger snapshots, carry-forward trades, settled-P&L credits and
+ * wallet re-base deltas. Shared by the single-transaction commit and the
+ * batched one, so both produce exactly the same records. `session` is the
+ * single transaction's session, or null for the batched commit (which runs
+ * under the settlement fence: no trade writes happen meanwhile).
+ * `ownRunTradesAreOurs`: a resumed batched run has already inserted some of
+ * its own carry-forward trades (executed after the cutoff) — those are not
+ * later-period trades.
+ */
+async function computeSettlementPlan({ run, tradingDate, session, ownRunTradesAreOurs = false }) {
+  const cutoff = run.trade_cutoff_at ? new Date(run.trade_cutoff_at) : tradeCutoffFor(tradingDate);
+  const laterTrade = await Trade.findOne({
+    deleted_at: null,
+    ...(ownRunTradesAreOurs ? { settlement_run_id: { $ne: run._id } } : {}),
+    $or: [
+      { status: 'completed', executed_at: { $gte: cutoff } },
+      { status: 'completed', executed_at: null, createdAt: { $gte: cutoff } },
+      { status: 'pending', createdAt: { $gte: cutoff } },
+    ],
+  }).select('_id status createdAt executed_at').session(session).lean();
+  if (laterTrade) {
+    const error = new Error(`Settlement ${run.period_key} cannot execute after later-period trade ${laterTrade._id}; manual reconciliation is required`);
+    error.code = 'SETTLEMENT_PERIOD_CONTAMINATED';
+    error.details = { trade_id: laterTrade._id.toString(), cutoff, status: laterTrade.status };
+    throw error;
+  }
+
+  const activeTrades = await Trade.find({
+    status: 'completed',
+    deleted_at: null,
+    $or: [
+      { executed_at: { $lt: cutoff } },
+      { executed_at: null, createdAt: { $lt: cutoff } },
+    ],
+  }).sort({ createdAt: 1, _id: 1 }).session(session).lean();
+  const groups = buildPositionGroups(activeTrades);
+  const openGroups = groups.filter(group => group.netQty !== 0);
+  const tokens = [...new Set(groups.map(group => group.token))];
+  const userIds = [...new Set(groups.map(group => group.userId.toString()))];
+
+  // MongoDB does not support parallel operations on one transaction session.
+  const instruments = await KiteInstrument.find({ instrument_token: { $in: tokens } })
+    .select('instrument_token tradingsymbol display_name name raw_name expiry strike instrument_type exchange segment lot_size settlement_price settlement_price_date settlement_price_source ohlc_close last_price')
+    .session(session)
+    .lean();
+  const allBrokerageRules = await BrokerageSettings.find({ deleted_at: null }).session(session).lean();
+  // Build per-user map for brokerage rules
+  const brokerageRulesMap = {};
+  for (const rule of allBrokerageRules) {
+    const key = rule.user_id ? rule.user_id.toString() : 'global';
+    if (!brokerageRulesMap[key]) brokerageRulesMap[key] = [];
+    brokerageRulesMap[key].push(rule);
+  }
+  const settlementUsers = await User.find({ _id: { $in: userIds }, deleted_at: null }).select('_id').session(session).lean();
+  const pendingIds = await Trade.find({
+    status: 'pending',
+    deleted_at: null,
+    createdAt: { $lt: cutoff },
+  }).select('_id instrument_token transaction_type').session(session).lean();
+
+  const instrumentMap = new Map(instruments.map(instrument => [instrument.instrument_token.toString(), instrument]));
+  const existingUserIds = new Set(settlementUsers.map(user => user._id.toString()));
+  const priceMap = {};
+  const priceDateMap = {};
+  const missingPrices = [];
+  const invalidPositions = [];
+  const expiredTokens = new Set();
+  for (const userId of userIds) {
+    if (!existingUserIds.has(userId)) {
+      invalidPositions.push({ user_id: userId, reason: 'user missing or deleted' });
+    }
+  }
+
+  for (const group of openGroups) {
+    const instrument = instrumentMap.get(group.token);
+    const expectedPriceDate = expectedPriceDateForInstrument(run, instrument);
+    if (!instrument) {
+      missingPrices.push({ token: group.token, symbol: group.first.tradingsymbol, user_id: group.userId.toString(), reason: 'instrument missing' });
+      continue;
+    }
+    if (!expectedPriceDate) {
+      invalidPositions.push({
+        token: group.token,
+        symbol: group.first.tradingsymbol,
+        user_id: group.userId.toString(),
+        reason: `official settlement source unsupported for ${instrument.exchange}`,
+      });
+      continue;
+    }
+
+    const { start, end } = dateRange(expectedPriceDate);
+    const isExpired = instrument.expiry && new Date(instrument.expiry).getTime() <= new Date(expectedPriceDate).setHours(0, 0, 0, 0);
+
+    if (isExpired) {
+      const fallbackPrice = Number(instrument.settlement_price) || Number(instrument.ohlc_close) || Number(instrument.last_price) || 0;
+      if (fallbackPrice <= 0) {
+        missingPrices.push({
+          token: group.token,
+          symbol: group.first.tradingsymbol,
+          user_id: group.userId.toString(),
+          expected_date: dateKey(expectedPriceDate),
+          reason: 'expired but no closing price found'
+        });
+        continue;
+      }
+      expiredTokens.add(group.token);
+      priceMap[group.token] = fallbackPrice;
+      priceDateMap[group.token] = toIndiaDateOnly(instrument.expiry);
+    } else {
+      const priceDate = instrument.settlement_price_date ? new Date(instrument.settlement_price_date) : null;
+      const hasExactDate = priceDate && priceDate >= start && priceDate < end;
+      const hasOfficialAuthority = hasOfficialSettlementAuthority(instrument);
+      const price = Number(instrument.settlement_price || 0);
+      if (!hasExactDate || !hasOfficialAuthority || price <= 0) {
+        missingPrices.push({
+          token: group.token,
+          symbol: group.first.tradingsymbol,
+          user_id: group.userId.toString(),
+          expected_date: dateKey(expectedPriceDate),
+          reason: !hasExactDate
+            ? 'source date mismatch'
+            : (!hasOfficialAuthority ? `unofficial source ${instrument.settlement_price_source || 'missing'}` : 'invalid price'),
+        });
+        continue;
+      }
+      priceMap[group.token] = price;
+      priceDateMap[group.token] = toIndiaDateOnly(expectedPriceDate);
+    }
+    if (!group.first.master_id) {
+      invalidPositions.push({ token: group.token, symbol: group.first.tradingsymbol, user_id: group.userId.toString(), reason: 'master_id missing' });
+    }
+  }
+
+  if (missingPrices.length > 0) {
+    const error = new Error(`Official settlement price missing for ${missingPrices.length} open position(s): ${missingPrices.slice(0, 8).map(item => item.symbol || item.token).join(', ')}`);
+    error.code = 'SETTLEMENT_PRICES_NOT_READY';
+    error.details = missingPrices;
+    throw error;
+  }
+  if (invalidPositions.length > 0) {
+    const error = new Error(`Settlement validation failed for ${invalidPositions.length} position(s): ${invalidPositions.slice(0, 8).map(item => `${item.symbol || item.token || item.user_id} (${item.reason})`).join(', ')}`);
+    error.code = 'SETTLEMENT_POSITION_INVALID';
+    error.details = invalidPositions;
+    throw error;
+  }
+
+  const settlementTime = new Date();
+  const snapshots = groups.map(group => buildSnapshot({
+    group,
+    instrument: instrumentMap.get(group.token),
+    settlementPrice: group.netQty === 0 ? 0 : priceMap[group.token],
+    settlementPriceDate: group.netQty === 0 ? null : priceDateMap[group.token],
+    run,
+    settlementTime,
+    brokerageRulesMap,
+    isExpired: expiredTokens.has(group.token),
+  }));
+
+  // COMEX is in dollars up to here; the bill is in rupees. Convert each
+  // client's COMEX lines at base ± spread by the sign of that client's
+  // COMEX net (utils/comexFx.js). Every other segment is untouched.
+  if (snapshots.some((snapshot) => isComex(snapshot.exchange))) {
+    const comexFx = await loadComexFx(session);
+    convertComexSnapshots(snapshots, comexFx);
+  }
+
+  const creditByUser = new Map();
+  for (const snapshot of snapshots) {
+    const userId = snapshot.user_id.toString();
+    creditByUser.set(userId, (creditByUser.get(userId) || 0) + snapshot.net_pnl);
+  }
+
+  const settlementTrades = [];
+  for (const group of openGroups) {
+    const first = group.first;
+    const price = priceMap[group.token];
+    const absQty = Math.abs(group.netQty);
+    const isLong = group.netQty > 0;
+    const atp = isLong ? group.avgBuy : group.avgSell;
+    const closingPnl = isLong ? (price - atp) * absQty : (atp - price) * absQty;
+    const closeTime = settlementTime;
+    const reopenTime = new Date(settlementTime.getTime() + 1);
+
+    const closeTrade = {
+      user_id: first.user_id,
+      master_id: first.master_id,
+      admin_id: first.admin_id || null,
+      settlement_run_id: run._id,
+      settlement_period_key: run.period_key,
+      instrument_token: group.token,
+      tradingsymbol: first.tradingsymbol,
+      exchange: first.exchange,
+      transaction_type: isLong ? 'SELL' : 'BUY',
+      quantity: absQty,
+      price,
+      order_type: 'MARKET',
+      placed_by: 'SYSTEM',
+      trade_type: 'carry_forward',
+      status: 'completed',
+      executed_at: closeTime,
+      executed_price: price,
+      executed_quantity: absQty,
+      pnl: closingPnl,
+      deleted_at: closeTime,
+      remarks: `Settlement ${run.period_key}: position closed at official price`,
+    };
+
+    if (expiredTokens.has(group.token)) {
+      closeTrade.remarks = `Settlement ${run.period_key}: expired position closed at official closing price`;
+      settlementTrades.push(closeTrade);
+    } else {
+      settlementTrades.push(closeTrade, {
+        user_id: first.user_id,
+        master_id: first.master_id,
+        admin_id: first.admin_id || null,
+        settlement_run_id: run._id,
+        settlement_period_key: run.period_key,
+        instrument_token: group.token,
+        tradingsymbol: first.tradingsymbol,
+        exchange: first.exchange,
+        transaction_type: isLong ? 'BUY' : 'SELL',
+        quantity: absQty,
+        price,
+        order_type: 'MARKET',
+        placed_by: 'SYSTEM',
+        trade_type: 'carry_forward',
+        status: 'completed',
+        executed_at: reopenTime,
+        executed_price: price,
+        executed_quantity: absQty,
+        pnl: 0,
+        remarks: `Settlement ${run.period_key}: carried forward at official price`,
+      });
+    }
+  }
+
+  // --- Wallet carry-forward re-base (design §6.5) -------------------------
+  // Every carried-forward open position has its blocked trade margin re-based
+  // from the original entry notional (|qty| × avg entry) to the settlement
+  // notional (|qty| × settlement price). Per position the wallet AVAILABLE
+  // changes by  +|qty|×atp − |qty|×settlePrice  — i.e. release the old entry
+  // notional and block the reopened carry-forward at the settlement price.
+  // Accumulated per user + per category here; applied by applySettlementWrites.
+  // P&L never touches the wallet (Requirement 3.4). Flat groups (netQty 0)
+  // are fully closed and skipped.
+  const walletDeltaByUser = new Map(); // userId(string) -> { NSE?, MCX?, GLOBAL? } net delta
+  let rebasedPositions = 0;
+  for (const group of openGroups) {
+    const isLong = group.netQty > 0;
+    const absQty = Math.abs(group.netQty);
+    const atp = isLong ? group.avgBuy : group.avgSell;          // original entry basis
+    const settlePrice = priceMap[group.token];                  // official settlement price
+    const category = categoryForSegment(
+      instrumentMap.get(group.token)?.segment || group.first.exchange || '',
+      instrumentMap.get(group.token), group.first,
+    );
+    const isExpired = expiredTokens.has(group.token);
+    // + release old entry notional, − block carry-forward at settlement price (unless expired).
+    const delta = isExpired ? (absQty * atp) : (absQty * atp) - (absQty * settlePrice);
+    if (!Number.isFinite(delta) || delta === 0) continue;
+    rebasedPositions += 1;
+    const userId = group.userId.toString();
+    if (!walletDeltaByUser.has(userId)) walletDeltaByUser.set(userId, {});
+    const byCategory = walletDeltaByUser.get(userId);
+    byCategory[category] = (byCategory[category] || 0) + delta;
+  }
+
+  return {
+    cutoff, activeTrades, groups, openGroups, snapshots, creditByUser, settlementTrades,
+    walletDeltaByUser, rebasedPositions, pendingIds, priceMap, settlementTime,
+  };
+}
+
+/**
+ * Write a plan's records for the given users (all of them, or one batch) in
+ * `session`: ledger snapshots, settled-P&L credits, carry-forward trades,
+ * wallet re-base, and the week reset of their trades — in that order, as
+ * the single-transaction commit always did. Returns counts for the stats.
+ */
+async function applySettlementWrites({ plan, run, userIds, session }) {
+  const inUsers = (id) => userIds.has(id.toString());
+
+  const snapshots = plan.snapshots.filter(snapshot => inUsers(snapshot.user_id));
+  if (snapshots.length > 0) await SettlementHistory.insertMany(snapshots, { session, ordered: true });
+
+  const userCreditOps = [...plan.creditByUser.entries()]
+    .filter(([userId, delta]) => inUsers(userId) && Math.abs(delta) >= MONEY_TOLERANCE)
+    .map(([userId, delta]) => ({
+      updateOne: {
+        filter: { _id: userId },
+        update: { $inc: { settled_pnl: roundMoney(delta) } },
+      },
+    }));
+  if (userCreditOps.length > 0) await User.bulkWrite(userCreditOps, { session, ordered: true });
+
+  const settlementTrades = plan.settlementTrades.filter(trade => inUsers(trade.user_id));
+  if (settlementTrades.length > 0) await Trade.insertMany(settlementTrades, { session, ordered: true });
+
+  // Wallet re-base. It is deliberately NOT routed through walletService.block():
+  // that guarded `$gte` path throws INSUFFICIENT_WALLET, which must never abort
+  // an authoritative settlement. Settlement holds the exclusive settlement fence
+  // (no concurrent trade/wallet writes), so a plain read-modify-write in the
+  // transaction is safe. Clamped at 0 so the wallet never persists negative
+  // (Requirement 2.3).
+  let walletRebaseOps = 0;
+  const rebasedUserIds = [...plan.walletDeltaByUser.keys()].filter(inUsers);
+  if (rebasedUserIds.length > 0) {
+    const walletUsers = await User.find({ _id: { $in: rebasedUserIds } })
+      .select('_id wallet')
+      .session(session)
+      .lean();
+    const walletBulkOps = [];
+    for (const walletUser of walletUsers) {
+      const userId = walletUser._id.toString();
+      const deltas = plan.walletDeltaByUser.get(userId) || {};
+      const currentWallet = walletUser.wallet || {};
+      const setFields = {};
+      for (const [category, delta] of Object.entries(deltas)) {
+        if (!delta) continue;
+        const current = Number(currentWallet[category]) || 0;
+        let newBalance = roundMoney(current + delta);
+        if (newBalance < 0) {
+          // Settlement stays robust and the wallet must never persist below 0.
+          console.warn(`⚠️ Settlement ${run.period_key}: wallet re-base underfunding for user ${userId} category ${category} (computed ${newBalance}); clamping to 0`);
+          newBalance = 0;
+        }
+        setFields[`wallet.${category}`] = newBalance;
+      }
+      if (Object.keys(setFields).length > 0) {
+        walletBulkOps.push({ updateOne: { filter: { _id: walletUser._id }, update: { $set: setFields } } });
+      }
+    }
+    if (walletBulkOps.length > 0) {
+      await User.bulkWrite(walletBulkOps, { session, ordered: true });
+      walletRebaseOps = walletBulkOps.length;
+    }
+  }
+
+  const oldTradeIds = plan.activeTrades.filter(trade => inUsers(trade.user_id)).map(trade => trade._id);
+  if (oldTradeIds.length > 0) {
+    await Trade.updateMany({ _id: { $in: oldTradeIds }, status: 'completed', deleted_at: null }, {
+      $set: {
+        settlement_run_id: run._id,
+        settlement_period_key: run.period_key,
+        deleted_at: plan.settlementTime,
+        remarks: `Settlement ${run.period_key}: week reset`,
+      },
+    }, { session });
+  }
+
+  return { creditedUsers: userCreditOps.length, walletRebaseOps };
+}
+
+/** Pending orders expire, and the run is marked committed with its stats. */
+async function finishSettlementCommit({ plan, run, lockOwner, session, counts, faultInjector, extraStats = {} }) {
+  if (plan.pendingIds.length > 0) {
+    await Trade.updateMany({ _id: { $in: plan.pendingIds.map(item => item._id) }, status: 'pending', deleted_at: null }, {
+      $set: {
+        settlement_run_id: run._id,
+        settlement_period_key: run.period_key,
+        status: 'cancelled',
+        remarks: `Settlement ${run.period_key}: pending order expired`,
+      },
+    }, { session });
+  }
+
+  const usersAffected = new Set(plan.groups.map(group => group.userId.toString()));
+  const stats = {
+    active_trades: plan.activeTrades.length,
+    position_groups: plan.groups.length,
+    open_positions: plan.openGroups.length,
+    flat_positions: plan.groups.length - plan.openGroups.length,
+    ledger_rows: plan.snapshots.length,
+    credited_users: counts.creditedUsers,
+    cancelled_pending_orders: plan.pendingIds.length,
+    closed_positions: plan.openGroups.length,
+    reopened_positions: plan.openGroups.length,
+    open_positions_rebased: plan.rebasedPositions,
+    wallet_rebase_ops: counts.walletRebaseOps,
+    users_affected: usersAffected.size,
+    exact_position_prices: Object.keys(plan.priceMap).length,
+    trade_cutoff_at: plan.cutoff,
+    nse_price_date: run.price_dates?.nse,
+    mcx_price_date: run.price_dates?.mcx,
+    ...extraStats,
+  };
+
+  if (faultInjector) await faultInjector({ phase: 'before_run_commit', session, stats });
+
+  const committed = await SettlementRun.updateOne({
+    _id: run._id,
+    lock_owner: lockOwner,
+    status: 'running',
+  }, {
+    $set: {
+      status: 'committed',
+      committed_at: plan.settlementTime,
+      lease_expires_at: leaseExpiry(),
+      error: null,
+      stats,
+    },
+  }, { session });
+  if (committed.matchedCount !== 1) throw new Error('Settlement lease was lost before commit');
+  return stats;
+}
+
+const SETTLEMENT_TXN_OPTIONS = {
+  readConcern: { level: 'snapshot' },
+  writeConcern: { w: 'majority' },
+  readPreference: 'primary',
+  maxCommitTimeMS: 60_000,
+};
+
 async function commitSettlementTransaction({ run, lockOwner, tradingDate, faultInjector }) {
   const session = await mongoose.startSession();
   let result = null;
 
   try {
     await session.withTransaction(async () => {
-      const cutoff = run.trade_cutoff_at ? new Date(run.trade_cutoff_at) : tradeCutoffFor(tradingDate);
-      const laterTrade = await Trade.findOne({
-        deleted_at: null,
-        $or: [
-          { status: 'completed', executed_at: { $gte: cutoff } },
-          { status: 'completed', executed_at: null, createdAt: { $gte: cutoff } },
-          { status: 'pending', createdAt: { $gte: cutoff } },
-        ],
-      }).select('_id status createdAt executed_at').session(session).lean();
-      if (laterTrade) {
-        const error = new Error(`Settlement ${run.period_key} cannot execute after later-period trade ${laterTrade._id}; manual reconciliation is required`);
-        error.code = 'SETTLEMENT_PERIOD_CONTAMINATED';
-        error.details = { trade_id: laterTrade._id.toString(), cutoff, status: laterTrade.status };
-        throw error;
-      }
-
-      const activeTrades = await Trade.find({
-        status: 'completed',
-        deleted_at: null,
-        $or: [
-          { executed_at: { $lt: cutoff } },
-          { executed_at: null, createdAt: { $lt: cutoff } },
-        ],
-      }).sort({ createdAt: 1, _id: 1 }).session(session).lean();
-      const groups = buildPositionGroups(activeTrades);
-      const openGroups = groups.filter(group => group.netQty !== 0);
-      const tokens = [...new Set(groups.map(group => group.token))];
-      const userIds = [...new Set(groups.map(group => group.userId.toString()))];
-
-      // MongoDB does not support parallel operations on one transaction session.
-      const instruments = await KiteInstrument.find({ instrument_token: { $in: tokens } })
-        .select('instrument_token tradingsymbol display_name name raw_name expiry strike instrument_type exchange segment lot_size settlement_price settlement_price_date settlement_price_source ohlc_close last_price')
-        .session(session)
-        .lean();
-      const allBrokerageRules = await BrokerageSettings.find({ deleted_at: null }).session(session).lean();
-      // Build per-user map for brokerage rules
-      const brokerageRulesMap = {};
-      for (const rule of allBrokerageRules) {
-        const key = rule.user_id ? rule.user_id.toString() : 'global';
-        if (!brokerageRulesMap[key]) brokerageRulesMap[key] = [];
-        brokerageRulesMap[key].push(rule);
-      }
-      const settlementUsers = await User.find({ _id: { $in: userIds }, deleted_at: null }).select('_id').session(session).lean();
-      const pendingIds = await Trade.find({
-        status: 'pending',
-        deleted_at: null,
-        createdAt: { $lt: cutoff },
-      }).select('_id instrument_token transaction_type').session(session).lean();
-
-      const instrumentMap = new Map(instruments.map(instrument => [instrument.instrument_token.toString(), instrument]));
-      const existingUserIds = new Set(settlementUsers.map(user => user._id.toString()));
-      const priceMap = {};
-      const priceDateMap = {};
-      const missingPrices = [];
-      const invalidPositions = [];
-      const expiredTokens = new Set();
-      for (const userId of userIds) {
-        if (!existingUserIds.has(userId)) {
-          invalidPositions.push({ user_id: userId, reason: 'user missing or deleted' });
-        }
-      }
-
-      for (const group of openGroups) {
-        const instrument = instrumentMap.get(group.token);
-        const expectedPriceDate = expectedPriceDateForInstrument(run, instrument);
-        if (!instrument) {
-          missingPrices.push({ token: group.token, symbol: group.first.tradingsymbol, user_id: group.userId.toString(), reason: 'instrument missing' });
-          continue;
-        }
-        if (!expectedPriceDate) {
-          invalidPositions.push({
-            token: group.token,
-            symbol: group.first.tradingsymbol,
-            user_id: group.userId.toString(),
-            reason: `official settlement source unsupported for ${instrument.exchange}`,
-          });
-          continue;
-        }
-
-        const { start, end } = dateRange(expectedPriceDate);
-        const isExpired = instrument.expiry && new Date(instrument.expiry).getTime() <= new Date(expectedPriceDate).setHours(0, 0, 0, 0);
-
-        if (isExpired) {
-          const fallbackPrice = Number(instrument.settlement_price) || Number(instrument.ohlc_close) || Number(instrument.last_price) || 0;
-          if (fallbackPrice <= 0) {
-            missingPrices.push({
-              token: group.token,
-              symbol: group.first.tradingsymbol,
-              user_id: group.userId.toString(),
-              expected_date: dateKey(expectedPriceDate),
-              reason: 'expired but no closing price found'
-            });
-            continue;
-          }
-          expiredTokens.add(group.token);
-          priceMap[group.token] = fallbackPrice;
-          priceDateMap[group.token] = toIndiaDateOnly(instrument.expiry);
-        } else {
-          const priceDate = instrument.settlement_price_date ? new Date(instrument.settlement_price_date) : null;
-          const hasExactDate = priceDate && priceDate >= start && priceDate < end;
-          const hasOfficialAuthority = hasOfficialSettlementAuthority(instrument);
-          const price = Number(instrument.settlement_price || 0);
-          if (!hasExactDate || !hasOfficialAuthority || price <= 0) {
-            missingPrices.push({
-              token: group.token,
-              symbol: group.first.tradingsymbol,
-              user_id: group.userId.toString(),
-              expected_date: dateKey(expectedPriceDate),
-              reason: !hasExactDate
-                ? 'source date mismatch'
-                : (!hasOfficialAuthority ? `unofficial source ${instrument.settlement_price_source || 'missing'}` : 'invalid price'),
-            });
-            continue;
-          }
-          priceMap[group.token] = price;
-          priceDateMap[group.token] = toIndiaDateOnly(expectedPriceDate);
-        }
-        if (!group.first.master_id) {
-          invalidPositions.push({ token: group.token, symbol: group.first.tradingsymbol, user_id: group.userId.toString(), reason: 'master_id missing' });
-        }
-      }
-
-      if (missingPrices.length > 0) {
-        const error = new Error(`Official settlement price missing for ${missingPrices.length} open position(s): ${missingPrices.slice(0, 8).map(item => item.symbol || item.token).join(', ')}`);
-        error.code = 'SETTLEMENT_PRICES_NOT_READY';
-        error.details = missingPrices;
-        throw error;
-      }
-      if (invalidPositions.length > 0) {
-        const error = new Error(`Settlement validation failed for ${invalidPositions.length} position(s): ${invalidPositions.slice(0, 8).map(item => `${item.symbol || item.token || item.user_id} (${item.reason})`).join(', ')}`);
-        error.code = 'SETTLEMENT_POSITION_INVALID';
-        error.details = invalidPositions;
-        throw error;
-      }
-
-      const settlementTime = new Date();
-      const snapshots = groups.map(group => buildSnapshot({
-        group,
-        instrument: instrumentMap.get(group.token),
-        settlementPrice: group.netQty === 0 ? 0 : priceMap[group.token],
-        settlementPriceDate: group.netQty === 0 ? null : priceDateMap[group.token],
-        run,
-        settlementTime,
-        brokerageRulesMap,
-        isExpired: expiredTokens.has(group.token),
-      }));
-
-      // COMEX is in dollars up to here; the bill is in rupees. Convert each
-      // client's COMEX lines at base ± spread by the sign of that client's
-      // COMEX net (utils/comexFx.js). Every other segment is untouched.
-      if (snapshots.some((snapshot) => isComex(snapshot.exchange))) {
-        const comexFx = await loadComexFx(session);
-        convertComexSnapshots(snapshots, comexFx);
-      }
-
-      const creditByUser = new Map();
-      for (const snapshot of snapshots) {
-        const userId = snapshot.user_id.toString();
-        creditByUser.set(userId, (creditByUser.get(userId) || 0) + snapshot.net_pnl);
-      }
-
-      const settlementTrades = [];
-      for (const group of openGroups) {
-        const first = group.first;
-        const price = priceMap[group.token];
-        const absQty = Math.abs(group.netQty);
-        const isLong = group.netQty > 0;
-        const atp = isLong ? group.avgBuy : group.avgSell;
-        const closingPnl = isLong ? (price - atp) * absQty : (atp - price) * absQty;
-        const closeTime = settlementTime;
-        const reopenTime = new Date(settlementTime.getTime() + 1);
-
-        const closeTrade = {
-          user_id: first.user_id,
-          master_id: first.master_id,
-          admin_id: first.admin_id || null,
-          settlement_run_id: run._id,
-          settlement_period_key: run.period_key,
-          instrument_token: group.token,
-          tradingsymbol: first.tradingsymbol,
-          exchange: first.exchange,
-          transaction_type: isLong ? 'SELL' : 'BUY',
-          quantity: absQty,
-          price,
-          order_type: 'MARKET',
-          placed_by: 'SYSTEM',
-          trade_type: 'carry_forward',
-          status: 'completed',
-          executed_at: closeTime,
-          executed_price: price,
-          executed_quantity: absQty,
-          pnl: closingPnl,
-          deleted_at: closeTime,
-          remarks: `Settlement ${run.period_key}: position closed at official price`,
-        };
-
-        if (expiredTokens.has(group.token)) {
-          closeTrade.remarks = `Settlement ${run.period_key}: expired position closed at official closing price`;
-          settlementTrades.push(closeTrade);
-        } else {
-          settlementTrades.push(closeTrade, {
-            user_id: first.user_id,
-            master_id: first.master_id,
-            admin_id: first.admin_id || null,
-            settlement_run_id: run._id,
-            settlement_period_key: run.period_key,
-            instrument_token: group.token,
-            tradingsymbol: first.tradingsymbol,
-            exchange: first.exchange,
-            transaction_type: isLong ? 'BUY' : 'SELL',
-            quantity: absQty,
-            price,
-            order_type: 'MARKET',
-            placed_by: 'SYSTEM',
-            trade_type: 'carry_forward',
-            status: 'completed',
-            executed_at: reopenTime,
-            executed_price: price,
-            executed_quantity: absQty,
-            pnl: 0,
-            remarks: `Settlement ${run.period_key}: carried forward at official price`,
-          });
-        }
-      }
-
-      if (snapshots.length > 0) await SettlementHistory.insertMany(snapshots, { session, ordered: true });
-
-      const userCreditOps = [...creditByUser.entries()]
-        .filter(([, delta]) => Math.abs(delta) >= MONEY_TOLERANCE)
-        .map(([userId, delta]) => ({
-          updateOne: {
-            filter: { _id: userId },
-            update: { $inc: { settled_pnl: roundMoney(delta) } },
-          },
-        }));
-      if (userCreditOps.length > 0) await User.bulkWrite(userCreditOps, { session, ordered: true });
-      if (settlementTrades.length > 0) await Trade.insertMany(settlementTrades, { session, ordered: true });
-
-      // --- Wallet carry-forward re-base (design §6.5) -------------------------
-      // Every carried-forward open position has its blocked trade margin re-based
-      // from the original entry notional (|qty| × avg entry) to the settlement
-      // notional (|qty| × settlement price). Per position the wallet AVAILABLE
-      // changes by  +|qty|×atp − |qty|×settlePrice  — i.e. release the old entry
-      // notional and block the reopened carry-forward at the settlement price.
-      // This block is the vectorized ("bulk, within the settlement transaction")
-      // equivalent of that release+block, accumulated per user + per category.
-      //
-      // It is deliberately NOT routed through walletService.block(): that guarded
-      // `$gte` path throws INSUFFICIENT_WALLET, which must never abort an
-      // authoritative settlement. Settlement holds the exclusive settlement fence
-      // (no concurrent trade/wallet writes during this transaction), so a plain
-      // read-modify-write is safe. We clamp at 0 so the wallet can never persist
-      // negative (Requirement 2.3). This is additive and independent of the
-      // settled_pnl / snapshot / trade-write logic — P&L never touches the wallet
-      // (Requirement 3.4). Flat groups (netQty 0) are fully closed and skipped.
-      const walletDeltaByUser = new Map(); // userId(string) -> { NSE?, MCX?, GLOBAL? } net delta
-      let rebasedPositions = 0;
-      for (const group of openGroups) {
-        const isLong = group.netQty > 0;
-        const absQty = Math.abs(group.netQty);
-        const atp = isLong ? group.avgBuy : group.avgSell;          // original entry basis
-        const settlePrice = priceMap[group.token];                  // official settlement price
-        const category = categoryForSegment(
-          instrumentMap.get(group.token)?.segment || group.first.exchange || '',
-          instrumentMap.get(group.token), group.first,
-        );
-        const isExpired = expiredTokens.has(group.token);
-        // + release old entry notional, − block carry-forward at settlement price (unless expired).
-        const delta = isExpired ? (absQty * atp) : (absQty * atp) - (absQty * settlePrice);
-        if (!Number.isFinite(delta) || delta === 0) continue;
-        rebasedPositions += 1;
-        const userId = group.userId.toString();
-        if (!walletDeltaByUser.has(userId)) walletDeltaByUser.set(userId, {});
-        const byCategory = walletDeltaByUser.get(userId);
-        byCategory[category] = (byCategory[category] || 0) + delta;
-      }
-
-      let walletRebaseOps = 0;
-      const rebasedUserIds = [...walletDeltaByUser.keys()];
-      if (rebasedUserIds.length > 0) {
-        // Safe read-modify-write under the exclusive settlement fence.
-        const walletUsers = await User.find({ _id: { $in: rebasedUserIds } })
-          .select('_id wallet')
-          .session(session)
-          .lean();
-        const walletBulkOps = [];
-        for (const walletUser of walletUsers) {
-          const userId = walletUser._id.toString();
-          const deltas = walletDeltaByUser.get(userId) || {};
-          const currentWallet = walletUser.wallet || {};
-          const setFields = {};
-          for (const [category, delta] of Object.entries(deltas)) {
-            if (!delta) continue;
-            const current = Number(currentWallet[category]) || 0;
-            let newBalance = roundMoney(current + delta);
-            if (newBalance < 0) {
-              // Settlement stays robust and the wallet must never persist below 0.
-              console.warn(`⚠️ Settlement ${run.period_key}: wallet re-base underfunding for user ${userId} category ${category} (computed ${newBalance}); clamping to 0`);
-              newBalance = 0;
-            }
-            setFields[`wallet.${category}`] = newBalance;
-          }
-          if (Object.keys(setFields).length > 0) {
-            walletBulkOps.push({ updateOne: { filter: { _id: walletUser._id }, update: { $set: setFields } } });
-          }
-        }
-        if (walletBulkOps.length > 0) {
-          await User.bulkWrite(walletBulkOps, { session, ordered: true });
-          walletRebaseOps = walletBulkOps.length;
-        }
-      }
-      // --- end wallet carry-forward re-base -----------------------------------
-
-      const oldTradeIds = activeTrades.map(trade => trade._id);
-      if (oldTradeIds.length > 0) {
-        await Trade.updateMany({ _id: { $in: oldTradeIds }, status: 'completed', deleted_at: null }, {
-          $set: {
-            settlement_run_id: run._id,
-            settlement_period_key: run.period_key,
-            deleted_at: settlementTime,
-            remarks: `Settlement ${run.period_key}: week reset`,
-          },
-        }, { session });
-      }
-
-      if (pendingIds.length > 0) {
-        await Trade.updateMany({ _id: { $in: pendingIds.map(item => item._id) }, status: 'pending', deleted_at: null }, {
-          $set: {
-            settlement_run_id: run._id,
-            settlement_period_key: run.period_key,
-            status: 'cancelled',
-            remarks: `Settlement ${run.period_key}: pending order expired`,
-          },
-        }, { session });
-      }
-
-      const usersAffected = new Set(groups.map(group => group.userId.toString()));
-      const stats = {
-        active_trades: activeTrades.length,
-        position_groups: groups.length,
-        open_positions: openGroups.length,
-        flat_positions: groups.length - openGroups.length,
-        ledger_rows: snapshots.length,
-        credited_users: userCreditOps.length,
-        cancelled_pending_orders: pendingIds.length,
-        closed_positions: openGroups.length,
-        reopened_positions: openGroups.length,
-        open_positions_rebased: rebasedPositions,
-        wallet_rebase_ops: walletRebaseOps,
-        users_affected: usersAffected.size,
-        exact_position_prices: Object.keys(priceMap).length,
-        trade_cutoff_at: cutoff,
-        nse_price_date: run.price_dates?.nse,
-        mcx_price_date: run.price_dates?.mcx,
-      };
-
-      if (faultInjector) await faultInjector({ phase: 'before_run_commit', session, stats });
-
-      const committed = await SettlementRun.updateOne({
-        _id: run._id,
-        lock_owner: lockOwner,
-        status: 'running',
-      }, {
-        $set: {
-          status: 'committed',
-          committed_at: settlementTime,
-          lease_expires_at: leaseExpiry(),
-          error: null,
-          stats,
-        },
-      }, { session });
-      if (committed.matchedCount !== 1) throw new Error('Settlement lease was lost before commit');
-
-      result = { stats, positionPriceMap: priceMap };
-    }, {
-      readConcern: { level: 'snapshot' },
-      writeConcern: { w: 'majority' },
-      readPreference: 'primary',
-      maxCommitTimeMS: 60_000,
-    });
+      const plan = await computeSettlementPlan({ run, tradingDate, session });
+      const allUsers = new Set(plan.groups.map(group => group.userId.toString()));
+      const counts = await applySettlementWrites({ plan, run, userIds: allUsers, session });
+      const stats = await finishSettlementCommit({ plan, run, lockOwner, session, counts, faultInjector });
+      result = { stats, positionPriceMap: plan.priceMap };
+    }, SETTLEMENT_TXN_OPTIONS);
   } finally {
     await session.endSession();
   }
 
+  if (!result) throw new Error('Settlement transaction ended without a commit result');
+  return result;
+}
+
+/** Clients per batch transaction (SETTLEMENT_BATCH_USERS, default 50). */
+function settlementBatchUsers() {
+  const n = Number(process.env.SETTLEMENT_BATCH_USERS);
+  return Number.isInteger(n) && n > 0 ? n : 50;
+}
+
+/**
+ * The same settlement, written one batch of clients per transaction instead
+ * of in one transaction, so it stays within MongoDB's transaction time/size
+ * limits as volume grows (29 Oct 2026 scale audit: one transaction holds the
+ * whole week — ~3 s for 1.4k trades, minutes at ~100k). On by
+ * SETTLEMENT_BATCHED=1 only.
+ *
+ * - Everything is computed and validated first (computeSettlementPlan), so a
+ *   missing price, invalid position or unset COMEX rate still stops the run
+ *   before a single write, exactly as before.
+ * - Each batch writes all of its clients' records atomically, after checking
+ *   this worker still owns the run; the lease is renewed between batches.
+ * - The settlement fence is held throughout: no trade writes happen.
+ * - If it stops part-way, the run stays 'running'/'failed' and the retry
+ *   recomputes from what is left: finished clients' trades are already reset
+ *   (so they aren't in the plan), and this run's own carry-forward trades
+ *   are not mistaken for later-period trades.
+ */
+async function commitSettlementBatched({ run, lockOwner, tradingDate, faultInjector, batchFaultInjector }) {
+  const plan = await computeSettlementPlan({ run, tradingDate, session: null, ownRunTradesAreOurs: true });
+  const users = [...new Set(plan.groups.map(group => group.userId.toString()))].sort();
+  const size = settlementBatchUsers();
+  const counts = { creditedUsers: 0, walletRebaseOps: 0 };
+  let batches = 0;
+
+  for (let i = 0; i < users.length; i += size) {
+    const batch = new Set(users.slice(i, i + size));
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const owned = await SettlementRun.findOne({ _id: run._id, lock_owner: lockOwner, status: 'running' })
+          .select('_id').session(session).lean();
+        if (!owned) throw new Error('Settlement lease was lost during the batched commit');
+        // Clients already written by an earlier attempt of this run are skipped.
+        const done = await SettlementHistory.distinct('user_id', { settlement_run_id: run._id, user_id: { $in: [...batch] } }).session(session);
+        for (const id of done) batch.delete(id.toString());
+        if (batch.size === 0) return;
+        const written = await applySettlementWrites({ plan, run, userIds: batch, session });
+        counts.creditedUsers += written.creditedUsers;
+        counts.walletRebaseOps += written.walletRebaseOps;
+      }, SETTLEMENT_TXN_OPTIONS);
+    } finally {
+      await session.endSession();
+    }
+    batches += 1;
+    if (batchFaultInjector) await batchFaultInjector({ batch: batches, users: users.length });
+    await SettlementRun.updateOne(
+      { _id: run._id, lock_owner: lockOwner, status: 'running' },
+      { $set: { lease_expires_at: leaseExpiry() } },
+    );
+  }
+
+  const session = await mongoose.startSession();
+  let result = null;
+  try {
+    await session.withTransaction(async () => {
+      const stats = await finishSettlementCommit({
+        plan, run, lockOwner, session, counts, faultInjector,
+        extraStats: { batched: true, batches, batch_users: size },
+      });
+      result = { stats, positionPriceMap: plan.priceMap };
+    }, SETTLEMENT_TXN_OPTIONS);
+  } finally {
+    await session.endSession();
+  }
   if (!result) throw new Error('Settlement transaction ended without a commit result');
   return result;
 }
@@ -2002,6 +2121,8 @@ module.exports = {
     adoptLegacySettlement,
     buildPositionGroups,
     commitSettlementTransaction,
+    commitSettlementBatched,
+    computeSettlementPlan,
     finalizeCommittedRun,
     inspectLegacySettlement,
     loadCommittedSettlementPrices,
