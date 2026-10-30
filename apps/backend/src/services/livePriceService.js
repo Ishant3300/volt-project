@@ -14,7 +14,8 @@ const KiteMarketQuote = require('../models/KiteMarketQuote');
 const { LOG_LIVE_TICKS, LOG_WS_BROADCAST } = require('../config/logFlags');
 const metricsEngine = require('./metricsEngine');
 const SettlementRun = require('../models/SettlementRun');
-const { dateRange, isWeekendInIndia } = require('../utils/settlementDates');
+const { dateRange, isWeekendInIndia, isPriceWeekendInIndia } = require('../utils/settlementDates');
+const specialSessions = require('../utils/specialSessions');
 const { PRACTICE } = require('../config/practice');
 
 class LivePriceService {
@@ -124,7 +125,7 @@ class LivePriceService {
   async _preloadSettlementPrices(options = {}) {
     try {
       if (!this._settlementPrices) this._settlementPrices = new Map();
-      const weekend = isWeekendInIndia(options.now || new Date());
+      const weekend = isPriceWeekendInIndia(options.now || new Date());
       if (!weekend) this._settlementPrices.clear();
       const latestRun = weekend
         ? await SettlementRun.findOne({ status: { $in: ['committed', 'finalizing', 'completed'] } }).sort({ trading_date: -1 }).select('trading_date').lean()
@@ -511,9 +512,10 @@ class LivePriceService {
     if (!this.kiteTicker || this.kiteTicker.readyState !== WebSocket.OPEN) return;
     // Nothing subscribed → no ticks expected, silence is normal.
     if (this.subscribedTokens.size === 0 && this.pendingTokensCache.size === 0) return;
-    // No market on weekends → don't churn the connection pointlessly.
+    // No market on weekends → don't churn the connection pointlessly —
+    // except around a special session (utils/specialSessions.js).
     // (Weekday holidays still fall through, but a reconnect then is harmless.)
-    if (isWeekendInIndia()) return;
+    if (isWeekendInIndia() && !specialSessions.isSessionFeedWindow()) return;
     // Avoid stacking forced reconnects while one is already in flight.
     if (this._watchdogRecovering) return;
 
@@ -701,7 +703,7 @@ class LivePriceService {
             // Weekend subscription snapshots must not overwrite official prices.
             // On the first weekday tick, release every lock unconditionally — a
             // real session can open at the exact same price as settlement.
-            if (this._settlementPrices && this._settlementPrices.size > 0 && !isWeekendInIndia()) {
+            if (this._settlementPrices && this._settlementPrices.size > 0 && !isPriceWeekendInIndia()) {
               console.log('📊 Weekday market tick detected. Clearing weekend settlement-price locks.');
               this._settlementPrices.clear();
               metricsEngine.clearSettledTokens();

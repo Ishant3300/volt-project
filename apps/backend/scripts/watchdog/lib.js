@@ -15,10 +15,23 @@ function istParts(now = Date.now()) {
 }
 
 const isWeekday = (p) => p.day >= 1 && p.day <= 5;
-/** NSE cash/F&O 09:15-15:30, MCX 09:00-23:30 (Mon-Fri, holidays not known here). */
+/**
+ * NSE cash/F&O 09:15-15:30, MCX 09:00 to its close — 23:30 in US summer time,
+ * 23:55 in US winter (src/utils/mcxHours.js) — Mon-Fri, holidays not known
+ * here; plus special sessions such as Sunday Muhurat trading
+ * (src/utils/specialSessions.js).
+ */
 function inMarketHours(now = Date.now()) {
   const p = istParts(now);
-  return { nse: isWeekday(p) && p.minutes >= 555 && p.minutes < 930, mcx: isWeekday(p) && p.minutes >= 540 && p.minutes < 1410 };
+  const mcxClose = require('../../src/utils/mcxHours').mcxCloseMinutesOn(p.ymd);
+  const out = { nse: isWeekday(p) && p.minutes >= 555 && p.minutes < 930, mcx: isWeekday(p) && p.minutes >= 540 && p.minutes < mcxClose };
+  const session = require('../../src/utils/specialSessions').sessionOn(p.ymd);
+  for (const w of session ? session.windows : []) {
+    const [oh, om] = w.open.split(':').map(Number);
+    const [ch, cm] = w.close.split(':').map(Number);
+    if (p.minutes >= oh * 60 + om && p.minutes < ch * 60 + cm) out[w.key === 'MCX' ? 'mcx' : 'nse'] = true;
+  }
+  return out;
 }
 /** NSE IX (GIFT NIFTY) sessions 06:30-15:40 and 16:35-02:45 IST. */
 function inGiftSession(now = Date.now()) {

@@ -42,7 +42,8 @@ function currentWeekStart() {
   const weekStart = new Date(now);
   weekStart.setDate(now.getDate() - diffToMonday);
   weekStart.setHours(0, 0, 0, 0);
-  return weekStart;
+  // The week after a special session (Sunday Muhurat) starts on that day.
+  return require('./../utils/specialSessions').adjustWeekStart(weekStart, now);
 }
 
 function keyFor(userId, weekStartIso) {

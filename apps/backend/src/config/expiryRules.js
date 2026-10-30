@@ -18,6 +18,8 @@
  * Opens run automatically; every cut needs an admin confirmation and then
  * runs just after that market's close (this platform's own close times —
  * see apps/flutter/lib/utils/market_hours.dart and cronService.js).
+ * `closeTimeRule: 'MCX'` = that day's MCX close instead of `closeTime`:
+ * 11:30 PM IST in US summer time, 11:55 PM in US winter (utils/mcxHours.js).
  *
  * `names` match KiteInstrument.name case-insensitively; `null` = every
  * future in the segments. `calendar` 'MCX'/'NSE' = that exchange's trading
@@ -43,37 +45,37 @@ const GROUPS = [
   {
     key: 'MCX_BASE', label: 'Base metals', exchangeLabel: 'MCX', segments: ['MCX-FUT'],
     names: ['ALUMINI', 'ALUMINIUM', 'COPPER', 'LEAD', 'LEADMINI', 'ZINC', 'ZINCMINI'],
-    calendar: 'MCX', open: before(6), cut: before(5), closeTime: '23:30',
+    calendar: 'MCX', open: before(6), cut: before(5), closeTime: '23:30', closeTimeRule: 'MCX',
   },
   {
     key: 'MCX_PRECIOUS', label: 'Precious metals', exchangeLabel: 'MCX', segments: ['MCX-FUT'],
     names: ['GOLD', 'GOLDM', 'GOLDTEN', 'GOLDGUINEA', 'GOLDPETAL', 'SILVER', 'SILVERM', 'SILVERMIC'],
-    calendar: 'MCX', open: before(6), cut: before(5), closeTime: '23:30',
+    calendar: 'MCX', open: before(6), cut: before(5), closeTime: '23:30', closeTimeRule: 'MCX',
   },
   {
     key: 'MCX_CRUDE', label: 'Crude oil', exchangeLabel: 'MCX', segments: ['MCX-FUT'],
     names: ['CRUDEOIL', 'CRUDEOILM'],
-    calendar: 'MCX', open: before(2), cut: before(1), closeTime: '23:30',
+    calendar: 'MCX', open: before(2), cut: before(1), closeTime: '23:30', closeTimeRule: 'MCX',
   },
   {
     key: 'MCX_NG', label: 'Natural gas', exchangeLabel: 'MCX', segments: ['MCX-FUT'],
     names: ['NATURALGAS', 'NATGASMINI'],
-    calendar: 'MCX', open: before(1), cut: before(1), closeTime: '23:30',
+    calendar: 'MCX', open: before(1), cut: before(1), closeTime: '23:30', closeTimeRule: 'MCX',
   },
   {
     key: 'COMEX_BASE', label: 'COMEX base metals', exchangeLabel: 'COMEX', segments: ['COMEX-FUT'],
     names: ['COPPER'],
-    calendar: 'WEEKDAYS', open: before(6), cut: before(5), closeTime: '23:30',
+    calendar: 'WEEKDAYS', open: before(6), cut: before(5), closeTime: '23:30', closeTimeRule: 'MCX',
   },
   {
     key: 'COMEX_PRECIOUS', label: 'COMEX precious metals', exchangeLabel: 'COMEX', segments: ['COMEX-FUT'],
     names: ['GOLD', 'SILVER'],
-    calendar: 'WEEKDAYS', open: before(6), cut: before(5), closeTime: '23:30',
+    calendar: 'WEEKDAYS', open: before(6), cut: before(5), closeTime: '23:30', closeTimeRule: 'MCX',
   },
   {
     key: 'COMEX_NG', label: 'COMEX natural gas', exchangeLabel: 'COMEX', segments: ['COMEX-FUT'],
     names: ['NATURALGAS'],
-    calendar: 'WEEKDAYS', open: before(1), cut: before(1), closeTime: '23:30',
+    calendar: 'WEEKDAYS', open: before(1), cut: before(1), closeTime: '23:30', closeTimeRule: 'MCX',
   },
   {
     key: 'NSE_FUT', label: 'NSE futures', exchangeLabel: 'NSE', segments: ['NFO-FUT'],

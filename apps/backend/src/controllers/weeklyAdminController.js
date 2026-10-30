@@ -28,7 +28,8 @@ function currentWeekStart() {
   const weekStart = new Date(now);
   weekStart.setDate(now.getDate() - diffToMonday);
   weekStart.setHours(0, 0, 0, 0);
-  return weekStart;
+  // The week after a special session (Sunday Muhurat) starts on that day.
+  return require('../utils/specialSessions').adjustWeekStart(weekStart, now);
 }
 
 const getWeeklyAdminReport = async (req, res) => {
@@ -69,6 +70,12 @@ const getWeeklyAdminReport = async (req, res) => {
     const executedAtFilter = {};
     executedAtFilter.$gte = date_from ? new Date(date_from) : currentWeekStart();
     if (date_to) executedAtFilter.$lte = new Date(date_to);
+    // A special session (Sunday Muhurat) counts in the week after it.
+    {
+      const adjusted = require('../utils/specialSessions').adjustReportWindow(executedAtFilter.$gte, executedAtFilter.$lte);
+      executedAtFilter.$gte = adjusted.from;
+      if (adjusted.to) executedAtFilter.$lte = adjusted.to;
+    }
 
     // Open-position M2M is the LIVE mark (metricsEngine), so it belongs only
     // to a period that reaches today. A past period (date_to before now —

@@ -196,7 +196,7 @@ async function refreshPlan(now = new Date()) {
           current_expiry: a.current_expiry,
           targets: a.targets,
           action_date: a.action_date,
-          close_time: a.kind === 'CUT' ? group.closeTime : null,
+          close_time: a.kind === 'CUT' ? (a.close_time || group.closeTime) : null,
           execute_at: a.execute_at,
         };
         const existing = await ExpiryAction.findOne({ key: a.key }).select('status').lean();

@@ -47,11 +47,13 @@ const getScriptwisePnl = async (req, res) => {
     if (!from || !to) {
       return res.status(400).json({ success: false, message: 'from and to are required', data: null });
     }
-    const fromDate = new Date(`${from}T00:00:00.000Z`);
-    const toDate = new Date(`${to}T23:59:59.999Z`);
+    let fromDate = new Date(`${from}T00:00:00.000Z`);
+    let toDate = new Date(`${to}T23:59:59.999Z`);
     if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
       return res.status(400).json({ success: false, message: 'Invalid from/to date', data: null });
     }
+    // A special session (Sunday Muhurat) counts in the week after it.
+    ({ from: fromDate, to: toDate } = require('../utils/specialSessions').adjustReportWindow(fromDate, toDate));
 
     const detailMode = Boolean(exchange && tradingsymbol);
 

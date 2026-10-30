@@ -80,9 +80,11 @@ const getAccountSummary = async (req, res) => {
     const now = new Date();
     const dayOfWeek = now.getDay();
     const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const thisWeekStart = new Date(now);
-    thisWeekStart.setDate(now.getDate() - diffToMonday);
-    thisWeekStart.setHours(0, 0, 0, 0);
+    const rawWeekStart = new Date(now);
+    rawWeekStart.setDate(now.getDate() - diffToMonday);
+    rawWeekStart.setHours(0, 0, 0, 0);
+    // The week after a special session (Sunday Muhurat) starts on that day.
+    const thisWeekStart = require('../utils/specialSessions').weekBounds(rawWeekStart, now).thisStart;
 
     const isPastPeriod = end && end <= thisWeekStart;
 
@@ -468,31 +470,40 @@ function _getDateRange(week, from, to) {
   const dayOfWeek = now.getDay();
   const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
 
-  const thisWeekStart = new Date(now);
-  thisWeekStart.setDate(now.getDate() - diffToMonday);
-  thisWeekStart.setHours(0, 0, 0, 0);
+  const rawWeekStart = new Date(now);
+  rawWeekStart.setDate(now.getDate() - diffToMonday);
+  rawWeekStart.setHours(0, 0, 0, 0);
 
-  const thisWeekEnd = new Date(thisWeekStart);
+  // A special session (Sunday Muhurat) belongs to the week after it: that
+  // week starts on the session day and the week before ends there
+  // (utils/specialSessions.js). Any other week is exactly as before.
+  const specialSessions = require('../utils/specialSessions');
+  const bounds = specialSessions.weekBounds(rawWeekStart, now);
+  const thisWeekStart = bounds.thisStart;
+
+  const thisWeekEnd = new Date(bounds.monday);
   thisWeekEnd.setDate(thisWeekEnd.getDate() + 7);
 
-  const prevWeekStart = new Date(thisWeekStart);
-  prevWeekStart.setDate(prevWeekStart.getDate() - 7);
+  const prevWeekStart = bounds.prevStart;
+  // Labels: a start moved to a session day is named by its IST date.
+  const labelDay = (d) => (d.getTime() % 86400000 === 0 ? d : new Date(d.getTime() + 330 * 60 * 1000));
 
   if (week === 'this_week') {
     const s = thisWeekStart;
     const e = thisWeekEnd;
-    return { start: s, end: e, weekLabel: `${_fmtDate(s)} to ${_fmtDate(new Date(e.getTime() - 86400000))}` };
+    return { start: s, end: e, weekLabel: `${_fmtDate(labelDay(s))} to ${_fmtDate(new Date(e.getTime() - 86400000))}` };
   }
   if (week === 'previous_week') {
-    return { start: prevWeekStart, end: thisWeekStart, weekLabel: `${_fmtDate(prevWeekStart)} to ${_fmtDate(new Date(thisWeekStart.getTime() - 86400000))}` };
+    return { start: prevWeekStart, end: thisWeekStart, weekLabel: `${_fmtDate(labelDay(prevWeekStart))} to ${_fmtDate(new Date(labelDay(thisWeekStart).getTime() - 86400000))}` };
   }
   if (week === 'custom' && from && to) {
-    const s = new Date(from); s.setHours(0, 0, 0, 0);
-    const e = new Date(to); e.setHours(23, 59, 59, 999);
-    return { start: s, end: e, weekLabel: `${_fmtDate(s)} to ${_fmtDate(e)}` };
+    const s0 = new Date(from); s0.setHours(0, 0, 0, 0);
+    const e0 = new Date(to); e0.setHours(23, 59, 59, 999);
+    const { from: s, to: e } = specialSessions.adjustReportWindow(s0, e0);
+    return { start: s, end: e, weekLabel: `${_fmtDate(labelDay(s))} to ${_fmtDate(e)}` };
   }
   // Fallback: previous week
-  return { start: prevWeekStart, end: thisWeekStart, weekLabel: `${_fmtDate(prevWeekStart)} to ${_fmtDate(new Date(thisWeekStart.getTime() - 86400000))}` };
+  return { start: prevWeekStart, end: thisWeekStart, weekLabel: `${_fmtDate(labelDay(prevWeekStart))} to ${_fmtDate(new Date(labelDay(thisWeekStart).getTime() - 86400000))}` };
 }
 
 function _fmtDate(d) {

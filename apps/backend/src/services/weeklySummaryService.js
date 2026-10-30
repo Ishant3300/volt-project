@@ -22,7 +22,11 @@ async function snapshotWeeklySummary() {
   weekEnd.setDate(weekEnd.getDate() + 6);
   weekEnd.setHours(23, 59, 59, 999);
 
-  console.log(`📊 [WEEKLY] Snapshotting ${weekStart.toISOString()} → ${weekEnd.toISOString()}`);
+  // The week after a special session (Sunday Muhurat) reads from that day
+  // 00:00 IST — the session belongs to it (utils/specialSessions.js).
+  const queryStart = require('../utils/specialSessions').snapshotQueryStart(weekStart);
+
+  console.log(`📊 [WEEKLY] Snapshotting ${queryStart.toISOString()} → ${weekEnd.toISOString()}`);
 
   // Aggregate completed trades for this week per user_id
   const tradeAgg = await Trade.aggregate([
@@ -30,7 +34,7 @@ async function snapshotWeeklySummary() {
       $match: {
         status: 'completed',
         deleted_at: null,
-        executed_at: { $gte: weekStart, $lte: weekEnd },
+        executed_at: { $gte: queryStart, $lte: weekEnd },
       }
     },
     {
@@ -155,7 +159,11 @@ async function snapshotWeeklyLedger() {
   weekEnd.setDate(weekEnd.getDate() + 6);
   weekEnd.setHours(23, 59, 59, 999);
 
-  console.log(`📒 [LEDGER] Snapshotting ${weekStart.toISOString()} → ${weekEnd.toISOString()}`);
+  // The week after a special session (Sunday Muhurat) reads from that day
+  // 00:00 IST — the session belongs to it (utils/specialSessions.js).
+  const queryStart = require('../utils/specialSessions').snapshotQueryStart(weekStart);
+
+  console.log(`📒 [LEDGER] Snapshotting ${queryStart.toISOString()} → ${weekEnd.toISOString()}`);
 
   // Same trade set as the weekly admin report (weeklyAdminController's live
   // query), so the Ledger adds exactly the week's report Total P&L. This
@@ -171,7 +179,7 @@ async function snapshotWeeklyLedger() {
     {
       $match: {
         status: 'completed',
-        executed_at: { $gte: weekStart, $lte: weekEnd },
+        executed_at: { $gte: queryStart, $lte: weekEnd },
         $or: [
           { deleted_at: null, trade_type: { $ne: 'carry_forward' } },
           { deleted_at: { $ne: null }, settlement_run_id: { $ne: null } },

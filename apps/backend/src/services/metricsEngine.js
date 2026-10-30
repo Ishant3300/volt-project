@@ -15,7 +15,7 @@ const BrokerageSettings = require('../models/BrokerageSettings');
 const KiteInstrument = require('../models/KiteInstrument');
 const SettlementHistory = require('../models/SettlementHistory');
 const SettlementRun = require('../models/SettlementRun');
-const { dateRange, isWeekendInIndia, getLatestDueSettlementFriday, toIndiaDateOnly } = require('../utils/settlementDates');
+const { dateRange, isPriceWeekendInIndia, getLatestDueSettlementFriday, toIndiaDateOnly } = require('../utils/settlementDates');
 const { allowedCategories, CATEGORY_ORDER } = require('../utils/walletCategory');
 const { GLOBAL_INDEX_NAMES } = require('../constants/massiveInstruments');
 
@@ -83,7 +83,7 @@ class MetricsEngine {
     // a backward-compatible fallback for settlements created before this field existed.
     const positionTokens = Array.from(this._tokenToUsers.keys());
     if (positionTokens.length > 0) {
-      const weekend = isWeekendInIndia(options.now || new Date());
+      const weekend = isPriceWeekendInIndia(options.now || new Date());
       const latestRun = weekend
         ? await SettlementRun.findOne({ status: { $in: ['committed', 'finalizing', 'completed'] } }).sort({ trading_date: -1 }).select('trading_date').lean()
         : null;
@@ -449,7 +449,7 @@ class MetricsEngine {
     // The first weekday/session tick releases the lock regardless of price
     // movement; a genuine open can trade at exactly the settlement price.
     if (this._settledTokens && this._settledTokens.has(token)) {
-      if (!isWeekendInIndia()) this.clearSettledTokens();
+      if (!isPriceWeekendInIndia()) this.clearSettledTokens();
       else return;
     }
 
@@ -1024,7 +1024,7 @@ class MetricsEngine {
   async synchronizeSettlementGeneration(options = {}) {
     const maxAgeMs = options.maxAgeMs ?? 10_000;
     const now = Date.now();
-    const applyPrices = options.applyPrices ?? isWeekendInIndia(options.now || new Date());
+    const applyPrices = options.applyPrices ?? isPriceWeekendInIndia(options.now || new Date());
     if (!options.force && !options.runId && maxAgeMs > 0 && (now - this._lastSettlementCheckAt) < maxAgeMs) {
       return { changed: false, runId: this._appliedSettlementRunId, pricesApplied: applyPrices };
     }

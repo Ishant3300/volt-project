@@ -77,7 +77,9 @@ function computeBrokerEarnings({ links, trades, instruments, from, to }) {
       brokerage: trade.brokerage,
       exempt: trade.brokerage_exempt === true,
     });
-    const week = weekStartIST(at);
+    // A special-session fill (Sunday Muhurat) belongs to the week after it.
+    const followingMonday = require('../utils/specialSessions').followingMondayYmd(at);
+    const week = followingMonday ? weekStartIST(new Date(`${followingMonday}T12:00:00+05:30`)) : weekStartIST(at);
     const key = `${link._id}|${segment}|${week.getTime()}`;
     let row = rows.get(key);
     if (!row) {

@@ -275,9 +275,11 @@ const clientRates = async (req, res) => {
  */
 const getEarnings = async (req, res) => {
   try {
-    const to = req.query.to ? new Date(req.query.to) : new Date();
-    const from = req.query.from ? new Date(req.query.from) : new Date(to.getTime() - 56 * 864e5);
+    let to = req.query.to ? new Date(req.query.to) : new Date();
+    let from = req.query.from ? new Date(req.query.from) : new Date(to.getTime() - 56 * 864e5);
     if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from >= to) return fail(res, 400, 'Invalid date range');
+    // A special session (Sunday Muhurat) counts in the week after it.
+    ({ from, to } = require('../utils/specialSessions').adjustReportWindow(from, to));
     if (to - from > MAX_RANGE_DAYS * 864e5) return fail(res, 400, `Choose a range of at most ${MAX_RANGE_DAYS} days`);
 
     const linkFilter = { from: { $lt: to }, $or: [{ to: null }, { to: { $gt: from } }] };

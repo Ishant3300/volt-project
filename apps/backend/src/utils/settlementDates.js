@@ -141,6 +141,16 @@ function isWeekendInIndia(now = new Date()) {
   return isWeekendDate(toIndiaDateOnly(now));
 }
 
+/**
+ * Weekend for PRICES (the official settlement price locked against cached
+ * ticks): a weekend day, except from just before a special session
+ * (utils/specialSessions.js — Sunday Muhurat trading) to the end of that day,
+ * when ticks are real market moves. Settlement itself keeps isWeekendInIndia.
+ */
+function isPriceWeekendInIndia(now = new Date()) {
+  return isWeekendInIndia(now) && !require('./specialSessions').isSessionPriceTime(now);
+}
+
 module.exports = {
   INDIA_TIME_ZONE,
   addUtcDays,
@@ -152,6 +162,7 @@ module.exports = {
   indiaDayRangeUtc,
   isTradingDay,
   isWeekendInIndia,
+  isPriceWeekendInIndia,
   onOrBeforeTradingDay,
   previousTradingDay,
   resolveBhavcopyTradingDates,

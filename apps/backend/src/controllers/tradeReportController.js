@@ -69,9 +69,12 @@ const getTradeReport = async (req, res) => {
       return res.status(400).json({ success: false, message: 'from and to dates are required' });
     }
 
-    const fromDate = new Date(from);
-    const toDate = new Date(to);
+    let fromDate = new Date(from);
+    let toDate = new Date(to);
     toDate.setHours(23, 59, 59, 999);
+    // A special session (Sunday Muhurat) is billed in the week after it:
+    // that week starts on the session day, the week before stops short of it.
+    ({ from: fromDate, to: toDate } = require('../utils/specialSessions').adjustReportWindow(fromDate, toDate));
 
     const role = req.admin ? 'admin' : req.master ? 'master' : 'user';
     const callerId = req.admin?.id || req.master?.id || req.user?.id;

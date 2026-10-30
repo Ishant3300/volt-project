@@ -12,6 +12,18 @@ const { beginTradeWrite } = require('./tradeWriteFenceService');
 // Massive or plan expiries return immediately — practice has no market data.
 const { PRACTICE } = require('../config/practice');
 
+/**
+ * True when it is `after` minutes past today's MCX close (IST): 11:30 PM in US
+ * summer time, 11:55 PM in US winter (utils/mcxHours.js). The MCX close jobs
+ * are scheduled at both slots and run only at the one matching the day.
+ */
+function isMcxCloseSlot(after, now = new Date()) {
+    const { mcxCloseMinutesOn } = require('../utils/mcxHours');
+    const ist = new Date(now.getTime() + 330 * 60 * 1000);
+    const minutes = ist.getUTCHours() * 60 + ist.getUTCMinutes();
+    return minutes === mcxCloseMinutesOn(ist.toISOString().slice(0, 10)) + after;
+}
+
 class CronService {
     constructor() {
         this.jobs = [];
@@ -68,6 +80,12 @@ class CronService {
 
         // Snapshot weekly P&L every Sunday at 23:55 (before midnight balance reset)
         const weeklySummarySnapshot = cron.schedule('55 23 * * 0', async () => {
+            // A special-session day (utils/specialSessions.js) took this week's
+            // snapshot before its session — the session belongs to next week.
+            if (require('../utils/specialSessions').isSessionDay(new Date())) {
+                console.log('📊 [CRON] Weekly Summary Snapshot skipped — taken before today\'s special session.');
+                return;
+            }
             console.log('📊 [CRON] Starting Weekly Summary Snapshot...');
             try {
                 await snapshotWeeklySummary();
@@ -82,6 +100,10 @@ class CronService {
         // entry and its own try/catch — a failure here must never affect
         // that existing snapshot, and vice versa.
         const weeklyLedgerSnapshot = cron.schedule('55 23 * * 0', async () => {
+            if (require('../utils/specialSessions').isSessionDay(new Date())) {
+                console.log('📒 [CRON] Weekly Ledger Snapshot skipped — taken before today\'s special session.');
+                return;
+            }
             console.log('📒 [CRON] Starting Weekly Ledger Snapshot...');
             try {
                 await snapshotWeeklyLedger();
@@ -324,7 +346,10 @@ class CronService {
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(expirySquareOffNSE);
 
-        const expirySquareOffMCX = cron.schedule('33 23 * * 1-5', async () => {
+        // Three minutes after the MCX close: 11:33 PM IST in US summer time,
+        // 11:58 PM in US winter (isMcxCloseSlot).
+        const expirySquareOffMCX = cron.schedule('33,58 23 * * 1-5', async () => {
+            if (!isMcxCloseSlot(3)) return;
             console.log('📊 [CRON] Expiry auto square-off check (MCX close)...');
             try {
                 await this.autoSquareOffExpiredPositions();
@@ -421,8 +446,10 @@ class CronService {
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(intradaySquareOffNSE);
 
-        // MCX: 11:30 PM IST
-        const intradaySquareOffMCX = cron.schedule('31 23 * * 1-5', async () => {
+        // MCX: one minute after the close — 11:31 PM IST in US summer time,
+        // 11:56 PM in US winter (isMcxCloseSlot).
+        const intradaySquareOffMCX = cron.schedule('31,56 23 * * 1-5', async () => {
+            if (!isMcxCloseSlot(1)) return;
             console.log('🔄 [CRON] Intraday square-off (MCX close)...');
             try {
                 await this.runIntradaySquareOff(['MCX-FUT', 'MCX-OPT']);
@@ -511,8 +538,10 @@ class CronService {
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(cancelPendingNSE);
 
-        // MCX-FUT, MCX-OPT: 11:32 PM IST
-        const cancelPendingMCX = cron.schedule('32 23 * * 1-5', async () => {
+        // MCX-FUT, MCX-OPT: two minutes after the close — 11:32 PM IST in US
+        // summer time, 11:57 PM in US winter (isMcxCloseSlot).
+        const cancelPendingMCX = cron.schedule('32,57 23 * * 1-5', async () => {
+            if (!isMcxCloseSlot(2)) return;
             console.log('🗑️ [CRON] Cancelling pending orders (MCX close)...');
             try {
                 const count = await this.cancelPendingOrdersBySegment(['MCX-FUT', 'MCX-OPT']);
@@ -567,6 +596,49 @@ class CronService {
             }
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(cancelPendingGIFT);
+
+        // ── Special sessions (utils/specialSessions.js — Sunday 8 Nov 2026
+        // Diwali Muhurat trading) ── every weekend minute, run what the session
+        // calendar has due: the snapshot of the week settled before it (instead
+        // of 23:55), the NFO 3:20 PM market-only cancel, and intraday
+        // square-off / pending-order cancel one and two minutes after each
+        // window's close — the same jobs a weekday runs at its close.
+        const specialSessionJobs = cron.schedule('* * * * 0,6', async () => {
+            const jobs = require('../utils/specialSessions').dueJobs(new Date());
+            for (const job of jobs) {
+                if (job.type === 'weekSnapshot') {
+                    console.log('📒 [CRON] Special session: snapshotting the week settled before it...');
+                    try {
+                        await snapshotWeeklySummary();
+                    } catch (error) {
+                        console.error('❌ [CRON] Special session weekly summary snapshot failed:', error);
+                    }
+                    try {
+                        await snapshotWeeklyLedger();
+                    } catch (error) {
+                        console.error('❌ [CRON] Special session weekly ledger snapshot failed:', error);
+                    }
+                    continue;
+                }
+                try {
+                    if (job.type === 'marketOnlyCancel') {
+                        const { CANCEL_REMARK } = require('../utils/nfoMarketOnlyWindow');
+                        const count = await this.cancelPendingOrdersBySegment(job.segments, CANCEL_REMARK);
+                        console.log(`✅ [CRON] Special session ${job.window}: cancelled ${count} pending NFO limit/stop-loss order(s) for the market-only window.`);
+                    } else if (job.type === 'squareoff') {
+                        console.log(`🔄 [CRON] Special session ${job.window} close: intraday square-off...`);
+                        await this.runIntradaySquareOff(job.segments);
+                        console.log(`✅ [CRON] Special session ${job.window} intraday square-off completed.`);
+                    } else if (job.type === 'cancel') {
+                        const count = await this.cancelPendingOrdersBySegment(job.segments);
+                        console.log(`✅ [CRON] Special session ${job.window} close: cancelled ${count} pending order(s).`);
+                    }
+                } catch (error) {
+                    console.error(`❌ [CRON] Special session ${job.window} ${job.type} failed:`, error);
+                }
+            }
+        }, { timezone: 'Asia/Kolkata' });
+        this.jobs.push(specialSessionJobs);
 
         // Weekend carry-forward is handled by settlementService.js (durable,
         // transactional). The old weekendCarryForwardService module was removed.

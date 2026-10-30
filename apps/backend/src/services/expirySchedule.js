@@ -40,6 +40,12 @@ function istInstant(day, hhmm) {
 }
 
 /** One minute after `hhmm`. */
+/** A group's close on `day`: that day's MCX close for `closeTimeRule: 'MCX'`, else its fixed `closeTime`. */
+function closeTimeOn(group, day) {
+  if (group.closeTimeRule === 'MCX') return require('../utils/mcxHours').mcxCloseOn(dateKey(day));
+  return group.closeTime;
+}
+
 function plusOneMinute(hhmm) {
   const [h, m] = hhmm.split(':').map(Number);
   const total = h * 60 + m + 1;
@@ -100,7 +106,8 @@ function planGroup(group, contracts, holidays, { effectiveFrom, openTime }) {
         kind: 'CUT',
         current_expiry: expiry,
         action_date: dateKey(cutDay),
-        execute_at: istInstant(cutDay, plusOneMinute(group.closeTime)),
+        close_time: closeTimeOn(group, cutDay),
+        execute_at: istInstant(cutDay, plusOneMinute(closeTimeOn(group, cutDay))),
         names: [...names].sort(),
         targets: [],
       });
@@ -114,6 +121,7 @@ module.exports = {
   workingDaysBefore,
   expiryWeekMonday,
   istInstant,
+  closeTimeOn,
   plusOneMinute,
   isTradingDay,
 };
