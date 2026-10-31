@@ -11,7 +11,11 @@ import 'package:stocker/services/kite_service.dart';
 import '../utils/contants.dart';
 
 class InstrumentSearchPage extends StatefulWidget {
-  const InstrumentSearchPage({super.key});
+  /// Segment tab to open on ('ALL', 'NFO-FUT', 'MCX-FUT', 'GLOBAL', …) — the
+  /// watchlist opens search on its own open segment.
+  final String initialTab;
+
+  const InstrumentSearchPage({super.key, this.initialTab = 'ALL'});
 
   @override
   State<InstrumentSearchPage> createState() => _InstrumentSearchPageState();
@@ -55,8 +59,11 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    if (_tabs.any((t) => t['key'] == widget.initialTab)) _activeTab = widget.initialTab;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _searchFocusNode.requestFocus();
+      // Opened on a segment: list it straight away, like tapping its tab.
+      if (_activeTab != 'ALL') _browseCategoryInstruments();
       // Fresh permissions, so a segment an admin just allowed (or removed)
       // shows up here at once.
       final profile = Provider.of<UserProfileProvider>(context, listen: false);

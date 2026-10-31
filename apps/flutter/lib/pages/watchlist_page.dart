@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:stocker/pages/instrument_search_page.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
 import 'package:stocker/providers/investor_mode_provider.dart';
+import 'package:stocker/providers/user_profile_provider.dart';
 import '../utils/contants.dart';
 import '../views/trade_card_view.dart';
 import '../widgets/announcement_banner.dart';
@@ -14,7 +15,19 @@ import '../widgets/announcement_banner.dart';
 /// `addInstrument`, it's purely a display number matching the reference design.
 const int _kWatchlistDisplayCap = 100;
 
-enum _InstrumentFilter { all, equityIndex, futures, options }
+/// Segment tabs, in the order a client swipes through them (same as the web
+/// client watchlist, apex-web-portal ClientWatchlist.tsx, 31 Oct 2026).
+const List<MapEntry<String, String>> _kSegmentTabs = [
+  MapEntry('NFO-FUT', 'NSE FUT'),
+  MapEntry('MCX-FUT', 'MCX FUT'),
+  MapEntry('GLOBAL', 'GLOBAL'),
+  MapEntry('COMEX-FUT', 'COMEX'),
+  MapEntry('NFO-OPT', 'NSE OPT'),
+  MapEntry('MCX-OPT', 'MCX OPT'),
+];
+
+/// Shown until the client's allowed segments are known.
+const Set<String> _kDefaultSegments = {'NFO-FUT', 'MCX-FUT', 'GLOBAL', 'COMEX-FUT'};
 
 class WatchlistPage extends StatefulWidget {
   const WatchlistPage({super.key});
@@ -23,9 +36,20 @@ class WatchlistPage extends StatefulWidget {
   State<WatchlistPage> createState() => _WatchlistPageState();
 }
 
+/// Watchlist by segment: NSE FUT → MCX FUT → GLOBAL → COMEX (then the option
+/// segments), one tab per segment the client may trade plus any segment they
+/// still hold scripts in. Swipe the list sideways or tap a tab; "Search & add"
+/// searches the open tab's segment. Still one watchlist on the server — the
+/// tabs only group it. Removing a script is through Edit (a sideways swipe
+/// now changes the tab, so swipe-to-delete would remove scripts by accident).
 class _WatchlistPageState extends State<WatchlistPage> {
+  /// Last open tab, kept while the app runs.
+  static String _lastSegment = _kSegmentTabs.first.key;
+
   bool _editMode = false;
-  _InstrumentFilter _filter = _InstrumentFilter.all;
+  PageController? _pageController;
+  String _pagesKey = '';
+  final ScrollController _tabScroll = ScrollController();
 
   @override
   void initState() {
@@ -41,75 +65,71 @@ class _WatchlistPageState extends State<WatchlistPage> {
     });
   }
 
-  bool _matchesFilter(dynamic instrument) {
-    if (_filter == _InstrumentFilter.all) return true;
-    final instType = instrument.instrumentType ?? '';
-    final isOption = instType == 'CE' || instType == 'PE';
-    final isFut = instType == 'FUT';
-    switch (_filter) {
-      case _InstrumentFilter.futures:
-        return isFut;
-      case _InstrumentFilter.options:
-        return isOption;
-      case _InstrumentFilter.equityIndex:
-        return !isFut && !isOption;
-      case _InstrumentFilter.all:
-        return true;
-    }
+  @override
+  void dispose() {
+    _pageController?.dispose();
+    _tabScroll.dispose();
+    super.dispose();
   }
 
-  Future<void> _showFilterSheet(BuildContext context) async {
-    final picked = await showModalBottomSheet<_InstrumentFilter>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (sheetContext) {
-        Widget option(_InstrumentFilter value, String label) {
-          return ListTile(
-            title: Text(
-              label,
-              style: TextStyle(
-                fontFamily: kFontFamily,
-                fontSize: 15,
-                fontWeight: _filter == value ? FontWeight.w700 : FontWeight.w400,
-                color: const Color(0xFF111827),
-              ),
-            ),
-            trailing: _filter == value
-                ? const Icon(Icons.check, color: kBrandPrimary, size: 20)
-                : null,
-            onTap: () => Navigator.pop(sheetContext, value),
-          );
-        }
+  /// A script's tab (GLOBAL is stored as INDICES on older rows — same permission).
+  static String _segmentOf(dynamic instrument) =>
+      UserProfileProvider.normalizeSegment(instrument.segment as String?);
 
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              option(_InstrumentFilter.all, 'All'),
-              option(_InstrumentFilter.equityIndex, 'Equity & index'),
-              option(_InstrumentFilter.futures, 'Futures'),
-              option(_InstrumentFilter.options, 'Options'),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
+  /// The tabs to show: allowed segments (or the four futures segments until
+  /// known) plus any segment the client still holds scripts in.
+  List<MapEntry<String, String>> _tabsFor(List<dynamic> items, Set<String>? allowed) {
+    final present = items.map((i) => _segmentOf(i.instrument)).toSet();
+    final tabs = _kSegmentTabs
+        .where((t) => (allowed ?? _kDefaultSegments).contains(t.key) || present.contains(t.key))
+        .toList();
+    for (final seg in present) {
+      if (seg.isNotEmpty && !_kSegmentTabs.any((t) => t.key == seg)) tabs.add(MapEntry(seg, seg));
+    }
+    return tabs.isEmpty ? _kSegmentTabs.where((t) => _kDefaultSegments.contains(t.key)).toList() : tabs;
+  }
+
+  void _openSearch(BuildContext context, String segment) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => InstrumentSearchPage(initialTab: segment),
+      ),
     );
-    if (picked != null && mounted) setState(() => _filter = picked);
+  }
+
+  void _selectTab(int index, List<MapEntry<String, String>> tabs) {
+    if (index < 0 || index >= tabs.length) return;
+    setState(() => _lastSegment = tabs[index].key);
+    _pageController?.animateToPage(index, duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
   }
 
   @override
   Widget build(BuildContext context) {
+    final profile = Provider.of<UserProfileProvider>(context);
+    final watchlistProvider = Provider.of<WatchlistProvider>(context);
+    final tabs = _tabsFor(watchlistProvider.items, profile.allowedSegments);
+    int activeIndex = tabs.indexWhere((t) => t.key == _lastSegment);
+    if (activeIndex < 0) activeIndex = 0;
+    final activeTab = tabs[activeIndex];
+
+    // A new page set (tabs changed) gets a fresh controller on the open tab.
+    final key = tabs.map((t) => t.key).join(',');
+    if (key != _pagesKey || _pageController == null) {
+      // The old controller is still attached to the PageView until this
+      // frame swaps it — dispose it after the frame, not now.
+      final old = _pageController;
+      if (old != null) WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
+      _pageController = PageController(initialPage: activeIndex);
+      _pagesKey = key;
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
-            // Header — title + edit + filter
+            // Header — title + edit
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
               child: Row(
@@ -135,33 +155,15 @@ class _WatchlistPageState extends State<WatchlistPage> {
                       color: _editMode ? kBrandPrimary : const Color(0xFF6B7280),
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => _showFilterSheet(context),
-                    tooltip: 'Filter',
-                    icon: Icon(
-                      Icons.filter_list,
-                      size: 20,
-                      color: _filter != _InstrumentFilter.all
-                          ? kBrandPrimary
-                          : const Color(0xFF6B7280),
-                    ),
-                  ),
                 ],
               ),
             ),
 
-            // Search pill with a live count/cap indicator
+            // Search pill — searches the open tab's segment
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const InstrumentSearchPage(),
-                    ),
-                  );
-                },
+                onTap: () => _openSearch(context, activeTab.key),
                 child: Container(
                   height: 44,
                   padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -173,10 +175,10 @@ class _WatchlistPageState extends State<WatchlistPage> {
                     children: [
                       const Icon(Icons.search, color: Color(0xFF8E95A2), size: 18),
                       const SizedBox(width: 8),
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          'Search & add',
-                          style: TextStyle(
+                          'Search ${activeTab.value} & add',
+                          style: const TextStyle(
                             color: Color(0xFF8E95A2),
                             fontSize: 14,
                             fontFamily: kFontFamily,
@@ -184,15 +186,13 @@ class _WatchlistPageState extends State<WatchlistPage> {
                           ),
                         ),
                       ),
-                      Consumer<WatchlistProvider>(
-                        builder: (context, watchlistProvider, child) => Text(
-                          '${watchlistProvider.items.length}/$_kWatchlistDisplayCap',
-                          style: const TextStyle(
-                            color: Color(0xFF8E95A2),
-                            fontSize: 14,
-                            fontFamily: kFontFamily,
-                            fontWeight: FontWeight.w400,
-                          ),
+                      Text(
+                        '${watchlistProvider.items.length}/$_kWatchlistDisplayCap',
+                        style: const TextStyle(
+                          color: Color(0xFF8E95A2),
+                          fontSize: 14,
+                          fontFamily: kFontFamily,
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                     ],
@@ -204,173 +204,141 @@ class _WatchlistPageState extends State<WatchlistPage> {
             // Announcement marquee
             const AnnouncementBanner(),
 
-            // Watchlist items
-            Expanded(
-              child: Consumer<WatchlistProvider>(
-                builder: (context, watchlistProvider, child) {
-                  if (watchlistProvider.isLoading) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  if (watchlistProvider.isEmpty &&
-                      watchlistProvider.error != null) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.wifi_off,
-                              size: 64, color: Colors.grey[400]),
-                          const SizedBox(height: 16),
-                          Text(
-                            "Couldn't load your watchlist",
-                            style: TextStyle(
-                                fontSize: kFontSizeSectionHeader,
-                                color: Colors.grey[600]),
-                          ),
-                          const SizedBox(height: 8),
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              watchlistProvider.loadWatchlist();
-                            },
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Retry'),
-                          ),
-                        ],
+            // Segment tabs
+            SizedBox(
+              height: 44,
+              child: ListView.separated(
+                controller: _tabScroll,
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                itemCount: tabs.length,
+                separatorBuilder: (context, index) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final tab = tabs[index];
+                  final selected = index == activeIndex;
+                  final count = watchlistProvider.items.where((i) => _segmentOf(i.instrument) == tab.key).length;
+                  return GestureDetector(
+                    onTap: () => _selectTab(index, tabs),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: selected ? kBrandPrimary.withValues(alpha: 0.10) : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: selected ? kBrandPrimary : const Color(0xFFE5E7EB)),
                       ),
-                    );
-                  }
-
-                  if (watchlistProvider.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.add_chart,
-                              size: 64, color: Colors.grey[400]),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No instruments in watchlist',
-                            style: TextStyle(
-                                fontSize: kFontSizeSectionHeader,
-                                color: Colors.grey[600]),
-                          ),
-                          const SizedBox(height: 8),
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const InstrumentSearchPage(),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.add),
-                            label: const Text('Add Instruments'),
-                          ),
-                          const SizedBox(height: 16),
-                          TextButton.icon(
-                            onPressed: () {
-                              watchlistProvider.loadWatchlist();
-                            },
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('Refresh Watchlist'),
-                          ),
-                        ],
+                      child: Text(
+                        '${tab.value}  $count',
+                        style: TextStyle(
+                          fontFamily: kFontFamily,
+                          fontSize: 13,
+                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                          color: selected ? kBrandPrimary : const Color(0xFF6B7280),
+                        ),
                       ),
-                    );
-                  }
-
-                  final visibleItems = watchlistProvider.items
-                      .where((item) => _matchesFilter(item.instrument))
-                      .toList();
-
-                  if (visibleItems.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.filter_list_off,
-                              size: 64, color: Colors.grey[400]),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No instruments match this filter',
-                            style: TextStyle(
-                                fontSize: kFontSizeSectionHeader,
-                                color: Colors.grey[600]),
-                          ),
-                          const SizedBox(height: 8),
-                          TextButton(
-                            onPressed: () =>
-                                setState(() => _filter = _InstrumentFilter.all),
-                            child: const Text('Clear filter'),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  return RefreshIndicator(
-                    onRefresh: () => watchlistProvider.loadWatchlist(),
-                    child: ListView.separated(
-                      padding: EdgeInsets.zero,
-                      itemCount: visibleItems.length,
-                      separatorBuilder: (context, index) => const Divider(
-                        height: 1,
-                        color: Color(0xFFF0F2F5),
-                      ),
-                      itemBuilder: (context, index) {
-                        final item = visibleItems[index];
-                        final instrument = item.instrument;
-
-                        return Dismissible(
-                          key: Key(item.id),
-                          direction: DismissDirection.endToStart,
-                          confirmDismiss: (direction) async {
-                            final investorMode =
-                                Provider.of<InvestorModeProvider>(
-                                    context,
-                                    listen: false);
-                            if (investorMode.isInvestor) {
-                              ScaffoldMessenger.of(context)
-                                  .showSnackBar(
-                                const SnackBar(
-                                    content: Text(
-                                        'Watchlist editing is not available in investor mode'),
-                                    backgroundColor: Color(0xFF64748B)),
-                              );
-                              return false;
-                            }
-                            return true;
-                          },
-                          background: Container(
-                            alignment: Alignment.centerRight,
-                            padding: const EdgeInsets.only(right: 20),
-                            color: kColorSell,
-                            child: const Icon(Icons.delete,
-                                color: Colors.white),
-                          ),
-                          onDismissed: (direction) async {
-                            final removed = await watchlistProvider
-                                .removeInstrument(item.id);
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(removed
-                                    ? '${instrument.tradingsymbol} removed from watchlist'
-                                    : 'Could not remove ${instrument.tradingsymbol} — try again'),
-                                backgroundColor: removed ? null : kColorSell,
-                              ),
-                            );
-                          },
-                          child: _buildWatchlistRow(
-                              context, item, instrument, watchlistProvider),
-                        );
-                      },
                     ),
                   );
                 },
               ),
+            ),
+
+            // Watchlist items — one page per tab, swipe between them
+            Expanded(
+              child: Builder(builder: (context) {
+                if (watchlistProvider.isLoading) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (watchlistProvider.isEmpty && watchlistProvider.error != null) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.wifi_off, size: 64, color: Colors.grey[400]),
+                        const SizedBox(height: 16),
+                        Text(
+                          "Couldn't load your watchlist",
+                          style: TextStyle(fontSize: kFontSizeSectionHeader, color: Colors.grey[600]),
+                        ),
+                        const SizedBox(height: 8),
+                        ElevatedButton.icon(
+                          onPressed: () => watchlistProvider.loadWatchlist(),
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return PageView.builder(
+                  controller: _pageController,
+                  itemCount: tabs.length,
+                  onPageChanged: (index) => setState(() => _lastSegment = tabs[index].key),
+                  itemBuilder: (context, pageIndex) {
+                    final tab = tabs[pageIndex];
+                    final pageItems = watchlistProvider.items
+                        .where((item) => _segmentOf(item.instrument) == tab.key)
+                        .toList();
+
+                    if (pageItems.isEmpty) {
+                      return RefreshIndicator(
+                        onRefresh: () => watchlistProvider.loadWatchlist(),
+                        child: ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            const SizedBox(height: 80),
+                            Icon(Icons.add_chart, size: 56, color: Colors.grey[400]),
+                            const SizedBox(height: 12),
+                            Center(
+                              child: Text(
+                                'No ${tab.value} scripts yet',
+                                style: TextStyle(fontSize: kFontSizeSectionHeader, color: Colors.grey[600]),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Center(
+                              child: ElevatedButton.icon(
+                                onPressed: () => _openSearch(context, tab.key),
+                                icon: const Icon(Icons.add),
+                                label: Text('Add ${tab.value}'),
+                              ),
+                            ),
+                            if (tabs.length > 1)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: Center(
+                                  child: Text(
+                                    'Swipe for another segment',
+                                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return RefreshIndicator(
+                      onRefresh: () => watchlistProvider.loadWatchlist(),
+                      child: ListView.separated(
+                        padding: EdgeInsets.zero,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        itemCount: pageItems.length,
+                        separatorBuilder: (context, index) => const Divider(
+                          height: 1,
+                          color: Color(0xFFF0F2F5),
+                        ),
+                        itemBuilder: (context, index) {
+                          final item = pageItems[index];
+                          return _buildWatchlistRow(context, item, item.instrument, watchlistProvider);
+                        },
+                      ),
+                    );
+                  },
+                );
+              }),
             ),
 
             const SizedBox(height: 16),
