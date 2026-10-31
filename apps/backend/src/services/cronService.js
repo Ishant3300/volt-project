@@ -189,16 +189,17 @@ class CronService {
         this.jobs.push(orderConsistencyReverseAudit);
 
         // ── Kite Token Refresh ─────────────────────────────────────────
-        // Check every hour if the Kite access token is still valid.
+        // Every 15 minutes: is the Kite access token still valid — saved expiry AND
+        // Kite's own answer (kiteAuthService.checkTokenStatus, 1 Nov 2026)?
         // If expired or expiring soon, perform automated login (same as server startup).
-        const kiteTokenRefresh = cron.schedule('0 * * * *', async () => {
+        const kiteTokenRefresh = cron.schedule('*/15 * * * *', async () => {
             if (PRACTICE) return;
             try {
                 const kiteAuthService = require('./kiteAuthService');
                 const status = await kiteAuthService.checkTokenStatus();
 
                 if (status.valid) {
-                    console.log(`🔐 [CRON] Kite token OK (valid for ${status.hoursLeft} hours).`);
+                    if (new Date().getMinutes() < 15) console.log(`🔐 [CRON] Kite token OK (valid for ${status.hoursLeft} hours${status.live === 'unknown' ? ', Kite did not answer' : ''}).`);
                     return;
                 }
 

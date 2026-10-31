@@ -126,6 +126,31 @@ class KiteService {
   }
 
   /**
+   * Ask Kite whether a stored token still works (1 Nov 2026): 'valid',
+   * 'rejected' (Kite's own answer that the token is dead — e.g. dropped early
+   * because the API key logged in elsewhere; one session per key), or
+   * 'unknown' (timeout, network, Kite down: no verdict, not a rejection).
+   */
+  async checkAccessTokenWithKite(accessToken) {
+    try {
+      const response = await axios.get(`${this.baseUrl}/user/profile`, {
+        headers: {
+          'X-Kite-Version': '3',
+          'Authorization': `token ${this.apiKey}:${accessToken}`
+        },
+        timeout: 8000
+      });
+      return response.data && response.data.status === 'success' ? 'valid' : 'unknown';
+    } catch (error) {
+      const res = error.response;
+      if (res && (res.data?.error_type === 'TokenException' || (res.status === 403 && !res.data?.error_type))) {
+        return 'rejected';
+      }
+      return 'unknown';
+    }
+  }
+
+  /**
    * Clear session (logout)
    */
   async clearSession() {

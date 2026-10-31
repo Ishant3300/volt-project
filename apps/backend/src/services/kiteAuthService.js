@@ -119,23 +119,35 @@ class KiteAuthService {
         };
       }
 
-      // Trust the DB expiry time — don't validate against live API
-      // (live validation can fail outside market hours and cause unnecessary re-login)
+      // Ask Kite itself (1 Nov 2026): a token Kite had already dropped (Sat 31
+      // Oct) passed the expiry check above, so the auto re-login never ran.
+      // Only Kite's own "token invalid" answer counts — no answer (timeout,
+      // network, outside hours) trusts the DB expiry as before.
+      const live = await this._liveTokenCheck(accessToken);
+      if (live === 'rejected') {
+        return { valid: false, reason: 'Kite token invalid — rejected by Kite', expiresAt };
+      }
       return {
         valid: true,
         expiresAt,
-        hoursLeft: Math.floor((expiresAt - now) / (60 * 60 * 1000))
+        hoursLeft: Math.floor((expiresAt - now) / (60 * 60 * 1000)),
+        live
       };
-
-      // Validate token against actual Kite API (disabled - causes false negatives outside market hours)
-      // const isValidOnAPI = await kiteService.validateAccessToken(accessToken);
-      // if (!isValidOnAPI) {
-      //   return { valid: false, reason: 'Token invalid according to Kite API', expiresAt };
-      // }
     } catch (error) {
       console.error('Error checking token status:', error);
       return { valid: false, reason: 'Error checking token', error: error.message };
     }
+  }
+
+  /** Kite's verdict on a token, cached 5 minutes per token (kiteService.checkAccessTokenWithKite). */
+  async _liveTokenCheck(accessToken) {
+    const now = Date.now();
+    const c = this._liveCheckCache;
+    if (c && c.token === accessToken && now - c.at < 5 * 60 * 1000) return c.result;
+    const result = await kiteService.checkAccessTokenWithKite(accessToken);
+    this._liveCheckCache = { token: accessToken, result, at: now };
+    if (result === 'rejected') console.warn('⚠️  Kite token invalid — rejected by Kite (TokenException). A fresh login is needed.');
+    return result;
   }
 
   /**
