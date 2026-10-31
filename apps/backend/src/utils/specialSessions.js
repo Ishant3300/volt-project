@@ -49,7 +49,9 @@ const SESSIONS = [
 /** Prices go live this long before the first open (Kite streams the pre-open). */
 const PRICE_LEAD_MS = 20 * 60 * 1000;
 /** The feed watchdog keeps checking this long after the last close. */
-const FEED_TAIL_MS = 10 * 60 * 1000;
+const FEED_TAIL_MS = 20 * 60 * 1000;
+/** Intraday square-off this long after a window's close, once the bid/ask settled (as on a weekday). */
+const SQUARE_OFF_AFTER_MIN = 15;
 
 /** `YYYY-MM-DD` of the IST calendar day containing `now`. */
 function istYmd(now = new Date()) {
@@ -125,9 +127,9 @@ function isSessionDay(now = new Date(), sessions = SESSIONS) {
 }
 
 /**
- * The session-day jobs due at this IST minute: `squareoff` / `cancel` one and
- * two minutes after each window's close (same spacing as the weekday crons),
- * the NFO market-only cancel, and the pre-session week snapshot.
+ * The session-day jobs due at this IST minute: pending-order `cancel` two
+ * minutes and intraday `squareoff` 15 minutes after each window's close (as on
+ * a weekday), the NFO market-only cancel, and the pre-session week snapshot.
  */
 function dueJobs(now = new Date(), sessions = SESSIONS) {
   const session = sessionOn(istYmd(now), sessions);
@@ -136,8 +138,8 @@ function dueJobs(now = new Date(), sessions = SESSIONS) {
   const jobs = [];
   for (const w of session.windows) {
     if (w.marketOnlyCancelAt === hhmm) jobs.push({ type: 'marketOnlyCancel', segments: w.segments, window: w.key });
-    if (addMinutes(w.close, 1) === hhmm) jobs.push({ type: 'squareoff', segments: w.segments, window: w.key });
     if (addMinutes(w.close, 2) === hhmm) jobs.push({ type: 'cancel', segments: w.segments, window: w.key });
+    if (addMinutes(w.close, SQUARE_OFF_AFTER_MIN) === hhmm) jobs.push({ type: 'squareoff', segments: w.segments, window: w.key });
   }
   if ((session.weekSnapshotAt || []).includes(hhmm)) jobs.push({ type: 'weekSnapshot' });
   return jobs;

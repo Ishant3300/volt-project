@@ -42,11 +42,12 @@ describe('Muhurat session jobs', () => {
     expect(jobsAt('2026-11-08T07:30:00Z')).toEqual(['weekSnapshot:']); // 13:00
     expect(jobsAt('2026-11-08T08:15:00Z')).toEqual(['weekSnapshot:']); // 13:45
     expect(jobsAt('2026-11-08T09:50:00Z')).toEqual(['marketOnlyCancel:NSE']); // 15:20
-    expect(jobsAt('2026-11-08T10:01:00Z')).toEqual(['squareoff:MCX']); // 15:31
+    expect(jobsAt('2026-11-08T10:01:00Z')).toEqual([]); // 15:31
     expect(jobsAt('2026-11-08T10:02:00Z')).toEqual(['cancel:MCX']); // 15:32
-    expect(jobsAt('2026-11-08T10:11:00Z')).toEqual(['squareoff:NSE']); // 15:41
     expect(jobsAt('2026-11-08T10:12:00Z')).toEqual(['cancel:NSE']); // 15:42
-    expect(jobsAt('2026-11-08T10:13:00Z')).toEqual([]);
+    expect(jobsAt('2026-11-08T10:15:00Z')).toEqual(['squareoff:MCX']); // 15:45 — 15 min after the 15:30 close
+    expect(jobsAt('2026-11-08T10:25:00Z')).toEqual(['squareoff:NSE']); // 15:55 — 15 min after the 15:40 close
+    expect(jobsAt('2026-11-08T10:26:00Z')).toEqual([]);
   });
 
   test('nothing on an ordinary weekend', () => {
@@ -64,11 +65,11 @@ describe('Muhurat session jobs', () => {
     expect(isWeekendInIndia(at('2026-11-08T09:00:00Z'))).toBe(true);
   });
 
-  test('feed watchdog window 14:00–15:50 IST', () => {
+  test('feed watchdog window 14:00–16:00 IST (through the 15:55 square-off)', () => {
     expect(s.isSessionFeedWindow(at('2026-11-08T08:29:00Z'))).toBe(false);
     expect(s.isSessionFeedWindow(at('2026-11-08T09:00:00Z'))).toBe(true);
-    expect(s.isSessionFeedWindow(at('2026-11-08T10:20:00Z'))).toBe(true);
-    expect(s.isSessionFeedWindow(at('2026-11-08T10:21:00Z'))).toBe(false);
+    expect(s.isSessionFeedWindow(at('2026-11-08T10:30:00Z'))).toBe(true);
+    expect(s.isSessionFeedWindow(at('2026-11-08T10:31:00Z'))).toBe(false);
   });
 });
 

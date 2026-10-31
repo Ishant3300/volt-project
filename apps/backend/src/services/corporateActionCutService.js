@@ -26,13 +26,15 @@
 const ExpiryAction = require('../models/ExpiryAction');
 const KiteInstrument = require('../models/KiteInstrument');
 const { GROUPS } = require('../config/expiryRules');
-const { istInstant, plusOneMinute } = require('./expirySchedule');
+const { istInstant } = require('./expirySchedule');
 const { addUtcDays, dateKey, previousTradingDay, toIndiaDateOnly } = require('../utils/settlementDates');
 
 const GROUP_KEY = 'CORP_ACTION';
 const SEGMENTS = ['NFO-FUT', 'NFO-OPT'];
 /** This platform's NSE close — the same time as the NSE futures expiry cut. */
 const CLOSE_TIME = GROUPS.find((g) => g.key === 'NSE_FUT')?.closeTime || '15:40';
+/** Cut this long after the close, like the NSE futures expiry cut (closing bid/ask settled). */
+const CUT_DELAY_MIN = GROUPS.find((g) => g.key === 'NSE_FUT')?.snapshotDelayMin || 1;
 /** How far ahead NSE's list is read. */
 const LOOKAHEAD_DAYS = 15;
 const INDEX = /^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|NIFTYNXT50|SENSEX|SENSEX50|BANKEX)$/;
@@ -93,7 +95,7 @@ function planCuts(rows, { fnoNames, holidays, today }) {
       subject: [...e.subjects].join('; '),
       ex_date: e.exDate,
       action_date: dateKey(cutDay),
-      execute_at: istInstant(cutDay, plusOneMinute(CLOSE_TIME)),
+      execute_at: new Date(istInstant(cutDay, CLOSE_TIME).getTime() + CUT_DELAY_MIN * 60 * 1000),
     });
   }
   return planned.sort((a, b) => a.execute_at - b.execute_at || a.key.localeCompare(b.key));

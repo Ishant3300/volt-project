@@ -13,16 +13,31 @@ const { beginTradeWrite } = require('./tradeWriteFenceService');
 const { PRACTICE } = require('../config/practice');
 
 /**
- * True when it is `after` minutes past today's MCX close (IST): 11:30 PM in US
- * summer time, 11:55 PM in US winter (utils/mcxHours.js). The MCX close jobs
- * are scheduled at both slots and run only at the one matching the day.
+ * True when it is `after` minutes past a weekday's MCX close (IST): 11:30 PM
+ * in US summer time, 11:55 PM in US winter (utils/mcxHours.js) — today's, or
+ * yesterday's when the slot passes midnight (11:55 PM + 15 = 00:10). The MCX
+ * close jobs are scheduled at every possible slot and run only at the one
+ * matching the day.
  */
 function isMcxCloseSlot(after, now = new Date()) {
     const { mcxCloseMinutesOn } = require('../utils/mcxHours');
     const ist = new Date(now.getTime() + 330 * 60 * 1000);
     const minutes = ist.getUTCHours() * 60 + ist.getUTCMinutes();
-    return minutes === mcxCloseMinutesOn(ist.toISOString().slice(0, 10)) + after;
+    for (const back of [0, 1]) {
+        const day = new Date(ist.getTime() - back * 86400000);
+        const weekday = day.getUTCDay();
+        if (weekday === 0 || weekday === 6) continue;
+        if (mcxCloseMinutesOn(day.toISOString().slice(0, 10)) + after === minutes + back * 1440) return true;
+    }
+    return false;
 }
+
+/**
+ * Automatic closes at the closing bid/ask (intraday square-off, MCX / NSE
+ * expiry and corporate-action cuts) run this long after the close — the
+ * bid/ask settles after it (owner, 31 Oct 2026).
+ */
+const CLOSE_SETTLE_MIN = 15;
 
 class CronService {
     constructor() {
@@ -350,10 +365,12 @@ class CronService {
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(expirySquareOffNSE);
 
-        // Three minutes after the MCX close: 11:33 PM IST in US summer time,
-        // 11:58 PM in US winter (isMcxCloseSlot).
-        const expirySquareOffMCX = cron.schedule('33,58 23 * * 1-5', async () => {
-            if (!isMcxCloseSlot(3)) return;
+        // MCX close + 17 min (after the close + 15 intraday square-off): 11:47 PM
+        // IST in US summer time, 00:12 the next day in US winter
+        // (isMcxCloseSlot). autoSquareOffExpiredPositions picks "today" by the
+        // server's UTC date, which at 00:12 IST is still the expiry day.
+        const runMcxExpirySweep = async () => {
+            if (!isMcxCloseSlot(CLOSE_SETTLE_MIN + 2)) return;
             console.log('📊 [CRON] Expiry auto square-off check (MCX close)...');
             try {
                 await this.autoSquareOffExpiredPositions();
@@ -361,8 +378,11 @@ class CronService {
             } catch (error) {
                 console.error('❌ [CRON] Error during MCX expiry auto square-off:', error);
             }
-        }, { timezone: 'Asia/Kolkata' });
+        };
+        const expirySquareOffMCX = cron.schedule('47 23 * * 1-5', runMcxExpirySweep, { timezone: 'Asia/Kolkata' });
         this.jobs.push(expirySquareOffMCX);
+        const expirySquareOffMCXAfterMidnight = cron.schedule('12 0 * * 2-6', runMcxExpirySweep, { timezone: 'Asia/Kolkata' });
+        this.jobs.push(expirySquareOffMCXAfterMidnight);
 
         // ── GIFT NIFTY expiry close: 3:31 PM IST ─────────────────────────
         // NSE IX stops the expiring NIFTY contract at 15:30 IST on expiry day
@@ -436,10 +456,10 @@ class CronService {
 
         // ── Intraday Square-Off at Market Close ──────────────────────────
         // Squares off positions for users who have intraday_squareoff enabled for the segment.
-        // NSE/NFO: 3:41 PM IST — one minute after this platform's own 3:40 PM
-        // close (see market_hours.dart), not the commonly-known 3:30 PM
-        // cash-market close this comment previously (wrongly) said.
-        const intradaySquareOffNSE = cron.schedule('41 15 * * 1-5', async () => {
+        // NSE/NFO: 3:55 PM IST — 15 minutes after this platform's own 3:40 PM
+        // close (see market_hours.dart), once the closing bid/ask has settled
+        // (CLOSE_SETTLE_MIN; was 3:41).
+        const intradaySquareOffNSE = cron.schedule('55 15 * * 1-5', async () => {
             console.log('🔄 [CRON] Intraday square-off (NSE/NFO close)...');
             try {
                 await this.runIntradaySquareOff(['NFO-FUT', 'NFO-OPT']);
@@ -450,10 +470,11 @@ class CronService {
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(intradaySquareOffNSE);
 
-        // MCX: one minute after the close — 11:31 PM IST in US summer time,
-        // 11:56 PM in US winter (isMcxCloseSlot).
-        const intradaySquareOffMCX = cron.schedule('31,56 23 * * 1-5', async () => {
-            if (!isMcxCloseSlot(1)) return;
+        // MCX: 15 minutes after the close, once the closing bid/ask has
+        // settled — 11:45 PM IST in US summer time, 00:10 the next day in US
+        // winter (isMcxCloseSlot; was one minute after the close).
+        const runMcxIntradaySquareOff = async () => {
+            if (!isMcxCloseSlot(CLOSE_SETTLE_MIN)) return;
             console.log('🔄 [CRON] Intraday square-off (MCX close)...');
             try {
                 await this.runIntradaySquareOff(['MCX-FUT', 'MCX-OPT']);
@@ -461,8 +482,11 @@ class CronService {
             } catch (error) {
                 console.error('❌ [CRON] Error during MCX intraday square-off:', error);
             }
-        }, { timezone: 'Asia/Kolkata' });
+        };
+        const intradaySquareOffMCX = cron.schedule('45 23 * * 1-5', runMcxIntradaySquareOff, { timezone: 'Asia/Kolkata' });
         this.jobs.push(intradaySquareOffMCX);
+        const intradaySquareOffMCXAfterMidnight = cron.schedule('10 0 * * 2-6', runMcxIntradaySquareOff, { timezone: 'Asia/Kolkata' });
+        this.jobs.push(intradaySquareOffMCXAfterMidnight);
 
         // COMEX and GLOBAL index futures (Dow, Nasdaq, S&P, Russell, Nikkei)
         // are CME Globex: Sunday–Friday 5:00 PM – 4:00 PM Chicago time, a

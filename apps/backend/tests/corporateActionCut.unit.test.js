@@ -35,14 +35,14 @@ describe('parseNseDate', () => {
 });
 
 describe('planCuts', () => {
-  test('a bonus is cut the trading day before its ex-date, just after the NSE close', () => {
+  test('a bonus is cut the trading day before its ex-date, 15 min after the NSE close', () => {
     // Ex-date Wednesday 28 Oct → cut Tuesday 27 Oct.
     const [cut, ...rest] = planCuts([{ symbol: 'RELIANCE', subject: 'Bonus 1:1', exDate: '28-Oct-2026' }], ctx('2026-10-19'));
     expect(rest).toEqual([]);
     expect(cut).toMatchObject({ key: 'CORP_ACTION|RELIANCE|2026-10-28', symbol: 'RELIANCE', kind: 'bonus', label: 'RELIANCE bonus', ex_date: '2026-10-28', action_date: '2026-10-27' });
     const [h, m] = CLOSE_TIME.split(':').map(Number);
-    // One minute after the close, IST (UTC+5:30).
-    expect(cut.execute_at).toEqual(new Date(Date.UTC(2026, 9, 27, h, m + 1) - 330 * 60_000));
+    // 15 minutes after the close (closing bid/ask settled), IST (UTC+5:30).
+    expect(cut.execute_at).toEqual(new Date(Date.UTC(2026, 9, 27, h, m + 15) - 330 * 60_000));
   });
 
   test('a Monday ex-date is cut on the Friday before, skipping holidays', () => {
