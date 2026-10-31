@@ -3,6 +3,8 @@
 /// positions — apex-web-portal src/lib/pdf.ts / src/lib/risk.ts).
 library;
 
+import 'comex_bill.dart';
+
 const Map<String, int> _months = {
   'JAN': 1, 'FEB': 2, 'MAR': 3, 'APR': 4, 'MAY': 5, 'JUN': 6,
   'JUL': 7, 'AUG': 8, 'SEP': 9, 'OCT': 10, 'NOV': 11, 'DEC': 12,
@@ -32,7 +34,9 @@ int compareScripts(String nameA, int expiryA, String symbolA, String nameB, int 
 
 String _str(dynamic v) => (v ?? '').toString();
 
-/// Bill / trade-report instruments (maps from GET /api/trade/report) in script order.
+/// Bill / trade-report instruments (maps from GET /api/trade/report) in script
+/// order — COMEX scripts (in dollars) together after all the others, so their
+/// conversion line sits right under the whole group.
 List<dynamic> sortBillInstruments(List<dynamic> instruments) {
   String nameOf(dynamic i) {
     final bill = _str(i['bill_name']).toUpperCase();
@@ -51,9 +55,14 @@ List<dynamic> sortBillInstruments(List<dynamic> instruments) {
   }
 
   final list = [...instruments];
-  list.sort((a, b) => compareScripts(
+  int comexLast(dynamic i) => isComexExchange(i['exchange']) ? 1 : 0;
+  list.sort((a, b) {
+    final byComex = comexLast(a).compareTo(comexLast(b));
+    if (byComex != 0) return byComex;
+    return compareScripts(
         nameOf(a), expiryOf(a), _str(a['tradingsymbol']),
-        nameOf(b), expiryOf(b), _str(b['tradingsymbol'])));
+        nameOf(b), expiryOf(b), _str(b['tradingsymbol']));
+  });
   return list;
 }
 
