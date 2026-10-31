@@ -8,6 +8,21 @@ class SecureStorageService {
   );
 
   static const tokenKey = "auth_token";
+
+  // Token and role kept in memory once read or written (1 Nov 2026): every
+  // API call reads the token, and Android's encrypted storage is slow on some
+  // phones (seconds on a realme / Android 16) — that made login and search
+  // feel stuck. Storage is still written; this only skips the slow re-reads.
+  static String? _tokenCache;
+  static bool _tokenCached = false;
+  static String? _roleCache;
+  static bool _roleCached = false;
+  static void _forgetCache() {
+    _tokenCache = null;
+    _tokenCached = false;
+    _roleCache = null;
+    _roleCached = false;
+  }
   static const roleKey = "user_role";
   static const addMasterKey = "add_master_permission";
   static const passwordResetPendingKey = "password_reset_pending";
@@ -23,6 +38,7 @@ class SecureStorageService {
       // Corrupted keystore — clear everything so user can re-login
       try {
         await storage.deleteAll();
+        _forgetCache();
         log('🗑️ SecureStorage: Cleared all data due to corruption');
       } catch (_) {}
       return null;
@@ -30,6 +46,8 @@ class SecureStorageService {
   }
 
   Future<void> saveToken({required String token}) async {
+    _tokenCache = token;
+    _tokenCached = true;
     try {
       await storage.write(key: tokenKey, value: token);
     } catch (e) {
@@ -41,15 +59,23 @@ class SecureStorageService {
   }
 
   Future<String?> getToken() async {
-    return await _safeRead(tokenKey);
+    if (_tokenCached) return _tokenCache;
+    final token = await _safeRead(tokenKey);
+    _tokenCache = token;
+    _tokenCached = true;
+    return token;
   }
 
   Future<void> deleteToken() async {
+    _tokenCache = null;
+    _tokenCached = true;
     await storage.delete(key: tokenKey);
   }
 
   Future<void> saveRole({required String role}) async {
     log('💾 SecureStorage: Saving role: "$role"');
+    _roleCache = role;
+    _roleCached = true;
     try {
       await storage.write(key: roleKey, value: role);
     } catch (e) {
@@ -60,13 +86,18 @@ class SecureStorageService {
   }
 
   Future<String?> getRole() async {
+    if (_roleCached) return _roleCache;
     final role = await _safeRead(roleKey);
+    _roleCache = role;
+    _roleCached = true;
     log('📖 SecureStorage: Retrieved role: "$role"');
     return role;
   }
 
   Future<void> deleteRole() async {
     log('🗑️ SecureStorage: Deleting role');
+    _roleCache = null;
+    _roleCached = true;
     await storage.delete(key: roleKey);
   }
 

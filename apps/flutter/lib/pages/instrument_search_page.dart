@@ -10,6 +10,8 @@ import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/services/kite_service.dart';
 import '../utils/contants.dart';
 import 'package:stocker/widgets/page_wash.dart';
+import 'package:stocker/models/watchlist_item.dart';
+import 'package:stocker/views/trade_card_view.dart';
 
 class InstrumentSearchPage extends StatefulWidget {
   /// Segment tab to open on ('ALL', 'NFO-FUT', 'MCX-FUT', 'GLOBAL', …) — the
@@ -48,14 +50,6 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
     {'key': 'GLOBAL', 'label': 'GLOBAL'},
   ];
 
-  static const Map<String, Color> typeColors = {
-    'FUT': Color(0xFF3B82F6),
-    'CE': kColorBuy,
-    'PE': kColorSell,
-    'EQ': Color(0xFF64748B),
-    'IDX': Color(0xFF8B5CF6),
-  };
-
   @override
   void initState() {
     super.initState();
@@ -93,7 +87,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
   void _onSearchChanged(String query) {
     _debounceTimer?.cancel();
     _isBrowseMode = false;
-    _debounceTimer = Timer(const Duration(milliseconds: 400), () {
+    _debounceTimer = Timer(const Duration(milliseconds: 250), () {
       _performSearch(query);
     });
   }
@@ -382,10 +376,6 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
     }
   }
 
-  Color _getTypeColor(String? instrumentType) {
-    return typeColors[instrumentType] ?? const Color(0xFF64748B);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -548,20 +538,35 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
   }
 
   Widget _buildSearchResults() {
-    if (_isSearching) {
-      return const Center(
-        child: CircularProgressIndicator(
-          color: kBrandPrimary,
-          strokeWidth: 2.5,
-        ),
-      );
-    }
-
-    if (_searchController.text.isEmpty && !_isBrowseMode) {
+    final wp = Provider.of<WatchlistProvider>(context);
+    final query = _searchController.text.trim();
+    if (query.isEmpty && !_isBrowseMode && !_isSearching) {
       return _buildEmptyState();
     }
+    // Watchlist matches at once (no server wait), then the server's results
+    // without repeating them. The previous results stay on screen while a new
+    // answer loads (thin bar on top) instead of a blank spinner.
+    final local = query.isEmpty ? const <KiteInstrument>[] : _watchlistMatches(wp, query);
+    final localTokens = local.map((i) => i.instrumentToken).toSet();
+    final sections = <Map<String, dynamic>>[
+      if (local.isNotEmpty) {'label': 'In your watchlist', 'instruments': local},
+      for (final g in _groupedResults)
+        {
+          'label': g['label'] as String? ?? 'Other',
+          'instruments': ((g['items'] as List<dynamic>?) ?? const [])
+              .map((it) => KiteInstrument.fromJson(Map<String, dynamic>.from(it)))
+              .where((i) => !localTokens.contains(i.instrumentToken))
+              .toList(),
+        },
+    ].where((sec) => (sec['instruments'] as List).isNotEmpty).toList();
 
-    if (_groupedResults.isEmpty) {
+    if (sections.isEmpty) {
+      if (_isSearching) {
+        return const Center(
+          child: CircularProgressIndicator(color: kBrandPrimary, strokeWidth: 2.5),
+        );
+      }
+      if (query.isEmpty && !_isBrowseMode) return _buildEmptyState();
       return _buildNoResultsState();
     }
 
@@ -584,10 +589,10 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
           child: ListView.builder(
             controller: _scrollController,
             padding: const EdgeInsets.only(bottom: 80),
-            itemCount: _groupedResults.length + (_isLoadingMore ? 1 : 0),
+            itemCount: sections.length + (_isLoadingMore ? 1 : 0),
             itemBuilder: (context, groupIndex) {
               // Load more indicator at the end
-              if (groupIndex == _groupedResults.length) {
+              if (groupIndex == sections.length) {
                 return const Padding(
                   padding: EdgeInsets.symmetric(vertical: 16),
                   child: Center(
@@ -599,9 +604,9 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
                 );
               }
 
-              final group = _groupedResults[groupIndex];
-              final label = group['label'] as String? ?? 'Other';
-              final items = group['items'] as List<dynamic>? ?? [];
+              final group = sections[groupIndex];
+              final label = group['label'] as String;
+              final items = group['instruments'] as List<KiteInstrument>;
 
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -641,6 +646,13 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
             },
           ),
         ),
+        if (_isSearching)
+          const Positioned(
+            top: 0,
+            left: 28,
+            right: 28,
+            child: LinearProgressIndicator(minHeight: 2, color: kBrandPrimary, backgroundColor: Colors.transparent),
+          ),
         if (_totalResults > 0)
           Positioned(
             bottom: 24,
@@ -687,130 +699,178 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
     );
   }
 
-  Widget _buildInstrumentRow(dynamic item) {
-    final instrument = KiteInstrument.fromJson(Map<String, dynamic>.from(item));
-    final typeColor = _getTypeColor(instrument.instrumentType);
+  static const List<String> _monthsShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  static const Map<String, Color> _typeTextColours = {'FUT': kBrandPrimary, 'CE': Color(0xFF16A34A), 'PE': Color(0xFFD92D20)};
+
+  /// "RELIANCE", "RELIANCE 1200 CE" — the expiry goes in its own part.
+  String _rowName(KiteInstrument i) {
+    final t = i.instrumentType;
+    final base = i.name.isNotEmpty ? i.name : i.tradingsymbol;
+    if ((t == 'CE' || t == 'PE') && i.strike > 0) {
+      final k = i.strike == i.strike.roundToDouble() ? i.strike.toInt().toString() : i.strike.toString();
+      return '$base $k $t';
+    }
+    if (i.expiry == null) return i.userFriendlyName;
+    return base;
+  }
+
+  String _shortDate(DateTime? d) {
+    if (d == null) return '';
+    final l = d.toLocal();
+    return '${l.day} ${_monthsShort[l.month - 1]}';
+  }
+
+  /// Order window for a script — the watchlist's own row if it is there,
+  /// otherwise a temporary one (as the option chain does); a script not in
+  /// the watchlist is added once an order goes through. [side] 'BUY'/'SELL'
+  /// opens it on that side only (B / S buttons).
+  void _openTicket(KiteInstrument instrument, {String? side}) {
+    final wp = Provider.of<WatchlistProvider>(context, listen: false);
+    final existing = wp.getByToken(instrument.instrumentToken);
+    final item = existing ??
+        WatchlistItem(
+          id: 'search_${instrument.instrumentToken}',
+          instrument: instrument,
+          currentPrice: instrument.lastPrice > 0 ? instrument.lastPrice : null,
+        );
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TradeCardPage(
+          item: item,
+          forceSide: side,
+          addToWatchlistOnOrder: existing == null,
+        ),
+      ),
+    );
+  }
+
+  /// Watchlist scripts matching what is typed — shown at once, before the
+  /// server answers (every word must appear; CALL/PUT read as CE/PE).
+  List<KiteInstrument> _watchlistMatches(WatchlistProvider wp, String query) {
+    final words = query
+        .toUpperCase()
+        .replaceAll(',', '')
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty && w != 'FUT' && w != 'FUTURES')
+        .map((w) => w == 'CALL' ? 'CE' : w == 'PUT' ? 'PE' : w)
+        .toList();
+    if (words.isEmpty) return const [];
+    final out = <KiteInstrument>[];
+    for (final w in wp.items) {
+      final inst = w.instrument;
+      if (_activeTab != 'ALL' && UserProfileProvider.normalizeSegment(inst.segment) != _activeTab) continue;
+      final hay = '${inst.name} ${inst.tradingsymbol} ${inst.userFriendlyName}'.toUpperCase();
+      if (words.every(hay.contains)) out.add(inst);
+      if (out.length >= 6) break;
+    }
+    return out;
+  }
+
+  Widget _quickButton(String label, Color fg, Color bg, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 34,
+        height: 30,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(9)),
+        child: Text(label,
+            style: TextStyle(color: fg, fontSize: 13, fontWeight: FontWeight.w700, fontFamily: kFontFamily)),
+      ),
+    );
+  }
+
+  /// One result: name (+ strike/type) and short expiry on one line, type ·
+  /// lot · last price under it; B / S open the order window on that side, +
+  /// adds only (✓ = already in the watchlist). Tapping the name opens it too.
+  Widget _buildInstrumentRow(KiteInstrument instrument) {
+    final typeLabel = instrument.instrumentType.isNotEmpty
+        ? instrument.instrumentType
+        : (instrument.isIndex ? 'IDX' : instrument.exchange);
+    final typeColour = _typeTextColours[instrument.instrumentType] ?? const Color(0xFF64748B);
+    final date = _shortDate(instrument.expiry);
+    const capStyle = TextStyle(
+      fontSize: kFontSizeCaption,
+      color: kColorTextMuted,
+      fontFamily: kFontFamily,
+      fontWeight: kFontWeightMedium,
+    );
 
     return Consumer<WatchlistProvider>(
       builder: (context, watchlistProvider, _) {
         final isAdded = watchlistProvider.contains(instrument.instrumentToken);
-
-        return Container(
-          padding: const EdgeInsets.all(16),
-          color: Colors.transparent,
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Type badge
-              Container(
-                width: 38,
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                decoration: BoxDecoration(
-                  color: typeColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  instrument.instrumentType.isNotEmpty
-                      ? instrument.instrumentType
-                      : (instrument.isIndex ? 'IDX' : instrument.exchange),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: kFontSizeCaption,
-                    fontWeight: kFontWeightSemiBold,
-                    color: typeColor,
-                    fontFamily: kFontFamily,
-                    letterSpacing: 0.3,
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _openTicket(instrument),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
+                        children: [
+                          Flexible(child: _buildHighlightedText(_rowName(instrument), _searchController.text)),
+                          if (date.isNotEmpty) ...[
+                            const SizedBox(width: 5),
+                            Text(date,
+                                style: const TextStyle(
+                                  fontSize: kFontSizeBody,
+                                  color: Color(0xFF5B6478),
+                                  fontFamily: kFontFamily,
+                                  fontWeight: kFontWeightMedium,
+                                )),
+                          ],
+                          if (instrument.nseBanned) const NseBanChip(),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text.rich(
+                        TextSpan(children: [
+                          TextSpan(
+                              text: typeLabel,
+                              style: TextStyle(
+                                  color: typeColour,
+                                  fontSize: kFontSizeCaption,
+                                  fontFamily: kFontFamily,
+                                  fontWeight: kFontWeightSemiBold)),
+                          if (instrument.lotSize > 0) TextSpan(text: '  ·  LOT ${instrument.lotSize}', style: capStyle),
+                          if (instrument.lastPrice > 0)
+                            TextSpan(text: '  ·  ${instrument.lastPrice.toStringAsFixed(2)}', style: capStyle),
+                        ]),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              // Content
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: _buildHighlightedText(
-                            instrument.userFriendlyName,
-                            _searchController.text,
-                          ),
-                        ),
-                        if (instrument.nseBanned) const NseBanChip(),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        Text(
-                          instrument.tradingsymbol,
-                          style: const TextStyle(
-                            fontSize: kFontSizeCaption,
-                            fontWeight: kFontWeightMedium,
-                            color: kColorTextMuted,
-                            fontFamily: kFontFamily,
-                            letterSpacing: 0.3,
-                          ),
-                        ),
-                        if (instrument.lotSize > 0) ...[
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 6),
-                            child: Text('·',
-                                style: TextStyle(
-                                    fontSize: kFontSizeCaption,
-                                    color: Color(0xFFCBD5E1))),
-                          ),
-                          Text(
-                            'LOT ${instrument.lotSize}',
-                            style: const TextStyle(
-                              fontSize: kFontSizeCaption,
-                              color: kColorTextMuted,
-                              fontFamily: kFontFamily,
-                              fontWeight: kFontWeightMedium,
-                            ),
-                          ),
-                        ],
-                        if (instrument.strike > 0) ...[
-                          const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 6),
-                            child: Text('·',
-                                style: TextStyle(
-                                    fontSize: kFontSizeCaption,
-                                    color: Color(0xFFCBD5E1))),
-                          ),
-                          Text(
-                            '${instrument.strike.toInt()}',
-                            style: const TextStyle(
-                              fontSize: kFontSizeCaption,
-                              color: kColorTextMuted,
-                              fontFamily: kFontFamily,
-                              fontWeight: kFontWeightMedium,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              // Add / Added indicator
+              const SizedBox(width: 8),
+              _quickButton('B', const Color(0xFF2E6BE5), const Color(0xFFEAF1FE),
+                  () => _openTicket(instrument, side: 'BUY')),
+              const SizedBox(width: 6),
+              _quickButton('S', const Color(0xFFD92D20), const Color(0xFFFDECEA),
+                  () => _openTicket(instrument, side: 'SELL')),
+              const SizedBox(width: 10),
               GestureDetector(
                 onTap: isAdded ? null : () => _addToWatchlist(instrument),
                 child: Container(
-                  width: 32,
-                  height: 32,
+                  width: 30,
+                  height: 30,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isAdded
-                        ? kColorBuy.withOpacity(0.1)
-                        : kBrandPrimary.withOpacity(0.1),
+                    color: isAdded ? const Color(0xFFECFDF3) : Colors.white,
+                    border: isAdded ? null : Border.all(color: const Color(0xFFCFDDFB), width: 1.5),
                   ),
                   child: Icon(
                     isAdded ? Icons.check : Icons.add,
-                    size: kIconSizeDefault,
-                    color: isAdded
-                        ? kColorBuy
-                        : kBrandPrimary,
+                    size: 17,
+                    color: isAdded ? const Color(0xFF16A34A) : kBrandPrimary,
                   ),
                 ),
               ),
@@ -954,13 +1014,45 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Try: NIFTY FUT, BANKNIFTY CE, 22000 PE',
+            'Try: NIFTY, GOLD, RELIANCE 1200 CE',
             style: TextStyle(
               color: kColorTextMuted,
               fontSize: kFontSizeBodySmall,
               fontFamily: kFontFamily,
               fontWeight: kFontWeightRegular,
             ),
+          ),
+          const SizedBox(height: 18),
+          // One tap to search a popular script.
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: [
+              for (final name in const ['NIFTY', 'BANKNIFTY', 'GOLD', 'SILVER', 'CRUDEOIL', 'NATURALGAS'])
+                GestureDetector(
+                  onTap: () {
+                    _searchController.text = name;
+                    _searchController.selection = TextSelection.collapsed(offset: name.length);
+                    _onSearchChanged(name);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: const Color(0xFFE1E6F2)),
+                    ),
+                    child: Text(name,
+                        style: const TextStyle(
+                          color: kBrandPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: kFontFamily,
+                        )),
+                  ),
+                ),
+            ],
           ),
         ],
       ),

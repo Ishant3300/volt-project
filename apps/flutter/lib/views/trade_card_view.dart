@@ -55,6 +55,10 @@ class TradeCardPage extends StatefulWidget {
   /// (needs at least 'id' and 'username'/'name').
   final Map<String, dynamic>? initialSelectedUser;
 
+  /// Opened from search for a script not in the watchlist: once an order goes
+  /// through it is added to the watchlist (1 Nov 2026).
+  final bool addToWatchlistOnOrder;
+
   const TradeCardPage({
     super.key,
     required this.item,
@@ -62,6 +66,7 @@ class TradeCardPage extends StatefulWidget {
     this.initialQuantity,
     this.forceSide,
     this.initialSelectedUser,
+    this.addToWatchlistOnOrder = false,
   });
 
   @override
@@ -900,6 +905,15 @@ class _TradeCardPageState extends State<TradeCardPage> {
     if (result.$1) {
       // Play trade bell sound if enabled
       TradeSoundService().playIfEnabled();
+      // Traded straight from search: the script joins the watchlist.
+      if (widget.addToWatchlistOnOrder && mounted) {
+        try {
+          final wp = Provider.of<WatchlistProvider>(context, listen: false);
+          if (!wp.contains(widget.item.instrument.instrumentToken)) {
+            await wp.addInstrument(widget.item.instrument);
+          }
+        } catch (_) {}
+      }
       // Refresh positions and wait for data before navigating back
       try {
         if (mounted) {

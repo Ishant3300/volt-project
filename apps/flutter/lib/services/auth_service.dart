@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'package:jwt_decode/jwt_decode.dart';
@@ -113,8 +114,13 @@ class AuthService {
                   authResponse.data['admin']?['username'] ??
                   data.username,
             );
-            await multiAccount.saveAccount(savedAccount);
-            await multiAccount.setActiveKey(savedAccount.key);
+            // The account-switcher list is saved in the background — the
+            // token and role above are what the app needs to go on (slow
+            // encrypted storage made the first login wait ~10 s).
+            unawaited(multiAccount
+                .saveAccount(savedAccount)
+                .then((_) => multiAccount.setActiveKey(savedAccount.key))
+                .catchError((e) => log('Saving account list failed: $e')));
           } catch (e) {
             log('Error decoding JWT: $e');
             // Fallback to the role returned from the backend if JWT decode fails
