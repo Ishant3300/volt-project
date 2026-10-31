@@ -245,7 +245,9 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
   }
 
   Widget _buildCard(Map<String, dynamic> row, bool isAdmin) {
-    final username = row['username'] ?? '';
+    final username = (row['username'] ?? '').toString();
+    final name = (row['name'] ?? '').toString().trim();
+    final hasName = name.isNotEmpty && name != username;
     final parentUsername = row['parent_username'] ?? '';
     final realised = _d(row['realised_pnl']);
     final m2m = _d(row['m2m_pnl']);
@@ -288,15 +290,29 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
                 offset: const Offset(0, 2))
           ]),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Header: username + parent badge
+        // Header: name with the ID below + parent badge
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(username.toUpperCase(),
-              style: const TextStyle(
-                  color: kBrandPrimary,
-                  fontSize: kFontSizeName,
-                  fontFamily: kFontFamily,
-                  fontWeight: kFontWeightName,
-                  letterSpacing: -0.3)),
+          Flexible(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(hasName ? name : username.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      color: kBrandPrimary,
+                      fontSize: kFontSizeName,
+                      fontFamily: kFontFamily,
+                      fontWeight: kFontWeightName,
+                      letterSpacing: -0.3)),
+              if (hasName)
+                Text(username,
+                    style: const TextStyle(
+                        color: kColorTextMuted,
+                        fontSize: kFontSizeCaption,
+                        fontFamily: kFontFamily,
+                        fontWeight: kFontWeightMedium)),
+            ]),
+          ),
+          const SizedBox(width: 8),
           if (parentUsername.isNotEmpty)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
