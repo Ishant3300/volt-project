@@ -14,6 +14,7 @@ import '../providers/user_profile_provider.dart';
 import '../utils/contants.dart';
 import '../utils/wallet_category.dart';
 import '../widgets/create_for_master_picker.dart';
+import '../utils/comex_rate.dart';
 
 class CreateMasterView extends StatefulWidget {
   final Master? master;
@@ -271,10 +272,26 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     });
     _fetchOwnBrokerageFloor();
     _loadProfitBookBase();
+    _loadComexRate();
+  }
+
+  // COMEX dollar rate + spread (utils/comex_rate.dart), shown while COMEX is ticked.
+  final ComexRateState _comexRate = ComexRateState();
+  bool get _comexTicked => _exchangeAllow['COMEX-FUT'] == true;
+
+  Future<void> _loadComexRate() async {
+    if (widget.master != null) {
+      await _comexRate.loadForEdit('master', widget.master!.id);
+    } else {
+      // Under the owner (null = admin's own top level → admin's default).
+      await _comexRate.loadForCreate(_ownerMaster?.id);
+    }
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _comexRate.dispose();
     if (!_isSuccess) _releaseUsername();
     _nameController.dispose();
     _usernameController.dispose();
@@ -352,6 +369,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   void initState() {
     super.initState();
     _fetchServers();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadComexRate());
     if (widget.master == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _generateUsername());
       final profile = Provider.of<UserProfileProvider>(context, listen: false);
@@ -602,6 +620,15 @@ class _CreateMasterViewState extends State<CreateMasterView> {
       }
     }
 
+    if (_comexTicked) {
+      final isAdmin = Provider.of<UserProfileProvider>(context, listen: false).isAdmin;
+      final comexError = _comexRate.validate(limited: !isAdmin);
+      if (comexError != null) {
+        _showSnack(comexError, isError: true);
+        return;
+      }
+    }
+
     // Editing a master whose base couldn't be loaded: leave the base alone.
     final baseCurrent = _profitBookBaseCurrent;
     final skipBase = widget.master != null && baseCurrent == null;
@@ -701,11 +728,15 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           final baseErr = baseChanged
               ? await saveProfitBookBase(widget.master!.id, profitBookBase)
               : null;
+          final comexErr = _comexTicked ? await _comexRate.save('master', widget.master!.id) : null;
           if (mounted) {
-            _showSnack(baseErr == null
-                ? 'Master updated successfully'
-                : 'Master updated, but the base profit book time was not saved: $baseErr',
-                isError: baseErr != null);
+            _showSnack(
+                baseErr != null
+                    ? 'Master updated, but the base profit book time was not saved: $baseErr'
+                    : comexErr != null
+                        ? 'Master updated, but COMEX rate: $comexErr'
+                        : 'Master updated successfully',
+                isError: baseErr != null || comexErr != null);
             Navigator.pop(context, true);
           }
         } else {
@@ -838,8 +869,14 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                     body['data']?['id']?.toString() ??
                     body['data']?['_id']?.toString();
             await _applyBrokerageSettings(createdId);
+            // COMEX rate: stored only when changed from the rate above.
+            final comexErr = _comexTicked && createdId != null
+                ? await _comexRate.save('master', createdId)
+                : null;
             await profileProvider.fetchProfile();
-            _showSnack('Master created successfully');
+            _showSnack(
+                comexErr == null ? 'Master created successfully' : 'Master created, but COMEX rate: $comexErr',
+                isError: comexErr != null);
             Navigator.pop(context, true);
           }
         } else {
@@ -1289,6 +1326,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                     // create_user_view.dart's own table (minus T/O/Lot,
                     // which Master.exchanges_allowed has no split for).
                     _buildExchangeAllowTable(),
+                    if (_comexTicked) ComexRateFields(state: _comexRate),
 
                     const SizedBox(height: 24),
 

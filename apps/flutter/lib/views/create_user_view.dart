@@ -17,6 +17,7 @@ import '../models/master.dart';
 import '../utils/contants.dart';
 import '../utils/wallet_category.dart';
 import '../widgets/create_for_master_picker.dart';
+import '../utils/comex_rate.dart';
 
 class CreateUserView extends StatefulWidget {
   final User? user;
@@ -173,6 +174,22 @@ class _CreateUserViewState extends State<CreateUserView> {
     });
     _loadMasterPermissions();
     _loadProfitBookBase();
+    _loadComexRate();
+  }
+
+  // COMEX dollar rate + spread (utils/comex_rate.dart), shown while COMEX is ticked.
+  final ComexRateState _comexRate = ComexRateState();
+  bool get _comexTicked => _exchangeSettings['COMEX-FUT']?['enabled'] == true;
+
+  Future<void> _loadComexRate() async {
+    if (widget.user != null) {
+      await _comexRate.loadForEdit('client', widget.user!.id);
+    } else {
+      final ownerId = _ownerMaster?.id;
+      if (ownerId == null || ownerId.isEmpty) return;
+      await _comexRate.loadForCreate(ownerId);
+    }
+    if (mounted) setState(() {});
   }
 
   // Trade Wallet inputs per allowed category (NSE/MCX/GLOBAL)
@@ -220,7 +237,10 @@ class _CreateUserViewState extends State<CreateUserView> {
   void initState() {
     super.initState();
     _loadMasterPermissions();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadProfitBookBase());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadProfitBookBase();
+      _loadComexRate();
+    });
 
     if (widget.user != null) {
       _nameController.text = widget.user!.name;
@@ -708,6 +728,7 @@ class _CreateUserViewState extends State<CreateUserView> {
 
   @override
   void dispose() {
+    _comexRate.dispose();
     if (!_isSuccess) _releaseUsername();
     _nameController.dispose();
     _usernameController.dispose();
@@ -896,6 +917,13 @@ class _CreateUserViewState extends State<CreateUserView> {
       _showSnack('Please select at least one exchange', isError: true);
       return;
     }
+    if (_comexTicked) {
+      final comexError = _comexRate.validate(limited: !profileProvider.isAdmin);
+      if (comexError != null) {
+        _showSnack(comexError, isError: true);
+        return;
+      }
+    }
 
     // Validate: each enabled exchange must have either Turnover or Lot selected
     for (final ex in exchangesAllowed) {
@@ -1024,12 +1052,21 @@ class _CreateUserViewState extends State<CreateUserView> {
             data['data']?['_id']?.toString();
         // Apply brokerage settings for enabled exchanges (scoped to this user)
         await _applyBrokerageSettings(createdUserId);
+        // COMEX rate: stored only when changed from what it follows.
+        String? comexError;
+        if (_comexTicked && createdUserId != null) {
+          comexError = await _comexRate.save('client', createdUserId);
+        }
 
         await profileProvider.refreshProfile();
         if (!mounted) return;
-        _showSnack(widget.user != null
-            ? 'User updated successfully'
-            : 'User created successfully');
+        if (comexError != null) {
+          _showSnack('Saved, but COMEX rate: $comexError', isError: true);
+        } else {
+          _showSnack(widget.user != null
+              ? 'User updated successfully'
+              : 'User created successfully');
+        }
         Navigator.pop(context, true);
       } else {
         _showSnack(data['message'] ?? 'Failed', isError: true);
@@ -1295,6 +1332,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                     _buildExchangeRow(entry.key, entry.value),
                               );
                             }),
+                            if (_comexTicked) ComexRateFields(state: _comexRate),
                           ],
                         ),
                       ),
