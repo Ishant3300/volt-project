@@ -335,7 +335,11 @@ class CronService {
         // sweeps every instrument expiring today regardless of exchange), so
         // these two triggers also catch any GLOBAL/COMEX expiry same-day.
         // Checks for instruments that expired today and auto-squares-off open positions
-        const expirySquareOffNSE = cron.schedule('46 15 * * 1-5', async () => {
+        // 4:00 PM IST, after the NSE futures expiry cut — that cut takes its
+        // closing snapshot at 3:55 PM, 15 minutes after the 3:40 close
+        // (config/expiryRules.js snapshotDelayMin); this sweep used to run at
+        // 3:46 and would have closed those positions before the cut.
+        const expirySquareOffNSE = cron.schedule('0 16 * * 1-5', async () => {
             console.log('📊 [CRON] Expiry auto square-off check (NSE close)...');
             try {
                 await this.autoSquareOffExpiredPositions({ skipSegments: ['GLOBAL', 'COMEX-FUT'] });

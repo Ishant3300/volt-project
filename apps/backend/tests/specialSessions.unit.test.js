@@ -120,3 +120,27 @@ describe('the session counts in the week after it', () => {
     expect(s.followingMondayYmd(at('2026-11-01T09:00:00Z'))).toBeNull();
   });
 });
+
+describe('MCX and NSE futures cuts snapshot 15 minutes after the close', () => {
+  const { cutExecuteAt } = require('../src/services/expirySchedule');
+  const runs = (key, ymd) => {
+    const group = GROUPS.find((g) => g.key === key);
+    return new Date(cutExecuteAt(group, new Date(`${ymd}T00:00:00Z`)).getTime() + 330 * 60 * 1000).toISOString().slice(0, 16);
+  };
+
+  test.each([
+    ['MCX_CRUDE', '2026-10-29', '2026-10-29T23:45'], // US summer: 23:30 close
+    ['MCX_CRUDE', '2026-11-18', '2026-11-19T00:10'], // US winter: 23:55 close → after midnight
+    ['MCX_PRECIOUS', '2026-11-27', '2026-11-28T00:10'], // a Friday → Saturday 00:10, before the 03:46 cutoff
+    ['MCX_NG', '2026-11-23', '2026-11-24T00:10'],
+    ['MCX_BASE', '2026-11-23', '2026-11-24T00:10'],
+    ['NSE_FUT', '2026-11-24', '2026-11-24T15:55'],
+  ])('%s cut on %s runs at %s IST', (key, ymd, at) => expect(runs(key, ymd)).toBe(at));
+
+  test.each([
+    ['COMEX_PRECIOUS', '2026-11-23', '2026-11-23T23:56'],
+    ['COMEX_BASE', '2026-11-23', '2026-11-23T23:56'],
+    ['GLOBAL_FUT', '2026-12-18', '2026-12-18T23:31'],
+    ['GIFT_NIFTY', '2026-11-24', '2026-11-24T15:31'],
+  ])('%s cut on %s is unchanged: %s IST', (key, ymd, at) => expect(runs(key, ymd)).toBe(at));
+});

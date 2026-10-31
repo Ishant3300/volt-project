@@ -39,13 +39,22 @@ function istInstant(day, hhmm) {
   return new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), h, m) - IST_OFFSET_MS);
 }
 
-/** One minute after `hhmm`. */
 /** A group's close on `day`: that day's MCX close for `closeTimeRule: 'MCX'`, else its fixed `closeTime`. */
 function closeTimeOn(group, day) {
   if (group.closeTimeRule === 'MCX') return require('../utils/mcxHours').mcxCloseOn(dateKey(day));
   return group.closeTime;
 }
 
+/**
+ * When a group's cut on `day` runs and takes its closing snapshot: the close
+ * plus `snapshotDelayMin` minutes (default 1). Can pass midnight (an 11:55 PM
+ * MCX close + 15 = 00:10 the next day).
+ */
+function cutExecuteAt(group, day) {
+  return new Date(istInstant(day, closeTimeOn(group, day)).getTime() + (group.snapshotDelayMin || 1) * 60 * 1000);
+}
+
+/** One minute after `hhmm`. */
 function plusOneMinute(hhmm) {
   const [h, m] = hhmm.split(':').map(Number);
   const total = h * 60 + m + 1;
@@ -107,7 +116,7 @@ function planGroup(group, contracts, holidays, { effectiveFrom, openTime }) {
         current_expiry: expiry,
         action_date: dateKey(cutDay),
         close_time: closeTimeOn(group, cutDay),
-        execute_at: istInstant(cutDay, plusOneMinute(closeTimeOn(group, cutDay))),
+        execute_at: cutExecuteAt(group, cutDay),
         names: [...names].sort(),
         targets: [],
       });
@@ -122,6 +131,7 @@ module.exports = {
   expiryWeekMonday,
   istInstant,
   closeTimeOn,
+  cutExecuteAt,
   plusOneMinute,
   isTradingDay,
 };

@@ -20,6 +20,9 @@
  * see apps/flutter/lib/utils/market_hours.dart and cronService.js).
  * `closeTimeRule: 'MCX'` = that day's MCX close instead of `closeTime`:
  * 11:30 PM IST in US summer time, 11:55 PM in US winter (utils/mcxHours.js).
+ * `snapshotDelayMin` = how long after the close the cut runs and takes its
+ * closing bid/ask (default 1). MCX and NSE futures: 15 — the bid/ask settles
+ * after the close (owner, 31 Oct 2026); an 11:55 PM MCX close cuts at 00:10.
  *
  * `names` match KiteInstrument.name case-insensitively; `null` = every
  * future in the segments. `calendar` 'MCX'/'NSE' = that exchange's trading
@@ -45,22 +48,22 @@ const GROUPS = [
   {
     key: 'MCX_BASE', label: 'Base metals', exchangeLabel: 'MCX', segments: ['MCX-FUT'],
     names: ['ALUMINI', 'ALUMINIUM', 'COPPER', 'LEAD', 'LEADMINI', 'ZINC', 'ZINCMINI'],
-    calendar: 'MCX', open: before(6), cut: before(5), closeTime: '23:30', closeTimeRule: 'MCX',
+    calendar: 'MCX', open: before(6), cut: before(5), closeTime: '23:30', closeTimeRule: 'MCX', snapshotDelayMin: 15,
   },
   {
     key: 'MCX_PRECIOUS', label: 'Precious metals', exchangeLabel: 'MCX', segments: ['MCX-FUT'],
     names: ['GOLD', 'GOLDM', 'GOLDTEN', 'GOLDGUINEA', 'GOLDPETAL', 'SILVER', 'SILVERM', 'SILVERMIC'],
-    calendar: 'MCX', open: before(6), cut: before(5), closeTime: '23:30', closeTimeRule: 'MCX',
+    calendar: 'MCX', open: before(6), cut: before(5), closeTime: '23:30', closeTimeRule: 'MCX', snapshotDelayMin: 15,
   },
   {
     key: 'MCX_CRUDE', label: 'Crude oil', exchangeLabel: 'MCX', segments: ['MCX-FUT'],
     names: ['CRUDEOIL', 'CRUDEOILM'],
-    calendar: 'MCX', open: before(2), cut: before(1), closeTime: '23:30', closeTimeRule: 'MCX',
+    calendar: 'MCX', open: before(2), cut: before(1), closeTime: '23:30', closeTimeRule: 'MCX', snapshotDelayMin: 15,
   },
   {
     key: 'MCX_NG', label: 'Natural gas', exchangeLabel: 'MCX', segments: ['MCX-FUT'],
     names: ['NATURALGAS', 'NATGASMINI'],
-    calendar: 'MCX', open: before(1), cut: before(1), closeTime: '23:30', closeTimeRule: 'MCX',
+    calendar: 'MCX', open: before(1), cut: before(1), closeTime: '23:30', closeTimeRule: 'MCX', snapshotDelayMin: 15,
   },
   {
     key: 'COMEX_BASE', label: 'COMEX base metals', exchangeLabel: 'COMEX', segments: ['COMEX-FUT'],
@@ -80,7 +83,7 @@ const GROUPS = [
   {
     key: 'NSE_FUT', label: 'NSE futures', exchangeLabel: 'NSE', segments: ['NFO-FUT'],
     names: null,
-    calendar: 'NSE', open: { type: 'EXPIRY_WEEK_MONDAY' }, cut: before(0), closeTime: '15:40',
+    calendar: 'NSE', open: { type: 'EXPIRY_WEEK_MONDAY' }, cut: before(0), closeTime: '15:40', snapshotDelayMin: 15,
   },
   {
     // Monthly contracts GIFTNIFTY26OCTFUT… (giftNiftyContracts.js), same

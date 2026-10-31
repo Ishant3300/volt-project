@@ -36,7 +36,7 @@ describe('working-day helpers', () => {
 });
 
 describe('planGroup against the real upcoming contracts', () => {
-  test('base metals: Oct contract opens next on 22 Oct and is cut on 23 Oct after the 11:30 PM close', () => {
+  test('base metals: Oct contract opens next on 22 Oct and is cut on 23 Oct, 15 min after the 11:30 PM close', () => {
     const contracts = ['COPPER', 'ZINC'].flatMap((name) =>
       ['2026-09-30', '2026-10-30', '2026-11-30'].map((e) => ({ name, expiry: d(e) })));
     const a = byKey(planGroup(group('MCX_BASE'), contracts, MCX, OPTS));
@@ -47,7 +47,7 @@ describe('planGroup against the real upcoming contracts', () => {
     expect(a['MCX_BASE|OPEN|2026-10-30'].targets.map((t) => t.expiry)).toEqual([d('2026-11-30'), d('2026-11-30')]);
     expect(a['MCX_BASE|OPEN|2026-10-30'].execute_at.toISOString()).toBe('2026-10-22T02:30:00.000Z'); // 08:00 IST
     expect(a['MCX_BASE|CUT|2026-10-30']).toMatchObject({ action_date: '2026-10-23' });
-    expect(a['MCX_BASE|CUT|2026-10-30'].execute_at.toISOString()).toBe('2026-10-23T18:01:00.000Z'); // 23:31 IST
+    expect(a['MCX_BASE|CUT|2026-10-30'].execute_at.toISOString()).toBe('2026-10-23T18:15:00.000Z'); // 23:45 IST (snapshotDelayMin 15)
     // The last known contract has nothing to open next, but is still cut.
     expect(a['MCX_BASE|OPEN|2026-11-30']).toBeUndefined();
     expect(a['MCX_BASE|CUT|2026-11-30']).toMatchObject({ action_date: '2026-11-23' });
@@ -82,13 +82,13 @@ describe('planGroup against the real upcoming contracts', () => {
     expect(ng['MCX_NG|OPEN|2026-10-27'].execute_at < ng['MCX_NG|CUT|2026-10-27'].execute_at).toBe(true);
   });
 
-  test('NSE futures: open on Monday of expiry week, cut on expiry day after the 3:40 PM close', () => {
+  test('NSE futures: open on Monday of expiry week, cut on expiry day 15 min after the 3:40 PM close', () => {
     const a = byKey(planGroup(group('NSE_FUT'), ['2026-09-29', '2026-10-27', '2026-11-23'].map((e) => ({ name: 'NIFTY', expiry: d(e) })), NSE, OPTS));
     expect(a['NSE_FUT|OPEN|2026-09-29']).toBeUndefined(); // this week stays manual
     expect(a['NSE_FUT|CUT|2026-09-29']).toBeUndefined();
     expect(a['NSE_FUT|OPEN|2026-10-27'].action_date).toBe('2026-10-26');
     expect(a['NSE_FUT|CUT|2026-10-27'].action_date).toBe('2026-10-27');
-    expect(a['NSE_FUT|CUT|2026-10-27'].execute_at.toISOString()).toBe('2026-10-27T10:11:00.000Z'); // 15:41 IST
+    expect(a['NSE_FUT|CUT|2026-10-27'].execute_at.toISOString()).toBe('2026-10-27T10:25:00.000Z'); // 15:55 IST (snapshotDelayMin 15)
   });
 
   test('NFO options: next expiry opens 1 working day before the current one; no scheduled cut', () => {
