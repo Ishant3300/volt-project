@@ -78,7 +78,12 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
   }
 
   Color _pnlColor(double v) => v >= 0 ? kColorBuy : kColorSell;
-  String _pnlStr(double v) => '${v >= 0 ? '+' : ''}${v.toStringAsFixed(2)}';
+  // Rounded first, so a zero (often -0.0 after the sign flip) shows 0.00, not +-0.00.
+  String _pnlStr(double v) {
+    final r = double.parse(v.toStringAsFixed(2));
+    if (r == 0) return '0.00';
+    return '${r > 0 ? '+' : ''}${r.toStringAsFixed(2)}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -220,7 +225,8 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
   }
 
   Widget _buildRow(Map<String, dynamic> row, int index) {
-    final username = row['username'] ?? '';
+    final username = (row['username'] ?? '').toString();
+    final name = (row['name'] ?? '').toString().trim();
     final type = row['type'] ?? '';
     final realised = -((row['realised_pnl'] as num?)?.toDouble() ?? 0);
     final position = -((row['position_pnl'] as num?)?.toDouble() ?? 0);
@@ -238,9 +244,16 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
           if (type == 'master')
             const Padding(padding: EdgeInsets.only(right: 4),
               child: Icon(Icons.supervisor_account, size: 12, color: kBrandPrimary)),
-          Flexible(child: Text(username, textAlign: TextAlign.center,
-            style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
-            maxLines: 1, overflow: TextOverflow.ellipsis)),
+          // Name on top, ID below (the ID alone when there is no name).
+          Flexible(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(name.isNotEmpty && name != username ? name : username, textAlign: TextAlign.center,
+              style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
+              maxLines: 1, overflow: TextOverflow.ellipsis),
+            if (name.isNotEmpty && name != username)
+              Text(username, textAlign: TextAlign.center,
+                style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightMedium),
+                maxLines: 1, overflow: TextOverflow.ellipsis),
+          ])),
         ])),
         Expanded(child: Text(_pnlStr(realised), textAlign: TextAlign.center,
           style: TextStyle(color: _pnlColor(realised), fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
