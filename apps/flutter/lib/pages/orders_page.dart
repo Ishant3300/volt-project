@@ -23,6 +23,7 @@ import 'package:stocker/utils/market_hours.dart';
 
 import 'package:stocker/config/practice_session.dart';
 import '../utils/wallet_category.dart';
+import '../utils/script_order.dart';
 class _NumberFormat {
   final double value;
   final String suffix;
@@ -251,6 +252,8 @@ class _OrdersPageState extends State<OrdersPage> {
         _userMetrics = data.cast<Map<String, dynamic>>();
 
         for (final user in _userMetrics) {
+          // Each client's positions A→Z (utils/script_order.dart).
+          user['positions'] = sortPositionMaps<dynamic>(List<dynamic>.from(user['positions'] ?? []));
           final List positions = user['positions'] ?? [];
           for (final pos in positions) {
             final t = pos['instrument_token']?.toString();
@@ -324,6 +327,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
         // Collect all instrument tokens across all masters
         for (final master in _adminMasterMetrics) {
+          master['positions'] = sortPositionMaps<dynamic>(List<dynamic>.from(master['positions'] ?? []));
           final List positions = master['positions'] ?? [];
           for (final pos in positions) {
             final t = pos['instrument_token']?.toString();
@@ -441,7 +445,7 @@ class _OrdersPageState extends State<OrdersPage> {
         }
 
         setState(() {
-          _masterPositions = positions;
+          _masterPositions = sortPositionMaps(positions);
         });
       }
     } catch (e) {

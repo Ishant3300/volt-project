@@ -5,6 +5,7 @@ import '../providers/user_profile_provider.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
+import '../utils/script_order.dart';
 import 'userwise_position_filter_bottom_sheet.dart';
 
 class UserwisePositionView extends StatefulWidget {
@@ -55,7 +56,7 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         if (body['success'] == true && body['data'] != null) {
-          setState(() => _positions = List<Map<String, dynamic>>.from(body['data']));
+          setState(() => _positions = sortPositionMaps(List<Map<String, dynamic>>.from(body['data'])));
         }
       }
     } catch (e) {

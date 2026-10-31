@@ -3,6 +3,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:intl/intl.dart';
 import '../config/app_brand.dart';
 import '../utils/comex_bill.dart';
+import '../utils/script_order.dart';
 
 class PdfReportService {
   static final _fmt = NumberFormat('#,##0.00');
@@ -37,7 +38,8 @@ class PdfReportService {
     final userName = data['user_name'] ?? 'Unknown';
     final from = DateTime.parse(data['from']);
     final to = DateTime.parse(data['to']);
-    final instruments = (data['instruments'] as List?) ?? [];
+    // Scripts A→Z by name, one name's expiries nearest first.
+    final instruments = sortBillInstruments((data['instruments'] as List?) ?? []);
     final summary = data['summary'] ?? {};
     final carryForward = (data['carry_forward'] as List?) ?? [];
 
@@ -438,7 +440,8 @@ class PdfReportService {
         (data['account_label'] ?? data['user_name'] ?? 'Unknown').toString();
     final from = _parseToIST(data['from']);
     final to = _parseToIST(data['to']);
-    final instruments = (data['instruments'] as List?) ?? [];
+    // Scripts A→Z by name, one name's expiries nearest first.
+    final instruments = sortBillInstruments((data['instruments'] as List?) ?? []);
     final bold = pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold);
 
     final List<pw.Widget> content = [

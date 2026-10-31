@@ -5,6 +5,7 @@ import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/utils/contants.dart';
+import 'package:stocker/utils/script_order.dart';
 
 class PositionAgg {
   final String instrumentToken;
@@ -57,6 +58,15 @@ class TradeMetricsProvider with ChangeNotifier {
   final Map<String, double> _ltpMap = {};
   List<PositionAgg> _positions = [];
   List<PositionAgg> get positions => _positions;
+
+  /// Positions A→Z by script name, one name's expiries nearest first
+  /// (utils/script_order.dart — same order as the bill).
+  void _sortPositions() {
+    String nameOf(PositionAgg p) => p.rawName.isNotEmpty ? p.rawName : p.tradingsymbol;
+    _positions.sort((a, b) => compareScripts(
+        nameOf(a), symbolExpiryKey(a.tradingsymbol), a.tradingsymbol,
+        nameOf(b), symbolExpiryKey(b.tradingsymbol), b.tradingsymbol));
+  }
 
   // The 6 metrics — all computed client-side on every tick
   double _realisedPnl = 0;
@@ -161,6 +171,7 @@ class TradeMetricsProvider with ChangeNotifier {
             agg.lotSize = (p['lot_size'] as num?)?.toInt() ?? 1;
             return agg;
           }).toList();
+          _sortPositions();
         }
       }
 
@@ -220,6 +231,7 @@ class TradeMetricsProvider with ChangeNotifier {
         exchange: p['exchange'] ?? '',
         tradingsymbol: p['tradingsymbol'] ?? '',
       );
+      agg.rawName = p['raw_name']?.toString() ?? '';
       agg.netQty = (p['net_qty'] as num?)?.toInt() ?? 0;
       agg.avgBuyPrice = (p['avg_buy_price'] as num?)?.toDouble() ?? 0;
       agg.avgSellPrice = (p['avg_sell_price'] as num?)?.toDouble() ?? 0;
@@ -231,6 +243,7 @@ class TradeMetricsProvider with ChangeNotifier {
       agg.lotSize = (p['lot_size'] as num?)?.toInt() ?? 1;
       return agg;
     }).toList();
+    _sortPositions();
 
     notifyListeners();
   }
