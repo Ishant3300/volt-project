@@ -84,6 +84,35 @@ class _WatchlistPageState extends State<WatchlistPage> {
   static String _segmentOf(dynamic instrument) =>
       UserProfileProvider.normalizeSegment(instrument.segment as String?);
 
+  /// One script's contracts sit together, nearest expiry first, at the place of
+  /// its first row — a NIFTY next-month added later shows right under NIFTY
+  /// this month (futures and options of a name are kept as separate groups).
+  /// Everything else keeps the watchlist's own order.
+  static List<dynamic> _groupSameScript(List<dynamic> items) {
+    final groups = <String, List<MapEntry<int, dynamic>>>{};
+    for (var i = 0; i < items.length; i++) {
+      final inst = items[i].instrument;
+      final name = (inst.name as String).trim().toUpperCase();
+      final kind = inst.instrumentType == 'FUT' ? 'F' : (inst.instrumentType == 'CE' || inst.instrumentType == 'PE') ? 'O' : 'X';
+      final key = name.isEmpty ? 'token:${inst.instrumentToken}' : '$name|$kind';
+      groups.putIfAbsent(key, () => []).add(MapEntry(i, items[i]));
+    }
+    final out = <dynamic>[];
+    for (final g in groups.values) {
+      g.sort((a, b) {
+        final ea = a.value.instrument.expiry as DateTime?;
+        final eb = b.value.instrument.expiry as DateTime?;
+        if (ea != null && eb != null && ea != eb) return ea.compareTo(eb);
+        if ((ea == null) != (eb == null)) return ea == null ? 1 : -1;
+        final sa = (a.value.instrument.strike as double), sb = (b.value.instrument.strike as double);
+        if (sa != sb) return sa.compareTo(sb);
+        return a.key.compareTo(b.key); // stable: the watchlist's own order
+      });
+      out.addAll(g.map((e) => e.value));
+    }
+    return out;
+  }
+
   /// The tabs to show: allowed segments (or the four futures segments until
   /// known) plus any segment the client still holds scripts in.
   List<MapEntry<String, String>> _tabsFor(List<dynamic> items, Set<String>? allowed) {
@@ -291,9 +320,21 @@ class _WatchlistPageState extends State<WatchlistPage> {
             // Watchlist items — one page per tab, swipe between them
             Expanded(
               child: Builder(builder: (context) {
-                if (watchlistProvider.isLoading) {
+                // Spinner only for the first load: during a pull-to-refresh the
+                // pages stay (they used to be swapped out and came back on page
+                // 0, so NSE scripts showed under the MCX chip).
+                if (watchlistProvider.isLoading && watchlistProvider.isEmpty) {
                   return const Center(child: CircularProgressIndicator());
                 }
+                // Safety net: the pages always follow the selected chip.
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  final c = _pageController;
+                  if (!mounted || c == null || !c.hasClients) return;
+                  if ((c.page ?? c.initialPage.toDouble()).round() != activeIndex &&
+                      !c.position.isScrollingNotifier.value) {
+                    c.jumpToPage(activeIndex);
+                  }
+                });
 
                 if (watchlistProvider.isEmpty && watchlistProvider.error != null) {
                   return Center(
@@ -323,9 +364,9 @@ class _WatchlistPageState extends State<WatchlistPage> {
                   onPageChanged: (index) => setState(() => _lastSegment = tabs[index].key),
                   itemBuilder: (context, pageIndex) {
                     final tab = tabs[pageIndex];
-                    final pageItems = watchlistProvider.items
+                    final pageItems = _groupSameScript(watchlistProvider.items
                         .where((item) => _segmentOf(item.instrument) == tab.key)
-                        .toList();
+                        .toList());
 
                     if (pageItems.isEmpty) {
                       return RefreshIndicator(
