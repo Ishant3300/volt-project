@@ -12,6 +12,12 @@
  *    other amount; no separate spread entry.
  *  - Admin sets base and spread (models/ComexRate.js); a change applies to
  *    the next settlement, i.e. to the current week.
+ *  - Per account (1 Nov 2026): a master (key 'master:<id>') and a client (key
+ *    'user:<id>') may have their own base and spread, set where COMEX is
+ *    ticked. An account without one inherits the nearest master above it that
+ *    has one, else admin's default. A master can't give an account below
+ *    him a lower base or spread than his own. The settlement converts each
+ *    CLIENT at that client's rate; the ledger and sharing are unchanged.
  */
 
 const COMEX_EXCHANGE = 'COMEX';
@@ -29,14 +35,128 @@ function rateForNet(netUsd, fx) {
   return fx.base;
 }
 
-/** Current { base, spread } or null when admin has not set one. */
-async function loadComexFx(session = null) {
-  const ComexRate = require('../models/ComexRate');
-  const q = ComexRate.findOne({ key: 'comex' }).select('base spread');
-  if (session) q.session(session);
-  const doc = await q.lean();
-  if (!doc || !(Number(doc.base) > 0)) return null;
+const DEFAULT_KEY = 'comex';
+const clientKey = (userId) => `user:${userId}`;
+const masterKey = (masterId) => `master:${masterId}`;
+const uniqIds = (ids) => [...new Set((ids || []).filter(Boolean).map(String))];
+
+/** { base, spread } from a ComexRate doc, or null (missing, removed, no base). */
+function fxOf(doc) {
+  if (!doc || doc.active === false || !(Number(doc.base) > 0)) return null;
   return { base: Number(doc.base), spread: Number(doc.spread) || 0 };
+}
+
+/**
+ * Rate lookup for a set of clients (and masters): returns
+ *   fxFor(userId)            → the client's own rate ('client'), else the
+ *                              nearest master above with one ('master'), else
+ *                              admin's default ('default'), else null;
+ *   fxFor.forMaster(masterId) → the same from that master upwards.
+ */
+async function loadComexFxResolver(userIds = [], session = null, { masterIds = [] } = {}) {
+  const ComexRate = require('../models/ComexRate');
+  const User = require('../models/User');
+  const Master = require('../models/Master');
+  const withSession = (q) => (session ? q.session(session) : q);
+  const ids = uniqIds(userIds);
+
+  const users = ids.length ? await withSession(User.find({ _id: { $in: ids } }).select('_id master_id')).lean() : [];
+  const parentOfUser = new Map(users.map((u) => [String(u._id), u.master_id ? String(u.master_id) : null]));
+  const masters = await withSession(Master.find({}).select('_id master_id')).lean();
+  const parentOfMaster = new Map(masters.map((m) => [String(m._id), m.master_id ? String(m.master_id) : null]));
+  const chainOf = (masterId) => {
+    const out = [];
+    const seen = new Set();
+    for (let cur = masterId ? String(masterId) : null; cur && !seen.has(cur); cur = parentOfMaster.get(cur) || null) {
+      seen.add(cur);
+      out.push(cur);
+    }
+    return out;
+  };
+
+  const keys = new Set([DEFAULT_KEY]);
+  for (const id of ids) {
+    keys.add(clientKey(id));
+    for (const m of chainOf(parentOfUser.get(id))) keys.add(masterKey(m));
+  }
+  for (const id of uniqIds(masterIds)) for (const m of chainOf(id)) keys.add(masterKey(m));
+  const docs = await withSession(ComexRate.find({ key: { $in: [...keys] } }).select('key base spread active')).lean();
+  const byKey = new Map(docs.map((d) => [d.key, d]));
+  const def = fxOf(byKey.get(DEFAULT_KEY));
+
+  const forMaster = (masterId) => {
+    for (const m of chainOf(masterId)) {
+      const own = fxOf(byKey.get(masterKey(m)));
+      if (own) return { ...own, source: 'master', master_id: m };
+    }
+    return def ? { ...def, source: 'default' } : null;
+  };
+  const fxFor = (uid) => {
+    const own = uid ? fxOf(byKey.get(clientKey(uid))) : null;
+    if (own) return { ...own, source: 'client' };
+    return forMaster(uid ? parentOfUser.get(String(uid)) : null);
+  };
+  fxFor.forMaster = forMaster;
+  return fxFor;
+}
+
+/**
+ * Current { base, spread, source } — for one client (own, else inherited, else
+ * the default) or, with no userId, admin's default; null when none is set.
+ */
+async function loadComexFx(session = null, userId = null) {
+  const fxFor = await loadComexFxResolver(userId ? [userId] : [], session);
+  return fxFor(userId);
+}
+
+/** A master's rate: his own, else inherited from above, else admin's default. */
+async function loadMasterComexFx(masterId, session = null) {
+  const fxFor = await loadComexFxResolver([], session, { masterIds: [masterId] });
+  return fxFor.forMaster(masterId);
+}
+
+/**
+ * The limit a master must respect (1 Nov 2026): neither base nor spread below
+ * `floor` (the rate of the master directly above the account). Returns an
+ * error message, or null when fine / no floor.
+ */
+function belowFloorMessage(rate, floor) {
+  if (!floor) return null;
+  const eps = 1e-9;
+  if (rate.base + eps < floor.base || rate.spread + eps < floor.spread) {
+    return `Can't be below the rate above this account — dollar rate at least ${floor.base}, spread at least ${floor.spread}`;
+  }
+  return null;
+}
+
+/**
+ * One rate for a view that covers several clients (a master's combined
+ * report): theirs when every client has the same rate; otherwise admin's
+ * default flagged `mixed` — such a view pools all clients' COMEX per script,
+ * so it can only estimate. Each client's own bill and settlement are exact.
+ */
+async function loadComexFxForUsers(userIds = [], session = null) {
+  const ids = [...new Set((userIds || []).filter(Boolean).map(String))];
+  const fxFor = await loadComexFxResolver(ids, session);
+  if (ids.length === 0) return fxFor(null);
+  const list = ids.map(fxFor);
+  const first = list[0];
+  const same = list.every((f) => (f === null && first === null) || (f && first && f.base === first.base && f.spread === first.spread));
+  if (same) return first;
+  const def = fxFor(null);
+  return def ? { ...def, mixed: true } : null;
+}
+
+/**
+ * GET /trade/report's rate: one client's own rate when the report is for one
+ * client, else loadComexFxForUsers over the clients with COMEX in it.
+ */
+async function loadComexFxForReport(userScope, trades, snapshots) {
+  const mongoose = require('mongoose');
+  const scoped = userScope && userScope.user_id;
+  if (scoped && mongoose.isValidObjectId(scoped)) return loadComexFxForUsers([scoped]);
+  const ids = [...(trades || []), ...(snapshots || [])].filter((t) => isComex(t.exchange)).map((t) => t.user_id);
+  return loadComexFxForUsers(ids);
 }
 
 const MONEY_FIELDS = ['realized_pnl', 'settlement_pnl', 'total_pnl', 'brokerage', 'net_pnl'];
@@ -46,10 +166,12 @@ const MONEY_FIELDS = ['realized_pnl', 'settlement_pnl', 'total_pnl', 'brokerage'
  * rate per client chosen from the sign of that client's COMEX net. The
  * dollar figures are kept as usd_* with the rate used; fills stay in $.
  * Throws when a client has COMEX amounts but no rate is set — booking dollars
- * as rupees would be silently wrong.
+ * as rupees would be silently wrong. `fx` is one { base, spread } for all, or
+ * a uid => fx lookup (loadComexFxResolver: each client's own rate).
  * @returns {{ users: number, rates: Object<string, number> }}
  */
-function convertComexSnapshots(snapshots, fx) {
+function convertComexSnapshots(snapshots, fxOrLookup) {
+  const fxFor = typeof fxOrLookup === 'function' ? fxOrLookup : () => fxOrLookup;
   const byUser = new Map();
   for (const s of snapshots) {
     if (!isComex(s.exchange)) continue;
@@ -61,6 +183,7 @@ function convertComexSnapshots(snapshots, fx) {
   for (const [uid, list] of byUser) {
     const netUsd = list.reduce((sum, s) => sum + (Number(s.net_pnl) || 0), 0);
     const hasAmounts = list.some((s) => MONEY_FIELDS.some((f) => Math.abs(Number(s[f]) || 0) >= 0.005));
+    const fx = fxFor(uid);
     if (!fx) {
       if (!hasAmounts) continue;
       const error = new Error('COMEX USD/INR rate is not set — admin must set it before COMEX can be settled');
@@ -138,11 +261,25 @@ function comexBillBlock(instruments, snapshots, fx) {
     usd_net: r2(usdPnl - usdBrk),
     settled,
     estimate,
-    fx: fx ? { base: fx.base, spread: fx.spread, debit_rate: fx.base + fx.spread, credit_rate: fx.base - fx.spread } : null,
+    fx: fx ? { base: fx.base, spread: fx.spread, debit_rate: fx.base + fx.spread, credit_rate: fx.base - fx.spread, source: fx.source || null, mixed: !!fx.mixed } : null,
     inr_pnl: complete ? r2(inrPnl) : null,
     inr_brokerage: complete ? r2(inrBrk) : null,
     inr_net: complete ? r2(inrPnl - inrBrk) : null,
   };
 }
 
-module.exports = { COMEX_EXCHANGE, isComex, rateForNet, loadComexFx, convertComexSnapshots, comexBillBlock };
+module.exports = {
+  COMEX_EXCHANGE,
+  isComex,
+  rateForNet,
+  clientKey,
+  masterKey,
+  belowFloorMessage,
+  loadComexFx,
+  loadMasterComexFx,
+  loadComexFxResolver,
+  loadComexFxForUsers,
+  loadComexFxForReport,
+  convertComexSnapshots,
+  comexBillBlock,
+};

@@ -31,7 +31,7 @@ const {
   toIndiaDateOnly,
 } = require('../utils/settlementDates');
 const { categoryForSegment } = require('../utils/walletCategory');
-const { isComex, loadComexFx, convertComexSnapshots } = require('../utils/comexFx');
+const { isComex, loadComexFxResolver, convertComexSnapshots } = require('../utils/comexFx');
 const { resolveSettlementPriceDates } = require('./marketCalendarService');
 const { acquireSettlementFence } = require('./tradeWriteFenceService');
 
@@ -1453,8 +1453,12 @@ async function computeSettlementPlan({ run, tradingDate, session, ownRunTradesAr
   // client's COMEX lines at base ± spread by the sign of that client's
   // COMEX net (utils/comexFx.js). Every other segment is untouched.
   if (snapshots.some((snapshot) => isComex(snapshot.exchange))) {
-    const comexFx = await loadComexFx(session);
-    convertComexSnapshots(snapshots, comexFx);
+    // Each client's own rate, else admin's default (utils/comexFx.js).
+    const comexFxFor = await loadComexFxResolver(
+      snapshots.filter((snapshot) => isComex(snapshot.exchange)).map((snapshot) => snapshot.user_id),
+      session,
+    );
+    convertComexSnapshots(snapshots, comexFxFor);
   }
 
   const creditByUser = new Map();

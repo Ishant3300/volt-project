@@ -665,7 +665,7 @@ describeIntegration('isolated replica-set weekend settlement', () => {
       exchange: 'COMEX',
     });
     const master = await Master.findOne({ username: 'it_master_comexfx' }).lean();
-    const [winner, loser] = await User.create([1, 2].map((i) => ({
+    const [winner, loser, ownRate] = await User.create([1, 2, 3].map((i) => ({
       name: `COMEX User ${i}`,
       username: `it_comex_${i}`,
       password: 'not-used',
@@ -688,6 +688,12 @@ describeIntegration('isolated replica-set weekend settlement', () => {
       gc(winner, 'BUY', 4000, 1000), // closes at settlement 4100: +$10,000 → credit × 87
       gc(loser, 'BUY', 4200, 2000), // closes at settlement 4100: −$10,000 → debit × 89
       gc(nfoUser, 'BUY', 4050, 3000), gc(nfoUser, 'SELL', 4060, 4000, 1000), // closed in the week: +$1,000 → × 87
+      gc(ownRate, 'BUY', 4200, 5000), // −$10,000 at the client's OWN rate 85 ± 2 → debit × 87
+    ]);
+    // Client 3's own rate (1 Nov 2026); a removed own rate falls back to the default.
+    await ComexRate.create([
+      { key: `user:${ownRate._id}`, user_id: ownRate._id, base: 85, spread: 2 },
+      { key: `user:${loser._id}`, user_id: loser._id, base: 70, spread: 5, active: false },
     ]);
 
     const result = await settlementService.runSettlement({
@@ -707,6 +713,9 @@ describeIntegration('isolated replica-set weekend settlement', () => {
     expect(comexRow(loser).fills[0]).toMatchObject({ executed_price: 4200 }); // fills stay in dollars
     expect((await User.findById(winner._id).lean()).settled_pnl).toBe(870000);
     expect((await User.findById(loser._id).lean()).settled_pnl).toBe(-890000);
+    // Own rate: −$10,000 × (85 + 2) = −₹8,70,000, booked with its own base/spread.
+    expect(comexRow(ownRate)).toMatchObject({ usd_total_pnl: -10000, total_pnl: -870000, net_pnl: -870000, fx_rate: 87, fx_base: 85, fx_spread: 2 });
+    expect((await User.findById(ownRate._id).lean()).settled_pnl).toBe(-870000);
 
     // A client with NFO and COMEX: NFO exactly as before (no conversion), COMEX +$1,000 → ₹87,000.
     const nfoRow = rows.find((r) => r.exchange === 'NFO' && r.user_id.toString() === nfoUser._id.toString());

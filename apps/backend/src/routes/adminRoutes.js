@@ -293,9 +293,17 @@ router.get('/profit-book-base/:masterId/preview', authenticateAdminOrMaster, pre
 router.put('/profit-book-base/:masterId', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, requireAdminPermission('MASTER_EDIT_ANY'), setProfitBookBase);
 
 // COMEX USD→INR rate for the weekly settlement (utils/comexFx.js).
-const { getComexRate, setComexRate } = require('../controllers/comexRateController');
-router.get('/comex-rate', authenticateAdminOrMaster, getComexRate);
-router.put('/comex-rate', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('SETTLEMENT_TRIGGER'), setComexRate);
+const comexRate = require('../controllers/comexRateController');
+router.get('/comex-rate', authenticateAdminOrMaster, comexRate.getComexRate);
+router.put('/comex-rate', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('SETTLEMENT_TRIGGER'), comexRate.setComexRate);
+// An account's own rate (set where COMEX is ticked) — admin, or a master for
+// the accounts below him, never below his own rate (same gates as editing).
+router.get('/comex-rate/clients/:id', authenticateAdminOrMaster, comexRate.getClientComexRate);
+router.put('/comex-rate/clients/:id', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, comexRate.setClientComexRate);
+router.delete('/comex-rate/clients/:id', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, comexRate.clearClientComexRate);
+router.get('/comex-rate/masters/:id', authenticateAdminOrMaster, comexRate.getMasterComexRate);
+router.put('/comex-rate/masters/:id', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, comexRate.setMasterComexRate);
+router.delete('/comex-rate/masters/:id', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, comexRate.clearMasterComexRate);
 router.post('/fresh-stoploss-limits/bulk-create', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('FRESH_STOPLOSS_MANAGE'), bulkCreateFreshStoplossLimits);
 router.put('/fresh-stoploss-limits/bulk-update', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('FRESH_STOPLOSS_MANAGE'), bulkUpdateFreshStoplossLimits);
 router.put('/fresh-stoploss-limits/:id', authenticateAdmin, rejectIfAdminWatchOnly, requireAdminPermission('FRESH_STOPLOSS_MANAGE'), updateFreshStoplossLimit);
