@@ -170,7 +170,9 @@ class _SettlementViewState extends State<SettlementView> {
         child: Column(
           children: [
             // Header
-            Padding(
+            ColoredBox(
+              color: kTopBarBg,
+              child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
@@ -180,7 +182,7 @@ class _SettlementViewState extends State<SettlementView> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: Colors.white.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
@@ -188,18 +190,19 @@ class _SettlementViewState extends State<SettlementView> {
                                 blurRadius: 4)
                           ]),
                       child: const Icon(Icons.arrow_back,
-                          color: kColorTextPrimary, size: kIconSizeMedium),
+                          color: kTopBarFg, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 16),
                   const Text('Settlement',
                       style: TextStyle(
-                          color: kColorTextPrimary,
+                          color: kTopBarFg,
                           fontSize: kFontSizeViewTitle,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold)),
                 ],
               ),
+            ),
             ),
 
             Expanded(

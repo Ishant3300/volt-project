@@ -232,14 +232,16 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
-              Padding(
+              ColoredBox(
+                color: kTopBarBg,
+                child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
@@ -249,7 +251,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Colors.white.withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
@@ -258,18 +260,19 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                                   offset: const Offset(0, 2))
                             ]),
                         child: const Icon(Icons.arrow_back,
-                            color: kColorTextPrimary, size: kIconSizeMedium),
+                            color: kTopBarFg, size: kIconSizeMedium),
                       ),
                     ),
                     const SizedBox(width: 12),
                     const Text('Admin Settings',
                         style: TextStyle(
-                            color: kColorTextPrimary,
+                            color: kTopBarFg,
                             fontSize: kFontSizeViewTitle,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold)),
                   ],
                 ),
+              ),
               ),
 
               // Security section

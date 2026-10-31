@@ -75,11 +75,13 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
     final filtered = _filtered;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: Column(children: [
           // Header
-          Padding(
+          ColoredBox(
+            color: kTopBarBg,
+            child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(children: [
               GestureDetector(
@@ -88,7 +90,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Colors.white.withValues(alpha: 0.18),
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
@@ -97,17 +99,18 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
                             offset: const Offset(0, 2))
                       ]),
                   child: const Icon(Icons.arrow_back,
-                      color: kColorTextPrimary, size: kIconSizeMedium),
+                      color: kTopBarFg, size: kIconSizeMedium),
                 ),
               ),
               const SizedBox(width: 12),
               const Text('Weekly Admin Report',
                   style: TextStyle(
-                      color: kColorTextPrimary,
+                      color: kTopBarFg,
                       fontSize: kFontSizeViewTitle,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold)),
             ]),
+          ),
           ),
 
           // Summary pills

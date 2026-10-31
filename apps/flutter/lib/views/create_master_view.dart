@@ -1127,12 +1127,14 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: Column(
           children: [
             // Header
-            Padding(
+            ColoredBox(
+              color: kTopBarBg,
+              child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
@@ -1142,7 +1144,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Colors.white.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
@@ -1153,14 +1155,14 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                         ],
                       ),
                       child: const Icon(Icons.arrow_back,
-                          color: kColorTextPrimary, size: kIconSizeMedium),
+                          color: kTopBarFg, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Text(
                     widget.master != null ? 'Edit Master' : 'Create Master',
                     style: const TextStyle(
-                      color: kColorTextPrimary,
+                      color: kTopBarFg,
                       fontSize: kFontSizeViewTitle,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
@@ -1168,6 +1170,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                   ),
                 ],
               ),
+            ),
             ),
 
             // Content

@@ -323,7 +323,9 @@ class _ProfilePageState extends State<ProfilePage> {
           child: Column(
             children: [
               // Header
-              Padding(
+              ColoredBox(
+                color: kTopBarBg,
+                child: Padding(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
                 child: Row(
@@ -332,7 +334,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     const Text(
                       'Profile',
                       style: TextStyle(
-                        color: Color(0xFF0F172A),
+                        color: kTopBarFg,
                         fontSize: kFontSizePageTitle,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightBold,
@@ -341,6 +343,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                   ],
                 ),
+              ),
               ),
 
               const SizedBox(height: 4),

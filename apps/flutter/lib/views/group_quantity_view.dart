@@ -188,11 +188,13 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
           child: Column(children: [
         // Header
-        Padding(
+        ColoredBox(
+          color: kTopBarBg,
+          child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(children: [
               GestureDetector(
@@ -201,7 +203,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Colors.white.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
@@ -210,16 +212,17 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                               offset: const Offset(0, 2))
                         ]),
                     child: const Icon(Icons.arrow_back,
-                        color: kColorTextPrimary, size: kIconSizeMedium)),
+                        color: kTopBarFg, size: kIconSizeMedium)),
               ),
               const SizedBox(width: 12),
               const Text('Group Quantity',
                   style: TextStyle(
-                      color: kColorTextPrimary,
+                      color: kTopBarFg,
                       fontSize: kFontSizeViewTitle,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold)),
             ])),
+        ),
 
         // Exchange chips
         Padding(

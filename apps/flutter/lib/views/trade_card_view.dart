@@ -942,14 +942,14 @@ class _TradeCardPageState extends State<TradeCardPage> {
           height: 40,
           decoration: BoxDecoration(
             color:
-                isSelected ? kBrandPrimary : const Color(0xFFF1F5F9),
+                isSelected ? kBrandPrimary : kChipBg,
             borderRadius: BorderRadius.circular(10),
           ),
           alignment: Alignment.center,
           child: Text(
             label,
             style: TextStyle(
-              color: isSelected ? Colors.white : kColorTextMuted,
+              color: isSelected ? Colors.white : kChipFg,
               fontSize: kFontSizeBody,
               fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,
@@ -980,6 +980,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                 final instrument = currentItem.instrument;
 
                 return Container(
+                  // Brand top bar (colour only, 1 Nov 2026).
+                  color: kTopBarBg,
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
@@ -989,13 +991,13 @@ class _TradeCardPageState extends State<TradeCardPage> {
                           width: 44,
                           height: 44,
                           decoration: ShapeDecoration(
-                            color: Colors.white,
+                            color: Colors.white.withValues(alpha: 0.18),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(44),
                             ),
                           ),
                           child:
-                              const Icon(Icons.arrow_back, color: kColorTextPrimary),
+                              const Icon(Icons.arrow_back, color: kTopBarFg),
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -1006,7 +1008,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                             Text(
                               instrument.userFriendlyName,
                               style: const TextStyle(
-                                color: kColorTextPrimary,
+                                color: kTopBarFg,
                                 fontSize: kFontSizeViewTitle,
                                 fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold,
@@ -1025,8 +1027,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: kBrandPrimary
-                                  .withValues(alpha: 0.08),
+                              color: Colors.white.withValues(alpha: 0.18),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Column(
@@ -1035,7 +1036,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                 const Text(
                                   'LTP',
                                   style: TextStyle(
-                                    color: kColorTextMuted,
+                                    color: kTopBarFgMuted,
                                     fontSize: kFontSizeBadge,
                                     fontFamily: kFontFamily,
                                     fontWeight: kFontWeightSemiBold,
@@ -1046,7 +1047,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                 Text(
                                   '${(currentItem.currentPrice ?? 0.0).toStringAsFixed(2)}',
                                   style: const TextStyle(
-                                    color: kBrandPrimary,
+                                    color: kTopBarFg,
                                     fontSize: kFontSizeBody,
                                     fontFamily: kFontFamily,
                                     fontWeight: kFontWeightBold,
@@ -1061,10 +1062,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                 ? '--'
                                 : currentItem.changeDisplay,
                             textAlign: TextAlign.right,
-                            style: TextStyle(
-                              color: currentItem.isPositive
-                                  ? kColorBuy
-                                  : kColorSell,
+                            style: const TextStyle(
+                              // On the blue top bar (the sign is in the text).
+                              color: kTopBarFgMuted,
                               fontSize: kFontSizeNavLabel,
                               fontFamily: kFontFamily,
                               fontWeight: kFontWeightMedium,
@@ -1442,7 +1442,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                       color: Colors.white,
                       shape: RoundedRectangleBorder(
                         side: const BorderSide(
-                            width: 1, color: Color(0xFFC7C7CC)),
+                            width: 1, color: Color(0xFFC9D3FB)),
                         borderRadius: BorderRadius.circular(6),
                       ),
                     ),
@@ -1498,7 +1498,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                 width: 32,
                                 height: 32,
                                 decoration: ShapeDecoration(
-                                  color: const Color(0xFFF2F2F7),
+                                  color: kChipBg,
                                   shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(4)),
                                 ),
@@ -1513,7 +1513,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                 width: 32,
                                 height: 32,
                                 decoration: ShapeDecoration(
-                                  color: const Color(0xFFF2F2F7),
+                                  color: kChipBg,
                                   shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(4)),
                                 ),
@@ -1548,7 +1548,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                               decoration: ShapeDecoration(
                                 color: isSelected
                                     ? kBrandPrimary
-                                    : const Color(0xFFC7C7CC),
+                                    : kChipBg,
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(6)),
                               ),
@@ -1558,7 +1558,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                 style: TextStyle(
                                   color: isSelected
                                       ? const Color(0xFFF9F9F9)
-                                      : kColorTextPrimary,
+                                      : kChipFg,
                                   fontSize: kFontSizeBody,
                                   fontFamily: kFontFamily,
                                   fontWeight: kFontWeightMedium,
@@ -1588,7 +1588,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                               decoration: ShapeDecoration(
                                 color: isSelected
                                     ? kBrandPrimary
-                                    : const Color(0xFFC7C7CC),
+                                    : kChipBg,
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(6)),
                               ),
@@ -1598,7 +1598,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                 style: TextStyle(
                                   color: isSelected
                                       ? const Color(0xFFF9F9F9)
-                                      : kColorTextPrimary,
+                                      : kChipFg,
                                   fontSize: kFontSizeBody,
                                   fontFamily: kFontFamily,
                                   fontWeight: kFontWeightRegular,
@@ -1913,11 +1913,11 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 16, vertical: 13),
                                         decoration: ShapeDecoration(
-                                          color: const Color(0xFFF2F2F7),
+                                          color: const Color(0xFFFFF5F5),
                                           shape: RoundedRectangleBorder(
                                             side: const BorderSide(
                                                 width: 1,
-                                                color: Color(0xFFC7C7CC)),
+                                                color: Color(0xFFF5C2C2)),
                                             borderRadius:
                                                 BorderRadius.circular(6),
                                           ),
@@ -1992,11 +1992,11 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 16, vertical: 13),
                                       decoration: ShapeDecoration(
-                                        color: const Color(0xFFF2F2F7),
+                                        color: const Color(0xFFF2F7FF),
                                         shape: RoundedRectangleBorder(
                                           side: const BorderSide(
                                               width: 1,
-                                              color: Color(0xFFC7C7CC)),
+                                              color: Color(0xFFBFD5F7)),
                                           borderRadius:
                                               BorderRadius.circular(6),
                                         ),

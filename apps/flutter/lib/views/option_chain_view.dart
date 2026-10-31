@@ -173,11 +173,13 @@ class _OptionChainViewState extends State<OptionChainView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: Column(children: [
           // Header
-          Padding(
+          ColoredBox(
+            color: kTopBarBg,
+            child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(children: [
               GestureDetector(
@@ -185,10 +187,10 @@ class _OptionChainViewState extends State<OptionChainView> {
                 child: Container(
                   width: 40, height: 40,
                   decoration: BoxDecoration(
-                    color: Colors.white, borderRadius: BorderRadius.circular(12),
+                    color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12),
                     boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
                   ),
-                  child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium),
+                  child: const Icon(Icons.arrow_back, color: kTopBarFg, size: kIconSizeMedium),
                 ),
               ),
               const SizedBox(width: 12),
@@ -196,19 +198,19 @@ class _OptionChainViewState extends State<OptionChainView> {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(
                     'Option Chain',
-                    style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
+                    style: const TextStyle(color: kTopBarFg, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     _deriveBaseSymbol(),
-                    style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium, letterSpacing: -0.3),
+                    style: const TextStyle(color: kTopBarFgMuted, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightMedium, letterSpacing: -0.3),
                   ),
                 ]),
               ),
               // Live indicator
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: kColorBuy.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Container(width: 6, height: 6, decoration: const BoxDecoration(color: kColorBuy, shape: BoxShape.circle)),
                   const SizedBox(width: 4),
@@ -216,6 +218,7 @@ class _OptionChainViewState extends State<OptionChainView> {
                 ]),
               ),
             ]),
+          ),
           ),
 
           // Expiry selector

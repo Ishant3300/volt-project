@@ -119,7 +119,7 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
   Widget build(BuildContext context) {
     final filtered = _filtered;
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: Column(children: [
           Padding(

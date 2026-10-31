@@ -290,7 +290,7 @@ class _ClientPnlSummaryViewState extends State<ClientPnlSummaryView> {
     final isAdmin = profile.isAdmin;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: Column(children: [
           _buildHeader(),

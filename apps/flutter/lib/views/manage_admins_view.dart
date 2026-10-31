@@ -69,7 +69,7 @@ class _ManageAdminsViewState extends State<ManageAdminsView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: Column(
           children: [

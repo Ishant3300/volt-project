@@ -270,7 +270,9 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
         child: Column(
           children: [
             // Header
-            Padding(
+            ColoredBox(
+              color: kTopBarBg,
+              child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -279,13 +281,13 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                     children: [
                       GestureDetector(
                         onTap: () => Navigator.pop(context),
-                        child: const Icon(Icons.arrow_back, color: kColorTextPrimary),
+                        child: const Icon(Icons.arrow_back, color: kTopBarFg),
                       ),
                       const SizedBox(width: 12),
                       const Text(
                         'Script Quantity Setting',
                         style: TextStyle(
-                          color: kColorTextPrimary,
+                          color: kTopBarFg,
                           fontSize: kFontSizeSectionHeader,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold,
@@ -312,7 +314,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: ShapeDecoration(
-                          color: kBrandPrimary,
+                          color: kTopBarFg,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6),
                           ),
@@ -320,7 +322,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                         child: const Text(
                           'CREATE',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: kBrandPrimary,
                             fontSize: kFontSizeBody,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
@@ -330,6 +332,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                     ),
                 ],
               ),
+            ),
             ),
 
             // Exchange Selector

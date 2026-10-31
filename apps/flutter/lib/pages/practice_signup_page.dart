@@ -155,7 +155,7 @@ class _PracticeSignupPageState extends State<PracticeSignupPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,

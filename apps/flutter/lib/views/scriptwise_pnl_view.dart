@@ -171,7 +171,7 @@ class _ScriptwisePnlViewState extends State<ScriptwisePnlView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: Column(children: [
           _buildHeader(),

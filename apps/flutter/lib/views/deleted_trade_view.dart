@@ -108,11 +108,13 @@ class _DeletedTradeViewState extends State<DeletedTradeView> {
     final showUserInfo = role.isAdmin || role.isMaster;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: Column(children: [
           // Header
-          Padding(
+          ColoredBox(
+            color: kTopBarBg,
+            child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(children: [
               GestureDetector(
@@ -120,22 +122,22 @@ class _DeletedTradeViewState extends State<DeletedTradeView> {
                 child: Container(
                   width: 40, height: 40,
                   decoration: BoxDecoration(
-                    color: Colors.white, borderRadius: BorderRadius.circular(12),
+                    color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12),
                     boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
                   ),
-                  child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium),
+                  child: const Icon(Icons.arrow_back, color: kTopBarFg, size: kIconSizeMedium),
                 ),
               ),
               const SizedBox(width: 12),
               const Expanded(
                 child: Text('Deleted Trades',
-                  style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle,
+                  style: TextStyle(color: kTopBarFg, fontSize: kFontSizeViewTitle,
                     fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: kColorSell.withValues(alpha: 0.1),
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text('$_total',
@@ -143,6 +145,7 @@ class _DeletedTradeViewState extends State<DeletedTradeView> {
                     fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
               ),
             ]),
+          ),
           ),
 
           // Search + Date filter

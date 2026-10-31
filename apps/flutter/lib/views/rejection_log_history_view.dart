@@ -80,12 +80,14 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
         Provider.of<UserProfileProvider>(context, listen: false).isUser;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: Column(
           children: [
             // Header
-            Padding(
+            ColoredBox(
+              color: kTopBarBg,
+              child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
@@ -95,7 +97,7 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Colors.white.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
@@ -105,20 +107,21 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                         ],
                       ),
                       child: const Icon(Icons.arrow_back,
-                          color: kColorTextPrimary, size: kIconSizeMedium),
+                          color: kTopBarFg, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Text('Rejection Log',
                         style: TextStyle(
-                            color: kColorTextPrimary,
+                            color: kTopBarFg,
                             fontSize: kFontSizeViewTitle,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold)),
                   ),
                 ],
               ),
+            ),
             ),
 
             // Search bar

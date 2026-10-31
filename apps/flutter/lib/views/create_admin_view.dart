@@ -61,7 +61,7 @@ class _CreateAdminViewState extends State<CreateAdminView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: Column(
           children: [

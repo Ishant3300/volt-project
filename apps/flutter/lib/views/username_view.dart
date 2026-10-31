@@ -582,12 +582,14 @@ class _UsernameViewState extends State<UsernameView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: Column(
           children: [
             // Header
-            Padding(
+            ColoredBox(
+              color: kTopBarBg,
+              child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -600,7 +602,7 @@ class _UsernameViewState extends State<UsernameView> {
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Colors.white.withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
@@ -610,14 +612,14 @@ class _UsernameViewState extends State<UsernameView> {
                             ],
                           ),
                           child: const Icon(Icons.arrow_back,
-                              color: kColorTextPrimary, size: kIconSizeMedium),
+                              color: kTopBarFg, size: kIconSizeMedium),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Text(
                         username,
                         style: const TextStyle(
-                            color: kColorTextPrimary,
+                            color: kTopBarFg,
                             fontSize: kFontSizeViewTitle,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold),
@@ -640,18 +642,18 @@ class _UsernameViewState extends State<UsernameView> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: kBrandPrimary.withValues(alpha: 0.08),
+                        color: Colors.white.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.edit_outlined,
-                              size: kIconSizeSmall, color: kBrandPrimary),
+                              size: kIconSizeSmall, color: kTopBarFg),
                           SizedBox(width: 4),
                           Text('Edit',
                               style: TextStyle(
-                                  color: kBrandPrimary,
+                                  color: kTopBarFg,
                                   fontSize: kFontSizeBodySmall,
                                   fontFamily: kFontFamily,
                                   fontWeight: kFontWeightSemiBold)),
@@ -661,6 +663,7 @@ class _UsernameViewState extends State<UsernameView> {
                   ),
                 ],
               ),
+            ),
             ),
 
             const SizedBox(height: 12),
@@ -872,7 +875,24 @@ class _UsernameViewState extends State<UsernameView> {
     );
   }
 
+  /// Each settings row's icon in its own colour (same label → same colour).
+  static const Map<String, Color> _rowIconColours = {
+    'Account Balance': Color(0xFF2E55DF),
+    'Reset Password': Color(0xFFE11D48),
+    'Trade Margin': Color(0xFF16A34A),
+    'Group Quantity Settings': Color(0xFFD97706),
+    'Margin SquareOff Settings': Color(0xFF9333EA),
+    'Brk Settings': Color(0xFF0D9488),
+    'Intraday SquareOff': Color(0xFFEA580C),
+    'Sharing Details': Color(0xFFDB2777),
+    'Script Quantity Setting': Color(0xFF0284C7),
+  };
+  Color _rowIconColour(String label) =>
+      _rowIconColours[label] ??
+      kIconPalette[label.codeUnits.fold<int>(0, (a, c) => a + c) % kIconPalette.length];
+
   Widget _settingRow(dynamic iconOrPath, String label, {bool isLast = false}) {
+    final iconColour = _rowIconColour(label);
     return Column(
       children: [
         GestureDetector(
@@ -886,10 +906,10 @@ class _UsernameViewState extends State<UsernameView> {
                     ? SvgPicture.asset(iconOrPath,
                         width: kIconSizeMedium,
                         height: kIconSizeMedium,
-                        colorFilter: const ColorFilter.mode(
-                            kBrandPrimary, BlendMode.srcIn))
+                        colorFilter: ColorFilter.mode(
+                            iconColour, BlendMode.srcIn))
                     : Icon(iconOrPath as IconData,
-                        size: kIconSizeMedium, color: kBrandPrimary),
+                        size: kIconSizeMedium, color: iconColour),
                 const SizedBox(width: 12),
                 Expanded(
                     child: Text(label,
@@ -1990,7 +2010,7 @@ class _UsernameViewState extends State<UsernameView> {
   Widget _sectionLabel(String text) {
     return Text(text,
         style: const TextStyle(
-            color: kColorTextMuted,
+            color: kSectionLabelColor,
             fontSize: kFontSizeNavLabel,
             fontFamily: kFontFamily,
             fontWeight: kFontWeightSemiBold,

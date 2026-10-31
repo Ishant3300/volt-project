@@ -241,7 +241,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
           child: Column(children: [
         _buildHeader(),

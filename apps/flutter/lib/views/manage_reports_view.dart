@@ -263,12 +263,14 @@ class _ManageReportsViewState extends State<ManageReportsView> {
     final isLoading = _isLoadingMasters || _isLoadingUsers;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: Column(
           children: [
             // Header
-            Padding(
+            ColoredBox(
+              color: kTopBarBg,
+              child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
@@ -277,16 +279,17 @@ class _ManageReportsViewState extends State<ManageReportsView> {
                     child: Container(
                       width: 40, height: 40,
                       decoration: BoxDecoration(
-                        color: Colors.white, borderRadius: BorderRadius.circular(12),
+                        color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12),
                         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
                       ),
-                      child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium),
+                      child: const Icon(Icons.arrow_back, color: kTopBarFg, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Text('Manage Reports', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                  const Text('Manage Reports', style: TextStyle(color: kTopBarFg, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
                 ],
               ),
+            ),
             ),
 
             // Tab selector — no longer needed. Admin sees Masters, Master sees Users.

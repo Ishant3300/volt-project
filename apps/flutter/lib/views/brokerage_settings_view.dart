@@ -211,11 +211,13 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
           child: Column(children: [
         // Header
-        Padding(
+        ColoredBox(
+          color: kTopBarBg,
+          child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(children: [
               GestureDetector(
@@ -224,7 +226,7 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: Colors.white.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
@@ -233,12 +235,12 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                                 offset: const Offset(0, 2))
                           ]),
                       child: const Icon(Icons.arrow_back,
-                          color: kColorTextPrimary, size: kIconSizeMedium))),
+                          color: kTopBarFg, size: kIconSizeMedium))),
               const SizedBox(width: 12),
               const Expanded(
                   child: Text('Brokerage Settings',
                       style: TextStyle(
-                          color: kColorTextPrimary,
+                          color: kTopBarFg,
                           fontSize: kFontSizeViewTitle,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold))),
@@ -264,16 +266,16 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                          color: kBrandPrimary,
+                          color: kTopBarFg,
                           borderRadius: BorderRadius.circular(10)),
                       child:
                           const Row(mainAxisSize: MainAxisSize.min, children: [
                         Icon(Icons.add,
-                            color: Colors.white, size: kIconSizeDefault),
+                            color: kBrandPrimary, size: kIconSizeDefault),
                         SizedBox(width: 4),
                         Text('Create',
                             style: TextStyle(
-                                color: Colors.white,
+                                color: kBrandPrimary,
                                 fontSize: kFontSizeSubtitle,
                                 fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold))
@@ -281,6 +283,7 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                 ),
               ],
             ])),
+        ),
 
         // Dropdowns
         Padding(

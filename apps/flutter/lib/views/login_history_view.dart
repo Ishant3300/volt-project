@@ -144,12 +144,14 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: Column(
           children: [
             // Header
-            Padding(
+            ColoredBox(
+              color: kTopBarBg,
+              child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
@@ -159,7 +161,7 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Colors.white.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
@@ -169,25 +171,26 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
                         ],
                       ),
                       child: const Icon(Icons.arrow_back,
-                          color: kColorTextPrimary, size: kIconSizeMedium),
+                          color: kTopBarFg, size: kIconSizeMedium),
                     ),
                   ),
                   const SizedBox(width: 12),
                   const Text('Login History',
                       style: TextStyle(
-                          color: kColorTextPrimary,
+                          color: kTopBarFg,
                           fontSize: kFontSizeViewTitle,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightSemiBold)),
                   const Spacer(),
                   Text(_isLoading ? '...' : '${_filtered.length} of $_total',
                       style: const TextStyle(
-                          color: kColorTextMuted,
+                          color: kTopBarFgMuted,
                           fontSize: kFontSizeSubtitle,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightMedium)),
                 ],
               ),
+            ),
             ),
 
             // Search bar

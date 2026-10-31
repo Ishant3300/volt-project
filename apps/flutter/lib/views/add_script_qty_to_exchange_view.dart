@@ -173,7 +173,7 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: Column(children: [
           _buildHeader(),

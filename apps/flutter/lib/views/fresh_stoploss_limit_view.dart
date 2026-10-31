@@ -257,20 +257,23 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
   Widget build(BuildContext context) {
     final filtered = _filtered;
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(child: Column(children: [
         // Header
-        Padding(padding: const EdgeInsets.all(16), child: Row(children: [
+        ColoredBox(
+          color: kTopBarBg,
+          child: Padding(padding: const EdgeInsets.all(16), child: Row(children: [
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(width: 40, height: 40,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
-              child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium)),
+              child: const Icon(Icons.arrow_back, color: kTopBarFg, size: kIconSizeMedium)),
           ),
           const SizedBox(width: 12),
-          const Text('Fresh Stop-Loss Limits', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+          const Text('Fresh Stop-Loss Limits', style: TextStyle(color: kTopBarFg, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
         ])),
+        ),
 
         // Exchange chips
         Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: SizedBox(height: 36,

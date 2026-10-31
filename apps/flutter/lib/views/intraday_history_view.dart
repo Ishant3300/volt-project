@@ -92,25 +92,28 @@ class _IntradayHistoryViewState extends State<IntradayHistoryView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: Column(children: [
           // Header
-          Padding(
+          ColoredBox(
+            color: kTopBarBg,
+            child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(children: [
               GestureDetector(
                 onTap: () => Navigator.pop(context),
                 child: Container(
                   width: 40, height: 40,
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12),
                     boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
-                  child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium),
+                  child: const Icon(Icons.arrow_back, color: kTopBarFg, size: kIconSizeMedium),
                 ),
               ),
               const SizedBox(width: 12),
-              const Text('Intraday History', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+              const Text('Intraday History', style: TextStyle(color: kTopBarFg, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
             ]),
+          ),
           ),
           // Controls
           Padding(

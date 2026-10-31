@@ -79,7 +79,9 @@ class _AccountDetailViewState extends State<AccountDetailView> {
         child: Column(
           children: [
             // Header
-            Padding(
+            ColoredBox(
+              color: kTopBarBg,
+              child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -92,7 +94,7 @@ class _AccountDetailViewState extends State<AccountDetailView> {
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Colors.white.withValues(alpha: 0.18),
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
@@ -102,14 +104,14 @@ class _AccountDetailViewState extends State<AccountDetailView> {
                             ],
                           ),
                           child: const Icon(Icons.arrow_back,
-                              color: kColorTextPrimary, size: kIconSizeMedium),
+                              color: kTopBarFg, size: kIconSizeMedium),
                         ),
                       ),
                       const SizedBox(width: 12),
                       const Text(
                         'Account Detail',
                         style: TextStyle(
-                          color: Color(0xFF0F172A),
+                          color: kTopBarFg,
                           fontSize: kFontSizePageTitle,
                           fontFamily: kFontFamily,
                           fontWeight: kFontWeightBold,
@@ -120,6 +122,7 @@ class _AccountDetailViewState extends State<AccountDetailView> {
                   ),
                 ],
               ),
+            ),
             ),
 
             const SizedBox(height: 8),

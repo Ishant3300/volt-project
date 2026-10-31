@@ -207,7 +207,7 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
     return PopScope(
       canPop: false, // Prevent back button
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
+        backgroundColor: kPageBg,
         body: SafeArea(
           child: SingleChildScrollView(
             child: Padding(

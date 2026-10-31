@@ -314,12 +314,14 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
           }).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: Column(
           children: [
             // Header
-            Padding(
+            ColoredBox(
+              color: kTopBarBg,
+              child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
@@ -329,7 +331,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                       height: 40,
                       width: 40,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Colors.white.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
@@ -340,7 +342,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                         ],
                       ),
                       child: const Icon(Icons.arrow_back_ios_new,
-                          size: kIconSizeDefault, color: Color(0xFF475569)),
+                          size: kIconSizeDefault, color: kTopBarFgMuted),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -351,7 +353,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                         Text(
                           widget.tradingsymbol,
                           style: const TextStyle(
-                            color: kColorTextPrimary,
+                            color: kTopBarFg,
                             fontSize: kFontSizeSectionHeader,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,
@@ -364,7 +366,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                             Text(
                               widget.exchange,
                               style: const TextStyle(
-                                color: kColorTextMuted,
+                                color: kTopBarFgMuted,
                                 fontSize: kFontSizeSubtitle,
                                 fontFamily: kFontFamily,
                                 fontWeight: kFontWeightMedium,
@@ -375,7 +377,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                               width: 4,
                               height: 4,
                               decoration: const BoxDecoration(
-                                color: Color(0xFFCBD5E1),
+                                color: kTopBarFgMuted,
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -383,7 +385,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                             Text(
                               'Net: ${widget.netQty > 0 ? "+" : ""}${widget.netQty}',
                               style: TextStyle(
-                                color: sideColor,
+                                color: kTopBarFg,
                                 fontSize: kFontSizeSubtitle,
                                 fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold,
@@ -400,7 +402,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: kBrandPrimary.withValues(alpha: 0.08),
+                        color: Colors.white.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Column(
@@ -409,7 +411,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                           const Text(
                             'LTP',
                             style: TextStyle(
-                              color: kColorTextMuted,
+                              color: kTopBarFgMuted,
                               fontSize: kFontSizeBadge,
                               fontFamily: kFontFamily,
                               fontWeight: kFontWeightSemiBold,
@@ -420,7 +422,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                           Text(
                             _ltp!.toStringAsFixed(2),
                             style: const TextStyle(
-                              color: kBrandPrimary,
+                              color: kTopBarFg,
                               fontSize: kFontSizeBody,
                               fontFamily: kFontFamily,
                               fontWeight: kFontWeightBold,
@@ -431,6 +433,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                     ),
                 ],
               ),
+            ),
             ),
 
             // Search bar

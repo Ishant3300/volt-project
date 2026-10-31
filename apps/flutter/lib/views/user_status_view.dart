@@ -12,19 +12,21 @@ class UserStatusView extends StatelessWidget {
         child: Column(
           children: [
             // Header
-            Padding(
+            ColoredBox(
+              color: kTopBarBg,
+              child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: Icon(Icons.arrow_back, size: kIconSizeLarge, color: kColorTextPrimary),
+                    child: Icon(Icons.arrow_back, size: kIconSizeLarge, color: kTopBarFg),
                   ),
                   SizedBox(width: 12),
                   Text(
                     'User Status',
                     style: TextStyle(
-                      color: kColorTextPrimary,
+                      color: kTopBarFg,
                       fontSize: kFontSizeSectionHeader,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
@@ -32,6 +34,7 @@ class UserStatusView extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
             ),
 
             // List of users

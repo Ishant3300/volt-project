@@ -216,7 +216,7 @@ class _ExpiryManagementViewState extends State<ExpiryManagementView> {
     final isRunning = _run?['status'] == 'running';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: Column(
           children: [

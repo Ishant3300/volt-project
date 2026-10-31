@@ -92,25 +92,28 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
     final filtered = _filtered;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: Column(children: [
           // Header
-          Padding(
+          ColoredBox(
+            color: kTopBarBg,
+            child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(children: [
               GestureDetector(
                 onTap: () => Navigator.pop(context),
                 child: Container(
                   width: 40, height: 40,
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
+                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12),
                     boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
-                  child: const Icon(Icons.arrow_back, color: kColorTextPrimary, size: kIconSizeMedium),
+                  child: const Icon(Icons.arrow_back, color: kTopBarFg, size: kIconSizeMedium),
                 ),
               ),
               const SizedBox(width: 12),
-              const Text('Profit & Loss', style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+              const Text('Profit & Loss', style: TextStyle(color: kTopBarFg, fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
             ]),
+          ),
           ),
 
           // Totals card
@@ -167,7 +170,7 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
             margin: const EdgeInsets.symmetric(horizontal: 16),
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: kTableHeadBg,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
             ),
@@ -179,11 +182,11 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
                   onTap: () => _sort(i),
                   child: Row(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [
                     Text(labels[i], style: TextStyle(
-                      color: isSorted ? kBrandPrimary : kColorTextMuted,
+                      color: isSorted ? kBrandPrimary : kChipFg,
                       fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
                     const SizedBox(width: 2),
                     Icon(isSorted ? (_sortAsc ? Icons.arrow_upward : Icons.arrow_downward) : Icons.unfold_more,
-                      size: 11, color: isSorted ? kBrandPrimary : kColorTextMuted),
+                      size: 11, color: isSorted ? kBrandPrimary : kChipFg),
                   ]),
                 ),
               );
@@ -215,12 +218,23 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
   }
 
   Widget _totalItem(String label, double value) {
+    // Soft tint per box (colour only): Realised blue, M2M amber, Total green.
+    final (bg, fg) = switch (label) {
+      'Realised' => (kTintBlueBg, kTintBlueFg),
+      'M2M' => (kTintAmberBg, kTintAmberFg),
+      _ => (kTintGreenBg, kTintGreenFg),
+    };
     return Expanded(
-      child: Column(children: [
-        Text(label.toUpperCase(), style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
-        const SizedBox(height: 4),
-        Text(_pnlStr(value), style: TextStyle(color: _pnlColor(value), fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
-      ]),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 3),
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
+        child: Column(children: [
+          Text(label.toUpperCase(), style: TextStyle(color: fg, fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: 0.5)),
+          const SizedBox(height: 4),
+          Text(_pnlStr(value), style: TextStyle(color: _pnlColor(value), fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
+        ]),
+      ),
     );
   }
 

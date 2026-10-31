@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import '../config/practice_session.dart';
+import '../config/app_brand.dart' show kBrandPrimary;
 
 // White-label branding (app name, logo, brand colours). Re-exported here so that
 // every file already importing this constants file picks up the brand tokens
@@ -37,6 +38,31 @@ const Color kColorSell = Color(0xFFC94A4A); // SELL labels, sell prices, loss fi
 const Color kColorBuyBadgeBg = Color(0xFFE8F1FD); // light tint behind a BUY badge
 const Color kColorSellBadgeBg = Color(0xFFFCEAE9); // light tint behind a SELL badge
 const Color kColorLossBadgeBg = Color(0xFFFDE8E8); // light tint behind a "Deals: -…" loss pill
+
+// ─── Colourful UI (1 Nov 2026) — COLOUR ONLY, no layout change ─────────────
+// One place for the app's colours beyond plain white: page background, the
+// brand top bar on every screen's header row, unselected chips/tabs, and soft
+// tinted tiles. BUY/SELL and profit/loss colours above are unchanged.
+const Color kPageBg = Color(0xFFEEF2FF); // screen background (was F8FAFC)
+const Color kTopBarBg = kBrandPrimary; // header row band (back button + title)
+const Color kTopBarFg = Colors.white; // title / icons on the top bar
+const Color kTopBarFgMuted = Color(0xCCFFFFFF); // secondary text on the top bar
+const Color kChipBg = Color(0xFFE0E8FF); // unselected chip / tab / +- button
+const Color kChipFg = Color(0xFF3F51B5); // text on an unselected chip
+const Color kSectionLabelColor = kBrandPrimary; // "SETTINGS", "ACTION" … labels
+const Color kTableHeadBg = Color(0xFFE0E8FF); // table header row
+const Color kTintBlueBg = Color(0xFFE0E8FF);
+const Color kTintBlueFg = Color(0xFF2E55DF);
+const Color kTintAmberBg = Color(0xFFFEF3C7);
+const Color kTintAmberFg = Color(0xFFB45309);
+const Color kTintGreenBg = Color(0xFFDCFCE7);
+const Color kTintGreenFg = Color(0xFF15803D);
+/// Settings-list icon colours, one per row (cycled).
+const List<Color> kIconPalette = [
+  Color(0xFF2E55DF), Color(0xFFE11D48), Color(0xFF16A34A), Color(0xFFD97706),
+  Color(0xFF9333EA), Color(0xFF0D9488), Color(0xFFEA580C), Color(0xFFDB2777),
+  Color(0xFF0284C7), Color(0xFF65A30D),
+];
 
 // One-tap "Reset Password" (username_view.dart / web's PasswordResetPage.tsx)
 // sets a user's/master's password to this fixed value instead of requiring

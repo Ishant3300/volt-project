@@ -498,7 +498,7 @@ class _OrdersPageState extends State<OrdersPage> {
     final bool isTotalPositive = totalPnl >= 0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _fetchAdminMasterMetrics,
@@ -797,7 +797,7 @@ class _OrdersPageState extends State<OrdersPage> {
           }).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
@@ -1332,7 +1332,7 @@ class _OrdersPageState extends State<OrdersPage> {
         final isPosPnlPositive = posPnl >= 0;
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF8FAFC),
+          backgroundColor: kPageBg,
           body: SafeArea(
             child: Column(
               children: [

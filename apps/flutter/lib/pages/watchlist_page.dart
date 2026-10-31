@@ -160,8 +160,10 @@ class _WatchlistPageState extends State<WatchlistPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header — title + edit
-            Padding(
+            // Header — title + edit (brand top bar, colour only)
+            ColoredBox(
+              color: kTopBarBg,
+              child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
               child: Row(
                 children: [
@@ -172,7 +174,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                         fontFamily: kFontFamily,
                         fontSize: 21,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1A1D20),
+                        color: kTopBarFg,
                         letterSpacing: -0.4,
                       ),
                     ),
@@ -183,11 +185,12 @@ class _WatchlistPageState extends State<WatchlistPage> {
                     icon: Icon(
                       _editMode ? Icons.check : Icons.edit_outlined,
                       size: 20,
-                      color: _editMode ? kBrandPrimary : const Color(0xFF6B7280),
+                      color: _editMode ? kTopBarFg : kTopBarFgMuted,
                     ),
                   ),
                 ],
               ),
+            ),
             ),
 
             // Search pill — searches the open tab's segment

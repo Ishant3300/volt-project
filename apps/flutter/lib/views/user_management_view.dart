@@ -140,12 +140,14 @@ class _UserManagementViewState extends State<UserManagementView> {
         : 'User Management';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: kPageBg,
       body: SafeArea(
         child: Column(
           children: [
             // Header
-            Padding(
+            ColoredBox(
+              color: kTopBarBg,
+              child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
@@ -155,7 +157,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                       height: 40,
                       width: 40,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Colors.white.withValues(alpha: 0.18),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
@@ -166,7 +168,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                         ],
                       ),
                       child: const Icon(Icons.arrow_back_ios_new,
-                          size: kIconSizeDefault, color: Color(0xFF475569)),
+                          size: kIconSizeDefault, color: kTopBarFgMuted),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -174,7 +176,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                     child: Text(
                       title,
                       style: const TextStyle(
-                        color: kColorTextPrimary,
+                        color: kTopBarFg,
                         fontSize: kFontSizeSectionHeader,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightSemiBold,
@@ -187,13 +189,13 @@ class _UserManagementViewState extends State<UserManagementView> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: kBrandPrimary.withValues(alpha: 0.08),
+                      color: Colors.white.withValues(alpha: 0.18),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       '${_filteredItems.length}',
                       style: const TextStyle(
-                        color: kBrandPrimary,
+                        color: kTopBarFg,
                         fontSize: kFontSizeBodySmall,
                         fontFamily: kFontFamily,
                         fontWeight: kFontWeightBold,
@@ -202,6 +204,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                   ),
                 ],
               ),
+            ),
             ),
 
             // Search bar
