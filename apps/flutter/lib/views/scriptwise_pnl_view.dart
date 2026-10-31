@@ -4,6 +4,7 @@ import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
 import 'scriptwise_pnl_detail_view.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 enum _DateRangeMode { thisWeek, previousWeek, custom }
 
@@ -172,7 +173,7 @@ class _ScriptwisePnlViewState extends State<ScriptwisePnlView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(children: [
           _buildHeader(),
           Expanded(
@@ -206,7 +207,7 @@ class _ScriptwisePnlViewState extends State<ScriptwisePnlView> {
                       ),
           ),
         ]),
-      ),
+      )),
     );
   }
 

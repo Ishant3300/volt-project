@@ -11,6 +11,7 @@ import '../utils/contants.dart';
 import 'create_user_view.dart';
 import 'create_master_view.dart';
 import 'username_view.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class UserManagementView extends StatefulWidget {
   const UserManagementView({super.key});
@@ -141,7 +142,7 @@ class _UserManagementViewState extends State<UserManagementView> {
 
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(
           children: [
             // Header
@@ -157,7 +158,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                       height: 40,
                       width: 40,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
+                        color: kTopBarTile,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
@@ -189,7 +190,7 @@ class _UserManagementViewState extends State<UserManagementView> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.18),
+                      color: kTopBarTile,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
@@ -387,7 +388,7 @@ class _UserManagementViewState extends State<UserManagementView> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 

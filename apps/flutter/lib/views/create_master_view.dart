@@ -15,6 +15,7 @@ import '../utils/contants.dart';
 import '../utils/wallet_category.dart';
 import '../widgets/create_for_master_picker.dart';
 import '../utils/comex_rate.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class CreateMasterView extends StatefulWidget {
   final Master? master;
@@ -1128,7 +1129,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(
           children: [
             // Header
@@ -1144,7 +1145,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
+                        color: kTopBarTile,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
@@ -1483,7 +1484,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 

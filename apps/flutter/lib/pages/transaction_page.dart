@@ -11,6 +11,7 @@ import '../services/sercure_storage_service.dart';
 import '../providers/user_profile_provider.dart';
 import '../utils/contants.dart';
 import '../utils/number_to_words.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class TransactionPage extends StatefulWidget {
   final Master? master;
@@ -217,7 +218,7 @@ class _TransactionPageState extends State<TransactionPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(
           children: [
             // Header
@@ -232,7 +233,7 @@ class _TransactionPageState extends State<TransactionPage> {
                     child: Container(
                       width: 40, height: 40,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
+                        color: kTopBarTile,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
                       ),
@@ -278,7 +279,7 @@ class _TransactionPageState extends State<TransactionPage> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 

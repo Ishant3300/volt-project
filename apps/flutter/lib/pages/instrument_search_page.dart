@@ -9,6 +9,7 @@ import 'package:stocker/providers/investor_mode_provider.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/services/kite_service.dart';
 import '../utils/contants.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class InstrumentSearchPage extends StatefulWidget {
   /// Segment tab to open on ('ALL', 'NFO-FUT', 'MCX-FUT', 'GLOBAL', …) — the
@@ -389,7 +390,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(
           children: [
             _buildSearchHeader(),
@@ -399,7 +400,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
             Expanded(child: _buildSearchResults()),
           ],
         ),
-      ),
+      )),
     );
   }
 

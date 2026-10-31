@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class ChangePasswordView extends StatefulWidget {
   const ChangePasswordView({super.key});
@@ -73,14 +74,14 @@ class _ChangePasswordViewState extends State<ChangePasswordView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(child: Column(children: [
+      body: PageWash(child: SafeArea(child: Column(children: [
         // Header
         ColoredBox(
           color: kTopBarBg,
           child: Padding(padding: const EdgeInsets.all(16), child: Row(children: [
           GestureDetector(onTap: () => Navigator.pop(context),
             child: Container(width: 40, height: 40,
-              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12),
+              decoration: BoxDecoration(color: kTopBarTile, borderRadius: BorderRadius.circular(12),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
               child: const Icon(Icons.arrow_back, color: kTopBarFg, size: kIconSizeMedium))),
           const SizedBox(width: 12),
@@ -119,7 +120,7 @@ class _ChangePasswordViewState extends State<ChangePasswordView> {
                 : const Text('UPDATE', style: TextStyle(color: Colors.white, fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold))),
           )),
         ])),
-      ])),
+      ]))),
     );
   }
 

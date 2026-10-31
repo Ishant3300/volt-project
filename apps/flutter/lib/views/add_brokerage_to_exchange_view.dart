@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../utils/contants.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class AddBrokerageToExchangeView extends StatefulWidget {
   final String exchange;
@@ -166,7 +167,7 @@ class _AddBrokerageToExchangeViewState extends State<AddBrokerageToExchangeView>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(children: [
           _buildHeader(),
           const SizedBox(height: 8),
@@ -177,7 +178,7 @@ class _AddBrokerageToExchangeViewState extends State<AddBrokerageToExchangeView>
           _buildColumnHeaders(),
           Expanded(child: _isLoading ? _buildLoading() : _buildList()),
         ]),
-      ),
+      )),
     );
   }
 

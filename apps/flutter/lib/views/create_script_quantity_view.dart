@@ -8,6 +8,7 @@ import '../services/admin_service.dart';
 import '../services/kite_service.dart';
 import '../models/kite_instrument.dart';
 import '../utils/contants.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class CreateScriptQuantityView extends StatefulWidget {
   final String? ownerId;
@@ -242,7 +243,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
           child: Column(children: [
         _buildHeader(),
         const SizedBox(height: 8),
@@ -251,7 +252,7 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
         _buildSearchBar(),
         const SizedBox(height: 12),
         Expanded(child: _selected != null ? _buildForm() : _buildResults()),
-      ])),
+      ]))),
     );
   }
 

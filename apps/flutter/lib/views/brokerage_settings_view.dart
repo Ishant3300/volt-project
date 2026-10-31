@@ -8,6 +8,7 @@ import '../services/admin_service.dart';
 import '../services/sercure_storage_service.dart';
 import 'add_brokerage_to_exchange_view.dart';
 import '../utils/contants.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class BrokerageSettingsView extends StatefulWidget {
   final String? ownerId;
@@ -212,7 +213,7 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
           child: Column(children: [
         // Header
         ColoredBox(
@@ -226,7 +227,7 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.18),
+                          color: kTopBarTile,
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
@@ -266,16 +267,16 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                          color: kTopBarFg,
+                          color: kBrandPrimary,
                           borderRadius: BorderRadius.circular(10)),
                       child:
                           const Row(mainAxisSize: MainAxisSize.min, children: [
                         Icon(Icons.add,
-                            color: kBrandPrimary, size: kIconSizeDefault),
+                            color: Colors.white, size: kIconSizeDefault),
                         SizedBox(width: 4),
                         Text('Create',
                             style: TextStyle(
-                                color: kBrandPrimary,
+                                color: Colors.white,
                                 fontSize: kFontSizeSubtitle,
                                 fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold))
@@ -465,7 +466,7 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                         );
                       }),
         ),
-      ])),
+      ]))),
     );
   }
 

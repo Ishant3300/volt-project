@@ -15,6 +15,7 @@ import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/utils/contants.dart';
 import 'history_filter_sheet.dart';
 import 'trade_detail_sheet.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 /// Format a Trade's volume as "X LOTS" or "X QTY" using the model's isLotBased getter.
 String _tradeVolumeLabel(Trade trade, {bool showSide = false}) {
@@ -212,7 +213,7 @@ class _PortfolioPageState extends State<PortfolioPage>
         _activeFilters != null && _activeFilters!.hasActiveFilters;
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(
           children: [
             // Tabs + filter + search in one row
@@ -431,7 +432,7 @@ class _PortfolioPageState extends State<PortfolioPage>
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 

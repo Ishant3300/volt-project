@@ -24,6 +24,7 @@ import 'package:stocker/utils/market_hours.dart';
 import 'package:stocker/config/practice_session.dart';
 import '../utils/wallet_category.dart';
 import '../utils/script_order.dart';
+import 'package:stocker/widgets/page_wash.dart';
 class _NumberFormat {
   final double value;
   final String suffix;
@@ -499,7 +500,7 @@ class _OrdersPageState extends State<OrdersPage> {
 
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: RefreshIndicator(
           onRefresh: _fetchAdminMasterMetrics,
           child: SingleChildScrollView(
@@ -662,7 +663,7 @@ class _OrdersPageState extends State<OrdersPage> {
             ),
           ),
         ),
-      ),
+      )),
     );
   }
 

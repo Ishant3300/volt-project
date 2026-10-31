@@ -5,6 +5,7 @@ import '../providers/user_profile_provider.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class ProfitAndLossView extends StatefulWidget {
   const ProfitAndLossView({super.key});
@@ -93,7 +94,7 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
 
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(children: [
           // Header
           ColoredBox(
@@ -105,7 +106,7 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
                 onTap: () => Navigator.pop(context),
                 child: Container(
                   width: 40, height: 40,
-                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12),
+                  decoration: BoxDecoration(color: kTopBarTile, borderRadius: BorderRadius.circular(12),
                     boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
                   child: const Icon(Icons.arrow_back, color: kTopBarFg, size: kIconSizeMedium),
                 ),
@@ -213,7 +214,7 @@ class _ProfitAndLossViewState extends State<ProfitAndLossView> {
                       ),
           ),
         ]),
-      ),
+      )),
     );
   }
 

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../services/super_admin_service.dart';
 import '../utils/contants.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 /// Super Admin only. New admins get every permission granted by default
 /// (backend default when `permissions` is omitted) — restricted afterward
@@ -62,7 +63,7 @@ class _CreateAdminViewState extends State<CreateAdminView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(
           children: [
             Padding(
@@ -154,7 +155,7 @@ class _CreateAdminViewState extends State<CreateAdminView> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 }

@@ -7,6 +7,7 @@ import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
 import '../utils/script_order.dart';
 import 'userwise_position_filter_bottom_sheet.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class UserwisePositionView extends StatefulWidget {
   const UserwisePositionView({super.key});
@@ -120,7 +121,7 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
     final filtered = _filtered;
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(children: [
           Padding(
             padding: const EdgeInsets.all(16),
@@ -184,7 +185,7 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
                           itemBuilder: (_, i) => _buildRow(filtered[i]))),
           ),
         ]),
-      ),
+      )),
     );
   }
 

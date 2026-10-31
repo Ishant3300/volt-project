@@ -314,7 +314,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: ShapeDecoration(
-                          color: kTopBarFg,
+                          color: kBrandPrimary,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(6),
                           ),
@@ -322,7 +322,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                         child: const Text(
                           'CREATE',
                           style: TextStyle(
-                            color: kBrandPrimary,
+                            color: Colors.white,
                             fontSize: kFontSizeBody,
                             fontFamily: kFontFamily,
                             fontWeight: kFontWeightSemiBold,

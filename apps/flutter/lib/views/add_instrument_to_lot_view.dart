@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../utils/contants.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class AddInstrumentToLotView extends StatefulWidget {
   final String exchange;
@@ -227,7 +228,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(
           children: [
             _buildHeader(),
@@ -240,7 +241,7 @@ class _AddInstrumentToLotViewState extends State<AddInstrumentToLotView> {
             Expanded(child: _isLoading ? _buildLoading() : _buildList()),
           ],
         ),
-      ),
+      )),
     );
   }
 

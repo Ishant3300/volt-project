@@ -43,14 +43,23 @@ const Color kColorLossBadgeBg = Color(0xFFFDE8E8); // light tint behind a "Deals
 // One place for the app's colours beyond plain white: page background, the
 // brand top bar on every screen's header row, unselected chips/tabs, and soft
 // tinted tiles. BUY/SELL and profit/loss colours above are unchanged.
-const Color kPageBg = Color(0xFFEEF2FF); // screen background (was F8FAFC)
-const Color kTopBarBg = kBrandPrimary; // header row band (back button + title)
-const Color kTopBarFg = Colors.white; // title / icons on the top bar
-const Color kTopBarFgMuted = Color(0xCCFFFFFF); // secondary text on the top bar
-const Color kChipBg = Color(0xFFE0E8FF); // unselected chip / tab / +- button
-const Color kChipFg = Color(0xFF3F51B5); // text on an unselected chip
+const Color kPageBg = Color(0xFFF5F7FC); // screen background — soft cool white (was F8FAFC)
+// Header rows sit on the page's top wash (widgets/page_wash.dart), no band of
+// their own — the solid strip of the first test build looked pasted on.
+const Color kTopBarBg = Color(0x00000000); // header row: transparent over the wash
+const Color kWashTop = Color(0xFFDCE5FF); // wash under the status bar
+const Color kWashMid = Color(0xFFEBF0FF); // wash, fading into the page
+const Color kTopBarTile = Colors.white; // back / edit / LTP tiles on the wash
+const Color kTopBarFg = Color(0xFF0F1B3D); // title / icons on the header (navy)
+const Color kTopBarFgMuted = Color(0xFF5B6478); // secondary text on the header
+const Color kChipBg = Color(0xFFF1F4FA); // unselected chip / tab / +- button
+const Color kChipFg = Color(0xFF5B6478); // text on an unselected chip
 const Color kSectionLabelColor = kBrandPrimary; // "SETTINGS", "ACTION" … labels
-const Color kTableHeadBg = Color(0xFFE0E8FF); // table header row
+const Color kTableHeadBg = Color(0xFFEEF2FF); // table header row
+/// Segment colours (watchlist chips): NSE brand blue, MCX amber, GLOBAL teal, COMEX violet.
+const Color kSegMcx = Color(0xFFD97706);
+const Color kSegGlobal = Color(0xFF0D9488);
+const Color kSegComex = Color(0xFF9333EA);
 const Color kTintBlueBg = Color(0xFFE0E8FF);
 const Color kTintBlueFg = Color(0xFF2E55DF);
 const Color kTintAmberBg = Color(0xFFFEF3C7);

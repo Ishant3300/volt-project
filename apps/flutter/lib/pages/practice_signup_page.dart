@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:stocker/config/practice_session.dart';
 import 'package:stocker/services/app_identity.dart';
 import 'package:stocker/utils/contants.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 /// "Create practice account" — self sign-up for a practice (paper trading)
 /// account on the separate practice backend (apex-project
@@ -167,7 +168,7 @@ class _PracticeSignupPageState extends State<PracticeSignupPage> {
                 fontWeight: kFontWeightBold,
                 color: kColorTextPrimary)),
       ),
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: [
@@ -300,7 +301,7 @@ class _PracticeSignupPageState extends State<PracticeSignupPage> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 }

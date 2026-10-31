@@ -7,6 +7,7 @@ import '../services/admin_service.dart';
 import '../services/api_service.dart';
 import '../services/super_admin_service.dart';
 import '../utils/contants.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 /// Super Admin only. Permissions + watch-only + master visibility + enable/
 /// disable + delete for one regular Admin. Each section saves independently
@@ -249,7 +250,7 @@ class _ManageAdminDetailViewState extends State<ManageAdminDetailView> {
   Widget build(BuildContext context) {
     return Scaffold(
         backgroundColor: kPageBg,
-        body: SafeArea(
+        body: PageWash(child: SafeArea(
           child: Column(
             children: [
               Padding(
@@ -460,7 +461,7 @@ class _ManageAdminDetailViewState extends State<ManageAdminDetailView> {
               ),
             ],
           ),
-        ),
+        )),
     ); // end Scaffold
   }
 }

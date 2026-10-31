@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import '../services/announcement_service.dart';
 import '../utils/contants.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class SendMessageView extends StatefulWidget {
   const SendMessageView({super.key});
@@ -77,7 +78,7 @@ class _SendMessageViewState extends State<SendMessageView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(
           children: [
             Padding(
@@ -186,7 +187,7 @@ class _SendMessageViewState extends State<SendMessageView> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 }

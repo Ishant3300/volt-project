@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../utils/contants.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class WebViewPage extends StatefulWidget {
   final String url;
@@ -33,7 +34,7 @@ class _WebViewPageState extends State<WebViewPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(
           children: [
             Padding(
@@ -61,7 +62,7 @@ class _WebViewPageState extends State<WebViewPage> {
             Expanded(child: WebViewWidget(controller: _controller)),
           ],
         ),
-      ),
+      )),
     );
   }
 }

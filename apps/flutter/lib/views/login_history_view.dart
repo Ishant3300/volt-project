@@ -6,6 +6,7 @@ import '../providers/user_profile_provider.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class LoginHistoryView extends StatefulWidget {
   const LoginHistoryView({super.key});
@@ -145,7 +146,7 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(
           children: [
             // Header
@@ -161,7 +162,7 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
+                        color: kTopBarTile,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
@@ -264,7 +265,7 @@ class _LoginHistoryViewState extends State<LoginHistoryView> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 

@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../utils/contants.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class AddScriptQtyToExchangeView extends StatefulWidget {
   final String exchange;
@@ -174,7 +175,7 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(children: [
           _buildHeader(),
           const SizedBox(height: 8),
@@ -185,7 +186,7 @@ class _AddScriptQtyToExchangeViewState extends State<AddScriptQtyToExchangeView>
           _buildColumnHeaders(),
           Expanded(child: _isLoading ? _buildLoading() : _buildList()),
         ]),
-      ),
+      )),
     );
   }
 

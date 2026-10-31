@@ -6,6 +6,7 @@ import '../providers/user_profile_provider.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class AccountSummaryView extends StatefulWidget {
   const AccountSummaryView({super.key});
@@ -157,7 +158,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
 
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(children: [
           // Header
           ColoredBox(
@@ -169,7 +170,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
                 onTap: () => Navigator.pop(context),
                 child: Container(
                   width: 40, height: 40,
-                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12),
+                  decoration: BoxDecoration(color: kTopBarTile, borderRadius: BorderRadius.circular(12),
                     boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
                   child: const Icon(Icons.arrow_back, color: kTopBarFg, size: kIconSizeMedium),
                 ),
@@ -265,7 +266,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
           // Results
           Expanded(child: _buildResults()),
         ]),
-      ),
+      )),
     );
   }
 

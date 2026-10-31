@@ -8,6 +8,7 @@ import '../services/super_admin_service.dart';
 import '../utils/contants.dart';
 import 'create_admin_view.dart';
 import 'manage_admin_detail_view.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 /// Super Admin only. Create/list/restrict other Admins.
 class ManageAdminsView extends StatefulWidget {
@@ -70,7 +71,7 @@ class _ManageAdminsViewState extends State<ManageAdminsView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(
           children: [
             Padding(
@@ -200,7 +201,7 @@ class _ManageAdminsViewState extends State<ManageAdminsView> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 

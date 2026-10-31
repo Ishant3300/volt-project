@@ -19,6 +19,7 @@ import 'info_sheet.dart';
 import 'chart_view.dart';
 import 'package:stocker/config/practice_session.dart';
 import 'package:stocker/services/trade_sound_service.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 /// Client-side option validation is intentionally advisory. A missing local
 /// position can mean the admin selected another user or metrics have not synced;
@@ -991,7 +992,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                           width: 44,
                           height: 44,
                           decoration: ShapeDecoration(
-                            color: Colors.white.withValues(alpha: 0.18),
+                            color: kTopBarTile,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(44),
                             ),
@@ -1027,7 +1028,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.18),
+                              color: kTopBarTile,
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Column(
@@ -1442,7 +1443,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                       color: Colors.white,
                       shape: RoundedRectangleBorder(
                         side: const BorderSide(
-                            width: 1, color: Color(0xFFC9D3FB)),
+                            width: 1, color: Color(0xFFE1E6F2)),
                         borderRadius: BorderRadius.circular(6),
                       ),
                     ),
@@ -1913,11 +1914,11 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 16, vertical: 13),
                                         decoration: ShapeDecoration(
-                                          color: const Color(0xFFFFF5F5),
+                                          color: const Color(0xFFFFF8F7),
                                           shape: RoundedRectangleBorder(
                                             side: const BorderSide(
                                                 width: 1,
-                                                color: Color(0xFFF5C2C2)),
+                                                color: Color(0xFFF3D3CF)),
                                             borderRadius:
                                                 BorderRadius.circular(6),
                                           ),
@@ -1992,11 +1993,11 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 16, vertical: 13),
                                       decoration: ShapeDecoration(
-                                        color: const Color(0xFFF2F7FF),
+                                        color: const Color(0xFFF6F9FF),
                                         shape: RoundedRectangleBorder(
                                           side: const BorderSide(
                                               width: 1,
-                                              color: Color(0xFFBFD5F7)),
+                                              color: Color(0xFFCFDDFB)),
                                           borderRadius:
                                               BorderRadius.circular(6),
                                         ),
@@ -2598,7 +2599,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
       canPop: !_isLoading,
       child: Scaffold(
         backgroundColor: const Color(0xFFF7F8FC),
-        body: AbsorbPointer(
+        body: PageWash(child: AbsorbPointer(
           absorbing: _isLoading,
           child: Stack(
             children: [
@@ -2612,7 +2613,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                 ),
             ],
           ),
-        ),
+        )),
       ),
     );
   }

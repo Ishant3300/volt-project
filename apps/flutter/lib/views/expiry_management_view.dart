@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../utils/contants.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 /// Manual expiry management — two deliberately separate controls:
 ///
@@ -217,7 +218,7 @@ class _ExpiryManagementViewState extends State<ExpiryManagementView> {
 
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(
           children: [
             Padding(
@@ -359,7 +360,7 @@ class _ExpiryManagementViewState extends State<ExpiryManagementView> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 

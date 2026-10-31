@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class FreshStoplossLimitView extends StatefulWidget {
   const FreshStoplossLimitView({super.key});
@@ -258,7 +259,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
     final filtered = _filtered;
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(child: Column(children: [
+      body: PageWash(child: SafeArea(child: Column(children: [
         // Header
         ColoredBox(
           color: kTopBarBg,
@@ -266,7 +267,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(width: 40, height: 40,
-              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12),
+              decoration: BoxDecoration(color: kTopBarTile, borderRadius: BorderRadius.circular(12),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
               child: const Icon(Icons.arrow_back, color: kTopBarFg, size: kIconSizeMedium)),
           ),
@@ -348,7 +349,7 @@ class _FreshStoplossLimitViewState extends State<FreshStoplossLimitView> {
             : RefreshIndicator(onRefresh: _fetchLimits, child: ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 16), itemCount: filtered.length,
                 itemBuilder: (_, i) => _buildLimitCard(filtered[i])))),
-      ])),
+      ]))),
     );
   }
 

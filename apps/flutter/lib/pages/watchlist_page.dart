@@ -10,6 +10,7 @@ import 'package:stocker/providers/user_profile_provider.dart';
 import '../utils/contants.dart';
 import '../views/trade_card_view.dart';
 import '../widgets/announcement_banner.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 /// Cosmetic only — the "x/100" counter next to the search pill. Not a real
 /// cap: neither `WatchlistProvider`/`WatchlistService` nor the backend
@@ -157,7 +158,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(
           children: [
             // Header — title + edit (brand top bar, colour only)
@@ -251,6 +252,16 @@ class _WatchlistPageState extends State<WatchlistPage> {
                   final tab = tabs[index];
                   final selected = index == activeIndex;
                   final count = watchlistProvider.items.where((i) => _segmentOf(i.instrument) == tab.key).length;
+                  // Each segment in its own colour (colour only): NSE brand
+                  // blue, MCX amber, GLOBAL teal, COMEX violet — solid when open.
+                  final k = tab.key.toUpperCase();
+                  final segColour = k.startsWith('MCX')
+                      ? kSegMcx
+                      : (k == 'GLOBAL' || k == 'INDICES')
+                          ? kSegGlobal
+                          : k.startsWith('COMEX')
+                              ? kSegComex
+                              : kBrandPrimary;
                   return GestureDetector(
                     onTap: () => _selectTab(index, tabs),
                     child: AnimatedContainer(
@@ -258,9 +269,9 @@ class _WatchlistPageState extends State<WatchlistPage> {
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: selected ? kBrandPrimary.withValues(alpha: 0.10) : Colors.white,
+                        color: selected ? segColour : segColour.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: selected ? kBrandPrimary : const Color(0xFFE5E7EB)),
+                        border: Border.all(color: selected ? segColour : segColour.withValues(alpha: 0.28)),
                       ),
                       child: Text(
                         '${tab.value}  $count',
@@ -268,7 +279,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                           fontFamily: kFontFamily,
                           fontSize: 13,
                           fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                          color: selected ? kBrandPrimary : const Color(0xFF6B7280),
+                          color: selected ? Colors.white : segColour,
                         ),
                       ),
                     ),
@@ -378,7 +389,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
             const SizedBox(height: 16),
           ],
         ),
-      ),
+      )),
     );
   }
 

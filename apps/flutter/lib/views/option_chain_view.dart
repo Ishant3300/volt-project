@@ -9,6 +9,7 @@ import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/kite_service.dart';
 import 'package:stocker/utils/contants.dart';
 import 'trade_card_view.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class OptionChainView extends StatefulWidget {
   final KiteInstrument instrument;
@@ -174,7 +175,7 @@ class _OptionChainViewState extends State<OptionChainView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(children: [
           // Header
           ColoredBox(
@@ -187,7 +188,7 @@ class _OptionChainViewState extends State<OptionChainView> {
                 child: Container(
                   width: 40, height: 40,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12),
+                    color: kTopBarTile, borderRadius: BorderRadius.circular(12),
                     boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
                   ),
                   child: const Icon(Icons.arrow_back, color: kTopBarFg, size: kIconSizeMedium),
@@ -261,7 +262,7 @@ class _OptionChainViewState extends State<OptionChainView> {
           // Chain data
           Expanded(child: _buildBody()),
         ]),
-      ),
+      )),
     );
   }
 

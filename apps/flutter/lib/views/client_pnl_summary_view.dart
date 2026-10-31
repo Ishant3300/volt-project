@@ -10,6 +10,7 @@ import '../services/master_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
 import 'username_view.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 enum _DateRangeMode { today, thisWeek, thisMonth, custom }
 
@@ -291,7 +292,7 @@ class _ClientPnlSummaryViewState extends State<ClientPnlSummaryView> {
 
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(children: [
           _buildHeader(),
           if (!isAdmin) _buildTabs(),
@@ -326,7 +327,7 @@ class _ClientPnlSummaryViewState extends State<ClientPnlSummaryView> {
                       ),
           ),
         ]),
-      ),
+      )),
     );
   }
 

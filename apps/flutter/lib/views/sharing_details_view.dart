@@ -104,7 +104,7 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
+                        color: kTopBarTile,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(

@@ -12,6 +12,7 @@ import 'package:stocker/services/firebase_service.dart';
 import '../home_page.dart';
 import '../utils/contants.dart';
 import 'login_page.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 /// Screen shown when a user/master logs in for the first time and must
 /// change their password before proceeding. Cannot be bypassed — there is
@@ -208,7 +209,7 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
       canPop: false, // Prevent back button
       child: Scaffold(
         backgroundColor: kPageBg,
-        body: SafeArea(
+        body: PageWash(child: SafeArea(
           child: SingleChildScrollView(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -441,7 +442,7 @@ class _ForcePasswordResetPageState extends State<ForcePasswordResetPage> {
               ),
             ),
           ),
-        ),
+        )),
       ),
     );
   }

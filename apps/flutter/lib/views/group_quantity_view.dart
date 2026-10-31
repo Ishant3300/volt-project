@@ -8,6 +8,7 @@ import '../services/sercure_storage_service.dart';
 import 'group_quantity_lot_detail_view.dart';
 import 'add_instrument_to_lot_view.dart';
 import '../utils/contants.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class GroupQuantityView extends StatefulWidget {
   const GroupQuantityView({super.key});
@@ -189,7 +190,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
           child: Column(children: [
         // Header
         ColoredBox(
@@ -203,7 +204,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
+                        color: kTopBarTile,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
@@ -400,7 +401,7 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                         },
                       )),
         ),
-      ])),
+      ]))),
     );
   }
 }

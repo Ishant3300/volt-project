@@ -21,6 +21,7 @@ import 'package:stocker/config/practice_session.dart';
 import 'package:stocker/config/practice_only.dart';
 import 'package:stocker/pages/practice_signup_page.dart';
 import 'force_password_reset_page.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -696,7 +697,7 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 16),
@@ -894,7 +895,7 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
         ),
-      ),
+      )),
     );
   }
 

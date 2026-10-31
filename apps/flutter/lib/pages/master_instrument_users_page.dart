@@ -8,6 +8,7 @@ import 'package:stocker/services/live_price_service.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/utils/contants.dart';
 import 'package:stocker/views/trade_card_view.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class MasterInstrumentUsersPage extends StatefulWidget {
   final String instrumentToken;
@@ -315,7 +316,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
 
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(
           children: [
             // Header
@@ -331,7 +332,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                       height: 40,
                       width: 40,
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
+                        color: kTopBarTile,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
@@ -385,7 +386,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                             Text(
                               'Net: ${widget.netQty > 0 ? "+" : ""}${widget.netQty}',
                               style: TextStyle(
-                                color: kTopBarFg,
+                                color: sideColor,
                                 fontSize: kFontSizeSubtitle,
                                 fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold,
@@ -402,7 +403,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
+                        color: kTopBarTile,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Column(
@@ -531,7 +532,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
             const SizedBox(height: 16),
           ],
         ),
-      ),
+      )),
     );
   }
 

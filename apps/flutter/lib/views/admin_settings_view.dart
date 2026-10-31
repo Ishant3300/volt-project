@@ -18,6 +18,7 @@ import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
 import '../widgets/brand_menu_row.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class AdminSettingsView extends StatefulWidget {
   const AdminSettingsView({super.key});
@@ -233,7 +234,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -251,7 +252,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.18),
+                            color: kTopBarTile,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
@@ -445,7 +446,7 @@ class _AdminSettingsViewState extends State<AdminSettingsView> {
             ],
           ),
         ),
-      ),
+      )),
     );
   }
 

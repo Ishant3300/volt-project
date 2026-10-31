@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../utils/contants.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class MarketHoursView extends StatefulWidget {
   const MarketHoursView({super.key});
@@ -145,14 +146,14 @@ class _MarketHoursViewState extends State<MarketHoursView> {
 
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(child: Column(children: [
+      body: PageWash(child: SafeArea(child: Column(children: [
         // Header
         ColoredBox(
           color: kTopBarBg,
           child: Padding(padding: const EdgeInsets.all(16), child: Row(children: [
           GestureDetector(onTap: () => Navigator.pop(context),
             child: Container(width: 40, height: 40,
-              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12),
+              decoration: BoxDecoration(color: kTopBarTile, borderRadius: BorderRadius.circular(12),
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))]),
               child: const Icon(Icons.arrow_back, color: kTopBarFg, size: kIconSizeMedium))),
           const SizedBox(width: 12),
@@ -271,7 +272,7 @@ class _MarketHoursViewState extends State<MarketHoursView> {
             ])),
             const SizedBox(height: 24),
           ]))),
-      ])),
+      ]))),
     );
   }
 

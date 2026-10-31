@@ -36,6 +36,7 @@ import 'reports_view.dart';
 import 'manage_reports_view.dart';
 
 import '../utils/wallet_category.dart';
+import 'package:stocker/widgets/page_wash.dart';
 class UsernameView extends StatefulWidget {
   final Master? master;
   final User? user;
@@ -583,7 +584,7 @@ class _UsernameViewState extends State<UsernameView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
         child: Column(
           children: [
             // Header
@@ -602,7 +603,7 @@ class _UsernameViewState extends State<UsernameView> {
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.18),
+                            color: kTopBarTile,
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
@@ -642,7 +643,7 @@ class _UsernameViewState extends State<UsernameView> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
+                        color: kTopBarTile,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Row(
@@ -709,7 +710,7 @@ class _UsernameViewState extends State<UsernameView> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 
@@ -902,15 +903,24 @@ class _UsernameViewState extends State<UsernameView> {
             padding: const EdgeInsets.symmetric(vertical: 14),
             child: Row(
               children: [
-                iconOrPath is String
-                    ? SvgPicture.asset(iconOrPath,
-                        width: kIconSizeMedium,
-                        height: kIconSizeMedium,
-                        colorFilter: ColorFilter.mode(
-                            iconColour, BlendMode.srcIn))
-                    : Icon(iconOrPath as IconData,
-                        size: kIconSizeMedium, color: iconColour),
-                const SizedBox(width: 12),
+                // Icon on a soft tint of its own colour (padding 4 is taken
+                // back from the gap, so the label stays where it was).
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: iconColour.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: iconOrPath is String
+                      ? SvgPicture.asset(iconOrPath,
+                          width: kIconSizeMedium,
+                          height: kIconSizeMedium,
+                          colorFilter: ColorFilter.mode(
+                              iconColour, BlendMode.srcIn))
+                      : Icon(iconOrPath as IconData,
+                          size: kIconSizeMedium, color: iconColour),
+                ),
+                const SizedBox(width: 4),
                 Expanded(
                     child: Text(label,
                         style: const TextStyle(

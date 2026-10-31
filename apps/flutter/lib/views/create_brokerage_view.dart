@@ -8,6 +8,7 @@ import '../services/admin_service.dart';
 import '../services/kite_service.dart';
 import '../models/kite_instrument.dart';
 import '../utils/contants.dart';
+import 'package:stocker/widgets/page_wash.dart';
 
 class CreateBrokerageView extends StatefulWidget {
   const CreateBrokerageView({super.key});
@@ -274,7 +275,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kPageBg,
-      body: SafeArea(
+      body: PageWash(child: SafeArea(
           child: Column(children: [
         _buildHeader(),
         const SizedBox(height: 8),
@@ -283,7 +284,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
         _buildSearchBar(),
         const SizedBox(height: 12),
         Expanded(child: _buildResults()),
-      ])),
+      ]))),
     );
   }
 
