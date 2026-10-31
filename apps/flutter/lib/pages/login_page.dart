@@ -44,6 +44,9 @@ class _LoginPageState extends State<LoginPage> {
   @override
   void initState() {
     super.initState();
+    // Open the server connection while the user types — Login then goes
+    // straight through instead of paying for the handshake (api_service.dart).
+    ApiService.warmUp(backendUrl);
   }
 
   Future<void> _searchServers(String query) async {

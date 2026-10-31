@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/material.dart';
+import 'dart:io' show HttpClient;
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart' show IOClient;
 import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/services/navigation_service.dart';
 import 'package:stocker/services/firebase_service.dart';
@@ -19,6 +21,23 @@ class ApiService {
   static bool _isHandling401 = false;
 
   ApiService(String baseUrl) : _baseUrl = baseUrl;
+
+  /// One shared connection pool for every request (1 Nov 2026). The bare
+  /// http.get/post calls opened a NEW secure connection per request — TCP +
+  /// TLS handshake each time, which on a patchy mobile network pushed login
+  /// and orders past their 10 s limit. A kept-alive connection is reused, so
+  /// a request is just the request.
+  static final http.Client _client = IOClient(HttpClient()
+    ..idleTimeout = const Duration(seconds: 60)
+    ..connectionTimeout = const Duration(seconds: 8));
+
+  /// Opens the connection ahead of time (login screen), so tapping Login
+  /// doesn't pay for the handshake. Errors ignored — it's only a warm-up.
+  static Future<void> warmUp(String base) async {
+    try {
+      await _client.get(Uri.parse('${PracticeSession.resolve(base)}/')).timeout(const Duration(seconds: 8));
+    } catch (_) {}
+  }
 
   /// Call this to prevent 401 handling during login/initialization
   void setInitializing(bool value) {
@@ -151,7 +170,7 @@ class ApiService {
     log('   Has Token: ${token != null}');
 
     try {
-      final response = await http
+      final response = await _client
           .get(
             Uri.parse(url),
             headers: _defaultHeaders(token: token),
@@ -185,7 +204,7 @@ class ApiService {
     log('   Body: ${_loggableBody(body)}');
 
     try {
-      final response = await http
+      final response = await _client
           .post(
             Uri.parse(url),
             headers: _defaultHeaders(token: token),
@@ -218,7 +237,7 @@ class ApiService {
     log('   Body: ${_loggableBody(body)}');
 
     try {
-      final response = await http
+      final response = await _client
           .put(
             Uri.parse(url),
             headers: _defaultHeaders(token: token),
@@ -255,7 +274,7 @@ class ApiService {
         request.body = jsonEncode(body);
       }
 
-      final streamedResponse = await request.send().timeout(const Duration(seconds: 10));
+      final streamedResponse = await _client.send(request).timeout(const Duration(seconds: 10));
       final response = await http.Response.fromStream(streamedResponse);
 
       log('   ✅ Response: ${response.statusCode}');

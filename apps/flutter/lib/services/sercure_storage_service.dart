@@ -17,6 +17,16 @@ class SecureStorageService {
   static bool _tokenCached = false;
   static String? _roleCache;
   static bool _roleCached = false;
+  // Token/role writes run in the background, one after another (the memory
+  // copy above is already updated) — login doesn't wait on slow storage.
+  static Future<void> _writes = Future.value();
+  static Future<void> _queue(Future<void> Function() op) {
+    _writes = _writes.then((_) => op()).catchError((e) {
+      log('⚠️ SecureStorage: background write failed: $e');
+    });
+    return Future.value();
+  }
+
   static void _forgetCache() {
     _tokenCache = null;
     _tokenCached = false;
@@ -48,14 +58,16 @@ class SecureStorageService {
   Future<void> saveToken({required String token}) async {
     _tokenCache = token;
     _tokenCached = true;
-    try {
-      await storage.write(key: tokenKey, value: token);
-    } catch (e) {
-      // iOS keychain duplicate item error — delete first then write
-      log('⚠️ SecureStorage: Write failed for token, retrying: $e');
-      await storage.delete(key: tokenKey);
-      await storage.write(key: tokenKey, value: token);
-    }
+    return _queue(() async {
+      try {
+        await storage.write(key: tokenKey, value: token);
+      } catch (e) {
+        // iOS keychain duplicate item error — delete first then write
+        log('⚠️ SecureStorage: Write failed for token, retrying: $e');
+        await storage.delete(key: tokenKey);
+        await storage.write(key: tokenKey, value: token);
+      }
+    });
   }
 
   Future<String?> getToken() async {
@@ -69,20 +81,22 @@ class SecureStorageService {
   Future<void> deleteToken() async {
     _tokenCache = null;
     _tokenCached = true;
-    await storage.delete(key: tokenKey);
+    return _queue(() => storage.delete(key: tokenKey));
   }
 
   Future<void> saveRole({required String role}) async {
     log('💾 SecureStorage: Saving role: "$role"');
     _roleCache = role;
     _roleCached = true;
-    try {
-      await storage.write(key: roleKey, value: role);
-    } catch (e) {
-      log('⚠️ SecureStorage: Write failed for role, retrying: $e');
-      await storage.delete(key: roleKey);
-      await storage.write(key: roleKey, value: role);
-    }
+    return _queue(() async {
+      try {
+        await storage.write(key: roleKey, value: role);
+      } catch (e) {
+        log('⚠️ SecureStorage: Write failed for role, retrying: $e');
+        await storage.delete(key: roleKey);
+        await storage.write(key: roleKey, value: role);
+      }
+    });
   }
 
   Future<String?> getRole() async {
@@ -98,7 +112,7 @@ class SecureStorageService {
     log('🗑️ SecureStorage: Deleting role');
     _roleCache = null;
     _roleCached = true;
-    await storage.delete(key: roleKey);
+    return _queue(() => storage.delete(key: roleKey));
   }
 
   Future<bool> isAdmin() async {
