@@ -1179,19 +1179,9 @@ class _CreateUserViewState extends State<CreateUserView> {
                               remainingAvailable: _ownerMaster?.equity),
                           _divider(),
                           _buildTextField(
-                              label: 'Profit Book (min) *',
+                              label: 'Profit Book',
                               controller: _profitBookController,
                               keyboardType: TextInputType.number),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 100, bottom: 6),
-                            child: Text(
-                              "Can't close in profit until this long after opening; a loss can be closed any time. Minimum $_profitBookMin min (base of ${_profitBookMinOf ?? 'the master'}).",
-                              style: const TextStyle(
-                                  color: kColorTextMuted,
-                                  fontSize: 11,
-                                  fontFamily: kFontFamily),
-                            ),
-                          ),
                           _divider(),
                           _buildTextField(
                               label: 'Min NSE FUT price',

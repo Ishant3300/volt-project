@@ -1280,19 +1280,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                               remainingAvailable: _ownerMaster?.equity),
                           _divider(),
                           _buildTextField(
-                              label: 'Base Profit Book (min) *',
+                              label: 'Profit Book',
                               controller: _profitBookBaseController,
                               keyboardType: TextInputType.number),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 100, bottom: 6),
-                            child: Text(
-                              '${_profitBookBaseFloor == null ? 'Top-level master — no minimum.' : 'Minimum $_profitBookBaseFloor min (base of ${_profitBookBaseFloorOf ?? 'the parent'}).'} No client or sub-master under this master can be given less${widget.master != null ? '; raising it lifts everyone below to the new value' : ''}.',
-                              style: const TextStyle(
-                                  color: kColorTextMuted,
-                                  fontSize: 11,
-                                  fontFamily: kFontFamily),
-                            ),
-                          ),
                           _divider(),
                           _buildTextField(
                               label: 'Note / Remark',
