@@ -780,6 +780,18 @@ const placeTrade = async (req, res) => {
         // INDEX pool negative — refilled afterwards (user, 17 Oct 2026). Only
         // INDEX, only admin; every other trade keeps the normal check.
         const bulkImportByAdmin = !!(req.admin && bulk_import === true);
+        // Force import (Bulk Trade Import's "Force import" box, admin only,
+        // owner 31 Oct 2026): the rows a client's own restrictions would refuse
+        // — wallet short, a short option without a holding, an old price outside
+        // today's high/low — are imported anyway. Every restriction an imported
+        // row passes over (incl. the ones an admin already bypasses silently:
+        // segment not allowed, script disabled/banned, close-only…) is returned
+        // in `import_notes` with what to change, and kept on the trade.
+        const forceImport = bulkImportByAdmin && req.body.force_import === true;
+        const importNotes = [];
+        const noteImport = (code, message, fix) => {
+            if (bulkImportByAdmin) importNotes.push({ code, message, fix });
+        };
 
         if (!['BUY', 'SELL'].includes(transaction_type)) {
             return res.status(400).json({ success: false, message: 'Invalid transaction_type' });
@@ -800,6 +812,7 @@ const placeTrade = async (req, res) => {
         tradeWriteLease = await beginTradeWrite('place_trade');
 
         await session.withTransaction(async () => {
+            importNotes.length = 0; // a retried transaction starts its notes afresh
             await tradeWriteLease.assertActive({ session });
             const user = await User.findById(targetUserId).populate('master_id').session(session);
             if (!user) {
@@ -884,6 +897,13 @@ const placeTrade = async (req, res) => {
                         }
                     }
                 }
+            }
+
+            // Bulk import: account switches the admin passes over, reported.
+            if (bulkImportByAdmin) {
+                if (user.bet === false) noteImport('TRADING_OFF', 'Trading is switched off for this client.', 'Switch trading on in the client account if they should trade.');
+                if (user.close_only === true) noteImport('CLOSE_ONLY', 'This client is on close-only.', 'Turn close-only off if they should open new positions.');
+                if (user.margin_call_blocked === true) noteImport('MARGIN_CALL_BLOCKED', 'This client is blocked after a margin square-off.', 'Add credit and clear the margin-call block if they should trade.');
             }
 
             // ── Expiry check: an expired contract has no real market/settlement
@@ -999,6 +1019,18 @@ const placeTrade = async (req, res) => {
                 }
             }
 
+            // Bulk import: script state the admin passes over, reported.
+            if (bulkImportByAdmin && instCheckExpiry) {
+                if (instCheckExpiry.deleted_at) {
+                    noteImport('SCRIPT_DEACTIVATED', `${tradingsymbol} is deactivated by admin.`, 'Reactivate the script if it should trade; the client cannot trade it at all now.');
+                } else if (instCheckExpiry.enabled === false) {
+                    noteImport('SCRIPT_DISABLED', `${tradingsymbol} is disabled${instCheckExpiry.ban_reason ? ` (${instCheckExpiry.ban_reason})` : ''}.`, 'The client can only close it; enable the script if it should trade.');
+                }
+                if (instCheckExpiry.nse_banned === true) {
+                    noteImport('NSE_BAN', `${tradingsymbol} is under NSE F&O ban.`, 'The client can only close it until the ban lifts.');
+                }
+            }
+
             // ── Close Only check: if close_only is ON, user can only close existing positions (not open new ones) ──
             // Admin placing on behalf of user bypasses this check
             if (!req.admin && user.close_only === true) {
@@ -1082,8 +1114,30 @@ const placeTrade = async (req, res) => {
                 }
             }
 
+            // Bulk import: segment the client isn't granted (admin passes over it).
+            if (bulkImportByAdmin) {
+                const { isUserExchangeRowAllowed } = require('../utils/exchangeAccess');
+                const rawSeg = (instCheckExpiry?.segment || segment || exchange || '').toUpperCase();
+                const wantSeg = rawSeg === 'INDICES' ? 'GLOBAL' : rawSeg;
+                const granted = (user.exchanges_allowed || []).some((ex) => {
+                    if (!isUserExchangeRowAllowed(ex)) return false;
+                    const name = (ex.exchange_name || '').toUpperCase();
+                    return (name === 'INDICES' ? 'GLOBAL' : name) === wantSeg;
+                });
+                if (!granted) {
+                    noteImport('SEGMENT_NOT_ALLOWED', `${wantSeg || 'This segment'} is not enabled for this client.`, `Enable ${wantSeg || 'the segment'} in the client's account (exchanges allowed, with lot/turnover and group) if they should trade it — until then they can only close this position.`);
+                }
+            }
+
             // Min NSE FUT script price — only closing/reducing below it.
             await _validateMinNseFutPrice(!!req.admin, user, instCheckExpiry, instrument_token, transaction_type, quantity, session);
+            if (bulkImportByAdmin) {
+                const { minNseFutPriceOf, isBelowMinPrice } = require('../utils/minScriptPrice');
+                const minPrice = minNseFutPriceOf(user);
+                if (minPrice > 0 && isBelowMinPrice(minPrice, instCheckExpiry)) {
+                    noteImport('BELOW_MIN_PRICE', `${tradingsymbol} is below this client's minimum NSE FUT price (₹${minPrice}).`, 'The client can only close it; lower their minimum price if it should trade.');
+                }
+            }
 
             // 0. Options sell restriction: prevent naked short selling
             // Users can only SELL options they already own (to close a position)
@@ -1122,12 +1176,16 @@ const placeTrade = async (req, res) => {
                         ? posAgg[0].total_buy_qty - posAgg[0].total_sell_qty
                         : 0;
 
-                    if (netQty <= 0) {
-                        throw new Error('Option selling is not allowed. You must own this option before you can sell it.');
-                    }
+                    if (forceImport && (netQty <= 0 || quantity > netQty)) {
+                        noteImport('SHORT_OPTION', `Imported as a short option position (the client held ${Math.max(netQty, 0)}).`, 'Clients cannot sell options they don\'t hold — they can only buy this back to close it.');
+                    } else {
+                        if (netQty <= 0) {
+                            throw new Error('Option selling is not allowed. You must own this option before you can sell it.');
+                        }
 
-                    if (quantity > netQty) {
-                        throw new Error(`You can only sell up to ${netQty} units of this option (your current holding). Selling ${quantity} would create a short position.`);
+                        if (quantity > netQty) {
+                            throw new Error(`You can only sell up to ${netQty} units of this option (your current holding). Selling ${quantity} would create a short position.`);
+                        }
                     }
                 }
             }
@@ -1171,7 +1229,15 @@ const placeTrade = async (req, res) => {
             // Super Admin and Master/User callers are unaffected (Master/User
             // never had req.admin set, so they always hit this check regardless).
             const adminCanCustomPrice = !!req.admin && (req.admin.isSuperAdmin || (req.admin.permissions || []).includes('TRADE_CUSTOM'));
-            await _validateHighLowLimit(adminCanCustomPrice, user, instrument_token, order_type, transaction_type, price, segment, exchange, instrumentRawName);
+            if (forceImport && !adminCanCustomPrice) {
+                try {
+                    await _validateHighLowLimit(false, user, instrument_token, order_type, transaction_type, price, segment, exchange, instrumentRawName);
+                } catch (rangeErr) {
+                    noteImport('PRICE_OUTSIDE_RANGE', rangeErr.message, 'Imported at the old broker price — nothing to change if that price is right.');
+                }
+            } else {
+                await _validateHighLowLimit(adminCanCustomPrice, user, instrument_token, order_type, transaction_type, price, segment, exchange, instrumentRawName);
+            }
 
             // ── One pending order TYPE per script (no mixing LIMIT + SL) ──
             await _validateSingleOrderTypePerScript(user, instrument_token, order_type, transaction_type, quantity, session);
@@ -1443,7 +1509,15 @@ const placeTrade = async (req, res) => {
                     // rolls back) → clean category + shortfall rejection in the catch below.
                     if (walletOpeningQty > 0) {
                         await walletService.block('User', user._id, walletCategory, walletOpeningQty * executedPrice, session,
-                            { allowNegative: bulkImportByAdmin && walletCategory === 'INDEX' });
+                            { allowNegative: bulkImportByAdmin && (walletCategory === 'INDEX' || forceImport) });
+                        if (bulkImportByAdmin) {
+                            const walletAfter = await User.findById(user._id).select(`wallet.${walletCategory}`).lean().session(session);
+                            const left = Number(walletAfter?.wallet?.[walletCategory]) || 0;
+                            if (left < 0) {
+                                const short = Math.round(-left * 100) / 100;
+                                noteImport('WALLET_SHORT', `${categoryLabel(walletCategory)} wallet is ₹${short.toFixed(2)} short after this row.`, `Add ₹${short.toFixed(2)} to the client's ${categoryLabel(walletCategory)} wallet (the last row of the import shows the total).`);
+                            }
+                        }
                     }
                 }
 
@@ -1520,6 +1594,13 @@ const placeTrade = async (req, res) => {
                     }
                 });
                 await tx.save({ session });
+            }
+
+            // Bulk import: keep what the row passed over on the trade (audit).
+            if (importNotes.length > 0 || forceImport) {
+                newTrade.import_notes = importNotes.map((n) => n.message);
+                if (forceImport) newTrade.force_imported = true;
+                await newTrade.save({ session });
             }
 
             await tradeWriteLease.assertActive({ session });
@@ -1668,7 +1749,9 @@ const placeTrade = async (req, res) => {
         res.status(201).json({
             success: true,
             message,
-            data: resultTrade
+            data: resultTrade,
+            // Bulk import: restrictions this row passed over, with what to change.
+            ...(bulkImportByAdmin ? { import_notes: importNotes, force_imported: forceImport } : {}),
         });
 
         // --- FCM Push Notifications (fire-and-forget, after response) ---

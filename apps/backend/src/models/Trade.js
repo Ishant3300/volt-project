@@ -146,6 +146,16 @@ const tradeSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  // Admin Bulk Trade Import: restrictions this row passed over (segment not
+  // enabled, wallet short, short option…) and whether "Force import" was on.
+  // Audit only — nothing reads them for P&L, bills or settlement.
+  import_notes: {
+    type: [String],
+    default: undefined
+  },
+  force_imported: {
+    type: Boolean
+  },
   // Links a rollover's close leg and reopen leg together for reporting/audit.
   // Null for every other trade.
   rollover_group_id: {
