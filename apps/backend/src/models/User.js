@@ -1,21 +1,23 @@
 const mongoose = require('mongoose');
 
 // Category trade wallet — the available (spendable) balance per category pool
-// (NSE, INDEX, NSEOPT, MCX, COMEX, GLOBAL). `min: 0` is a schema-level guard; the atomic
-// `$gte` guard in walletService is the real never-negative enforcement (see
-// design §D1).
+// (NSE, INDEX, NSEOPT, MCX, COMEX, GLOBAL). The atomic `$gte` guard in
+// walletService is the never-negative enforcement for ordinary trades (see
+// design §D1). No schema `min` on any category: admin Bulk Trade Import may
+// take a pool below 0 (INDEX always; any pool with Force import, refilled
+// later), and with `min: 0` every later save of that client — each trade
+// saves the user — failed validation, so the rest of the import failed and
+// the client could not trade at all (31 Oct 2026).
 const walletSchema = new mongoose.Schema({
-  NSE:    { type: Number, default: 0, min: 0 },
+  NSE:    { type: Number, default: 0 },
   // Index futures — NIFTY / BANKNIFTY / SENSEX NFO futures ("INDEX"); their
-  // margin is blocked/released only here (utils/walletCategory.js). No `min`:
-  // admin Bulk Trade Import may take it below 0 (refilled later) — with min 0
-  // every later save of that client (each trade saves the user) would fail.
+  // margin is blocked/released only here (utils/walletCategory.js).
   INDEX:  { type: Number, default: 0 },
   // NSE options ("NSE OPT") — option margin is blocked/released only here.
-  NSEOPT: { type: Number, default: 0, min: 0 },
-  MCX:    { type: Number, default: 0, min: 0 },
-  COMEX:  { type: Number, default: 0, min: 0 },
-  GLOBAL: { type: Number, default: 0, min: 0 }
+  NSEOPT: { type: Number, default: 0 },
+  MCX:    { type: Number, default: 0 },
+  COMEX:  { type: Number, default: 0 },
+  GLOBAL: { type: Number, default: 0 }
 }, { _id: false });
 
 const userSchema = new mongoose.Schema({

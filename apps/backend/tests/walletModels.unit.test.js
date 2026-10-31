@@ -26,12 +26,11 @@ describe('User wallet schema', () => {
     expect(json.wallet).toEqual({ NSE: 0, MCX: 0, GLOBAL: 0 });
   });
 
-  test('rejects a negative category balance (min: 0 guard)', () => {
+  test('a negative category balance still validates (Force import may leave one; every trade saves the user)', () => {
     const u = new User();
     u.wallet.NSE = -1;
     const err = u.validateSync(['wallet.NSE']);
-    expect(err).toBeDefined();
-    expect(err.errors['wallet.NSE']).toBeDefined();
+    expect(err?.errors?.['wallet.NSE']).toBeUndefined();
   });
 });
 

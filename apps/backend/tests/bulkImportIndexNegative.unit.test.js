@@ -32,9 +32,10 @@ describe('User schema', () => {
     const err = u.validateSync(['wallet.INDEX']);
     expect(err?.errors?.['wallet.INDEX']).toBeUndefined();
   });
-  test('other pools keep the min 0 guard', () => {
+  test('every other pool validates below 0 too (Force import may leave one negative)', () => {
     const u = new RealUser();
-    u.wallet.NSE = -1;
-    expect(u.validateSync(['wallet.NSE']).errors['wallet.NSE']).toBeDefined();
+    for (const cat of ['NSE', 'NSEOPT', 'MCX', 'COMEX', 'GLOBAL']) u.wallet[cat] = -1;
+    const err = u.validateSync(['wallet.NSE', 'wallet.NSEOPT', 'wallet.MCX', 'wallet.COMEX', 'wallet.GLOBAL']);
+    expect(err).toBeUndefined();
   });
 });
