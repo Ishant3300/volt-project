@@ -71,6 +71,11 @@ const getWatchlist = async (req, res) => {
       console.log(`   ✅ Healed ${healPromises.length} stale kite_instrument_id references`);
     }
 
+    // A script the client holds an open position in is never auto-removed or
+    // hidden below — it stays until the position is closed (31 Oct 2026).
+    const { heldTokensFor } = require('../utils/heldTokens');
+    const held = await heldTokensFor(userId, ownerType);
+
     // Auto-remove watchlist entries whose instrument has expired. A stale
     // entry that still LOOKS tradable here is exactly what let a client
     // find and place a real order on an already-expired NIFTY option the
@@ -84,7 +89,7 @@ const getWatchlist = async (req, res) => {
     const expiredWatchlistIds = new Set();
     for (const w of watchlist) {
       const inst = instrumentMap[w.instrument_token];
-      if (inst?.expiry && new Date(inst.expiry) < today) {
+      if (inst?.expiry && new Date(inst.expiry) < today && !held.has(String(w.instrument_token))) {
         expiredWatchlistIds.add(w._id.toString());
       }
     }
@@ -107,7 +112,7 @@ const getWatchlist = async (req, res) => {
     if (allowedExchanges !== null) {
       for (const w of watchlist) {
         const inst = instrumentMap[w.instrument_token];
-        if (inst && !isExchangeAllowed(allowedExchanges, inst.segment || inst.exchange)) {
+        if (inst && !held.has(String(w.instrument_token)) && !isExchangeAllowed(allowedExchanges, inst.segment || inst.exchange)) {
           disallowedWatchlistIds.add(w._id.toString());
         }
       }
@@ -134,7 +139,7 @@ const getWatchlist = async (req, res) => {
         instrumentMap[w.instrument_token] &&
         !expiredWatchlistIds.has(w._id.toString()) &&
         !disallowedWatchlistIds.has(w._id.toString()) &&
-        !isBelowMinPrice(minPrice, instrumentMap[w.instrument_token]),
+        (held.has(String(w.instrument_token)) || !isBelowMinPrice(minPrice, instrumentMap[w.instrument_token])),
       )
       .map(w => ({
         id: w._id,
@@ -142,6 +147,8 @@ const getWatchlist = async (req, res) => {
         order: w.order,
         instrument: instrumentMap[w.instrument_token],
         created_at: w.createdAt,
+        // Open position — the apps hide "remove" for it (removal is refused).
+        has_position: held.has(String(w.instrument_token)),
       }));
 
     console.log(`   Returning ${items.length} items`);
@@ -291,6 +298,23 @@ const removeFromWatchlist = async (req, res) => {
       owner_type: ownerType,
       deleted_at: null,
     };
+
+    // A script the client holds stays until the position is closed.
+    if (ownerType === 'User') {
+      const entry = await Watchlist.findOne(filter).select('instrument_token').lean();
+      if (entry) {
+        const { heldTokensFor } = require('../utils/heldTokens');
+        const held = await heldTokensFor(userId, ownerType);
+        if (held.has(String(entry.instrument_token))) {
+          const inst = await KiteInstrument.findOne({ instrument_token: entry.instrument_token }).select('tradingsymbol').lean();
+          return res.status(409).json({
+            success: false,
+            message: `You hold an open position in ${inst?.tradingsymbol || 'this script'} — it stays on your watchlist until the position is closed.`,
+            data: null,
+          });
+        }
+      }
+    }
 
     const item = await Watchlist.findOneAndUpdate(
       filter,
