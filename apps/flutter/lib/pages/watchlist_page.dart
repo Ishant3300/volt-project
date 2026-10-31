@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:stocker/widgets/nse_ban_chip.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -38,15 +40,19 @@ class WatchlistPage extends StatefulWidget {
 
 /// Watchlist by segment: NSE FUT → MCX FUT → GLOBAL → COMEX (then the option
 /// segments), one tab per segment the client may trade plus any segment they
-/// still hold scripts in. Swipe the list sideways or tap a tab; "Search & add"
-/// searches the open tab's segment. Still one watchlist on the server — the
-/// tabs only group it. Removing a script is through Edit (a sideways swipe
+/// still hold scripts in. Swipe the list sideways or tap a tab. "Search & add"
+/// searches every allowed segment; a script added from it takes you to its
+/// segment's tab with the new row highlighted. Still one watchlist on the
+/// server — the tabs only group it. Removing a script is through Edit (a sideways swipe
 /// now changes the tab, so swipe-to-delete would remove scripts by accident).
 class _WatchlistPageState extends State<WatchlistPage> {
   /// Last open tab, kept while the app runs.
   static String _lastSegment = _kSegmentTabs.first.key;
 
   bool _editMode = false;
+  /// The row just added from search — highlighted for a few seconds.
+  String? _highlightId;
+  Timer? _highlightTimer;
   PageController? _pageController;
   String _pagesKey = '';
   final ScrollController _tabScroll = ScrollController();
@@ -67,6 +73,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
 
   @override
   void dispose() {
+    _highlightTimer?.cancel();
     _pageController?.dispose();
     _tabScroll.dispose();
     super.dispose();
@@ -89,13 +96,38 @@ class _WatchlistPageState extends State<WatchlistPage> {
     return tabs.isEmpty ? _kSegmentTabs.where((t) => _kDefaultSegments.contains(t.key)).toList() : tabs;
   }
 
-  void _openSearch(BuildContext context, String segment) {
-    Navigator.push(
+  /// Search every allowed segment (or one, from an empty tab's "Add" button).
+  /// Back on the watchlist, the last script added is shown: its segment's tab
+  /// opens and its row is highlighted, so it's clear where it went.
+  Future<void> _openSearch(BuildContext context, {String initialTab = 'ALL'}) async {
+    final provider = Provider.of<WatchlistProvider>(context, listen: false);
+    final profile = Provider.of<UserProfileProvider>(context, listen: false);
+    final before = provider.items.map((i) => i.id).toSet();
+    await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => InstrumentSearchPage(initialTab: segment),
+        builder: (context) => InstrumentSearchPage(initialTab: initialTab),
       ),
     );
+    if (!mounted) return;
+    final added = provider.items.where((i) => !before.contains(i.id)).toList();
+    if (added.isEmpty) return;
+    final last = added.last;
+    final segment = _segmentOf(last.instrument);
+    setState(() {
+      _lastSegment = segment;
+      _highlightId = last.id;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final tabs = _tabsFor(provider.items, profile.allowedSegments);
+      final index = tabs.indexWhere((t) => t.key == segment);
+      if (index >= 0 && (_pageController?.hasClients ?? false)) _pageController!.jumpToPage(index);
+    });
+    _highlightTimer?.cancel();
+    _highlightTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted) setState(() => _highlightId = null);
+    });
   }
 
   void _selectTab(int index, List<MapEntry<String, String>> tabs) {
@@ -111,7 +143,6 @@ class _WatchlistPageState extends State<WatchlistPage> {
     final tabs = _tabsFor(watchlistProvider.items, profile.allowedSegments);
     int activeIndex = tabs.indexWhere((t) => t.key == _lastSegment);
     if (activeIndex < 0) activeIndex = 0;
-    final activeTab = tabs[activeIndex];
 
     // A new page set (tabs changed) gets a fresh controller on the open tab.
     final key = tabs.map((t) => t.key).join(',');
@@ -163,7 +194,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: GestureDetector(
-                onTap: () => _openSearch(context, activeTab.key),
+                onTap: () => _openSearch(context),
                 child: Container(
                   height: 44,
                   padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -175,10 +206,10 @@ class _WatchlistPageState extends State<WatchlistPage> {
                     children: [
                       const Icon(Icons.search, color: Color(0xFF8E95A2), size: 18),
                       const SizedBox(width: 8),
-                      Expanded(
+                      const Expanded(
                         child: Text(
-                          'Search ${activeTab.value} & add',
-                          style: const TextStyle(
+                          'Search & add — all segments',
+                          style: TextStyle(
                             color: Color(0xFF8E95A2),
                             fontSize: 14,
                             fontFamily: kFontFamily,
@@ -300,7 +331,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                             const SizedBox(height: 8),
                             Center(
                               child: ElevatedButton.icon(
-                                onPressed: () => _openSearch(context, tab.key),
+                                onPressed: () => _openSearch(context, initialTab: tab.key),
                                 icon: const Icon(Icons.add),
                                 label: Text('Add ${tab.value}'),
                               ),
@@ -370,9 +401,10 @@ class _WatchlistPageState extends State<WatchlistPage> {
           ),
         );
       },
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 600),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        color: Colors.white,
+        color: item.id == _highlightId ? kBrandPrimary.withValues(alpha: 0.10) : Colors.white,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
