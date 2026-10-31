@@ -112,6 +112,10 @@ class _TradeCardPageState extends State<TradeCardPage> {
   final TextEditingController _userSearchCtrl = TextEditingController();
   List<Map<String, dynamic>> _userResults = [];
   Map<String, dynamic>? _selectedUser;
+  // The selected client's open position in this script (master/admin), from
+  // GET /master/positions/live-metrics?user_id= — null = none / not loaded.
+  Map<String, dynamic>? _clientPosition;
+  String? _clientPositionFor;
   bool _showUserDropdown = false;
   bool _isSearchingUsers = false;
   Timer? _userSearchDebounce;
@@ -411,6 +415,43 @@ class _TradeCardPageState extends State<TradeCardPage> {
     });
     // Re-fetch lot limit for the selected user
     _fetchLotLimitForUser();
+    _loadClientPosition();
+  }
+
+  /// The selected client's position in this script (live-metrics, one request).
+  Future<void> _loadClientPosition() async {
+    final uid = _selectedUser == null
+        ? null
+        : (_selectedUser!['id'] ?? _selectedUser!['_id'])?.toString();
+    setState(() {
+      _clientPosition = null;
+      _clientPositionFor = uid;
+    });
+    if (uid == null || uid.isEmpty) return;
+    try {
+      final token = await SecureStorageService().getToken();
+      final res = await ApiService(backendUrl)
+          .get('/master/positions/live-metrics?user_id=$uid', token: token);
+      if (res.statusCode != 200 || !mounted || _clientPositionFor != uid) return;
+      final body = jsonDecode(res.body);
+      final data = (body['data'] as List?) ?? const [];
+      final positions = data.isNotEmpty && data.first is Map
+          ? ((data.first as Map)['positions'] as List?) ?? const []
+          : const [];
+      final target = widget.item.instrument.instrumentToken.toString();
+      Map<String, dynamic>? found;
+      for (final pos in positions) {
+        if (pos is Map &&
+            pos['instrument_token']?.toString() == target &&
+            ((pos['net_qty'] as num?) ?? 0) != 0) {
+          found = Map<String, dynamic>.from(pos);
+          break;
+        }
+      }
+      if (mounted && _clientPositionFor == uid) {
+        setState(() => _clientPosition = found);
+      }
+    } catch (_) {}
   }
 
   Future<void> _fetchLotLimitForUser() async {
@@ -1232,6 +1273,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                     onTap: () {
                                       setState(() {
                                         _selectedUser = null;
+                                        _clientPosition = null;
+                                        _clientPositionFor = null;
                                         _userSearchCtrl.clear();
                                         _userResults = [];
                                         _showUserDropdown = false;
@@ -1566,6 +1609,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                         },
                       ),
                     ),
+                    if (_qtyLotSize > 1) _buildLotQuickRow(),
                   ],
 
                   // ── Turnover-mode info banner ─────────────────────────────
@@ -2367,41 +2411,15 @@ class _TradeCardPageState extends State<TradeCardPage> {
                       }
                     },
                   ),
+                  _buildOhlcLine(),
                 ],
               ),
             ),
 
             const SizedBox(height: 16),
 
-            // Market stats
-            Consumer<WatchlistProvider>(
-              builder: (context, provider, child) {
-                final currentItem = provider
-                        .getByToken(widget.item.instrument.instrumentToken) ??
-                    widget.item;
-
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      _buildStatCard('OPEN',
-                          currentItem.open?.toStringAsFixed(2) ?? '0.00'),
-                      const SizedBox(width: 8),
-                      _buildStatCard(
-                          'LOW', currentItem.low?.toStringAsFixed(2) ?? '0.00'),
-                      const SizedBox(width: 8),
-                      _buildStatCard('HIGH',
-                          currentItem.high?.toStringAsFixed(2) ?? '0.00'),
-                      const SizedBox(width: 8),
-                      _buildStatCard('CLOSE',
-                          currentItem.close?.toStringAsFixed(2) ?? '0.00'),
-                    ],
-                  ),
-                );
-              },
-            ),
-
-            const SizedBox(height: 16),
+            // Open position in this script (own / selected client's)
+            _buildPositionSection(context),
 
             // Segment not permitted for this client
             Builder(
@@ -2599,49 +2617,318 @@ class _TradeCardPageState extends State<TradeCardPage> {
     );
   }
 
-  Widget _buildStatCard(String label, String value) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: ShapeDecoration(
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
-            side: const BorderSide(width: 1, color: Color(0xFFE5E5EA)),
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-        child: Column(
+  /// Lot size for the lot row: the order limits' lot size, else the script's.
+  int get _qtyLotSize {
+    final fromInfo = _lotLimitInfo?.lotSize ?? 0;
+    return fromInfo > 0 ? fromInfo : widget.item.instrument.lotSize;
+  }
+
+  /// 1 lot … 5 lot under the quantity buttons (quantity-mode scripts): fills
+  /// the quantity with that many lots.
+  Widget _buildLotQuickRow() {
+    final size = _qtyLotSize;
+    final lotsNow = (_quantity > 0 && _quantity % size == 0) ? _quantity ~/ size : 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        const SizedBox(height: 8),
+        Row(
           children: [
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF8E8E93),
-                fontSize: kFontSizeSubtitle,
-                fontFamily: kFontFamily,
-                fontWeight: kFontWeightRegular,
+            for (int i = 0; i < _quickLots.length; i++) ...[
+              if (i > 0) const SizedBox(width: 6),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _setQuantity(_quickLots[i] * size),
+                  child: Container(
+                    height: 34,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: lotsNow == _quickLots[i]
+                          ? kBrandPrimary.withValues(alpha: 0.08)
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: lotsNow == _quickLots[i]
+                            ? kBrandPrimary
+                            : kBrandPrimary.withValues(alpha: 0.3),
+                        width: lotsNow == _quickLots[i] ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Text(
+                      '${_quickLots[i]} lot',
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: kBrandPrimary,
+                        fontSize: kFontSizeBody,
+                        fontFamily: kFontFamily,
+                        fontWeight: lotsNow == _quickLots[i]
+                            ? kFontWeightSemiBold
+                            : kFontWeightMedium,
+                      ),
+                    ),
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Container(
-              width: 25,
-              height: 2,
-              decoration: const BoxDecoration(color: Color(0xFFD1D1D6)),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              value,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: kColorTextPrimary,
-                fontSize: kFontSizeBody,
-                fontFamily: kFontFamily,
-                fontWeight: kFontWeightMedium,
-              ),
-            ),
+            ],
           ],
         ),
+        const SizedBox(height: 4),
+        Text(
+          lotsNow > 0 ? '$lotsNow lot = $_quantity qty' : '1 lot = $size qty',
+          style: const TextStyle(
+            color: kColorTextMuted,
+            fontSize: 11,
+            fontFamily: kFontFamily,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// O H L C on one line under SELL/BUY (was four boxes below the ticket).
+  Widget _buildOhlcLine() {
+    return Consumer<WatchlistProvider>(
+      builder: (context, provider, _) {
+        final item =
+            provider.getByToken(widget.item.instrument.instrumentToken) ??
+                widget.item;
+        Widget cell(String key, double? value) => Expanded(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '$key ',
+                        style: const TextStyle(
+                          color: kColorTextMuted,
+                          fontSize: kFontSizeSubtitle,
+                          fontFamily: kFontFamily,
+                          fontWeight: kFontWeightMedium,
+                        ),
+                      ),
+                      TextSpan(
+                        text: (value ?? 0).toStringAsFixed(2),
+                        style: const TextStyle(
+                          color: kColorTextPrimary,
+                          fontSize: kFontSizeSubtitle,
+                          fontFamily: kFontFamily,
+                          fontWeight: kFontWeightMedium,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+        return Container(
+          margin: const EdgeInsets.only(top: 12),
+          padding: const EdgeInsets.only(top: 10),
+          decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: Color(0xFFF0F1F4))),
+          ),
+          child: Row(
+            children: [
+              cell('O', item.open),
+              cell('H', item.high),
+              cell('L', item.low),
+              cell('C', item.close),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// The open position in this script: the client's own, or (master/admin)
+  /// the selected client's. Nothing when there is none.
+  Widget _buildPositionSection(BuildContext context) {
+    final profile = Provider.of<UserProfileProvider>(context);
+    if (profile.isAdmin || profile.isMaster) {
+      final p = _clientPosition;
+      if (_selectedUser == null || p == null) return const SizedBox.shrink();
+      final net = ((p['net_qty'] as num?) ?? 0).toInt();
+      if (net == 0) return const SizedBox.shrink();
+      final avg = ((net > 0 ? p['avg_buy_price'] : p['avg_sell_price']) as num?)
+              ?.toDouble() ??
+          0;
+      final lotSize = (p['lot_size'] as num?)?.toInt() ?? 0;
+      final name =
+          (_selectedUser!['name'] ?? _selectedUser!['username'] ?? 'Client')
+              .toString();
+      return Consumer<WatchlistProvider>(
+        builder: (context, provider, _) {
+          final item =
+              provider.getByToken(widget.item.instrument.instrumentToken) ??
+                  widget.item;
+          final ltp = (item.currentPrice != null && item.currentPrice! > 0)
+              ? item.currentPrice!
+              : ((p['ltp'] as num?)?.toDouble() ?? avg);
+          // Same exit price as the positions engine: bid for a long, ask for a short.
+          final side = net > 0 ? item.bidPrice : item.askPrice;
+          final cmp = (side != null && side > 0) ? side : ltp;
+          final pnl = net > 0 ? (cmp - avg) * net : (avg - cmp) * net.abs();
+          return _positionCard(
+              "${name.toUpperCase()}'S POSITION", net, avg, ltp, pnl, lotSize);
+        },
+      );
+    }
+    return Consumer<TradeMetricsProvider>(
+      builder: (context, metrics, _) {
+        final target = widget.item.instrument.instrumentToken.toString();
+        PositionAgg? pos;
+        for (final p in metrics.positions) {
+          if (p.instrumentToken.toString() == target && p.netQty != 0) {
+            pos = p;
+            break;
+          }
+        }
+        if (pos == null) return const SizedBox.shrink();
+        final avg = pos.netQty > 0 ? pos.avgBuyPrice : pos.avgSellPrice;
+        return _positionCard('YOUR POSITION', pos.netQty, avg,
+            pos.ltp > 0 ? pos.ltp : avg, pos.floating, pos.lotSize);
+      },
+    );
+  }
+
+  /// Positions-page style card: side, qty @ average, live price, open P&L.
+  Widget _positionCard(
+      String label, int net, double avg, double ltp, double pnl, int lotSize) {
+    final isLong = net > 0;
+    final sideColor = isLong ? kColorBuy : kColorSell;
+    final pnlColor = pnl >= 0 ? kColorBuy : kColorSell;
+    final qty = net.abs();
+    final lots =
+        (lotSize > 1 && qty % lotSize == 0) ? ' (${qty ~/ lotSize} lot)' : '';
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 2, bottom: 6),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: kColorTextMuted,
+                fontSize: 11,
+                fontFamily: kFontFamily,
+                fontWeight: kFontWeightMedium,
+                letterSpacing: 0.4,
+              ),
+            ),
+          ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFE6E9F0)),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.item.instrument.tradingsymbol,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: kColorTextPrimary,
+                          fontSize: kFontSizePositionSymbol,
+                          fontFamily: kFontFamily,
+                          fontWeight: kFontWeightSemiBold,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: sideColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              isLong ? 'LONG' : 'SHORT',
+                              style: TextStyle(
+                                color: sideColor,
+                                fontSize: kFontSizePositionDetail,
+                                fontFamily: kFontFamily,
+                                fontWeight: kFontWeightSemiBold,
+                                letterSpacing: 0.3,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              '$qty qty$lots @ ${avg.toStringAsFixed(2)}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: kColorTextMuted,
+                                fontSize: kFontSizeCaption,
+                                fontFamily: kFontFamily,
+                                fontWeight: kFontWeightMedium,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      ltp.toStringAsFixed(2),
+                      style: const TextStyle(
+                        color: kColorTextPrimary,
+                        fontSize: kFontSizePositionPnl,
+                        fontFamily: kFontFamily,
+                        fontWeight: kFontWeightSemiBold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          pnl >= 0 ? Icons.north_east : Icons.south_west,
+                          size: 12,
+                          color: pnlColor,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          '${pnl >= 0 ? '+' : ''}${pnl.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            color: pnlColor,
+                            fontSize: kFontSizeSubtitle,
+                            fontFamily: kFontFamily,
+                            fontWeight: kFontWeightSemiBold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
+
 }
