@@ -789,9 +789,9 @@ class _UsernameViewState extends State<UsernameView> {
           _card(
             child: Column(
               children: [
-                _settingRow(kIconCreditDebit, 'Credit/Debit'),
+                _settingRow(kIconCreditDebit, 'Account Balance'),
                 _settingRow(Icons.lock_reset, 'Reset Password'),
-                _settingRow(kIconTradeWallet, 'Trade Wallet'),
+                _settingRow(kIconTradeWallet, 'Trade Margin'),
                 _settingRow(kIconGroupQuantity, 'Group Quantity Settings'),
                 if (_currentUser != null)
                   _settingRow(
@@ -2153,7 +2153,7 @@ class _UsernameViewState extends State<UsernameView> {
 
   void _handleSettingTap(String label) async {
     switch (label) {
-      case 'Credit/Debit':
+      case 'Account Balance':
         final result = await Navigator.push(
           context,
           MaterialPageRoute(
@@ -2168,7 +2168,7 @@ class _UsernameViewState extends State<UsernameView> {
       case 'Reset Password':
         _confirmResetPassword();
         break;
-      case 'Trade Wallet':
+      case 'Trade Margin':
         {
           final walletResult = await showModalBottomSheet<bool>(
             context: context,

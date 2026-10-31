@@ -208,7 +208,7 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Trade Wallet',
+                  'Trade Margin',
                   style: TextStyle(
                     color: kColorTextPrimary,
                     fontSize: kFontSizeSheetTitle,
