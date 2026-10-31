@@ -224,6 +224,14 @@ class WatchlistProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  /// Tokens the client holds an open position in (server's has_position) —
+  /// they stay on the watchlist until closed; removal is refused.
+  final Set<String> _heldTokens = {};
+  bool isHeld(String instrumentToken) => _heldTokens.contains(instrumentToken);
+
+  /// Why the last removal failed, from the server (e.g. open position).
+  String? lastRemoveError;
+
   Future<void> loadWatchlist() async {
     log('📥 Loading watchlist from backend...');
     if (_watchlistService == null) {
@@ -239,6 +247,7 @@ class WatchlistProvider with ChangeNotifier {
       _error = null;
       _items.clear();
       _backendIdMap.clear();
+      _heldTokens.clear();
 
       for (final item in watchlistData) {
         log('   Processing item: ${item['id']}');
@@ -257,6 +266,7 @@ class WatchlistProvider with ChangeNotifier {
         final localId = instrument.instrumentToken;
 
         _backendIdMap[localId] = backendId;
+        if (item['has_position'] == true) _heldTokens.add(localId);
 
         // Use last_price (= settlement price from bhavcopy) for bid/ask seeding.
         // No fake spread — show the exact settlement price on both sides
@@ -417,6 +427,8 @@ class WatchlistProvider with ChangeNotifier {
     }
 
     final removed = await _watchlistService!.removeFromWatchlist(backendId);
+    lastRemoveError = _watchlistService!.lastRemoveError;
+    if (lastRemoveError != null) _heldTokens.add(token);
     if (removed) {
       log('✅ Removed from backend');
       return true;

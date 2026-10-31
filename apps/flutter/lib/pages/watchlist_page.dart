@@ -623,6 +623,17 @@ class _WatchlistPageState extends State<WatchlistPage> {
                           );
                           return;
                         }
+                        // A script the client holds stays until the position is closed.
+                        if (watchlistProvider.isHeld(instrument.instrumentToken)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                  'You hold an open position in ${instrument.tradingsymbol} — it stays on your watchlist until the position is closed.'),
+                              backgroundColor: const Color(0xFF64748B),
+                            ),
+                          );
+                          return;
+                        }
                         final removed =
                             await watchlistProvider.removeInstrument(item.id);
                         if (!context.mounted) return;
@@ -630,13 +641,17 @@ class _WatchlistPageState extends State<WatchlistPage> {
                           SnackBar(
                             content: Text(removed
                                 ? '${instrument.tradingsymbol} removed from watchlist'
-                                : 'Could not remove ${instrument.tradingsymbol} — try again'),
+                                : watchlistProvider.lastRemoveError ??
+                                    'Could not remove ${instrument.tradingsymbol} — try again'),
                             backgroundColor: removed ? null : kColorSell,
                           ),
                         );
                       },
-                      icon: const Icon(Icons.remove_circle_outline,
-                          size: 20, color: kColorSell),
+                      icon: Icon(Icons.remove_circle_outline,
+                          size: 20,
+                          color: watchlistProvider.isHeld(instrument.instrumentToken)
+                              ? const Color(0xFF94A3B8)
+                              : kColorSell),
                     ),
                   ],
                 ],

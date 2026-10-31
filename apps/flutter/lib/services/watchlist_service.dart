@@ -71,7 +71,12 @@ class WatchlistService {
   }
 
   /// Remove instrument from watchlist on backend
+  /// The server's message when the last removal was refused (e.g. an open
+  /// position in that script), else null.
+  String? lastRemoveError;
+
   Future<bool> removeFromWatchlist(String watchlistId) async {
+    lastRemoveError = null;
     try {
       final token = await _getToken();
       log('🗑️ Removing from watchlist: $watchlistId');
@@ -80,6 +85,9 @@ class WatchlistService {
       final decoded = jsonDecode(response.body);
 
       log('   Response: ${response.statusCode} - ${decoded['message']}');
+      if (decoded['success'] != true && response.statusCode == 409) {
+        lastRemoveError = decoded['message']?.toString();
+      }
       return decoded['success'] == true;
     } catch (e) {
       log('   ❌ Error removing from watchlist: $e');
