@@ -97,6 +97,20 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
     });
   }
 
+  /// Futures unless options are asked for: "silver" → "silver FUT" (the
+  /// server's own FUT alias — futures only, every segment incl. GLOBAL/COMEX/
+  /// GIFT); a strike number or call/put/CE/PE/option word → as typed, options
+  /// included ("silver 180000 call"). Commas inside a number are dropped
+  /// ("180,000"). The NFO OPT / MCX OPT tabs still search as typed.
+  String _searchText(String query) {
+    if (_activeTab == 'NFO-OPT' || _activeTab == 'MCX-OPT') return query.trim();
+    final q = query.replaceAllMapped(RegExp(r'(\d),(?=\d)'), (m) => m[1]!).trim();
+    final wantsOptions = RegExp(r'\b\d{3,}\b').hasMatch(q) ||
+        RegExp(r'\b(ce|pe|call|put|opt|option|options)\b', caseSensitive: false).hasMatch(q);
+    if (wantsOptions || RegExp(r'\bfut(ures?)?\b', caseSensitive: false).hasMatch(q)) return q;
+    return '$q FUT';
+  }
+
   Future<void> _performSearch(String query) async {
     if (query.isEmpty) {
       // If a specific tab is selected (not ALL), browse all instruments in that category
@@ -126,7 +140,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
     try {
       final kiteService = Provider.of<KiteService>(context, listen: false);
       final result = await kiteService.smartSearchInstruments(
-        query,
+        _searchText(query),
         category: _activeTab,
         limit: 10,
         page: 1,
@@ -252,7 +266,7 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
       final kiteService = Provider.of<KiteService>(context, listen: false);
       final nextPage = _currentPage + 1;
       final result = await kiteService.smartSearchInstruments(
-        _lastQuery,
+        _searchText(_lastQuery),
         category: _activeTab,
         limit: 10,
         page: nextPage,
