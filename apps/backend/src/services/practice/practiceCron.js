@@ -21,11 +21,21 @@ function start() {
     try { console.log(`🎲 [practiceCron] ${label}: ${await fn()}`); } catch (e) { console.error(`❌ [practiceCron] ${label} failed: ${e.message}`); }
   };
   cron.schedule('31 15 * * 1-5', run('NSE close prices', () => simFeed.writeClosePrices(['nse'], istDate())), tz);
-  cron.schedule('31 23 * * 1-5', run('MCX close prices', () => simFeed.writeClosePrices(['mcx'], istDate())), tz);
-  // Global session closes 02:30 IST the next morning — belongs to the previous trading day.
-  cron.schedule('31 2 * * 2-6', run('Global close prices', () => simFeed.writeClosePrices(['global'], istDate(-1))), tz);
+  // MCX closes 23:30 IST in US summer time, 23:55 in winter (utils/mcxHours.js,
+  // 1 Nov 2026): one minute after whichever close applies that day.
+  const { mcxCloseOn } = require('../../utils/mcxHours');
+  const mcxClose = (hhmm) => run(`MCX close prices (${hhmm})`, async () => {
+    const day = istDate();
+    if (mcxCloseOn(day) !== hhmm) return 'not the close time today';
+    return simFeed.writeClosePrices(['mcx'], day);
+  });
+  cron.schedule('31 23 * * 1-5', mcxClose('23:30'), tz);
+  cron.schedule('56 23 * * 1-5', mcxClose('23:55'), tz);
+  // Global (CME) closes 4:00 PM Chicago — 02:30 IST in US summer, 03:30 in
+  // winter, the next IST morning — and belongs to the previous trading day.
+  cron.schedule('1 16 * * 1-5', run('Global close prices', () => simFeed.writeClosePrices(['global'], istDate(-1))), { timezone: 'America/Chicago' });
   cron.schedule('0 4 * * *', run('Roll anchors', () => simFeed.rollAnchors()), tz);
-  console.log('🎲 [practiceCron] scheduled: close prices NSE 15:31 / MCX 23:31 / global 02:31, anchors 04:00');
+  console.log('🎲 [practiceCron] scheduled: close prices NSE 15:31 / MCX 1 min after its close (23:30 or 23:55) / global 4:01 PM Chicago, anchors 04:00');
 }
 
 module.exports = { start };
