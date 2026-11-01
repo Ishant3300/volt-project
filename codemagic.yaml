@@ -242,3 +242,81 @@ workflows:
         auth: integration
         submit_to_testflight: true
         submit_to_app_store: false
+
+  # ── VELO Learn on the LIVE server (after the licence) ─────────────────────
+  # Manual start only, and only once the trading licence is in hand: the same
+  # VELO app (bundle id, name, icon) built WITHOUT PRACTICE_ONLY, so it talks to
+  # the LIVE server like Volt. It must go to Apple as a NEW REVIEWED version
+  # with the licence attached — never switch VELO to live any other way (no
+  # server-side switch: Apple 2.3.1 / 2.5.19, the Flamingo account is at risk).
+  # Start it with the environment variable VELO_LIVE_LICENCE_CONFIRMED=yes,
+  # otherwise the first step stops the build. Uploads to TestFlight only.
+  ios-velo-live-testflight:
+    name: iOS Velo Learn (live server, after licence) → TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    working_directory: apps/flutter
+    integrations:
+      app_store_connect: velo
+    environment:
+      flutter: 3.47.2
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.velo.simulator
+      vars:
+        APP_STORE_APPLE_ID: "6826137877"
+        VELO_BUNDLE_ID: com.velo.simulator
+        BRAND: velo
+    scripts:
+      - name: Licence confirmed?
+        script: |
+          if [ "${VELO_LIVE_LICENCE_CONFIRMED:-}" != "yes" ]; then
+            echo "VELO live build needs the trading licence first. Start it with VELO_LIVE_LICENCE_CONFIRMED=yes."
+            exit 1
+          fi
+      - name: Velo identity (bundle id, name, icon) for this build only
+        script: |
+          cat > ios/Flutter/brand-volt.xcconfig <<XC
+          PRODUCT_BUNDLE_IDENTIFIER = $VELO_BUNDLE_ID
+          APP_DISPLAY_NAME = VELO
+          ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon-velo
+          XC
+          cat ios/Flutter/brand-volt.xcconfig
+      - name: Flutter packages
+        script: flutter pub get
+      - name: CocoaPods
+        script: |
+          cd ios
+          pod install --repo-update
+      - name: Use App Store signing profiles
+        script: xcode-project use-profiles
+      - name: Build Velo Learn ipa (live server)
+        script: |
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo "")
+          PUBSPEC_BUILD=$(grep '^version:' pubspec.yaml | sed -E 's/.*\+([0-9]+).*/\1/')
+          if [ -n "$LATEST" ]; then BUILD_NUMBER=$((LATEST + 1)); else BUILD_NUMBER=$PUBSPEC_BUILD; fi
+          echo "Build number: $BUILD_NUMBER"
+          flutter build ipa --release \
+            --flavor volt \
+            --dart-define=BRAND=velo \
+            --build-number="$BUILD_NUMBER" \
+            --export-options-plist=/Users/builder/export_options.plist
+      - name: Check — this really is the live build
+        script: |
+          IPA=$(ls build/ios/ipa/*.ipa | head -1)
+          rm -rf /tmp/ipa && mkdir -p /tmp/ipa && unzip -q "$IPA" -d /tmp/ipa
+          BIN=$(ls -d /tmp/ipa/Payload/*.app)/Frameworks/App.framework/App
+          LIVE=$(strings "$BIN" | grep -c 'apexlive-api\.mynpe\.in' || true)
+          PRACTICE=$(strings "$BIN" | grep -c 'apexlive-api\.mynpe\.in/practice' || true)
+          echo "server URLs: $LIVE (practice: $PRACTICE)"
+          [ "$LIVE" -gt "$PRACTICE" ] || { echo "NOT A LIVE BUILD"; exit 1; }
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false
