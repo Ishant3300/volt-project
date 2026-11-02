@@ -329,6 +329,21 @@ class CronService {
         }, { timezone: 'Asia/Kolkata' });
         this.jobs.push(settlementRecoveryJob);
 
+        // Margin-call block (2 Nov 2026): a block from an earlier settlement
+        // week is lifted once the weekly M2M reset has happened
+        // (marginBlockReset.js). Every 15 minutes, and once shortly after start.
+        const liftMarginBlocks = async () => {
+            try {
+                const lifted = await require('./marginBlockReset').liftBlocksFromEarlierWeeks();
+                if (lifted) console.log(`🔓 [CRON] Margin-call block lifted for ${lifted} account(s) (new settlement week)`);
+            } catch (error) {
+                console.error(`[CRON] Margin block reset error: ${error.message}`);
+            }
+        };
+        const marginBlockResetJob = cron.schedule('*/15 * * * *', liftMarginBlocks, { timezone: 'Asia/Kolkata' });
+        this.jobs.push(marginBlockResetJob);
+        setTimeout(liftMarginBlocks, 60 * 1000);
+
         // Every PM2 worker observes the durable committed generation and rebuilds
         // its own metrics/live-price maps. On-demand risk checks also reconcile,
         // while this poll keeps WebSocket-only clients current.

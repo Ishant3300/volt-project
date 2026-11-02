@@ -1853,6 +1853,7 @@ const placeTrade = async (req, res) => {
         else if (error.message === 'Not authorized to place a trade for this user') statusCode = 403;
         else if (error.message.includes('Option selling is not allowed') || error.message.includes('would create a short position')) statusCode = 403;
         else if (error.message.includes('Trading is currently disabled')) statusCode = 403;
+        else if (error.message.includes('Trading is blocked')) statusCode = 403; // margin-call block — was a 500 ("unexpected error")
         else if (error.message.includes('close-only mode')) statusCode = 403;
         else if (error.message.includes('Insufficient balance') || error.message.includes('Insufficient margin') || error.message.includes('Insufficient free margin')) statusCode = 400;
         else if (error.code === 'INSUFFICIENT_WALLET' || error.message.includes('wallet balance')) statusCode = 400;
