@@ -130,6 +130,8 @@ const globalLimiter = rateLimit({
   message: { success: false, message: 'Too many requests, please try again later' },
 });
 app.use(skipForWs(globalLimiter));
+// Server-side force update: old Android app builds can't log in or change orders (middlewares/minAppVersion.js).
+app.use(require('./middlewares/minAppVersion'));
 
 // Database connectivity and index synchronization are awaited in startServer
 // before the HTTP listener is opened.
