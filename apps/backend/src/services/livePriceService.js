@@ -377,6 +377,9 @@ class LivePriceService {
    * Connect to Kite WebSocket for live market data
    */
   async _connectToKite() {
+      // One Kite connection at a time (2 Nov 2026): a pending reconnect timer
+      // is replaced, not stacked — timers firing together opened two sockets.
+      if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
       try {
         const accessToken = await kiteService.getStoredAccessToken();
         if (!accessToken) {
@@ -408,9 +411,17 @@ class LivePriceService {
 
         console.log('🔌 Connecting to Kite WebSocket...');
 
-        this.kiteTicker = new WebSocket(wsUrl);
+        const previous = this.kiteTicker;
+        if (previous) {
+          previous.removeAllListeners();
+          previous.on('error', () => {}); // a socket closed mid-handshake still emits 'error'
+          try { previous.terminate(); } catch (_) {}
+        }
+        const ticker = new WebSocket(wsUrl);
+        this.kiteTicker = ticker;
 
-        this.kiteTicker.on('open', () => {
+        ticker.on('open', () => {
+          if (ticker !== this.kiteTicker) return;
           console.log('✅ Connected to Kite WebSocket');
           this.isKiteConnected = true;
           this.autoLoginAttempted = false; // Reset for next disconnect
@@ -427,12 +438,14 @@ class LivePriceService {
           this._updateKiteSubscription();
         });
 
-        this.kiteTicker.on('message', (data) => {
+        ticker.on('message', (data) => {
+          if (ticker !== this.kiteTicker) return;
           this._lastTickAt = Date.now();
           this._processKiteTick(data);
         });
 
-        this.kiteTicker.on('close', (code, reason) => {
+        ticker.on('close', (code, reason) => {
+          if (ticker !== this.kiteTicker) return;
           console.log(`⚠️  Kite WebSocket closed: ${code} - ${reason}`);
           this.isKiteConnected = false;
           this._broadcastToClients({
@@ -474,7 +487,8 @@ class LivePriceService {
           this.reconnectTimer = setTimeout(() => this._connectToKite(), delay);
         });
 
-        this.kiteTicker.on('error', (err) => {
+        ticker.on('error', (err) => {
+          if (ticker !== this.kiteTicker) return;
           console.log('❌ Kite WebSocket error:', err.message);
           this.isKiteConnected = false;
           // Flag if this was a 403 so the close handler can act on it
