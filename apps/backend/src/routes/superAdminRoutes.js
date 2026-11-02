@@ -7,6 +7,7 @@ const {
   updateAdminPermissions,
   updateAdminMasterVisibility,
   updateAdminStatus,
+  resetAdminPassword,
   deleteAdmin,
 } = require('../controllers/superAdminController');
 const { authenticateAdmin } = require('../middlewares/auth');
@@ -23,6 +24,7 @@ router.get('/admins/:id', getAdminById);
 router.put('/admins/:id/permissions', updateAdminPermissions);
 router.put('/admins/:id/master-visibility', updateAdminMasterVisibility);
 router.put('/admins/:id/status', updateAdminStatus);
+router.put('/admins/:id/password', resetAdminPassword);
 router.delete('/admins/:id', deleteAdmin);
 
 module.exports = router;

@@ -170,6 +170,38 @@ const updateAdminStatus = async (req, res) => {
   }
 };
 
+// Set a new password for another (regular) Admin — for an Admin who forgot
+// theirs; they can still change it themselves afterwards (auth/change-password).
+// Not for the Super Admin's own account, same as status/delete above.
+const resetAdminPassword = async (req, res) => {
+  try {
+    const { new_password } = req.body;
+    if (typeof new_password !== 'string' || new_password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters', data: null });
+    }
+    if (req.params.id === req.admin.id) {
+      return res.status(403).json({ success: false, message: 'Change your own password from your Account page', data: null });
+    }
+
+    const admin = await Admin.findOne({ _id: req.params.id, deleted_at: null });
+    if (!admin) {
+      return res.status(404).json({ success: false, message: 'Admin not found', data: null });
+    }
+    if (admin.is_super_admin) {
+      return res.status(403).json({ success: false, message: "Cannot reset the Super Admin's password here", data: null });
+    }
+
+    admin.password = await bcrypt.hash(new_password, 10);
+    admin.active_token = null;
+    await admin.save();
+    console.log(`🔑 [SuperAdmin] Password reset for admin "${admin.username}" by ${req.admin.username || req.admin.id}`);
+
+    res.status(200).json({ success: true, message: 'Password reset successfully', data: admin.toJSON() });
+  } catch (error) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
+  }
+};
+
 // Replace an admin's hidden-master list wholesale (matches the "select all
 // by default, toggle individual ones off" UI — the client sends the full
 // current OFF set each time, same pattern as updateAdminPermissions).
@@ -233,5 +265,6 @@ module.exports = {
   updateAdminPermissions,
   updateAdminMasterVisibility,
   updateAdminStatus,
+  resetAdminPassword,
   deleteAdmin,
 };
