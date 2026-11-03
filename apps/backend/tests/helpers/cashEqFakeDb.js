@@ -35,6 +35,11 @@ function sortDocs(list, spec) {
   });
 }
 
+function applyUpdate(d, update) {
+  for (const [k, v] of Object.entries(update.$set || {})) d.set(k, v);
+  for (const [k, v] of Object.entries(update.$inc || {})) d.set(k, (d.get(k) || 0) + v);
+}
+
 function leanOf(doc, select) {
   const o = doc.toObject();
   if (typeof select === 'string') for (const f of select.split(/\s+/)) if (f.startsWith('-')) delete o[f.slice(1)];
@@ -81,8 +86,24 @@ function makeFake(Real) {
     store,
     reset() { store.clear(); },
     async create(data) {
+      if (Array.isArray(data)) return Promise.all(data.map((d) => fake.create(d)));
       const doc = attach(new Real(data));
       return doc.save();
+    },
+    async updateOne(q, update) {
+      const d = all().find((x) => matches(x, q));
+      if (!d) return { modifiedCount: 0, matchedCount: 0 };
+      applyUpdate(d, update);
+      await d.save();
+      return { modifiedCount: 1, matchedCount: 1 };
+    },
+    async findOneAndUpdate(q, update, opts = {}) {
+      let d = all().find((x) => matches(x, q));
+      if (!d && opts.upsert) d = attach(new Real({ ...q }));
+      if (!d) return null;
+      applyUpdate(d, update);
+      await d.save();
+      return d;
     },
     find(q) {
       return query((s) => {

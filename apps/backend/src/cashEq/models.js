@@ -133,6 +133,61 @@ const eqWatchlistSchema = new Schema({
 }, { timestamps: true });
 eqWatchlistSchema.index({ owner_id: 1, instrument_token: 1 }, { unique: true });
 
+/**
+ * Equity orders. A refused order is kept too (status REJECTED + reason) — that is the
+ * equity rejection log. OPEN = waiting / partly filled; the rest fills as the market
+ * trades (low-volume rules, liquidity.js) until FILLED, CANCELLED or EXPIRED (15:30).
+ */
+const eqOrderSchema = new Schema({
+  client_id: { type: Schema.Types.ObjectId, ref: 'EqClient', required: true, index: true },
+  master_id: { type: Schema.Types.ObjectId, ref: 'EqMaster' },
+  placed_by: { role: String, id: Schema.Types.ObjectId, username: String },
+  instrument_token: { type: Number, required: true, index: true },
+  tradingsymbol: { type: String, required: true },
+  mtf: { type: Boolean, default: false }, // category when placed: approved (MTF) or not
+  side: { type: String, enum: ['B', 'S'], required: true },
+  order_type: { type: String, enum: ['MARKET', 'LIMIT'], required: true },
+  qty: { type: Number, required: true, min: 1 },
+  limit_price: { type: Number, default: null },
+  filled_qty: { type: Number, default: 0 },
+  filled_value: { type: Number, default: 0 }, // Σ qty × price of the fills (exact; avg_price is for display)
+  avg_price: { type: Number, default: null },
+  status: { type: String, enum: ['OPEN', 'FILLED', 'CANCELLED', 'EXPIRED', 'REJECTED'], required: true, index: true },
+  reason: { type: String, default: '' }, // why refused / cancelled / note on partial fill
+  date: { type: String, required: true, index: true }, // IST trading day
+  ref_price: { type: Number, default: null }, // LTP when placed
+  reserve_price: { type: Number, default: null }, // value per share counted against limits while open
+  closed_at: { type: Date, default: null },
+  closed_by: { role: String, id: Schema.Types.ObjectId, username: String },
+}, { timestamps: true });
+eqOrderSchema.index({ status: 1, instrument_token: 1, createdAt: 1 });
+
+/** Equity fills. `seq` is the numeric trade id the engine sorts on. */
+const eqTradeSchema = new Schema({
+  seq: { type: Number, required: true, unique: true },
+  client_id: { type: Schema.Types.ObjectId, ref: 'EqClient', required: true, index: true },
+  order_id: { type: Schema.Types.ObjectId, ref: 'EqOrder', required: true, index: true },
+  instrument_token: { type: Number, required: true },
+  tradingsymbol: { type: String, required: true },
+  mtf: { type: Boolean, default: false },
+  side: { type: String, enum: ['B', 'S'], required: true },
+  qty: { type: Number, required: true, min: 1 },
+  price: { type: Number, required: true },
+  date: { type: String, required: true, index: true }, // IST
+  add_time: { type: String, required: true }, // 'YYYY-MM-DD HH:MM:SS' IST
+  deleted_at: { type: Date, default: null },
+}, { timestamps: true });
+eqTradeSchema.index({ client_id: 1, date: 1 });
+
+const eqCounterSchema = new Schema({ _id: String, seq: { type: Number, default: 0 } }, { versionKey: false });
+
+/** Admin settings (one document per key, e.g. 'liquidity'). */
+const eqSettingsSchema = new Schema({
+  _id: String,
+  values: { type: Schema.Types.Mixed, default: {} },
+  updated_by: { role: String, id: Schema.Types.ObjectId, username: String },
+}, { timestamps: true, versionKey: false });
+
 const model = (name, schema, collection) => mongoose.models[name] || mongoose.model(name, schema, collection);
 
 module.exports = {
@@ -143,4 +198,8 @@ module.exports = {
   EqInstrument: model('EqInstrument', eqInstrumentSchema, 'eqcash_instruments'),
   EqQuote: model('EqQuote', eqQuoteSchema, 'eqcash_quotes'),
   EqWatchlist: model('EqWatchlist', eqWatchlistSchema, 'eqcash_watchlist'),
+  EqOrder: model('EqOrder', eqOrderSchema, 'eqcash_orders'),
+  EqTrade: model('EqTrade', eqTradeSchema, 'eqcash_trades'),
+  EqCounter: model('EqCounter', eqCounterSchema, 'eqcash_counters'),
+  EqSettings: model('EqSettings', eqSettingsSchema, 'eqcash_settings'),
 };

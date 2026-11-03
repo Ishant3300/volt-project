@@ -53,4 +53,47 @@ router.post('/stream', anyone, wrap(market.stream));
 router.get('/feed/status', adminOnly, wrap(market.feedStatus));
 router.post('/instruments/sync', adminOnly, noWatchOnly, wrap(market.syncNow));
 
+// Orders and trades (M4).
+const orders = require('./orders');
+const { EqSettings } = require('./models');
+const liquidity = require('./liquidity');
+
+const send = (fn, okStatus = 200) => wrap(async (req, res) => {
+  try {
+    const data = await fn(req);
+    if (data && data.ok === false) return res.status(400).json({ success: false, message: data.message, data: data.order });
+    if (data && data.ok === true) return res.status(201).json({ success: true, message: data.message, data: data.order });
+    return res.status(okStatus).json({ success: true, message: 'OK', data });
+  } catch (err) {
+    if (err instanceof orders.HttpError) return res.status(err.status).json({ success: false, message: err.message, data: null });
+    throw err;
+  }
+});
+
+router.get('/orders/preview', anyone, send((req) => orders.preview(req.cash, req.query)));
+router.post('/orders', anyone, send((req) => orders.placeOrder(req.cash, req.body || {})));
+router.get('/orders', anyone, send((req) => orders.listOrders(req.cash, req.query)));
+router.patch('/orders/:id', anyone, send((req) => orders.modifyOrder(req.cash, req.params.id, req.body || {})));
+router.post('/orders/:id/cancel', anyone, send((req) => orders.cancelOrder(req.cash, req.params.id)));
+router.get('/trades', anyone, send((req) => orders.listTrades(req.cash, req.query)));
+
+// Low-volume fill settings (admin).
+router.get('/settings/liquidity', managers, send(async () => ({ ...(await orders.getSettings()), defaults: liquidity.DEFAULTS })));
+router.patch('/settings/liquidity', adminOnly, noWatchOnly, send(async (req) => {
+  const current = await orders.getSettings();
+  const body = req.body || {};
+  const next = liquidity.settingsWith({ ...current, ...body });
+  const errs = liquidity.checkSettings(next);
+  const holidays = body.holidays === undefined ? current.holidays : body.holidays;
+  if (!Array.isArray(holidays) || holidays.some((d) => !/^\d{4}-\d{2}-\d{2}$/.test(d))) errs.push('holidays must be a list of YYYY-MM-DD dates');
+  if (errs.length) throw new orders.HttpError(400, errs[0]);
+  await EqSettings.findOneAndUpdate(
+    { _id: 'liquidity' },
+    { $set: { values: { ...next, holidays: [...new Set(holidays)].sort() }, updated_by: { role: req.cash.role, id: req.cash.id, username: req.cash.username } } },
+    { upsert: true, new: true }
+  );
+  orders.clearSettingsCache();
+  return orders.getSettings();
+}));
+
 module.exports = router;

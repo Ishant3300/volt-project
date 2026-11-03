@@ -94,6 +94,7 @@ class CashFeed {
     this.unsaved = new Set(); // tokens with a new tick since the last save
     this.interest = new Map(); // viewer id -> { tokens:Set, until }
     this.sources = []; // [{ name, fn }] in priority order
+    this.listeners = []; // equity order matcher (orders.onTicks)
     this.lastTickAt = 0;
     this.lastError = null;
     this.fails = 0; // connections that closed before any tick — backs off
@@ -245,6 +246,14 @@ class CashFeed {
     this.lastTickAt = Date.now();
     this._gotTick = true;
     this.fails = 0;
+    for (const fn of this.listeners) {
+      try { fn(ticks); } catch (err) { console.log(`⚠️ [cashEq feed] listener: ${err.message}`); }
+    }
+  }
+
+  /** Called with every batch of ticks (after the quotes are updated). */
+  addListener(fn) {
+    if (!this.listeners.includes(fn)) this.listeners.push(fn);
   }
 
   stop(reason) {

@@ -11,8 +11,24 @@
 const cron = require('node-cron');
 const feed = require('./feed');
 const { enabled } = require('./switch');
-const { EqInstrument, EqWatchlist, EqAudit } = require('./models');
+const { EqInstrument, EqWatchlist, EqAudit, EqTrade } = require('./models');
 const instruments = require('./instruments');
+const orders = require('./orders');
+const { istNow, addDays } = require('./engine');
+
+/** Stocks any equity client holds (net bought > sold), cached 5 minutes. */
+let heldCache = { at: 0, tokens: [] };
+async function heldTokens() {
+  if (Date.now() - heldCache.at < 5 * 60 * 1000) return heldCache.tokens;
+  const rows = await EqTrade.aggregate([
+    { $match: { deleted_at: null } },
+    { $group: { _id: { c: '$client_id', t: '$instrument_token' }, q: { $sum: { $cond: [{ $eq: ['$side', 'B'] }, '$qty', { $multiply: ['$qty', -1] }] } } } },
+    { $match: { q: { $gt: 0 } } },
+    { $group: { _id: '$_id.t' } },
+  ]);
+  heldCache = { at: Date.now(), tokens: rows.map((r) => r._id) };
+  return heldCache.tokens;
+}
 
 let started = false;
 let syncing = false;
@@ -44,9 +60,25 @@ function start(livePriceService) {
   if (require('../config/practice').PRACTICE) return; // practice server: no equity, no Kite
   started = true;
 
-  // What equity needs prices for (M4/M5 add held and pending scripts at higher priority).
+  // What equity needs prices for, most important first (the cap keeps the first 800).
+  feed.registerSource('open orders', () => orders.refreshOpenTokens(), 10);
+  feed.registerSource('holdings', heldTokens, 20);
   feed.registerSource('watchlists', () => EqWatchlist.distinct('instrument_token'), 50);
+  feed.addListener(orders.onTicks);
   feed.start(livePriceService);
+
+  // Orders left open from an earlier day (e.g. a restart over the close) expire.
+  setTimeout(() => {
+    orders.expireOpen(addDays(istNow().date, -1)).catch((e) => console.log(`⚠️ [cashEq] expire old orders: ${e.message}`));
+  }, 60 * 1000).unref?.();
+  cron.schedule('31 15 * * 1-5', async () => {
+    try {
+      const n = await orders.expireOpen(istNow().date);
+      if (n) console.log(`📈 [cashEq] ${n} open equity order(s) expired at the close`);
+    } catch (err) {
+      console.log(`⚠️ [cashEq] day-end expiry failed: ${err.message}`);
+    }
+  }, { timezone: 'Asia/Kolkata' });
 
   const tick = async () => {
     try {
