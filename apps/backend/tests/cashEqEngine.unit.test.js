@@ -78,6 +78,58 @@ describe('cashEq engine — interest on the funded amount', () => {
   });
 });
 
+describe('cashEq engine — two interest rates, funded split in proportion (approved vs non-approved)', () => {
+  // 60 L approved + 40 L non-approved held, client money 10 L Cr → funded 90 L:
+  // 54 L at 15 % + 36 L at 20 % for the day.
+  const trades = [
+    trade(1, '2026-09-10', 'B', 6000, 1000, { script: 'RELIANCE', mtf: true }),
+    trade(2, '2026-09-10', 'B', 4000, 1000, { script: 'SMALLCO', mtf: false }),
+  ];
+  const calcs = engine.computeTradeCalcs(trades, []);
+  const acc = (over = {}) => account({ openingBalance: 1000000, interestPct: 15, interestNonPct: 20, ...over });
+
+  test('one day: 54 L × 15 % + 36 L × 20 % ÷ 365 = ₹4,191.78', () => {
+    const l = engine.computeClientLedger(acc(), trades, calcs, [], [], '2026-09-10');
+    expect(l.funded).toBe(9000000);
+    expect([l.marginMtf, l.marginNon]).toEqual([6000000, 4000000]);
+    expect(engine.round2(l.accruedInterestMtf)).toBe(engine.round2(5400000 * 0.15 / 365));
+    expect(engine.round2(l.accruedInterestNon)).toBe(engine.round2(3600000 * 0.20 / 365));
+    expect(engine.round2(l.accruedInterest)).toBe(4191.78);
+  });
+
+  test('equal rates: exactly the single-rate (Trade Terminal) result', () => {
+    const two = engine.computeClientLedger(acc({ interestNonPct: 15 }), trades, calcs, [], [], '2026-09-30');
+    const plain = trades.map(({ mtf, ...t }) => t);
+    const one = engine.computeClientLedger(account({ openingBalance: 1000000, interestPct: 15 }), plain, engine.computeTradeCalcs(plain, []), [], [], '2026-09-30');
+    expect(two.accruedInterest).toBe(one.accruedInterest);
+    expect(two.money).toBe(one.money);
+  });
+
+  test('only non-approved held: all funded at the non-approved rate', () => {
+    const t = [trades[1]];
+    const l = engine.computeClientLedger(acc({ openingBalance: 0 }), t, engine.computeTradeCalcs(t, []), [], [], '2026-09-10');
+    expect(engine.round2(l.accruedInterest)).toBe(engine.round2(4000000 * 0.20 / 365));
+  });
+
+  test('selling the non-approved lot moves all funding to the approved rate from that day', () => {
+    const t = [...trades, trade(3, '2026-09-11', 'S', 4000, 1000, { script: 'SMALLCO', mtf: false })];
+    const l = engine.computeClientLedger(acc(), t, engine.computeTradeCalcs(t, []), [], [], '2026-09-11');
+    const day1 = 5400000 * 0.15 / 365 + 3600000 * 0.20 / 365;
+    const day2 = 5000000 * 0.15 / 365; // 60 L held − 10 L money, all approved
+    expect(engine.round2(l.accruedInterest)).toBe(engine.round2(day1 + day2));
+  });
+
+  test('month-end: one interest row with both rates; the split is kept for sharing', () => {
+    const st = [{ segment: 'NSEEQ', settleDate: '2026-10-01', priceDate: '2026-09-30', prices: { RELIANCE: 1000, SMALLCO: 1000 } }];
+    const l = engine.computeClientLedger(acc(), trades, calcs, [], st, '2026-09-30');
+    const row = l.rows.find((r) => r.kind === 'INTEREST');
+    expect(row.particulars).toBe('Interest 10-09-2026 to 30-09-2026 @ 15% approved / 20% non-approved');
+    const s = l.settlements[0];
+    expect(Math.abs(s.interestMtf + s.interestNon - s.interest)).toBeLessThanOrEqual(0.01);
+    expect(engine.round2(s.interest)).toBe(engine.round2(21 * (5400000 * 0.15 + 3600000 * 0.20) / 365));
+  });
+});
+
 describe('cashEq engine — identical to Trade Terminal (golden hashes)', () => {
   test.each(Object.keys(golden.hashes).map(Number))('seed %i', (seed) => {
     const out = canonical(runScenario(makeScenario(seed), engine));

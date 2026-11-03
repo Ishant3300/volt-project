@@ -264,6 +264,7 @@ function buildEquityLots(trades, calcs) {
   const intraday = [];
   const warnings = [];
   const net = (t) => calcs.get(t.id)?.netRate ?? t.rate;
+  const catOf = (t) => (t.mtf === undefined ? {} : { mtf: !!t.mtf });
 
   const byScript = new Map();
   for (const t of trades) {
@@ -302,7 +303,7 @@ function buildEquityLots(trades, calcs) {
           const m = Math.min(lot.qty, left);
           portions.push({
             script, buyDate: lot.t.date, qty: m, netBuyRate: net(lot.t), fullPayment: !!lot.t.fullPayment,
-            closeDate: date, sellNetRate: net(sell),
+            closeDate: date, sellNetRate: net(sell), ...catOf(lot.t),
           });
           lot.qty -= m;
           left -= m;
@@ -315,7 +316,7 @@ function buildEquityLots(trades, calcs) {
     for (const lot of open) {
       portions.push({
         script, buyDate: lot.t.date, qty: lot.qty, netBuyRate: net(lot.t), fullPayment: !!lot.t.fullPayment,
-        closeDate: null, sellNetRate: null,
+        closeDate: null, sellNetRate: null, ...catOf(lot.t),
       });
     }
   }
@@ -356,6 +357,14 @@ function computeClientLedger(account, trades, calcs, entries, allSettlements, as
     .filter((s) => s.segment !== 'NCDEX' && postDate(s) <= asOf)
     .sort((a, b) => a.settleDate.localeCompare(b.settleDate));
   const rate = account.interestPct / 100 / 365;
+  // Two interest rates (equity accounts): approved (MTF) scripts at interestPct, non-approved
+  // at interestNonPct. The funded amount is split across the two in proportion to each
+  // category's margin. With one rate (Trade Terminal accounts, or equal rates) the original
+  // single-rate path runs unchanged. A debit balance with nothing held is charged at the
+  // approved rate.
+  const split = account.interestNonPct !== undefined && account.interestNonPct !== account.interestPct;
+  const rateNon = split ? account.interestNonPct / 100 / 365 : rate;
+  const catOfP = (p) => (p.mtf === false ? 'non' : 'mtf');
 
   // --- Settlement P&L per portion: MTM at each bhav, realized at the settlement after the sale.
   const realizedAt = new Map(); // settlement index → realized P&L
@@ -393,11 +402,12 @@ function computeClientLedger(account, trades, calcs, entries, allSettlements, as
   // --- Effective-dated changes (settlement rows are added during the walk).
   const changes = [];
   const revalue = new Map(); // settlement index → margin change on its 1st
+  const revalueNon = new Map(); // same, non-approved scripts (two-rate accounts only)
   for (const p of portions) {
     if (p.fullPayment) continue;
     let amount = p.netBuyRate * p.qty;
     changes.push({
-      date: p.buyDate, kind: 'BUY', money: 0, margin: amount,
+      date: p.buyDate, kind: 'BUY', money: 0, margin: amount, cat: catOfP(p),
       particulars: `BUY ${fmtQty(p.qty)} ${p.script} @ ${fmtRate(p.netBuyRate)} (net)`,
     });
     // Still held on a settlement's 1st: reopens at that settlement's price.
@@ -405,24 +415,27 @@ function computeClientLedger(account, trades, calcs, entries, allSettlements, as
       const price = s.prices[p.script];
       const held = p.buyDate <= s.priceDate && (p.closeDate === null || p.closeDate >= s.settleDate);
       if (!held || !(price > 0) || s.settleDate > asOf) return;
-      add(revalue, i, price * p.qty - amount);
+      add(split && catOfP(p) === 'non' ? revalueNon : revalue, i, price * p.qty - amount);
       amount = price * p.qty;
     });
     if (p.closeDate !== null && p.closeDate <= asOf) {
       changes.push({
-        date: p.closeDate, kind: 'RELEASE', money: 0, margin: -amount,
+        date: p.closeDate, kind: 'RELEASE', money: 0, margin: -amount, cat: catOfP(p),
         particulars: `SOLD ${fmtQty(p.qty)} ${p.script} @ ${fmtRate(p.sellNetRate)} (net) — margin released`,
       });
     }
   }
-  revalue.forEach((delta, i) => {
-    const s = settlements[i];
-    if (Math.abs(delta) < 0.005) return;
-    changes.push({
-      date: s.settleDate, kind: 'REVALUE', money: 0, margin: delta,
-      particulars: `Open positions reopened at settlement price (bhav ${dmy(s.priceDate)})`,
+  for (const [map, cat] of [[revalue, 'mtf'], [revalueNon, 'non']]) {
+    map.forEach((delta, i) => {
+      const s = settlements[i];
+      if (Math.abs(delta) < 0.005) return;
+      const which = split ? (cat === 'non' ? ' — non-approved' : ' — approved') : '';
+      changes.push({
+        date: s.settleDate, kind: 'REVALUE', money: 0, margin: delta, cat,
+        particulars: `Open positions reopened at settlement price (bhav ${dmy(s.priceDate)})${which}`,
+      });
     });
-  });
+  }
   for (const e of myEntries) {
     const credit = e.kind === 'DEPOSIT' || e.kind === 'JOURNAL_CR';
     changes.push({
@@ -440,18 +453,27 @@ function computeClientLedger(account, trades, calcs, entries, allSettlements, as
   let margin = 0;
   let periodInterest = 0;
   let postedInterest = 0;
+  let marginMtf = 0; // two-rate accounts: margin per category
+  let marginNon = 0;
+  let periodMtf = 0;
+  let periodNon = 0;
   let periodFrom = firstDate ?? asOf;
   let ci = 0;
   let si = 0;
 
-  const push = (date, kind, particulars, moneyDelta, marginDelta) => {
+  const push = (date, kind, particulars, moneyDelta, marginDelta, cat) => {
     money += moneyDelta;
     margin += marginDelta;
     if (Math.abs(margin) < 0.005) margin = 0;
+    if (split) {
+      if (cat === 'non') marginNon += marginDelta; else marginMtf += marginDelta;
+      if (Math.abs(marginNon) < 0.005) marginNon = 0;
+      if (Math.abs(marginMtf) < 0.005) marginMtf = 0;
+    }
     rows.push({
       date, kind, particulars,
       debit: moneyDelta < 0 ? -moneyDelta : 0, credit: moneyDelta > 0 ? moneyDelta : 0, marginChange: marginDelta,
-      money, margin, funded: Math.max(0, margin - money), days: 0, interest: 0,
+      money, margin, funded: Math.max(0, margin - money), days: 0, interest: 0, ...(split ? { marginNon } : {}),
     });
   };
 
@@ -467,9 +489,21 @@ function computeClientLedger(account, trades, calcs, entries, allSettlements, as
       if (d.endsWith('-01') && d !== firstDate) push(d, 'BF', 'Balance brought forward', 0, 0);
       while (ci < changes.length && changes[ci].date === d) {
         const c = changes[ci++];
-        push(d, c.kind, c.particulars, c.money, c.margin);
+        push(d, c.kind, c.particulars, c.money, c.margin, c.cat);
       }
-      const dayInterest = Math.max(0, margin - money) * rate;
+      let dayInterest;
+      if (!split) dayInterest = Math.max(0, margin - money) * rate;
+      else {
+        const funded = Math.max(0, margin - money);
+        const fm = Math.max(0, marginMtf);
+        const fn = Math.max(0, marginNon);
+        const shareNon = fm + fn > 0 ? fn / (fm + fn) : 0;
+        const dNon = funded * shareNon * rateNon;
+        const dMtf = funded * (1 - shareNon) * rate;
+        periodMtf += dMtf;
+        periodNon += dNon;
+        dayInterest = dMtf + dNon;
+      }
       periodInterest += dayInterest;
       const last = rows[rows.length - 1];
       last.days += 1;
@@ -484,13 +518,17 @@ function computeClientLedger(account, trades, calcs, entries, allSettlements, as
         const interest = round2(periodInterest);
         if (realized) push(d, 'PNL', `Settlement ${dmy(d)}: P&L on trades closed till ${dmy(st.priceDate)}`, round2(realized), 0);
         if (mtm) push(d, 'MTM', `Settlement ${dmy(d)}: MTM of open positions @ bhav ${dmy(st.priceDate)}`, round2(mtm), 0);
-        if (interest) push(d, 'INTEREST', `Interest ${dmy(periodFrom)} to ${dmy(d)} @ ${account.interestPct}%`, -interest, 0);
+        const at = split ? `${account.interestPct}% approved / ${account.interestNonPct}% non-approved` : `${account.interestPct}%`;
+        if (interest) push(d, 'INTEREST', `Interest ${dmy(periodFrom)} to ${dmy(d)} @ ${at}`, -interest, 0);
         summaries.push({
           settlement: st, periodFrom, periodTo: d, realized: round2(realized), mtm: round2(mtm), interest,
           missingPrices: [...(missing.get(si) ?? [])].sort(),
+          ...(split ? { interestMtf: round2(periodMtf), interestNon: round2(periodNon) } : {}),
         });
         postedInterest += interest;
         periodInterest = 0;
+        periodMtf = 0;
+        periodNon = 0;
         periodFrom = addDays(d, 1);
         si++;
       }
@@ -500,6 +538,7 @@ function computeClientLedger(account, trades, calcs, entries, allSettlements, as
   return {
     account, rows, settlements: summaries, postedInterest, accruedInterest: periodInterest, pendingPnl,
     money, margin, funded: Math.max(0, margin - money), warnings,
+    ...(split ? { marginMtf, marginNon, accruedInterestMtf: periodMtf, accruedInterestNon: periodNon } : {}),
   };
 }
 

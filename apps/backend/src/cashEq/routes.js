@@ -77,6 +77,38 @@ router.patch('/orders/:id', anyone, send((req) => orders.modifyOrder(req.cash, r
 router.post('/orders/:id/cancel', anyone, send((req) => orders.cancelOrder(req.cash, req.params.id)));
 router.get('/trades', anyone, send((req) => orders.listTrades(req.cash, req.query)));
 
+// Live account, holdings, statement (M5).
+const account = require('./account');
+const readAs = (fn) => send(async (req) => {
+  try {
+    return await fn(req);
+  } catch (err) {
+    if (err.status) throw new orders.HttpError(err.status, err.message);
+    throw err;
+  }
+});
+router.get('/account', anyone, readAs(async (req) => account.accountFor(await account.clientFor(req.cash, req.query.client_id))));
+router.get('/statement', anyone, readAs(async (req) => {
+  const date = (v) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
+  return account.statementFor(await account.clientFor(req.cash, req.query.client_id), { from: date(req.query.from), to: date(req.query.to) });
+}));
+/** Master / admin: every visible client's live figures + totals (optionally one master's tree). */
+router.get('/accounts', managers, readAs(async (req) => {
+  const clients = await account.visibleClients(req.cash, req.query.master_id);
+  if (!clients) throw new orders.HttpError(403, 'Not your equity master');
+  return account.accountsFor(clients);
+}));
+/** Master / admin portfolio page: all holdings across the tree, with the tiles' totals. */
+router.get('/holdings', managers, readAs(async (req) => {
+  const clients = await account.visibleClients(req.cash, req.query.master_id);
+  if (!clients) throw new orders.HttpError(403, 'Not your equity master');
+  const all = await account.accountsFor(clients);
+  const rows = [];
+  for (const a of all.accounts) for (const h of a.holdings) rows.push({ ...h, client: { _id: a.client._id, name: a.client.name, username: a.client.username } });
+  rows.sort((x, y) => x.script.localeCompare(y.script) || x.client.username.localeCompare(y.client.username));
+  return { totals: all.totals, holdings: rows };
+}));
+
 // Low-volume fill settings (admin).
 router.get('/settings/liquidity', managers, send(async () => ({ ...(await orders.getSettings()), defaults: liquidity.DEFAULTS })));
 router.patch('/settings/liquidity', adminOnly, noWatchOnly, send(async (req) => {

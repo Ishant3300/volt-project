@@ -13,7 +13,7 @@ function toEngineTrade(t) {
   return {
     id: t.seq, ot: 'O', date: t.date, valan: '', segment: 'NSEEQ', script: t.tradingsymbol, option: '', strike: 0,
     tradeType: 'NRM', side: t.side, lot: t.qty, qty: t.qty, rate: t.price, clientCode: String(t.client_id),
-    user: '', ip: '', addTime: t.add_time, mtf: !!t.mtf,
+    user: '', ip: '', addTime: t.add_time, mtf: !!t.mtf, token: t.instrument_token,
   };
 }
 
