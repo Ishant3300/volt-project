@@ -250,7 +250,11 @@ workflows:
   # with the licence attached — never switch VELO to live any other way (no
   # server-side switch: Apple 2.3.1 / 2.5.19, the Flamingo account is at risk).
   # Start it with the environment variable VELO_LIVE_LICENCE_CONFIRMED=yes,
-  # otherwise the first step stops the build. Uploads to TestFlight only.
+  # otherwise the first step stops the build. Builds version VELO_VERSION
+  # (default 1.0.54) and submits it for App Store review, MANUAL release (see
+  # publishing). Before starting: create version 1.0.54 in App Store Connect
+  # with What's New "Bug fixes and performance improvements." — review notes
+  # stay exactly as they are; the licence goes to Apple by email (3 Nov 2026).
   ios-velo-live-testflight:
     name: iOS Velo Learn (live server, after licence) → TestFlight
     max_build_duration: 60
@@ -301,6 +305,7 @@ workflows:
           flutter build ipa --release \
             --flavor volt \
             --dart-define=BRAND=velo \
+            --build-name="${VELO_VERSION:-1.0.54}" \
             --build-number="$BUILD_NUMBER" \
             --export-options-plist=/Users/builder/export_options.plist
       - name: Check — this really is the live build
@@ -318,5 +323,10 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: true
-        submit_to_app_store: false
+        # Uploaded (internal TestFlight testers can install it) and submitted
+        # for App Store review with MANUAL release — nothing goes live until
+        # someone clicks Release in App Store Connect (3 Nov 2026).
+        submit_to_testflight: false
+        submit_to_app_store: true
+        cancel_previous_submissions: false
+        release_type: MANUAL
