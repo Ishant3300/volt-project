@@ -96,6 +96,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     // actually on, not just the splash screen.
     final navContext = NavigationService.navigatorKey.currentContext;
     if (navContext != null) {
+      // Live prices: iOS drops the socket while in the background, so
+      // reconnect on every return — prices move again without a refresh.
+      Provider.of<WatchlistProvider>(navContext, listen: false).reconnectLive();
       checkAndShowForceUpdate(navContext);
     }
   }

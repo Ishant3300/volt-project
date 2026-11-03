@@ -47,26 +47,22 @@ const String kLogoAsset = kIsVelo
 
 // ─── Brand colours ──────────────────────────────────────────────────────────
 
+// VELO uses Volt's exact colours (3 Nov 2026) — only its name and logo differ.
+
 /// Primary brand colour — buttons, active states, spinners, focus borders.
-const Color kBrandPrimary = kIsVelo
-    ? Color(0xFF2B59A6)
-    : kIsVolt
-        ? Color(0xFF4E75FF)
-        : Color(0xFF3F45C7);
+const Color kBrandPrimary = kIsVolt
+    ? Color(0xFF4E75FF)
+    : Color(0xFF3F45C7);
 
 /// Gradient start for primary CTAs (login button, badges, avatars).
-const Color kBrandGradientStart = kIsVelo
-    ? Color(0xFF2B59A6)
-    : kIsVolt
-        ? Color(0xFF4E75FF)
-        : Color(0xFFC6529E);
+const Color kBrandGradientStart = kIsVolt
+    ? Color(0xFF4E75FF)
+    : Color(0xFFC6529E);
 
 /// Gradient end for primary CTAs.
-const Color kBrandGradientEnd = kIsVelo
-    ? Color(0xFF1E4485)
-    : kIsVolt
-        ? Color(0xFF2E55DF)
-        : Color(0xFF3B43C9);
+const Color kBrandGradientEnd = kIsVolt
+    ? Color(0xFF2E55DF)
+    : Color(0xFF3B43C9);
 
 /// Standard left→right brand gradient used on primary CTAs.
 const LinearGradient kBrandGradient = LinearGradient(

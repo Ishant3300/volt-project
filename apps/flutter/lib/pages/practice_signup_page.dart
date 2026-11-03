@@ -7,6 +7,7 @@ import 'package:stocker/config/practice_session.dart';
 import 'package:stocker/services/app_identity.dart';
 import 'package:stocker/utils/contants.dart';
 import 'package:stocker/widgets/page_wash.dart';
+import 'package:stocker/widgets/practice_banner.dart';
 
 /// "Create practice account" — self sign-up for a practice (paper trading)
 /// account on the separate practice backend (apex-project
@@ -155,7 +156,7 @@ class _PracticeSignupPageState extends State<PracticeSignupPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return LoginPracticeBannerWrap(child: Scaffold(
       backgroundColor: kPageBg,
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -302,6 +303,6 @@ class _PracticeSignupPageState extends State<PracticeSignupPage> {
           ],
         ),
       )),
-    );
+    ));
   }
 }

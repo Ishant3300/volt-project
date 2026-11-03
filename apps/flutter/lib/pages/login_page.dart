@@ -19,6 +19,7 @@ import '../utils/contants.dart';
 import '../views/webview_page.dart';
 import 'package:stocker/config/practice_session.dart';
 import 'package:stocker/config/practice_only.dart';
+import 'package:stocker/widgets/practice_banner.dart';
 import 'package:stocker/pages/practice_signup_page.dart';
 import 'force_password_reset_page.dart';
 import 'package:stocker/widgets/page_wash.dart';
@@ -90,7 +91,10 @@ class _LoginPageState extends State<LoginPage> {
     // Practice accounts log in with their email — no server to pick.
     final isPracticeLogin =
         PracticeSession.isPracticeUsername(_usernameController.text.trim());
+    // VELO has no Server field (3 Nov 2026): login is by user ID alone —
+    // the server choice was never sent to the backend anyway.
     if (!kPracticeOnly &&
+        !kIsVelo &&
         _selectedServer == 'Select Server' &&
         !isPracticeLogin) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -698,7 +702,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return LoginPracticeBannerWrap(child: Scaffold(
       backgroundColor: kPageBg,
       body: PageWash(child: SafeArea(
         child: SingleChildScrollView(
@@ -742,7 +746,9 @@ class _LoginPageState extends State<LoginPage> {
                       Text(
                         kPracticeOnly
                             ? 'Trading simulator with virtual money.\nSign in with your practice account'
-                            : 'To sign in to an account in the application,\nenter your username and password',
+                            : kIsVelo
+                                ? 'Trading simulator with virtual money.\nSign in with your account'
+                                : 'To sign in to an account in the application,\nenter your username and password',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                             color: kColorTextMuted,
@@ -754,7 +760,7 @@ class _LoginPageState extends State<LoginPage> {
 
                       // Server field (live accounts — not in the
                       // practice-only build)
-                      if (!kPracticeOnly) ...[
+                      if (!kPracticeOnly && !kIsVelo) ...[
                         _buildFieldLabel('Server'),
                         const SizedBox(height: 6),
                         _buildServerSearchField(),
@@ -763,11 +769,11 @@ class _LoginPageState extends State<LoginPage> {
 
                       // Username field
                       _buildFieldLabel(
-                          kPracticeOnly ? 'Email or username' : 'Username'),
+                          kPracticeOnly || kIsVelo ? 'Email or username' : 'Username'),
                       const SizedBox(height: 6),
                       _buildTextField(
                           _usernameController,
-                          kPracticeOnly
+                          kPracticeOnly || kIsVelo
                               ? 'Enter email or username'
                               : 'Enter Username',
                           false),
@@ -899,7 +905,7 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
       )),
-    );
+    ));
   }
 
   Widget _buildServerSearchField() {

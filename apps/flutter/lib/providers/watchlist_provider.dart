@@ -232,6 +232,14 @@ class WatchlistProvider with ChangeNotifier {
   /// Why the last removal failed, from the server (e.g. open position).
   String? lastRemoveError;
 
+  /// The app came back to the foreground (main.dart): open a fresh live-price
+  /// socket — iOS drops it in the background without telling us (3 Nov 2026).
+  /// Only when there is something to stream (logged in with a watchlist).
+  void reconnectLive() {
+    if (_items.isEmpty && _tracked.isEmpty) return;
+    _livePriceService.reconnect();
+  }
+
   Future<void> loadWatchlist() async {
     log('📥 Loading watchlist from backend...');
     if (_watchlistService == null) {

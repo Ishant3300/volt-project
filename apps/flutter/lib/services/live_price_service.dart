@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
+import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:stocker/utils/contants.dart';
 
@@ -35,7 +36,11 @@ class LivePriceService {
       log('📡 Connecting to live price server...');
       log('   URL: $uri');
 
-      _channel = WebSocketChannel.connect(uri);
+      // A ping every 15 s (3 Nov 2026): iOS silently kills the socket when the
+      // app goes to the background, and without a heartbeat nothing noticed —
+      // the watchlist froze until pull-to-refresh. A dead socket now fails its
+      // ping, fires onDone, and _scheduleReconnect() opens a fresh one.
+      _channel = IOWebSocketChannel.connect(uri, pingInterval: const Duration(seconds: 15));
       // A failed connect (no internet, DNS failure) is reported on `ready`;
       // left unhandled it surfaced as an uncaught error (and a false crash
       // report). The stream's onError below already schedules the reconnect.
@@ -207,6 +212,14 @@ class LivePriceService {
       log('🔄 Attempting to reconnect...');
       connect();
     });
+  }
+
+  /// Drop the socket and open a fresh one — used when the app comes back to
+  /// the foreground (main.dart). The server's 'connected' message then fires
+  /// onConnectionChanged(true), which re-authenticates and re-subscribes.
+  void reconnect() {
+    disconnect();
+    connect();
   }
 
   /// Disconnect and clean up
