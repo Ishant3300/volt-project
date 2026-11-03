@@ -1,4 +1,6 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:stocker/equity/eq_api.dart' show isCashRole;
+import 'package:stocker/equity/eq_home.dart';
 import 'package:provider/provider.dart';
 import 'package:stocker/services/multi_account_service.dart';
 import '../utils/contants.dart';
@@ -68,6 +70,16 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
       await _multiAccount.setActiveKey(account.key);
 
       if (!mounted) return;
+
+      // Equity (NSE cash) account: the equity app, no F&O loads.
+      if (isCashRole(account.role)) {
+        Navigator.of(context).pop(); // close sheet
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const EquityHome()),
+          (route) => false,
+        );
+        return;
+      }
 
       // Update investor mode based on the account being switched to
       final investorProvider =

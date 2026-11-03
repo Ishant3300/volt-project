@@ -1,3 +1,5 @@
+import 'package:stocker/equity/eq_api.dart' show EqApi;
+import 'package:stocker/equity/eq_home.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:convert';
@@ -36,6 +38,8 @@ class _ProfilePageState extends State<ProfilePage> {
   final SecureStorageService _storage = SecureStorageService();
   final MultiAccountService _multiAccount = MultiAccountService();
   bool _isAdmin = false;
+  // Equity (NSE cash) entry for admin — only while equity is switched on (server answers /cash-eq/me).
+  bool _equityOn = false;
   bool _isMaster = false;
   bool _isLoggingOut = false;
   int _savedAccountCount = 0;
@@ -76,6 +80,12 @@ class _ProfilePageState extends State<ProfilePage> {
         _isMaster = isMaster;
       });
       log('✅ Profile page - State updated: _isAdmin: $_isAdmin, _isMaster: $_isMaster');
+    }
+    if (isAdmin && mounted) {
+      try {
+        await EqApi(Provider.of<ApiService>(context, listen: false)).me();
+        if (mounted) setState(() => _equityOn = true);
+      } catch (_) {}
     }
   }
 
@@ -530,6 +540,11 @@ class _ProfilePageState extends State<ProfilePage> {
                               context, 'Master And User Management',
                               svgPath: kIconMasterUserMgmt),
                           _buildDivider(),
+                          if (_isAdmin && _equityOn) ...[
+                            _buildMenuItem(context, 'Equity',
+                                icon: Icons.candlestick_chart_outlined),
+                            _buildDivider(),
+                          ],
                         ] else
                           Builder(builder: (context) {
                             return const SizedBox.shrink();
@@ -618,6 +633,11 @@ class _ProfilePageState extends State<ProfilePage> {
                   context,
                   MaterialPageRoute(
                       builder: (context) => const AccountDetailView()),
+                );
+              } else if (title == 'Equity') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const EquityHome()),
                 );
               } else if (title == 'Master And User Management') {
                 Navigator.push(

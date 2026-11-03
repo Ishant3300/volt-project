@@ -1,5 +1,7 @@
 ﻿import 'dart:convert';
 import 'dart:io';
+import 'package:stocker/equity/eq_api.dart' show isCashRole;
+import 'package:stocker/equity/eq_home.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:provider/provider.dart';
@@ -153,6 +155,20 @@ class _LoginPageState extends State<LoginPage> {
             apiService.setInitializing(false);
             setState(() => _isLoading = false);
             _showTotpDialog();
+            return;
+          }
+
+          // Equity (NSE cash) accounts open the equity app — none of the F&O
+          // data below (profile, watchlist, metrics) is loaded for them.
+          if (isCashRole(response.data?['role']?.toString())) {
+            apiService.setInitializing(false);
+            setState(() => _isLoading = false);
+            if (!mounted) return;
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => EquityHome(requiresPasswordChange: response.requiresPasswordChange)),
+              (route) => false,
+            );
             return;
           }
 

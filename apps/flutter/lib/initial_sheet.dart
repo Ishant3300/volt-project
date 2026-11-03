@@ -1,5 +1,7 @@
 ﻿import 'dart:developer';
 import 'dart:io';
+import 'package:stocker/equity/eq_api.dart' show isCashRole;
+import 'package:stocker/equity/eq_home.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -114,6 +116,13 @@ class _InitialScreenState extends State<InitialScreen> {
               ),
             ),
           );
+          return;
+        }
+
+        // Saved equity (NSE cash) session: straight into the equity app, no F&O loads.
+        if (isCashRole(await _storage.getRole())) {
+          if (!mounted) return;
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const EquityHome()));
           return;
         }
 
