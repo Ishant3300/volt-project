@@ -95,13 +95,17 @@ async function seedScenario(options = {}) {
   // entry notional blocked on open). Settlement re-bases that block from the
   // entry price to the official settlement price, so assertions afterwards can
   // check `WALLET_FUNDING − |qty|×settlementPrice`.
+  // The NFO position is a NIFTY future, which uses the INDEX pool since the INDEX
+  // wallet went live (17 Oct 2026, utils/walletCategory.js) — its entry margin is
+  // blocked from INDEX, not NSE. Every user also gets INDEX funding so an index-future
+  // fill passes the wallet check.
   const WALLET_FUNDING = 100_000;
-  const NFO_ENTRY_BLOCK = 6 * 100;    // user 1: net 6 long @ 100 (NSE)
+  const NFO_ENTRY_BLOCK = 6 * 100;    // user 1: net 6 long @ 100 (NIFTY future → INDEX)
   const MCX_ENTRY_BLOCK = 20 * 200;   // user 2: net 20 short @ 200 (MCX)
   const walletForUser = index => {
-    if (index === 1) return { NSE: WALLET_FUNDING - NFO_ENTRY_BLOCK, MCX: WALLET_FUNDING, GLOBAL: 0 };
-    if (index === 2) return { NSE: WALLET_FUNDING, MCX: WALLET_FUNDING - MCX_ENTRY_BLOCK, GLOBAL: 0 };
-    return { NSE: WALLET_FUNDING, MCX: WALLET_FUNDING, GLOBAL: 0 }; // user 3 is flat
+    if (index === 1) return { NSE: WALLET_FUNDING, INDEX: WALLET_FUNDING - NFO_ENTRY_BLOCK, MCX: WALLET_FUNDING, GLOBAL: 0 };
+    if (index === 2) return { NSE: WALLET_FUNDING, INDEX: WALLET_FUNDING, MCX: WALLET_FUNDING - MCX_ENTRY_BLOCK, GLOBAL: 0 };
+    return { NSE: WALLET_FUNDING, INDEX: WALLET_FUNDING, MCX: WALLET_FUNDING, GLOBAL: 0 }; // user 3 is flat
   };
 
   const userPayload = index => ({
@@ -753,7 +757,8 @@ describeIntegration('isolated replica-set weekend settlement', () => {
     // (atomicity — Requirement 3.5 / cross-cutting 3).
     const rolledBackNfoUser = await User.findById(scenario.users[0]._id).select('wallet').lean();
     const rolledBackMcxUser = await User.findById(scenario.users[1]._id).select('wallet').lean();
-    expect(rolledBackNfoUser.wallet.NSE).toBeCloseTo(scenario.walletFunding - (6 * 100), 2);
+    expect(rolledBackNfoUser.wallet.INDEX).toBeCloseTo(scenario.walletFunding - (6 * 100), 2);
+    expect(rolledBackNfoUser.wallet.NSE).toBeCloseTo(scenario.walletFunding, 2);
     expect(rolledBackMcxUser.wallet.MCX).toBeCloseTo(scenario.walletFunding - (20 * 200), 2);
     expect((await KiteInstrument.findOne({ instrument_token: scenario.nfoToken }).lean()).last_price).toBe(111);
     expect((await SettlementRun.findById(run._id).lean()).status).toBe('running');
@@ -783,19 +788,22 @@ describeIntegration('isolated replica-set weekend settlement', () => {
       User.findById(scenario.users[2]._id).select('wallet').lean(),
     ]);
 
-    // NFO long 6 @ entry 100, settled at 130 (ABOVE entry): more margin blocked,
-    // so the NSE available balance DECREASES to funding − 6×130.
-    expect(nfoUser.wallet.NSE).toBeCloseTo(funding - (6 * nfoSettlement), 2);
-    // The user holds no MCX position, so that pool is left untouched.
+    // NIFTY future long 6 @ entry 100, settled at 130 (ABOVE entry): more margin
+    // blocked, so the INDEX available balance DECREASES to funding − 6×130.
+    expect(nfoUser.wallet.INDEX).toBeCloseTo(funding - (6 * nfoSettlement), 2);
+    // No stock future or MCX position, so those pools are left untouched.
+    expect(nfoUser.wallet.NSE).toBeCloseTo(funding, 2);
     expect(nfoUser.wallet.MCX).toBeCloseTo(funding, 2);
 
     // MCX short 20 @ entry 200, settled at 180: less margin blocked, so the MCX
     // available balance INCREASES to funding − 20×180.
     expect(mcxUser.wallet.MCX).toBeCloseTo(funding - (20 * mcxSettlement), 2);
     expect(mcxUser.wallet.NSE).toBeCloseTo(funding, 2);
+    expect(mcxUser.wallet.INDEX).toBeCloseTo(funding, 2);
 
     // The flat user (net 0) is fully closed — no carry-forward, no wallet re-base.
     expect(flatUser.wallet.NSE).toBeCloseTo(funding, 2);
+    expect(flatUser.wallet.INDEX).toBeCloseTo(funding, 2);
     expect(flatUser.wallet.MCX).toBeCloseTo(funding, 2);
 
     // The wallet re-base is independent of P&L: settled_pnl is credited exactly
@@ -1502,7 +1510,10 @@ describeIntegration('isolated replica-set weekend settlement', () => {
       status: 'pending',
       executed_quantity: 0,
     });
-    expect((await User.findById(scenario.users[0]._id).lean()).equity).toBe(beforeUser.equity);
+    const afterUser = await User.findById(scenario.users[0]._id).lean();
+    expect(afterUser.equity).toBe(beforeUser.equity);
+    // The fill would block INDEX margin (NIFTY future) — rolled back with everything else.
+    expect(afterUser.wallet.INDEX).toBe(beforeUser.wallet.INDEX);
     expect(await Transaction.countDocuments({ referenceId: scenario.pending._id })).toBe(0);
     expect(await TradeWriteLease.countDocuments({})).toBe(0);
   });
