@@ -21,13 +21,25 @@ const INTEREST_TTL_MS = 3 * 60 * 1000; // screens re-register every minute
 const PUSH_MS = 1000;
 const PERSIST_MS = 60 * 1000;
 
-/** Parse one Kite binary packet (NSE equity: prices in paise). */
+/**
+ * Parse one Kite binary packet (NSE equity: prices in paise).
+ *   0 token · 4 LTP · 8 last traded qty · 12 avg traded price · 16 day volume ·
+ *   20 total buy qty · 24 total sell qty · 28 open · 32 high · 36 low · 40 close ·
+ *   44 last trade time · 60 exchange time · 64.. market depth: 10 × (qty 4, price 4,
+ *   orders 2, pad 2) — 5 buy levels then 5 sell levels.
+ * Depth and volume feed the low-volume fill rules (orders fill only against real depth
+ * and a share of the volume the exchange actually trades).
+ */
 function parseTick(p) {
   if (p.length < 8) return null;
   const token = p.readInt32BE(0);
   const t = { instrument_token: token, last_price: p.readInt32BE(4) / 100 };
   if (p.length >= 44) {
+    t.last_qty = p.readInt32BE(8);
+    t.avg_price = p.readInt32BE(12) / 100;
     t.volume = p.readInt32BE(16);
+    t.total_buy_qty = p.readInt32BE(20);
+    t.total_sell_qty = p.readInt32BE(24);
     t.open = p.readInt32BE(28) / 100;
     t.high = p.readInt32BE(32) / 100;
     t.low = p.readInt32BE(36) / 100;
@@ -35,12 +47,22 @@ function parseTick(p) {
     t.change = Math.round((t.last_price - t.close) * 100) / 100;
     t.change_percent = t.close > 0.01 ? Math.round(((t.last_price - t.close) / t.close) * 10000) / 100 : 0;
   }
-  if (p.length >= 64) t.exchange_ts = p.readInt32BE(60);
+  if (p.length >= 64) {
+    t.last_trade_ts = p.readInt32BE(44);
+    t.exchange_ts = p.readInt32BE(60);
+  }
   if (p.length >= 184) {
-    const bid = p.readInt32BE(68) / 100;
-    const ask = p.readInt32BE(128) / 100;
-    if (bid > 0) t.bid_price = bid;
-    if (ask > 0) t.ask_price = ask;
+    const level = (i) => {
+      const o = 64 + i * 12;
+      return { qty: p.readInt32BE(o), price: p.readInt32BE(o + 4) / 100, orders: p.readInt16BE(o + 8) };
+    };
+    const real = (l) => l.qty > 0 && l.price > 0;
+    t.depth = {
+      buy: [0, 1, 2, 3, 4].map(level).filter(real),
+      sell: [5, 6, 7, 8, 9].map(level).filter(real),
+    };
+    if (t.depth.buy[0]) t.bid_price = t.depth.buy[0].price;
+    if (t.depth.sell[0]) t.ask_price = t.depth.sell[0].price;
   }
   return t;
 }

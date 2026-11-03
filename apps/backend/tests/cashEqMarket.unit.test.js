@@ -46,7 +46,7 @@ async function until(fn, ms = 2000) {
 }
 
 /** Kite full-mode packet (184 bytes) for an NSE stock. */
-function fullPacket(token, ltp, { bid, ask, open = ltp, high = ltp, low = ltp, close = ltp, volume = 1000 } = {}) {
+function fullPacket(token, ltp, { bid, ask, open = ltp, high = ltp, low = ltp, close = ltp, volume = 1000, buys, sells, lastTradeTs = 1762160000 } = {}) {
   const p = Buffer.alloc(184);
   p.writeInt32BE(token, 0);
   p.writeInt32BE(Math.round(ltp * 100), 4);
@@ -55,9 +55,16 @@ function fullPacket(token, ltp, { bid, ask, open = ltp, high = ltp, low = ltp, c
   p.writeInt32BE(Math.round(high * 100), 32);
   p.writeInt32BE(Math.round(low * 100), 36);
   p.writeInt32BE(Math.round(close * 100), 40);
+  p.writeInt32BE(lastTradeTs, 44);
   p.writeInt32BE(1762160000, 60);
-  if (bid) p.writeInt32BE(Math.round(bid * 100), 68);
-  if (ask) p.writeInt32BE(Math.round(ask * 100), 128);
+  const levels = (list, from) => list.forEach(([price, qty, orders = 1], i) => {
+    const o = 64 + (from + i) * 12;
+    p.writeInt32BE(qty, o);
+    p.writeInt32BE(Math.round(price * 100), o + 4);
+    p.writeInt16BE(orders, o + 8);
+  });
+  levels(buys || (bid ? [[bid, 100]] : []), 0);
+  levels(sells || (ask ? [[ask, 100]] : []), 5);
   return p;
 }
 function message(...packets) {
@@ -246,6 +253,18 @@ describe('separate Kite feed (fake Kite server)', () => {
     expect(f.nextConnectAt).toBeGreaterThan(Date.now() + 20000);
     await f.refresh();
     expect(kiteSockets).toHaveLength(1); // no second connection yet
+  });
+
+  test('parser: 5-level market depth, day volume and last trade time (low-volume fill rules need them)', () => {
+    const [t] = parseMessage(message(fullPacket(1, 100, {
+      volume: 54321, lastTradeTs: 1762150000,
+      buys: [[99.95, 120, 3], [99.9, 40], [99.8, 500]], sells: [[100.05, 75, 2], [100.2, 10]],
+    })));
+    expect(t).toMatchObject({ volume: 54321, last_trade_ts: 1762150000, bid_price: 99.95, ask_price: 100.05 });
+    expect(t.depth).toEqual({
+      buy: [{ price: 99.95, qty: 120, orders: 3 }, { price: 99.9, qty: 40, orders: 1 }, { price: 99.8, qty: 500, orders: 1 }],
+      sell: [{ price: 100.05, qty: 75, orders: 2 }, { price: 100.2, qty: 10, orders: 1 }],
+    });
   });
 
   test('parser: heartbeats and short frames give nothing', () => {
