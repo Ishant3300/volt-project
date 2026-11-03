@@ -36,6 +36,11 @@ const expiryActionSchema = new mongoose.Schema({
       kind: String, // 'split' | 'bonus' | 'rights', or several joined with '+'
       subject: String, // NSE's wording, e.g. 'Bonus 1:1'
       ex_date: String, // 'YYYY-MM-DD'
+      // Dividend-only actions (3 Nov 2026): per-share dividend, the stock's last
+      // official close it was measured against, and the % (2 % rule).
+      dividend: Number,
+      ref_price: Number,
+      dividend_pct: Number,
     },
     default: undefined,
   },

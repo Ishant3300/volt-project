@@ -40,6 +40,39 @@ const LOOKAHEAD_DAYS = 15;
 const INDEX = /^(NIFTY|BANKNIFTY|FINNIFTY|MIDCPNIFTY|NIFTYNXT50|SENSEX|SENSEX50|BANKEX)$/;
 const KIND_LABEL = { split: 'split', bonus: 'bonus', rights: 'rights issue', dividend: 'dividend' };
 
+/**
+ * A dividend-only action is cut only when the dividend is MORE than this %
+ * of the stock's last official close (business owner, 3 Nov 2026). Splits,
+ * bonuses and rights are always cut. Below the % nothing is planned, so no
+ * announcement-bar notice and no cut.
+ */
+const DIVIDEND_MIN_PCT = Number(process.env.CORP_DIVIDEND_MIN_PCT) || 2;
+
+/** Rupees per share across every dividend in NSE's subject(s) ("Interim Dividend - Rs 26 Per Share"); 0 if none readable. */
+function dividendPerShare(subject) {
+  let total = 0;
+  for (const part of String(subject || '').split(';')) {
+    if (!/dividend/i.test(part)) continue;
+    const m = /R(?:s|e)\.?\s*(\d+(?:\.\d+)?)/i.exec(part);
+    if (m) total += Number(m[1]);
+  }
+  return Math.round(total * 100) / 100;
+}
+
+/** The 2 % rule (pure). Unknown dividend or price → kept (and flagged by a null pct), never silently dropped. */
+function dividendCheck(dividend, price) {
+  if (!(dividend > 0) || !(price > 0)) return { keep: true, pct: null };
+  const ratioPct = (dividend / price) * 100;
+  return { keep: ratioPct > DIVIDEND_MIN_PCT, pct: Math.round(ratioPct * 100) / 100 };
+}
+
+/** The stock's last official close: its nearest NSE future's settlement price (NSE bhavcopy, refreshed daily). 0 if unknown. */
+async function referencePrice(symbol) {
+  const fut = await KiteInstrument.find({ name: symbol, segment: 'NFO-FUT', is_active: true, deleted_at: null, settlement_price: { $gt: 0 } })
+    .sort({ expiry: 1 }).limit(1).select('settlement_price').lean();
+  return Number(fut[0]?.settlement_price) || 0;
+}
+
 /** The kind of action an NSE subject describes, or null when no cut is needed (AGM, buy-back …). */
 function kindOf(subject) {
   const s = String(subject || '');
@@ -141,7 +174,19 @@ async function refreshPlan(now = new Date(), { fetchActions = fetchNseActions } 
   // The day before an early-January ex-date can fall in December.
   const years = new Set([today.getUTCFullYear(), addUtcDays(today, LOOKAHEAD_DAYS).getUTCFullYear()]);
   const holidays = await loadHolidays(years);
-  const planned = planCuts(rows, { fnoNames, holidays, today });
+  const planned = [];
+  for (const p of planCuts(rows, { fnoNames, holidays, today })) {
+    if (p.kind === 'dividend') {
+      p.dividend = dividendPerShare(p.subject);
+      p.ref_price = await referencePrice(p.symbol);
+      const check = dividendCheck(p.dividend, p.ref_price);
+      p.dividend_pct = check.pct;
+      // At or below the % → not cut (it becomes obsolete below, its notice is
+      // removed). A cut an admin already confirmed stays as decided.
+      if (!check.keep && !(await ExpiryAction.exists({ key: p.key, status: 'confirmed' }))) continue;
+    }
+    planned.push(p);
+  }
 
   for (const p of planned) {
     const fields = {
@@ -156,7 +201,10 @@ async function refreshPlan(now = new Date(), { fetchActions = fetchNseActions } 
       action_date: p.action_date,
       close_time: CLOSE_TIME,
       execute_at: p.execute_at,
-      corp_action: { symbol: p.symbol, kind: p.kind, subject: p.subject, ex_date: p.ex_date },
+      corp_action: {
+        symbol: p.symbol, kind: p.kind, subject: p.subject, ex_date: p.ex_date,
+        ...(p.kind === 'dividend' ? { dividend: p.dividend, ref_price: p.ref_price, dividend_pct: p.dividend_pct } : {}),
+      },
     };
     const existing = await ExpiryAction.findOne({ key: p.key }).select('status').lean();
     if (!existing) {
@@ -215,7 +263,8 @@ function timeLabel(hhmm) {
 function bannerFor(action) {
   const ca = action?.corp_action;
   if (!ca?.ex_date || !ca.symbol) return null;
-  const head = `${ca.symbol} — ${ca.subject || describe(action)}, ex-date ${dayLabel(ca.ex_date)}`;
+  const pct = ca.dividend_pct != null && ca.ref_price > 0 ? ` (${ca.dividend_pct}% of ${Number(ca.ref_price).toFixed(2)})` : '';
+  const head = `${ca.symbol} — ${ca.subject || describe(action)}${pct}, ex-date ${dayLabel(ca.ex_date)}`;
   if (action.status === 'confirmed' || action.status === 'running') {
     return {
       message: `${head}: all open ${ca.symbol} positions (futures & options) will be closed on ${dayLabel(action.action_date)} at the ${timeLabel(action.close_time || CLOSE_TIME)} closing rate.`,
@@ -255,5 +304,5 @@ module.exports = {
   isCorporateCut,
   describe,
   syncBanner,
-  _private: { kindOf, parseNseDate, planCuts, fetchNseActions, loadHolidays, bannerFor, CLOSE_TIME },
+  _private: { kindOf, parseNseDate, planCuts, fetchNseActions, loadHolidays, bannerFor, CLOSE_TIME, dividendPerShare, dividendCheck, DIVIDEND_MIN_PCT },
 };

@@ -128,6 +128,81 @@ async function corpActions(d, fromYmd, toYmd) {
   }).filter((a) => a.exDate).sort((a, b) => a.exDate.localeCompare(b.exDate) || a.symbol.localeCompare(b.symbol));
 }
 
+/**
+ * The cut rule (3 Nov 2026, same as services/corporateActionCutService.js):
+ * a dividend is shown — and cut — only when it is MORE than 2 % of the
+ * stock's last official close (nearest NSE future's settlement price).
+ * Splits, bonuses and rights always show. Unreadable amount or price → shown.
+ */
+const DIVIDEND_MIN_PCT = Number(process.env.CORP_DIVIDEND_MIN_PCT) || 2;
+function dividendPerShare(subject) {
+  let total = 0;
+  for (const part of String(subject || '').split(';')) {
+    if (!/dividend/i.test(part)) continue;
+    const m = /R(?:s|e)\.?\s*(\d+(?:\.\d+)?)/i.exec(part);
+    if (m) total += Number(m[1]);
+  }
+  return Math.round(total * 100) / 100;
+}
+async function cutWorthy(d, list) {
+  const out = [];
+  for (const a of list) {
+    if (a.kind !== 'dividend') { out.push(a); continue; }
+    const div = dividendPerShare(a.subject);
+    const fut = await d.collection('kiteinstruments').find({ name: a.symbol, segment: 'NFO-FUT', is_active: true, deleted_at: null, settlement_price: { $gt: 0 } })
+      .sort({ expiry: 1 }).limit(1).project({ settlement_price: 1 }).toArray();
+    const px = Number(fut[0]?.settlement_price) || 0;
+    if (!(div > 0) || !(px > 0)) { out.push(a); continue; }
+    const pct = (div / px) * 100;
+    if (pct <= DIVIDEND_MIN_PCT) continue;
+    out.push({ ...a, rawSubject: a.subject, subject: `${a.subject} (${Math.round(pct * 100) / 100}% of ${px.toFixed(2)})` });
+  }
+  return out;
+}
+
+const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const dayLong = (ymd) => { const x = new Date(`${ymd}T00:00:00Z`); return `${WEEKDAY[x.getUTCDay()]} ${x.getUTCDate()} ${MONTH_SHORT[x.getUTCMonth()]}`; };
+const time12 = (hhmm) => { const [h, m] = String(hhmm || '15:40').split(':').map(Number); return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
+
+/**
+ * A corporate-action cut an admin has confirmed → one "position cut" card
+ * (the INFY card of 2 Nov 2026), sent once. Only confirmations of the last
+ * 12 hours, so old cuts are never sent again after a restart.
+ */
+async function corpCutCards(c, d, n) {
+  n.corp.cut = n.corp.cut || {};
+  const since = new Date(Date.now() - 12 * 3600_000);
+  const cuts = await d.collection('expiryactions').find({
+    group_key: 'CORP_ACTION', confirmed_at: { $gte: since }, status: { $in: ['confirmed', 'running', 'done'] },
+  }).toArray();
+  for (const a of cuts) {
+    if (n.corp.cut[a.key]) continue;
+    const ca = a.corp_action || {};
+    if (!ca.symbol || !ca.ex_date) continue;
+    const pct = ca.dividend_pct != null && ca.ref_price > 0 ? ` (${ca.dividend_pct}% of ${Number(ca.ref_price).toFixed(2)})` : '';
+    const action = {
+      symbol: ca.symbol, company: (n.corp.names || {})[ca.symbol] || '', kind: String(ca.kind || 'other').split('+')[0],
+      subject: `${ca.subject || ''}${pct}`, exDate: ca.ex_date, recDate: ca.ex_date,
+    };
+    const exNextDay = new Date(Date.parse(`${a.action_date}T00:00:00Z`) + 864e5).toISOString().slice(0, 10) === ca.ex_date;
+    const title = exNextDay ? 'Ex-date Tomorrow' : `Ex-date ${dayLong(ca.ex_date).split(' ')[0]}`;
+    const before = Date.now() < new Date(a.execute_at).getTime();
+    const sym = String(ca.symbol).replace(/[<>&"]/g, '');
+    const close = time12(a.close_time);
+    const box = before
+      ? `<div class="box red"><b>Position cut today:</b> all open <b>${sym}</b> positions (futures &amp; options) will be closed by <b>day end today, ${dayLong(a.action_date)}</b>, at the <b>last quote</b> after the ${close} close &mdash; buy positions at the bid, sell positions at the ask.</div>`
+      : `<div class="box red"><b>Position cut:</b> all open <b>${sym}</b> positions (futures &amp; options) were closed at the <b>last quote</b> after the ${close} close on <b>${dayLong(a.action_date)}</b> &mdash; buy positions at the bid, sell positions at the ask.</div>`;
+    const marker = '</table></div></div>';
+    let html = cards.corpActionsCard({ date: a.action_date, actions: [action], title });
+    if (html.includes(marker)) html = html.replace(marker, `${marker}\n      ${box}`);
+    await sendCard(c, html, `${ca.symbol} — position cut ${before ? 'today' : 'done'}`, `corp-cut-${ca.symbol}-${a.action_date}.png`);
+    n.corp.cut[a.key] = a.action_date;
+  }
+  const old = new Date(Date.now() - 40 * 864e5).toISOString().slice(0, 10);
+  for (const [k, v] of Object.entries(n.corp.cut)) if (v < old) delete n.corp.cut[k];
+}
+
 // ------------------------------------------------------------- send ----
 async function sendCard(c, html, caption, filename) {
   const [png] = await cards.render([html]);
@@ -195,7 +270,11 @@ async function run(c) {
       c.send(c.lib.formatAlert('warning', 'Corporate actions not checked today', [`NSE list could not be read: ${e.message}`, 'Check splits/bonus/dividends on nseindia.com by hand today.']));
       return;
     }
-    const key = (a) => `${a.symbol}|${a.exDate}|${a.subject}`;
+    n.corp.names = n.corp.names || {};
+    for (const a of list) if (a.company) n.corp.names[a.symbol] = a.company;
+    // Dividends only above 2 % of the last close (the cut rule, 3 Nov 2026).
+    list = await cutWorthy(d, list);
+    const key = (a) => `${a.symbol}|${a.exDate}|${a.rawSubject || a.subject}`;
     const fresh = list.filter((a) => a.exDate > t.ymd && !n.corp.sent[key(a)]);
     const tomorrow = nextTradingDay(t.ymd);
     const remind = list.filter((a) => a.exDate === tomorrow && !n.corp.remind[key(a)] && !fresh.includes(a));
@@ -211,9 +290,16 @@ async function run(c) {
     await sendHolders(c, 'Clients holding stocks with a split/bonus coming (internal)', await holders(d, adjust, c.who));
     for (const m of [n.corp.sent, n.corp.remind]) for (const [k, v] of Object.entries(m)) if (v < new Date(Date.now() - 40 * 864e5).toISOString().slice(0, 10)) delete m[k];
   }
+
+  // 5. A corporate-action cut confirmed by an admin → its "position cut" card, once.
+  try {
+    await corpCutCards(c, d, n);
+  } catch (e) {
+    console.error(`[notices] corporate cut card failed: ${e.message}`);
+  }
 }
 
-module.exports = { run, expiryOpenData, newStocksData, banData, corpActions, holders, nextTradingDay };
+module.exports = { run, expiryOpenData, newStocksData, banData, corpActions, holders, nextTradingDay, _test: { corpCutCards, cutWorthy, dividendPerShare } };
 
 // ------------------------------------------------------- --sample CLI ----
 if (require.main === module) {
