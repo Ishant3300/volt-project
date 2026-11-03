@@ -507,8 +507,51 @@ async function newAccounts(c) {
     try {
       const msg = await newAccountMessage(c, p.kind, id);
       if (msg) c.send(msg);
+      if (msg && p.kind === 'users') {
+        const welcome = await welcomeFor(c, id);
+        if (welcome) c.send(welcome);
+      }
     } catch (e) { console.error('[watchdog] new account message:', e.message); }
   }
+}
+
+// Ready-to-forward welcome for a new client: the same text the office sends by
+// hand. Passwords are stored only as bcrypt hashes and the audit log redacts
+// them, so the password is filled in only when it is one of the office's
+// standard ones (checked against the hash here, on the server); otherwise the
+// line says to fill it in before forwarding.
+const WELCOME_SERVER = process.env.WATCHDOG_WELCOME_SERVER || 'wealthX';
+const WELCOME_APP_URL = process.env.WATCHDOG_WELCOME_APP_URL || 'https://voltapp.framer.website';
+const STANDARD_PASSWORDS = (process.env.WATCHDOG_STANDARD_PASSWORDS || '123456').split(',').map((s) => s.trim()).filter(Boolean);
+const WJ = '⁠'; // word joiner, as in the office template (stops Telegram turning the numbers into links)
+
+async function standardPassword(hash) {
+  if (!hash) return null;
+  const bcrypt = require('bcryptjs');
+  for (const p of STANDARD_PASSWORDS) if (await bcrypt.compare(p, hash).catch(() => false)) return p;
+  return null;
+}
+
+/** Escaped as a whole: Telegram (HTML mode) rejects a message with a bare "&" ("market & portfolio"). */
+function welcomeMessage(esc, doc, password) {
+  return esc([
+    '⚡️ Welcome to Volt Marketplace! ⚡️',
+    'The fastest way to track your market & portfolio. 📈💼',
+    'Here are your login credentials to get started:',
+    `🌐 Server: ${WELCOME_SERVER}`,
+    `👤 ${doc.name || doc.username}`,
+    `👤 User ID: ${WJ}${doc.username}`,
+    `🔑 Password: ${password ? WJ + password : '(fill in before forwarding)'}`,
+    '📲 Download the App:',
+    `👉 ${WELCOME_APP_URL}`,
+    'Track your portfolio in real time and trade with an edge. 🚀',
+    'Note: Please change your password after your first login for security. 🔒',
+  ].join('\n'));
+}
+
+async function welcomeFor(c, id) {
+  const doc = await c.d.collection('users').findOne({ _id: oid(id) }, { projection: { username: 1, name: 1, password: 1 } });
+  return doc ? welcomeMessage(c.lib.escapeHtml, doc, await standardPassword(doc.password)) : null;
 }
 
 /** Orders an admin or master placed for a client (any outcome), with who placed them. */
@@ -1321,4 +1364,4 @@ async function slow(c) {
   if (p.day >= 1 && p.day <= 5 && p.hhmm >= '23:40' && !state.digests[`collusion ${p.ymd}`]) { state.digests[`collusion ${p.ymd}`] = true; await collusion(c); }
 }
 
-module.exports = { internal, events, slow, sendFillImages, _test: { fillReport, fillCheck, brokerageChanges, brokerageChangeLines, certDaysLeft, spikeCatch, closedLots, exchangeDiff, fieldDiff, summarizeBody, COVERED_ACCOUNT, COVERED_MONEY, TRADE_EDIT, CREATE_PATH, newAccountMessage, partOfCreation } };
+module.exports = { internal, events, slow, sendFillImages, _test: { fillReport, fillCheck, brokerageChanges, brokerageChangeLines, certDaysLeft, spikeCatch, closedLots, exchangeDiff, fieldDiff, summarizeBody, COVERED_ACCOUNT, COVERED_MONEY, TRADE_EDIT, CREATE_PATH, newAccountMessage, partOfCreation, welcomeMessage, standardPassword } };
