@@ -7,7 +7,7 @@
 //
 //   node scripts/cashEq/runFnoSettlementTestsLocally.js [test files…]
 
-const { spawnSync } = require('child_process');
+const { spawn } = require('child_process');
 const path = require('path');
 const { MongoMemoryReplSet } = require('mongodb-memory-server');
 
@@ -20,9 +20,12 @@ const { MongoMemoryReplSet } = require('mongodb-memory-server');
   console.log(`Local MongoDB ${host} — running ${files.join(', ')}`);
   const env = { ...process.env, MONGO_URI: uri, RUN_SETTLEMENT_INTEGRATION: '1' };
   for (const k of Object.keys(env)) if (/MONGO/i.test(k) && k !== 'MONGO_URI') env[k] = 'mongodb://127.0.0.1:1/never-live';
-  const r = spawnSync(process.execPath, [path.join('node_modules', 'jest', 'bin', 'jest.js'), '--runInBand', '--forceExit', ...files], {
+  // Not spawnSync: a blocked parent stops reading mongod's output and the database stalls.
+  const status = await new Promise((resolve) => {
+    spawn(process.execPath, [path.join('node_modules', 'jest', 'bin', 'jest.js'), '--runInBand', '--forceExit', ...files], {
     cwd: path.join(__dirname, '..', '..'), env, stdio: 'inherit',
+  }).on('exit', (code) => resolve(code));
   });
   await rs.stop();
-  process.exit(r.status ?? 1);
+  process.exit(status ?? 1);
 })().catch((e) => { console.error(e.message); process.exit(1); });
