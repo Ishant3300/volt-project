@@ -18,8 +18,14 @@ const ALLOWED = new Set([
 ]);
 const NEW_OK = [/^src\/cashEq\//, /^scripts\/cashEq\//, /^tests\/cashEq[^/]*\.test\.js$/, /^tests\/helpers\/cashEq/, /^tests\/fixtures\/cashEq/];
 
-const run = (cmd) => execSync(cmd, { encoding: 'utf8' }).trim();
+// Run from the repo root whatever the current folder is (paths are repo-relative).
+const root = execSync('git rev-parse --show-toplevel', { encoding: 'utf8' }).trim();
+const run = (cmd) => execSync(cmd, { encoding: 'utf8', cwd: root }).trim();
 const lines = run(`git diff --name-status ${BASE} HEAD -- ${PREFIX}`).split('\n').filter(Boolean);
+if (!lines.length) {
+  console.error(`Nothing changed under ${PREFIX} since ${BASE} — wrong base? Refusing to pass an empty check.`);
+  process.exit(1);
+}
 
 const bad = [];
 for (const line of lines) {
