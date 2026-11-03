@@ -509,6 +509,13 @@ const universalLogin = async (req, res) => {
       }
     }
 
+    // Equity accounts (own collections, usernames start with EQ) — only reached when no
+    // admin, master or client matched above, so F&O sign-ins never get here.
+    if (!userAccount) {
+      const cash = await require('../cashEq/auth').tryLogin(username, password, req);
+      if (cash) return res.status(cash.status).json(cash.body);
+    }
+
     if (!userAccount) {
       console.log(`🔐 [LOGIN] No match found for username="${username}" in any collection`);
       return res.status(401).json({

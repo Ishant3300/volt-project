@@ -192,6 +192,7 @@ app.use('/api/master', masterFlowRoutes); // Master Flow routes
 app.use('/api/master/messages', messageRoutes);
 app.use('/api/servers', serverRoutes); // Server routes
 app.use('/api/trade', tradeRoutes); // Trade & Metrics routes
+app.use('/api/cash-eq', require('./cashEq/routes')); // Equity (NSE cash): own collections, off unless cashEq:enabled
 
 // Self login history (accessible by all roles)
 const { authenticateAny } = require('./middlewares/auth');
