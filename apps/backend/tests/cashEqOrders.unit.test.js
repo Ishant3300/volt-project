@@ -83,6 +83,8 @@ beforeEach(async () => {
   feed.refresh = async () => {};
   feed.lps = null;
   engine.marketOpen.mockReturnValue(true);
+  // Fill pacing off for the step-by-step tests (it has its own test below).
+  await models.EqSettings.create({ _id: 'liquidity', values: { fill_interval_sec: 0 } });
 
   const rates = {
     brokerage_mtf: { mode: 'PCT', intraday: 0.02, carry: 0.1 }, brokerage_non: { mode: 'PCT', intraday: 0.05, carry: 0.3 },
@@ -289,6 +291,28 @@ describe('orders through the routes', () => {
     const r = await request(app).patch('/api/cash-eq/settings/liquidity').set(ADMIN).send({ participation_pct: 5, holidays: ['2026-11-24'] }).expect(200);
     expect(r.body.data).toMatchObject({ participation_pct: 5, day_participation_pct: 10, holidays: ['2026-11-24'] });
     await request(app).patch('/api/cash-eq/settings/liquidity').set(asClient(clientA)).send({ participation_pct: 50 }).expect(403);
+  });
+
+  test('pacing: open orders fill at most every 30 s per stock; the volume share builds up meanwhile', async () => {
+    await models.EqSettings.updateOne({ _id: 'liquidity' }, { $set: { values: { fill_interval_sec: 30 } } });
+    orders.clearSettingsCache();
+    let now = Date.now();
+    const clock = jest.spyOn(Date, 'now').mockImplementation(() => now);
+    try {
+      setQuote(quote(THIN, { ltp: 50, volume: 1000, sells: [[50.05, 9000]], buys: [[50, 100]] }));
+      await place(asClient(clientA), { instrument_token: THIN, side: 'B', qty: 5000, order_type: 'MARKET' }).expect(201); // 100 now
+      setQuote(quote(THIN, { ltp: 50, volume: 3000, sells: [[50.05, 9000]], buys: [[50, 100]] }));
+      expect(await orders.processStock(THIN)).toBe(200); // first paced fill: 10 % of 2,000
+      now += 5000;
+      setQuote(quote(THIN, { ltp: 50, volume: 5000, sells: [[50.05, 9000]], buys: [[50, 100]] }));
+      expect(await orders.processStock(THIN)).toBe(0); // 5 s later: waits
+      now += 26000;
+      setQuote(quote(THIN, { ltp: 50, volume: 6000, sells: [[50.05, 9000]], buys: [[50, 100]] }));
+      expect(await orders.processStock(THIN)).toBe(300); // 31 s: the 3,000 traded meanwhile → 300 in one fill
+      expect(models.EqTrade.store.size).toBe(3);
+    } finally {
+      clock.mockRestore();
+    }
   });
 
   test('ticks drive pending fills through the feed listener', async () => {

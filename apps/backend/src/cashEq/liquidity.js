@@ -22,6 +22,7 @@ const DEFAULTS = Object.freeze({
   max_spread_pct: 1, // MARKET orders need (ask − bid) ≤ this % of the price
   collar_pct: 2, // no fill more than this % away from the LTP
   limit_band_pct: 20, // LIMIT price must be within this % of the previous close (widest NSE band)
+  fill_interval_sec: 30, // open orders fill at most this often per stock (the volume share keeps building in between)
 });
 
 const round2 = (n) => Math.round(n * 100) / 100;
@@ -44,6 +45,7 @@ function checkSettings(s) {
   pct('max_spread_pct', 20);
   pct('collar_pct', 20);
   pct('limit_band_pct', 50);
+  if (!(s.fill_interval_sec >= 0 && s.fill_interval_sec <= 600)) errs.push('fill interval must be 0 to 600 seconds');
   if (!(Number.isInteger(s.depth_levels) && s.depth_levels >= 1 && s.depth_levels <= 5)) errs.push('depth levels must be 1 to 5');
   if (!(s.stale_minutes >= 1 && s.stale_minutes <= 120)) errs.push('stale minutes must be 1 to 120');
   return errs;
@@ -119,7 +121,7 @@ function sweep({ side, quote, wantQty, capQty, limitPrice = null, used = new Map
  *   filled     shares all our clients filled in this stock today
  */
 function newStockState(date) {
-  return { date, volume: null, budget: 0, filled: 0, snapshot: null, used: new Map() };
+  return { date, volume: null, budget: 0, filled: 0, snapshot: null, used: new Map(), lastFillAt: 0 };
 }
 
 /** A new tick: grow the budget by the participation share of the new exchange volume. */

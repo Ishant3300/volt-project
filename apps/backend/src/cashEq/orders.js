@@ -351,6 +351,9 @@ async function processStock(token) {
   if (!quote) return 0;
   const st = await stockState(token, date);
   liquidity.onVolume(st, quote, s);
+  // Paced: open orders take their volume share at most every fill_interval_sec, so a thin
+  // stock gives a few bigger fills instead of a 1-share trade on every tick.
+  if (Date.now() - st.lastFillAt < s.fill_interval_sec * 1000) return 0;
   let filled = 0;
   for (const o of orders) {
     const cap = Math.min(Math.floor(st.budget), liquidity.dayRoom(st, quote, s));
@@ -360,6 +363,7 @@ async function processStock(token) {
     const u = await recordFills(o, r.fills, st, { fromBudget: true });
     if (u) filled += r.qty;
   }
+  if (filled) st.lastFillAt = Date.now();
   return filled;
 }
 

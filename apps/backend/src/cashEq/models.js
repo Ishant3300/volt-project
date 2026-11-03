@@ -63,6 +63,7 @@ const eqClientSchema = new Schema({
 for (const s of [eqMasterSchema, eqClientSchema]) {
   s.set('toJSON', {
     transform: (_doc, ret) => {
+      ret.id = String(ret._id); // the web portal keys saved sessions on `id`, like F&O accounts
       delete ret.password;
       delete ret.active_token;
       delete ret.__v;
