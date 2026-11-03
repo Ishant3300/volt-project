@@ -25,8 +25,12 @@ const accountFields = {
   // Caps: a master's are the most it can give anyone below; a client's are its own limits.
   per_script_limit: { type: Number, required: true, min: 0 },
   total_limit: { type: Number, required: true, min: 0 },
-  brokerage: { type: brokerageSchema, default: () => ({}) },
-  interest_pct: { type: Number, required: true, min: 0, max: 100 }, // % per year
+  // Two sets of rates: approved (MTF) scripts and non-approved scripts (the MTF list
+  // comes from a broker's published list — instruments.js syncMtfList).
+  brokerage_mtf: { type: brokerageSchema, default: () => ({}) },
+  brokerage_non: { type: brokerageSchema, default: () => ({}) },
+  interest_mtf_pct: { type: Number, required: true, min: 0, max: 100 }, // % per year
+  interest_non_pct: { type: Number, required: true, min: 0, max: 100 },
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
   active_token: { type: String, default: null },
   change_pass_on_first_login: { type: Boolean, default: false },
@@ -87,6 +91,48 @@ const eqAuditSchema = new Schema({
   details: { type: Schema.Types.Mixed, default: {} },
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
+/** NSE EQ-series stocks (own list — the F&O instruments collection is not touched). */
+const eqInstrumentSchema = new Schema({
+  instrument_token: { type: Number, required: true, unique: true },
+  exchange_token: { type: Number },
+  tradingsymbol: { type: String, required: true, index: true },
+  name: { type: String, default: '' },
+  tick_size: { type: Number, default: 0.05 },
+  is_active: { type: Boolean, default: true, index: true },
+  synced_at: { type: Date },
+  // Approved (MTF) script: on the broker's published MTF list at the last list sync.
+  mtf: { type: Boolean, default: false, index: true },
+  mtf_margin_pct: { type: Number, default: null }, // broker's margin % (kept for reference)
+  mtf_category: { type: String, default: null }, // fo / non_fo / etf / non_categorized
+  isin: { type: String, default: null },
+  mtf_synced_at: { type: Date, default: null },
+}, { timestamps: true });
+
+/** Last known equity quote per stock (so prices show outside market hours too). */
+const eqQuoteSchema = new Schema({
+  instrument_token: { type: Number, required: true, unique: true },
+  last_price: Number,
+  bid_price: Number,
+  ask_price: Number,
+  open: Number,
+  high: Number,
+  low: Number,
+  close: Number,
+  change: Number,
+  change_percent: Number,
+  volume: Number,
+  at: Date,
+}, { versionKey: false });
+
+/** Equity watchlist: one row per (owner, stock). Separate from the F&O watchlist. */
+const eqWatchlistSchema = new Schema({
+  owner_role: { type: String, enum: ['admin', 'cash_master', 'cash_client'], required: true },
+  owner_id: { type: Schema.Types.ObjectId, required: true, index: true },
+  instrument_token: { type: Number, required: true, index: true },
+  tradingsymbol: { type: String, required: true },
+}, { timestamps: true });
+eqWatchlistSchema.index({ owner_id: 1, instrument_token: 1 }, { unique: true });
+
 const model = (name, schema, collection) => mongoose.models[name] || mongoose.model(name, schema, collection);
 
 module.exports = {
@@ -94,4 +140,7 @@ module.exports = {
   EqClient: model('EqClient', eqClientSchema, 'eqcash_clients'),
   EqLedgerEntry: model('EqLedgerEntry', eqLedgerSchema, 'eqcash_ledger'),
   EqAudit: model('EqAudit', eqAuditSchema, 'eqcash_audit'),
+  EqInstrument: model('EqInstrument', eqInstrumentSchema, 'eqcash_instruments'),
+  EqQuote: model('EqQuote', eqQuoteSchema, 'eqcash_quotes'),
+  EqWatchlist: model('EqWatchlist', eqWatchlistSchema, 'eqcash_watchlist'),
 };

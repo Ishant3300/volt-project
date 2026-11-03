@@ -62,6 +62,13 @@ function cleanUsername(v) {
   return typeof v === 'string' ? v.trim().toUpperCase() : '';
 }
 
+/** Edits may send only part of a brokerage set — keep the rest as stored. */
+function mergeBrokerage(current, body) {
+  const out = {};
+  for (const set of rules.SETS) out[set.brokerage] = { ...(current[set.brokerage] || {}), ...(body[set.brokerage] || {}) };
+  return out;
+}
+
 function badPassword(p) {
   return typeof p !== 'string' || p.length < 6 ? 'Password must be at least 6 characters' : null;
 }
@@ -186,7 +193,7 @@ exports.updateMaster = async (req, res) => {
   const next = rules.normalise({
     ...current,
     ...body,
-    brokerage: { ...(current.brokerage || {}), ...(body.brokerage || {}) },
+    ...mergeBrokerage(current, body),
   }, { master: true });
 
   const parent = m.parent_id ? await EqMaster.findById(m.parent_id).lean() : null;
@@ -322,7 +329,7 @@ exports.updateClient = async (req, res) => {
   const next = rules.normalise({
     ...current,
     ...body,
-    brokerage: { ...(current.brokerage || {}), ...(body.brokerage || {}) },
+    ...mergeBrokerage(current, body),
   }, { master: false });
   const master = await EqMaster.findById(c.master_id).lean();
   const errs = rules.checkAgainstParent(next, master, { master: false });

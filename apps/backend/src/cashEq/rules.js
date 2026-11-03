@@ -2,15 +2,20 @@
 
 // Equity waterfall rules — pure functions (no database).
 //
+// Every account has two sets of rates: approved (MTF) scripts and non-approved scripts.
 // Each level is capped by the level above it:
 //   • per-script and total limits   ≤ parent's   (limits apply per client, not to a tree total)
-//   • brokerage (intraday, carry, minimum per share) ≥ parent's, same mode (PCT/FIX);
-//     "higher side only" (cheaper) only if the parent has it too
-//   • interest % per year           ≥ parent's
+//   • brokerage of each set (intraday, carry, minimum per share) ≥ parent's, same mode
+//     (PCT/FIX); "higher side only" (cheaper) only if the parent has it too
+//   • interest % of each set        ≥ parent's
 //   • sharing % (masters)            ≤ parent's, like F&O pnl_sharing / brokerage_sharing
 // Top-level equity masters sit under admin: only the basic checks apply.
 
 const SHARE_KEYS = ['pnl_share', 'brokerage_share', 'interest_share'];
+const SETS = [
+  { key: 'mtf', label: 'approved scripts', brokerage: 'brokerage_mtf', interest: 'interest_mtf_pct' },
+  { key: 'non', label: 'non-approved scripts', brokerage: 'brokerage_non', interest: 'interest_non_pct' },
+];
 
 const lakh = (n) => {
   if (!Number.isFinite(n)) return String(n);
@@ -21,21 +26,26 @@ const lakh = (n) => {
 
 const num = (v) => (v === '' || v === null || v === undefined ? NaN : Number(v));
 
+function normaliseBrokerage(b = {}) {
+  return {
+    mode: String(b.mode || 'PCT').toUpperCase(),
+    intraday: num(b.intraday ?? 0),
+    carry: num(b.carry ?? 0),
+    min_rate: num(b.min_rate ?? 0),
+    higher_side_only: b.higher_side_only === true || b.higher_side_only === 'true',
+  };
+}
+
 /** Normalise request values to the stored shape (numbers, booleans, upper-case mode). */
 function normalise(input, { master }) {
-  const b = input.brokerage || {};
   const out = {
     per_script_limit: num(input.per_script_limit),
     total_limit: num(input.total_limit),
-    interest_pct: num(input.interest_pct),
-    brokerage: {
-      mode: String(b.mode || 'PCT').toUpperCase(),
-      intraday: num(b.intraday ?? 0),
-      carry: num(b.carry ?? 0),
-      min_rate: num(b.min_rate ?? 0),
-      higher_side_only: b.higher_side_only === true || b.higher_side_only === 'true',
-    },
   };
+  for (const s of SETS) {
+    out[s.brokerage] = normaliseBrokerage(input[s.brokerage]);
+    out[s.interest] = num(input[s.interest]);
+  }
   if (master) for (const k of SHARE_KEYS) out[k] = num(input[k]);
   return out;
 }
@@ -43,19 +53,22 @@ function normalise(input, { master }) {
 /** Basic sanity of one account's settings. */
 function checkBasics(acc, { master }) {
   const errs = [];
-  for (const k of ['per_script_limit', 'total_limit', 'interest_pct']) {
+  for (const k of ['per_script_limit', 'total_limit']) {
     if (!Number.isFinite(acc[k]) || acc[k] < 0) errs.push(`${k.replace(/_/g, ' ')} must be a number, 0 or more`);
   }
   if (Number.isFinite(acc.per_script_limit) && Number.isFinite(acc.total_limit) && acc.per_script_limit > acc.total_limit) {
     errs.push(`Per-script limit (${lakh(acc.per_script_limit)}) can't be above the total limit (${lakh(acc.total_limit)})`);
   }
-  if (acc.interest_pct > 100) errs.push('Interest % must be 100 or less');
-  const b = acc.brokerage;
-  if (!['PCT', 'FIX'].includes(b.mode)) errs.push('Brokerage mode must be PCT or FIX');
-  for (const k of ['intraday', 'carry', 'min_rate']) {
-    if (!Number.isFinite(b[k]) || b[k] < 0) errs.push(`Brokerage ${k.replace('_', ' ')} must be a number, 0 or more`);
+  for (const s of SETS) {
+    const i = acc[s.interest];
+    if (!Number.isFinite(i) || i < 0 || i > 100) errs.push(`Interest for ${s.label} must be between 0 and 100 %`);
+    const b = acc[s.brokerage] || {};
+    if (!['PCT', 'FIX'].includes(b.mode)) errs.push(`Brokerage mode for ${s.label} must be PCT or FIX`);
+    for (const k of ['intraday', 'carry', 'min_rate']) {
+      if (!Number.isFinite(b[k]) || b[k] < 0) errs.push(`Brokerage ${k.replace('_', ' ')} for ${s.label} must be a number, 0 or more`);
+    }
+    if (b.mode === 'PCT' && (b.intraday > 5 || b.carry > 5)) errs.push(`Brokerage % for ${s.label} looks wrong (more than 5 %)`);
   }
-  if (b.mode === 'PCT' && (b.intraday > 5 || b.carry > 5)) errs.push('Brokerage % looks wrong (more than 5 %)');
   if (master) {
     for (const k of SHARE_KEYS) {
       if (!Number.isFinite(acc[k]) || acc[k] < 0 || acc[k] > 100) errs.push(`${k.replace(/_/g, ' ')} must be between 0 and 100`);
@@ -68,31 +81,26 @@ function checkBasics(acc, { master }) {
 function checkAgainstParent(child, parent, { master }) {
   const errs = checkBasics(child, { master });
   if (!parent || errs.length) return errs;
-  const pb = parent.brokerage || {};
-  const cb = child.brokerage;
-  if (child.per_script_limit > parent.per_script_limit) {
-    errs.push(`Per-script limit can't be above ${lakh(parent.per_script_limit)} (${parent.username})`);
-  }
-  if (child.total_limit > parent.total_limit) {
-    errs.push(`Total limit can't be above ${lakh(parent.total_limit)} (${parent.username})`);
-  }
-  if (child.interest_pct < parent.interest_pct) {
-    errs.push(`Interest can't be below ${parent.interest_pct} % (${parent.username})`);
-  }
-  if (cb.mode !== (pb.mode || 'PCT')) {
-    errs.push(`Brokerage must be ${pb.mode || 'PCT'} like ${parent.username}`);
-  } else {
-    const unit = cb.mode === 'PCT' ? ' %' : ' per share';
-    if (cb.intraday < (pb.intraday || 0)) errs.push(`Intraday brokerage can't be below ${pb.intraday}${unit} (${parent.username})`);
-    if (cb.carry < (pb.carry || 0)) errs.push(`Carry forward brokerage can't be below ${pb.carry}${unit} (${parent.username})`);
-    if (cb.min_rate < (pb.min_rate || 0)) errs.push(`Minimum brokerage can't be below ${pb.min_rate} per share (${parent.username})`);
-  }
-  if (cb.higher_side_only && !pb.higher_side_only) {
-    errs.push(`"Higher side only" can't be on: ${parent.username} charges both sides`);
+  const who = parent.username;
+  if (child.per_script_limit > parent.per_script_limit) errs.push(`Per-script limit can't be above ${lakh(parent.per_script_limit)} (${who})`);
+  if (child.total_limit > parent.total_limit) errs.push(`Total limit can't be above ${lakh(parent.total_limit)} (${who})`);
+  for (const s of SETS) {
+    if (child[s.interest] < (parent[s.interest] || 0)) errs.push(`Interest for ${s.label} can't be below ${parent[s.interest]} % (${who})`);
+    const pb = parent[s.brokerage] || {};
+    const cb = child[s.brokerage];
+    if (cb.mode !== (pb.mode || 'PCT')) {
+      errs.push(`Brokerage for ${s.label} must be ${pb.mode || 'PCT'} like ${who}`);
+    } else {
+      const unit = cb.mode === 'PCT' ? ' %' : ' per share';
+      if (cb.intraday < (pb.intraday || 0)) errs.push(`Intraday brokerage for ${s.label} can't be below ${pb.intraday}${unit} (${who})`);
+      if (cb.carry < (pb.carry || 0)) errs.push(`Carry forward brokerage for ${s.label} can't be below ${pb.carry}${unit} (${who})`);
+      if (cb.min_rate < (pb.min_rate || 0)) errs.push(`Minimum brokerage for ${s.label} can't be below ${pb.min_rate} per share (${who})`);
+    }
+    if (cb.higher_side_only && !pb.higher_side_only) errs.push(`"Higher side only" for ${s.label} can't be on: ${who} charges both sides`);
   }
   if (master) {
     for (const k of SHARE_KEYS) {
-      if (child[k] > parent[k]) errs.push(`${k.replace(/_/g, ' ')} can't be above ${parent[k]} % (${parent.username})`);
+      if (child[k] > parent[k]) errs.push(`${k.replace(/_/g, ' ')} can't be above ${parent[k]} % (${who})`);
     }
   }
   return errs;
@@ -106,19 +114,21 @@ function checkAgainstChildren(parent, children) {
   const errs = [];
   for (const c of children) {
     const isMaster = c.pnl_share !== undefined;
-    const e = checkAgainstParent(
-      { ...c, brokerage: { mode: 'PCT', intraday: 0, carry: 0, min_rate: 0, higher_side_only: false, ...(c.brokerage || {}) } },
-      parent,
-      { master: isMaster }
-    );
-    for (const m of e) errs.push(`${c.username}: ${m.replace(/ \([^)]*\)$/, '')}`);
+    const filled = { ...c };
+    for (const s of SETS) filled[s.brokerage] = { ...normaliseBrokerage({}), ...(c[s.brokerage] || {}) };
+    for (const m of checkAgainstParent(filled, parent, { master: isMaster })) errs.push(`${c.username}: ${m.replace(/ \([^)]*\)$/, '')}`);
   }
   return errs;
 }
 
-/** Trade Terminal slab (engine.js) from a client's brokerage. */
-function toSlab(client) {
-  const b = client.brokerage || {};
+/**
+ * Trade Terminal slab (engine.js) for one set ('mtf' | 'non') of a client's brokerage.
+ * Brokerage of each trade uses the set of its script's category at the time of the trade.
+ */
+function toSlab(client, set) {
+  const s = SETS.find((x) => x.key === set);
+  if (!s) throw new Error(`Unknown brokerage set ${set}`);
+  const b = client[s.brokerage] || {};
   const pct = b.mode !== 'FIX';
   return {
     id: 1, clientCode: String(client._id), segment: 'NSEEQ', scriptWise: false, script: '',
@@ -129,13 +139,14 @@ function toSlab(client) {
   };
 }
 
-/** Trade Terminal account (engine.js) from a client. */
+/** Trade Terminal account (engine.js) from a client, with both interest rates. */
 function toAccount(client) {
   return {
     code: String(client._id),
     openingBalance: client.opening_balance || 0,
     openingType: client.opening_type === 'Dr' ? 'Dr' : 'Cr',
-    interestPct: client.interest_pct || 0,
+    interestPct: client.interest_mtf_pct || 0,
+    interestNonPct: client.interest_non_pct || 0,
   };
 }
 
@@ -143,5 +154,5 @@ function toAccount(client) {
 const USERNAME_RE = /^EQ[A-Z0-9]{3,14}$/;
 
 module.exports = {
-  SHARE_KEYS, USERNAME_RE, lakh, normalise, checkBasics, checkAgainstParent, checkAgainstChildren, toSlab, toAccount,
+  SHARE_KEYS, SETS, USERNAME_RE, lakh, normalise, checkBasics, checkAgainstParent, checkAgainstChildren, toSlab, toAccount,
 };

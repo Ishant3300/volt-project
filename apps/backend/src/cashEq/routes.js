@@ -39,4 +39,18 @@ router.get('/clients/:id/ledger', managers, wrap(c.listLedger));
 router.post('/clients/:id/ledger', managers, noWatchOnly, wrap(c.addLedger));
 router.delete('/clients/:id/ledger/:entryId', managers, noWatchOnly, wrap(c.deleteLedger));
 
+// Stocks, watchlist, prices (M3).
+const market = require('./market');
+const adminOnly = requireCash('admin');
+
+router.get('/instruments/search', anyone, wrap(market.search));
+router.get('/instruments/:token', anyone, wrap(market.getInstrument));
+router.get('/watchlist', anyone, wrap(market.getWatchlist));
+router.post('/watchlist', anyone, wrap(market.addToWatchlist)); // personal list: watch-only admins too
+router.delete('/watchlist/:token', anyone, wrap(market.removeFromWatchlist));
+router.get('/quotes', anyone, wrap(market.quotes));
+router.post('/stream', anyone, wrap(market.stream));
+router.get('/feed/status', adminOnly, wrap(market.feedStatus));
+router.post('/instruments/sync', adminOnly, noWatchOnly, wrap(market.syncNow));
+
 module.exports = router;

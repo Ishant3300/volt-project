@@ -53,14 +53,14 @@ const fakeReq = (ua = 'Mozilla/5.0') => ({ ip: '1.2.3.4', headers: { 'user-agent
 
 const masterBody = (over = {}) => ({
   name: 'Harry Equity', username: 'EQHARRY', password: 'secret1',
-  per_script_limit: 25 * L, total_limit: 2 * CR, interest_pct: 12,
-  brokerage: { mode: 'PCT', intraday: 0.02, carry: 0.06 },
+  per_script_limit: 25 * L, total_limit: 2 * CR, interest_mtf_pct: 12, interest_non_pct: 15,
+  brokerage_mtf: { mode: 'PCT', intraday: 0.02, carry: 0.06 }, brokerage_non: { mode: 'PCT', intraday: 0.03, carry: 0.1 },
   pnl_share: 40, brokerage_share: 50, interest_share: 50, ...over,
 });
 const clientBody = (over = {}) => ({
   name: 'Ramesh K', username: 'EQ100001', password: 'secret1', opening_balance: 10 * L, opening_type: 'Cr',
-  per_script_limit: 20 * L, total_limit: 1 * CR, interest_pct: 18,
-  brokerage: { mode: 'PCT', intraday: 0.03, carry: 0.1 }, ...over,
+  per_script_limit: 20 * L, total_limit: 1 * CR, interest_mtf_pct: 18, interest_non_pct: 21,
+  brokerage_mtf: { mode: 'PCT', intraday: 0.03, carry: 0.1 }, brokerage_non: { mode: 'PCT', intraday: 0.04, carry: 0.15 }, ...over,
 });
 
 /** Sign in through tryLogin and clear the first-login password change. */
@@ -108,14 +108,14 @@ describe('waterfall through the routes', () => {
     const tooBig = await request(app).post('/api/cash-eq/clients').set(auth(harry)).send(clientBody({ per_script_limit: 30 * L })).expect(400);
     expect(tooBig.body.message).toBe('Per-script limit can\'t be above 25 L (EQHARRY)');
     // Brokerage below the master: refused.
-    await request(app).post('/api/cash-eq/clients').set(auth(harry)).send(clientBody({ brokerage: { mode: 'PCT', intraday: 0.01, carry: 0.1 } })).expect(400);
+    await request(app).post('/api/cash-eq/clients').set(auth(harry)).send(clientBody({ brokerage_non: { mode: 'PCT', intraday: 0.02, carry: 0.15 } })).expect(400);
     const c1 = await request(app).post('/api/cash-eq/clients').set(auth(harry)).send(clientBody()).expect(201);
     expect(c1.body.data.master_id).toBe(created.body.data._id);
 
     // Sub-master: share above the parent refused, then created.
     await request(app).post('/api/cash-eq/masters').set(auth(harry)).send(masterBody({ username: 'EQSUB1', pnl_share: 45 })).expect(400);
     const subRes = await request(app).post('/api/cash-eq/masters').set(auth(harry))
-      .send(masterBody({ username: 'EQSUB1', pnl_share: 30, per_script_limit: 20 * L, total_limit: 1 * CR, interest_pct: 15, brokerage: { mode: 'PCT', intraday: 0.025, carry: 0.08 } })).expect(201);
+      .send(masterBody({ username: 'EQSUB1', pnl_share: 30, per_script_limit: 20 * L, total_limit: 1 * CR, interest_mtf_pct: 15, interest_non_pct: 18, brokerage_mtf: { mode: 'PCT', intraday: 0.025, carry: 0.08 }, brokerage_non: { mode: 'PCT', intraday: 0.035, carry: 0.12 } })).expect(201);
     expect(subRes.body.data.parent_id).toBe(created.body.data._id);
 
     const sub = await signIn('EQSUB1');

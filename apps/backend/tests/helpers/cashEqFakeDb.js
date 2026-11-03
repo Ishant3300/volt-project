@@ -12,8 +12,10 @@ const str = (v) => (v === undefined || v === null ? null : String(v));
 function matches(doc, q) {
   return Object.entries(q || {}).every(([k, want]) => {
     const have = doc[k];
-    if (want && typeof want === 'object' && !(want instanceof mongoose.Types.ObjectId) && Array.isArray(want.$in)) {
-      return want.$in.map(String).includes(str(have));
+    if (want && typeof want === 'object' && !(want instanceof mongoose.Types.ObjectId) && !(want instanceof Date)) {
+      if (Array.isArray(want.$in)) return want.$in.map(String).includes(str(have));
+      if (Array.isArray(want.$nin)) return !want.$nin.map(String).includes(str(have));
+      if (want.$regex !== undefined) return new RegExp(want.$regex, want.$options || '').test(String(have ?? ''));
     }
     return str(have) === str(want);
   });
@@ -54,11 +56,12 @@ function makeFake(Real) {
   };
 
   const query = (run) => {
-    const state = { select: null, sort: null, lean: false };
+    const state = { select: null, sort: null, lean: false, limit: 0 };
     const chain = {
       select(s) { state.select = s; return chain; },
       sort(s) { state.sort = s; return chain; },
       lean() { state.lean = true; return chain; },
+      limit(n) { state.limit = n; return chain; },
       session() { return chain; },
       then(resolve, reject) {
         try {
@@ -83,7 +86,8 @@ function makeFake(Real) {
     },
     find(q) {
       return query((s) => {
-        const list = sortDocs(all().filter((d) => matches(d, q)), s.sort);
+        let list = sortDocs(all().filter((d) => matches(d, q)), s.sort);
+        if (s.limit) list = list.slice(0, s.limit);
         return s.lean ? list.map((d) => leanOf(d, s.select)) : list;
       });
     },
@@ -103,6 +107,30 @@ function makeFake(Real) {
     },
     async countDocuments(q) {
       return all().filter((d) => matches(d, q)).length;
+    },
+    async distinct(field, q) {
+      return [...new Set(all().filter((d) => matches(d, q)).map((d) => d[field]))];
+    },
+    async deleteOne(q) {
+      const d = all().find((x) => matches(x, q));
+      if (d) store.delete(String(d._id));
+      return { deletedCount: d ? 1 : 0 };
+    },
+    async updateMany(q, update) {
+      const hits = all().filter((d) => matches(d, q));
+      for (const d of hits) { Object.assign(d, update.$set || {}); await d.save(); }
+      return { modifiedCount: hits.length };
+    },
+    async bulkWrite(ops) {
+      for (const op of ops) {
+        const { filter, update, upsert } = op.updateOne;
+        let d = all().find((x) => matches(x, filter));
+        if (!d && upsert) d = attach(new Real({ ...filter }));
+        if (!d) continue;
+        Object.assign(d, update.$set || {});
+        await d.save();
+      }
+      return { ok: 1 };
     },
     async aggregate(pipeline) {
       let rows = all();

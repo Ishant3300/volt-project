@@ -419,6 +419,9 @@ const startServer = async () => {
     const massiveFuturesFeedService = require('./services/massiveFuturesFeedService');
     await massiveFuturesFeedService.init(livePriceService);
     _ts('CME/COMEX futures feed (Massive) started');
+
+    // Equity (NSE cash): own Kite connection + daily lists; idle unless cashEq:enabled.
+    try { require('./cashEq/jobs').start(livePriceService); } catch (e) { console.log(`⚠️ [cashEq] jobs not started: ${e.message}`); }
   } else {
     console.log('⏭️  Kite auth & live prices SKIPPED (local dev mode)');
   }
