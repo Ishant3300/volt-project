@@ -15,6 +15,8 @@ const PREFIX = 'apps/backend/';
 const ALLOWED = new Set([
   'src/index.js', // mounts /api/cash-eq (one line)
   'src/controllers/authController.js', // universal login: equity accounts after no F&O match
+  'package.json', // devDependency mongodb-memory-server only (local proof tests); no runtime change
+  'package-lock.json',
 ]);
 const NEW_OK = [/^src\/cashEq\//, /^scripts\/cashEq\//, /^tests\/cashEq[^/]*\.test\.js$/, /^tests\/helpers\/cashEq/, /^tests\/fixtures\/cashEq/];
 
