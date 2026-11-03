@@ -16,6 +16,10 @@ function matches(doc, q) {
       if (Array.isArray(want.$in)) return want.$in.map(String).includes(str(have));
       if (Array.isArray(want.$nin)) return !want.$nin.map(String).includes(str(have));
       if (want.$regex !== undefined) return new RegExp(want.$regex, want.$options || '').test(String(have ?? ''));
+      const cmp = ['$gt', '$gte', '$lt', '$lte'].filter((op) => op in want);
+      if (cmp.length) {
+        return cmp.every((op) => (op === '$gt' ? have > want[op] : op === '$gte' ? have >= want[op] : op === '$lt' ? have < want[op] : have <= want[op]));
+      }
     }
     return str(have) === str(want);
   });

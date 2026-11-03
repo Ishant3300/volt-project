@@ -362,7 +362,11 @@ function computeClientLedger(account, trades, calcs, entries, allSettlements, as
   // category's margin. With one rate (Trade Terminal accounts, or equal rates) the original
   // single-rate path runs unchanged. A debit balance with nothing held is charged at the
   // approved rate.
-  const split = account.interestNonPct !== undefined && account.interestNonPct !== account.interestPct;
+  // Equity accounts always track the split (sharing needs interest per category); the
+  // proportional formula only runs when the two rates differ, so equal rates give exactly
+  // the single-rate interest.
+  const split = account.interestNonPct !== undefined;
+  const twoRates = split && account.interestNonPct !== account.interestPct;
   const rateNon = split ? account.interestNonPct / 100 / 365 : rate;
   const catOfP = (p) => (p.mtf === false ? 'non' : 'mtf');
 
@@ -498,11 +502,17 @@ function computeClientLedger(account, trades, calcs, entries, allSettlements, as
         const fm = Math.max(0, marginMtf);
         const fn = Math.max(0, marginNon);
         const shareNon = fm + fn > 0 ? fn / (fm + fn) : 0;
-        const dNon = funded * shareNon * rateNon;
-        const dMtf = funded * (1 - shareNon) * rate;
-        periodMtf += dMtf;
-        periodNon += dNon;
-        dayInterest = dMtf + dNon;
+        if (twoRates) {
+          const dNon = funded * shareNon * rateNon;
+          const dMtf = funded * (1 - shareNon) * rate;
+          periodMtf += dMtf;
+          periodNon += dNon;
+          dayInterest = dMtf + dNon;
+        } else {
+          dayInterest = funded * rate;
+          periodNon += dayInterest * shareNon;
+          periodMtf += dayInterest * (1 - shareNon);
+        }
       }
       periodInterest += dayInterest;
       const last = rows[rows.length - 1];
@@ -518,7 +528,7 @@ function computeClientLedger(account, trades, calcs, entries, allSettlements, as
         const interest = round2(periodInterest);
         if (realized) push(d, 'PNL', `Settlement ${dmy(d)}: P&L on trades closed till ${dmy(st.priceDate)}`, round2(realized), 0);
         if (mtm) push(d, 'MTM', `Settlement ${dmy(d)}: MTM of open positions @ bhav ${dmy(st.priceDate)}`, round2(mtm), 0);
-        const at = split ? `${account.interestPct}% approved / ${account.interestNonPct}% non-approved` : `${account.interestPct}%`;
+        const at = twoRates ? `${account.interestPct}% approved / ${account.interestNonPct}% non-approved` : `${account.interestPct}%`;
         if (interest) push(d, 'INTEREST', `Interest ${dmy(periodFrom)} to ${dmy(d)} @ ${at}`, -interest, 0);
         summaries.push({
           settlement: st, periodFrom, periodTo: d, realized: round2(realized), mtm: round2(mtm), interest,

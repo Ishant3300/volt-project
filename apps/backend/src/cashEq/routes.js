@@ -109,6 +109,26 @@ router.get('/holdings', managers, readAs(async (req) => {
   return { totals: all.totals, holdings: rows };
 }));
 
+// Month-end (M6): admin runs it; masters read their sharing statement.
+const monthEnd = require('./monthEnd');
+const meSend = (fn) => send(async (req) => {
+  try {
+    return await fn(req);
+  } catch (err) {
+    if (err instanceof monthEnd.HttpError) {
+      const e = new orders.HttpError(err.status, err.message);
+      throw e;
+    }
+    throw err;
+  }
+});
+router.get('/month-end', adminOnly, meSend(() => monthEnd.list()));
+router.post('/month-end/preview', adminOnly, noWatchOnly, meSend((req) => monthEnd.preview(req.cash, req.body || {})));
+router.patch('/month-end/:id/prices', adminOnly, noWatchOnly, meSend((req) => monthEnd.setPrices(req.cash, req.params.id, req.body?.prices)));
+router.post('/month-end/:id/confirm', adminOnly, noWatchOnly, meSend((req) => monthEnd.confirm(req.cash, req.params.id)));
+router.delete('/month-end/:id', adminOnly, noWatchOnly, meSend((req) => monthEnd.remove(req.cash, req.params.id)));
+router.get('/sharing', managers, meSend((req) => monthEnd.sharingFor(req.cash, String(req.query.month || ''))));
+
 // Low-volume fill settings (admin).
 router.get('/settings/liquidity', managers, send(async () => ({ ...(await orders.getSettings()), defaults: liquidity.DEFAULTS })));
 router.patch('/settings/liquidity', adminOnly, noWatchOnly, send(async (req) => {

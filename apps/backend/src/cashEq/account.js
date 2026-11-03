@@ -16,12 +16,9 @@ const LOSS_ALERT_PCT = 80; // D1: alert only (no automatic cut) when the loss re
 
 const r2 = engine.round2;
 
-/**
- * Month-end settlements in engine shape. Filled in by M6 (eqcash_month_runs); until a
- * month-end has run there are none, and P&L runs from the first trade.
- */
+/** Confirmed month-ends in engine shape (eqcash_month_runs, M6). */
 async function monthEnds() {
-  return [];
+  return require('./monthEnd').confirmedSettlements();
 }
 
 function toEngineEntry(e, clientCode) {

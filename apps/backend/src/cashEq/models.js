@@ -188,6 +188,28 @@ const eqSettingsSchema = new Schema({
   updated_by: { role: String, id: Schema.Types.ObjectId, username: String },
 }, { timestamps: true, versionKey: false });
 
+/**
+ * Monthly settlement (month-end). Only the prices are needed to bill — every ledger figure
+ * is derived from trades + entries + confirmed month-ends (engine.js). The per-client
+ * figures and each master's rate-gap clearances are saved at confirm, so the sharing
+ * statement stays as confirmed even if rates change later.
+ */
+const eqMonthRunSchema = new Schema({
+  month: { type: String, required: true, index: true }, // 'YYYY-MM'
+  settle_date: { type: String, required: true }, // 1st of the next month
+  price_date: { type: String, required: true }, // bhav date (last trading day)
+  prices: { type: Schema.Types.Mixed, default: {} }, // SYMBOL -> close
+  sources: { type: Schema.Types.Mixed, default: {} }, // SYMBOL -> 'bhav' | 'manual'
+  status: { type: String, enum: ['PREVIEW', 'CONFIRMED', 'DELETED'], required: true, index: true },
+  clients: { type: [Schema.Types.Mixed], default: [] }, // per-client snapshot (confirm)
+  masters: { type: [Schema.Types.Mixed], default: [] }, // equity master tree + shares at confirm
+  created_by: { role: String, id: Schema.Types.ObjectId, username: String },
+  confirmed_by: { role: String, id: Schema.Types.ObjectId, username: String },
+  confirmed_at: { type: Date, default: null },
+  deleted_by: { role: String, id: Schema.Types.ObjectId, username: String },
+  deleted_at: { type: Date, default: null },
+}, { timestamps: true });
+
 const model = (name, schema, collection) => mongoose.models[name] || mongoose.model(name, schema, collection);
 
 module.exports = {
@@ -202,4 +224,5 @@ module.exports = {
   EqTrade: model('EqTrade', eqTradeSchema, 'eqcash_trades'),
   EqCounter: model('EqCounter', eqCounterSchema, 'eqcash_counters'),
   EqSettings: model('EqSettings', eqSettingsSchema, 'eqcash_settings'),
+  EqMonthRun: model('EqMonthRun', eqMonthRunSchema, 'eqcash_month_runs'),
 };
