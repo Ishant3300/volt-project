@@ -145,7 +145,12 @@ class _TradeCardPageState extends State<TradeCardPage> {
   /// client's Lot/Turnover tick and even before the lot info has loaded.
   bool get _mcxLotsOnly {
     final seg = widget.item.instrument.segment.toUpperCase();
-    return seg == 'MCX-FUT' || seg == 'COMEX-FUT';
+    // Options (NSE / MCX / BSE) too — whole lots only, same as MCX futures (4 Nov 2026).
+    return seg == 'MCX-FUT' ||
+        seg == 'COMEX-FUT' ||
+        seg == 'NFO-OPT' ||
+        seg == 'MCX-OPT' ||
+        seg == 'BFO-OPT';
   }
 
   /// Lot size for lot entry: the client's own (lot info) when known, else the contract's.

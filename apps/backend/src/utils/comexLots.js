@@ -59,16 +59,21 @@ async function validateComexWholeLots({ segment, exchange, instrument_token, qua
  * one that closes the whole open position (so a part-lot position left from
  * before can still be closed).
  */
+// Segments that trade in whole lots only: MCX futures (4 Nov 2026) and every
+// option segment — NSE (NFO-OPT), MCX (MCX-OPT), BSE (BFO-OPT) — same rule (user, 4 Nov).
+const WHOLE_LOT_SEGMENTS = new Set(['MCX-FUT', 'NFO-OPT', 'MCX-OPT', 'BFO-OPT']);
+const WHOLE_LOT_EXCHANGES = new Set(['MCX', 'NFO', 'BFO']);
+
 async function validateMcxWholeLots({ segment, exchange, instrument_token, quantity, userId = null, session = null }) {
-  // Trade rows carry exchange 'MCX' but no segment — the instrument decides.
+  // Trade rows carry the exchange ('MCX'/'NFO'/'BFO') but no segment — the instrument decides.
   const s = String(segment || '').toUpperCase();
   const e = String(exchange || '').toUpperCase();
-  if (s !== 'MCX-FUT' && s !== 'MCX' && e !== 'MCX') return;
+  if (!WHOLE_LOT_SEGMENTS.has(s) && !WHOLE_LOT_EXCHANGES.has(s) && !WHOLE_LOT_EXCHANGES.has(e)) return;
   const KiteInstrument = require('../models/KiteInstrument');
   const q = KiteInstrument.findOne({ instrument_token: String(instrument_token) }).select('lot_size name tradingsymbol segment');
   if (session) q.session(session);
   const inst = await q.lean();
-  if (!inst || inst.segment !== 'MCX-FUT') return; // MCX options etc. untouched
+  if (!inst || !WHOLE_LOT_SEGMENTS.has(inst.segment)) return; // NFO/BFO futures etc. untouched
   const lot = Number(inst?.lot_size) || 0;
   const qty = Number(quantity);
   if (!(lot > 1) || (Number.isFinite(qty) && qty > 0 && Math.abs(qty / lot - Math.round(qty / lot)) < 1e-9)) return;
@@ -82,9 +87,10 @@ async function validateMcxWholeLots({ segment, exchange, instrument_token, quant
     const [row] = await agg;
     if (row && Math.abs(Math.abs(row.net) - qty) < 1e-9) return; // closes the whole open position
   }
-  const error = new Error(`MCX trades in whole lots only — 1 lot of ${inst?.name || inst?.tradingsymbol || 'this script'} = ${lot}. Enter the quantity as lots (a multiple of ${lot}).`);
+  const what = inst.segment === 'MCX-FUT' ? 'MCX trades' : 'Options trade';
+  const error = new Error(`${what} in whole lots only — 1 lot of ${inst?.name || inst?.tradingsymbol || 'this script'} = ${lot}. Enter the quantity as lots (a multiple of ${lot}).`);
   error.status = 400;
   throw error;
 }
 
-module.exports = { COMEX_SEGMENT, WHOLE_LOTS_TEXT, isComexSegment, tradingModeFor, validateComexWholeLots, validateMcxWholeLots };
+module.exports = { COMEX_SEGMENT, WHOLE_LOTS_TEXT, WHOLE_LOT_SEGMENTS, isComexSegment, tradingModeFor, validateComexWholeLots, validateMcxWholeLots };
