@@ -273,6 +273,9 @@ workflows:
         APP_STORE_APPLE_ID: "6826137877"
         VELO_BUNDLE_ID: com.velo.simulator
         BRAND: velo
+        # Licence received and emailed to Apple (4 Nov 2026) — lets this build run.
+        # Build-time switch only; nothing of it goes into the app or to Apple.
+        VELO_LIVE_LICENCE_CONFIRMED: "yes"
     scripts:
       - name: Licence confirmed?
         script: |
