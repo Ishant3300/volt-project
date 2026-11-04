@@ -18,6 +18,8 @@
 /// master's report, seen from the client's side.
 library;
 
+import 'account_label.dart';
+
 class SettlementLine {
   final String key;
 
@@ -117,8 +119,9 @@ SettlementView buildMasterSettlementView(Map<String, dynamic> body, Map<String, 
     final name = '${row['name'] ?? ''}';
     final isMaster = row['type'] == 'master';
     final share = sharingById[id] ?? 0;
-    lines.add(_line('d-$id', 'downline', name.isNotEmpty ? name : username, -pnl, -brk, -(pnl + brk),
-        sub: '($username - ${isMaster ? 'M' : 'C'} - ${share.toStringAsFixed(2)})',
+    // "Name (ID)" on the row; type and sharing % under it (screen + PDF).
+    lines.add(_line('d-$id', 'downline', accountLabel(name, username), -pnl, -brk, -(pnl + brk),
+        sub: '(${isMaster ? 'M' : 'C'} - ${share.toStringAsFixed(2)})',
         username: username,
         drill: {'type': isMaster ? 'master' : 'user', 'id': id, 'name': name, 'username': username},
         active: _d(row['realised_pnl']) != 0 || _d(row['m2m_pnl']) != 0 || _d(row['brokerage']) != 0));
