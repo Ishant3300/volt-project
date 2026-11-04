@@ -68,9 +68,10 @@ const getDeletedTrades = async (req, res) => {
     const masterIds = [...new Set(
       trades.map(t => t.user_id?.master_id?.toString()).filter(Boolean)
     )];
-    const masters = await Master.find({ _id: { $in: masterIds } }).select('_id username').lean();
+    const masters = await Master.find({ _id: { $in: masterIds } }).select('_id username name').lean();
     const masterMap = {};
-    masters.forEach(m => { masterMap[m._id.toString()] = m.username; });
+    const masterNameMap = {};
+    masters.forEach(m => { masterMap[m._id.toString()] = m.username; masterNameMap[m._id.toString()] = m.name || ''; });
 
     const data = trades.map(t => ({
       id: t._id,
@@ -86,6 +87,7 @@ const getDeletedTrades = async (req, res) => {
       username: t.user_id?.username || 'Unknown',
       name: t.user_id?.name || '',
       master_username: masterMap[t.user_id?.master_id?.toString()] || '',
+      master_name: masterNameMap[t.user_id?.master_id?.toString()] || '',
       created_at: t.createdAt,
       deleted_at: t.deleted_at,
     }));

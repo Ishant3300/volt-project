@@ -145,6 +145,7 @@ const getAllTrades = async (req, res) => {
         }
         if (t.master_id && typeof t.master_id === 'object') {
           t.master_name = t.master_id.name || null;
+          t.master_username = t.master_id.username || null;
           t.master_id = t.master_id.id || t.master_id._id || t.master_id;
         }
         return t;
