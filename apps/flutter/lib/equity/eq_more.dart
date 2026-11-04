@@ -12,6 +12,7 @@ import 'eq_format.dart';
 import 'eq_live.dart';
 import 'eq_orders.dart';
 import 'eq_portfolio.dart';
+import 'package:stocker/utils/account_label.dart';
 
 class EqStatementView extends StatefulWidget {
   final String? clientId;
@@ -120,7 +121,7 @@ class _EqClientsViewState extends State<EqClientsView> {
                   Provider<EqApi>.value(value: context.read<EqApi>()),
                   ChangeNotifierProvider<EqLive>.value(value: context.read<EqLive>()),
                 ],
-                child: EqClientPage(clientId: a['client']['_id'] as String, title: '${a['client']['name']}'),
+                child: EqClientPage(clientId: a['client']['_id'] as String, title: accountLabel(a['client']['name'], a['client']['username'])),
               ))),
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
@@ -129,8 +130,8 @@ class _EqClientsViewState extends State<EqClientsView> {
             child: Row(children: [
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('${a['client']['name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                  Text('${a['client']['username']}  ·  money ${eqMoney(a['summary']['client_money'])}  ·  funded ${eqMoney(a['summary']['funded'])}',
+                  Text(accountLabel(a['client']['name'], a['client']['username']), style: const TextStyle(fontWeight: FontWeight.w700)),
+                  Text('money ${eqMoney(a['summary']['client_money'])}  ·  funded ${eqMoney(a['summary']['funded'])}',
                       style: const TextStyle(fontSize: 10, color: kColorTextMuted)),
                 ]),
               ),

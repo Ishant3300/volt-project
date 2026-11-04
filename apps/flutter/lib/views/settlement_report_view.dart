@@ -15,6 +15,7 @@ import '../providers/user_profile_provider.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
+import '../utils/account_label.dart';
 import '../utils/settlement_view.dart';
 
 /// Settlement Report — the reference terminal's layout: one account's view of
@@ -253,9 +254,8 @@ class _SettlementReportViewState extends State<SettlementReportView> {
 
   String get _viewerName {
     final s = _scope;
-    if (s['kind'] != 'self') return '${s['username'] ?? ''}';
-    final profile = context.read<UserProfileProvider>();
-    return profile.master?.username ?? profile.user?.username ?? 'My account';
+    if (s['kind'] != 'self') return accountLabel(s['name'], s['username']);
+    return _selfLabel();
   }
 
   void _drill(SettlementLine l) {
@@ -361,7 +361,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
             },
             children: [
               pw.TableRow(children: [
-                _pdfCell('Username', bold: true),
+                _pdfCell('Account', bold: true),
                 _pdfCell('P&L', bold: true),
                 _pdfCell('Brk', bold: true),
                 _pdfCell('Total', bold: true),
@@ -416,7 +416,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
   Future<void> _showPdfOptionsSheet(Uint8List bytes, String targetName) async {
     final dateFmt = DateFormat('ddMMyyyy');
     final (from, to) = _resolveRange();
-    final fileName = 'Settlement_${targetName.replaceAll(' ', '_')}_${dateFmt.format(from)}_${dateFmt.format(to)}.pdf';
+    final fileName = 'Settlement_${targetName.replaceAll(RegExp(r'[\\/:*?"<>|\s]+'), '_')}_${dateFmt.format(from)}_${dateFmt.format(to)}.pdf';
 
     if (!mounted) return;
     await showModalBottomSheet(
@@ -645,7 +645,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
           },
           displayMap: {
             '__self__': '${_selfLabel()} (me)',
-            for (final e in _entities) '${e['type']}:${e['id']}': '${e['username']} — ${e['name'] ?? ''} (${e['type'] == 'Master' ? 'M' : 'C'})',
+            for (final e in _entities) '${e['type']}:${e['id']}': '${accountLabel(e['name'], e['username'])} (${e['type'] == 'Master' ? 'M' : 'C'})',
           },
         ),
         const SizedBox(height: 12),
@@ -689,7 +689,12 @@ class _SettlementReportViewState extends State<SettlementReportView> {
 
   String _selfLabel() {
     final profile = context.read<UserProfileProvider>();
-    return profile.master?.username ?? profile.user?.username ?? 'My account';
+    final label = profile.master != null
+        ? accountLabel(profile.master!.name, profile.master!.username)
+        : profile.user != null
+            ? accountLabel(profile.user!.name, profile.user!.username)
+            : '';
+    return label.isEmpty ? 'My account' : label;
   }
 
   /// Back + the drill-down path (me › gm11 › gm22 …); tapping a step returns to it.
@@ -711,7 +716,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
         GestureDetector(
           onTap: i == _path.length - 1 ? null : () => _goTo(i),
           child: Text(
-            '${i > 0 ? '› ' : ''}${_path[i]['kind'] == 'self' ? _selfLabel() : _path[i]['username']}',
+            '${i > 0 ? '› ' : ''}${_path[i]['kind'] == 'self' ? _selfLabel() : accountLabel(_path[i]['name'], _path[i]['username'])}',
             style: TextStyle(
               color: i == _path.length - 1 ? kColorTextPrimary : kBrandPrimary,
               fontSize: kFontSizeCaption,
@@ -837,7 +842,7 @@ class _SettlementReportViewState extends State<SettlementReportView> {
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 6),
       child: Row(children: [
-        Expanded(child: Text('Username', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF8E8E93), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
+        Expanded(child: Text('Account', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF8E8E93), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
         Expanded(child: Text('P&L', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF8E8E93), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
         Expanded(child: Text('Brk', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF8E8E93), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),
         Expanded(child: Text('Total', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF8E8E93), fontSize: kFontSizeCaption, fontFamily: kFontFamily, fontWeight: kFontWeightMedium))),

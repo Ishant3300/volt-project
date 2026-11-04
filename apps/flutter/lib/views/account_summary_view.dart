@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
 import 'package:stocker/widgets/page_wash.dart';
+import '../utils/account_label.dart';
 
 class AccountSummaryView extends StatefulWidget {
   const AccountSummaryView({super.key});
@@ -203,7 +204,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
                   _selectedUser != null ? (_selectedUser!['username'] ?? '') : '__all__',
                   ['__all__', ..._users.map((u) => u['username'] as String? ?? '')],
                   (v) => setState(() => _selectedUser = v == '__all__' ? null : _users.firstWhere((u) => u['username'] == v, orElse: () => <String, dynamic>{})),
-                  displayMap: {'__all__': 'All Users', ..._users.fold<Map<String, String>>({}, (m, u) { m[u['username'] ?? ''] = '${u['name'] ?? u['username']}'; return m; })},
+                  displayMap: {'__all__': 'All Users', ..._users.fold<Map<String, String>>({}, (m, u) { m[u['username'] ?? ''] = accountLabel(u['name'], u['username']); return m; })},
                 ),
               if (!isUser) const SizedBox(height: 8),
 
@@ -498,7 +499,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
     final amount = _d(tx['amount']);
     final before = _d(tx['balance_before']);
     final after = _d(tx['balance_after']);
-    final username = tx['username'] ?? '';
+    final username = accountLabel(tx['name'], tx['username']);
     final note = tx['note'] ?? '';
     final createdAt = tx['created_at'] ?? '';
     final isCredit = type == 'CREDIT';
@@ -529,7 +530,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
           ),
           const SizedBox(width: 8),
           if (username.isNotEmpty)
-            Text(username.toUpperCase(), style: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: -0.3)),
+            Text(username, style: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: -0.3)),
           const Spacer(),
           Text(timeStr, style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeCaption, fontFamily: kFontFamily)),
         ]),

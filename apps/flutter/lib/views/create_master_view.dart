@@ -16,6 +16,7 @@ import '../utils/wallet_category.dart';
 import '../widgets/create_for_master_picker.dart';
 import '../utils/comex_rate.dart';
 import 'package:stocker/widgets/page_wash.dart';
+import '../utils/account_label.dart';
 
 class CreateMasterView extends StatefulWidget {
   final Master? master;
@@ -778,7 +779,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           final parentPnl = _ownerMaster?.pnlSharing ?? 100;
           final parentBrk = _ownerMaster?.brokerageSharing ?? 100;
           final whose = _forMaster != null
-              ? "${_forMaster!.username}'s"
+              ? "${accountLabel(_forMaster!.name, _forMaster!.username)}'s"
               : 'your';
 
           if (pnlSharing > parentPnl) {
@@ -807,7 +808,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 double.tryParse(_creditController.text.trim()) ?? 0;
             if (creditEntered > ownMaster.equity) {
               _showSnack(
-                  'Opening credit exceeds ${_forMaster != null ? "${_forMaster!.username}'s" : 'your own'} available balance (${ownMaster.equity.toStringAsFixed(2)}).',
+                  'Opening credit exceeds ${_forMaster != null ? "${accountLabel(_forMaster!.name, _forMaster!.username)}'s" : 'your own'} available balance (${ownMaster.equity.toStringAsFixed(2)}).',
                   isError: true);
               setState(() => _isSubmitting = false);
               return;
@@ -820,7 +821,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               final available = ownMaster.wallet[category] ?? 0;
               if (entered > available) {
                 _showSnack(
-                    '${walletLabel(category)} wallet amount exceeds ${_forMaster != null ? "${_forMaster!.username}'s" : 'your own'} available balance (${available.toStringAsFixed(2)}).',
+                    '${walletLabel(category)} wallet amount exceeds ${_forMaster != null ? "${accountLabel(_forMaster!.name, _forMaster!.username)}'s" : 'your own'} available balance (${available.toStringAsFixed(2)}).',
                     isError: true);
                 setState(() => _isSubmitting = false);
                 return;

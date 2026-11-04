@@ -12,6 +12,7 @@ import '../providers/user_profile_provider.dart';
 import '../utils/contants.dart';
 import '../utils/number_to_words.dart';
 import 'package:stocker/widgets/page_wash.dart';
+import '../utils/account_label.dart';
 
 class TransactionPage extends StatefulWidget {
   final Master? master;
@@ -41,7 +42,9 @@ class _TransactionPageState extends State<TransactionPage> {
 
   String get _targetId => widget.master?.id ?? widget.user!.id;
   String get _targetModel => widget.master != null ? 'Master' : 'User';
-  String get _targetName => widget.master?.username ?? widget.user!.username;
+  String get _targetName => widget.master != null
+      ? accountLabel(widget.master!.name, widget.master!.username)
+      : accountLabel(widget.user!.name, widget.user!.username);
   double _currentCredits = 0;
 
   @override

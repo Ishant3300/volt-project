@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
+import '../utils/account_label.dart';
 
 class UserwisePositionFilterBottomSheet extends StatefulWidget {
   final String? initialExchange;
@@ -364,8 +365,8 @@ class _UserwisePositionFilterBottomSheetState
           return GestureDetector(
             onTap: () => setState(() {
               _selectedUserId = u['id'] ?? u['_id'];
-              _selectedUserName = uname;
-              _userCtrl.text = uname;
+              _selectedUserName = accountLabel(name, uname);
+              _userCtrl.text = accountLabel(name, uname);
               _showUserDropdown = false;
               _userResults = [];
             }),

@@ -19,6 +19,7 @@ import '../utils/wallet_category.dart';
 import '../widgets/create_for_master_picker.dart';
 import '../utils/comex_rate.dart';
 import 'package:stocker/widgets/page_wash.dart';
+import '../utils/account_label.dart';
 
 class CreateUserView extends StatefulWidget {
   final User? user;
@@ -881,7 +882,7 @@ class _CreateUserViewState extends State<CreateUserView> {
     final ownMaster =
         widget.user == null ? _ownerMaster : profileProvider.master;
     final whose =
-        _forMaster != null ? "${_forMaster!.username}'s" : 'your own';
+        _forMaster != null ? "${accountLabel(_forMaster!.name, _forMaster!.username)}'s" : 'your own';
     if (ownMaster != null) {
       if (credit > ownMaster.equity) {
         _showSnack(

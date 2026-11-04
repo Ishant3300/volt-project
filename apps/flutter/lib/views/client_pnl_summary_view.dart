@@ -11,6 +11,7 @@ import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
 import 'username_view.dart';
 import 'package:stocker/widgets/page_wash.dart';
+import '../utils/account_label.dart';
 
 enum _DateRangeMode { today, thisWeek, thisMonth, custom }
 
@@ -410,6 +411,14 @@ class _ClientPnlSummaryViewState extends State<ClientPnlSummaryView> {
     return _tab == 0 ? 'All User' : 'All Sub-Broker';
   }
 
+  /// "Name (ID)" for a username, from the report rows.
+  String _labelForUsername(String username) {
+    for (final r in [..._clientRows, ..._subBrokerRows]) {
+      if ((r['username'] ?? '').toString() == username) return accountLabel(r['name'], username);
+    }
+    return username;
+  }
+
   Widget _buildFilters(bool isAdmin) {
     final userOptions = (isAdmin ? _subBrokerRows : (_tab == 0 ? _clientRows : _subBrokerRows))
         .map((r) => (r['username'] ?? '').toString())
@@ -462,7 +471,7 @@ class _ClientPnlSummaryViewState extends State<ClientPnlSummaryView> {
       _dropdownField<String>(
         value: _selectedUsername,
         hint: _userDropdownLabel,
-        items: {for (final u in userOptions) u: u},
+        items: {for (final u in userOptions) u: _labelForUsername(u)},
         onChanged: (v) => setState(() => _selectedUsername = v),
       ),
       const SizedBox(height: 8),

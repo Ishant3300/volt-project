@@ -6,6 +6,7 @@ import '../utils/date_formatter.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'dart:io';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../utils/account_label.dart';
 
 class AccountDetailView extends StatefulWidget {
   const AccountDetailView({super.key});
@@ -132,11 +133,14 @@ class _AccountDetailViewState extends State<AccountDetailView> {
               builder: (context, profileProvider, child) {
                 final role = profileProvider.role;
                 final admin = profileProvider.admin;
+                // "Name (ID)" — admins have no name, so just their ID.
                 final username = admin != null
                     ? (admin['username']?.toString() ?? 'N/A')
-                    : profileProvider.master?.username ??
-                        profileProvider.user?.username ??
-                        'N/A';
+                    : profileProvider.master != null
+                        ? accountLabel(profileProvider.master!.name, profileProvider.master!.username)
+                        : profileProvider.user != null
+                            ? accountLabel(profileProvider.user!.name, profileProvider.user!.username)
+                            : 'N/A';
                 final serverId = admin != null
                     ? (admin['server_id']?.toString() ?? 'N/A')
                     : profileProvider.master?.serverId ??
@@ -166,7 +170,7 @@ class _AccountDetailViewState extends State<AccountDetailView> {
                   child: Column(
                     children: [
                       _buildDetailRow('Role', role ?? 'N/A', true),
-                      _buildDetailRow('Username', username, true),
+                      _buildDetailRow('Account', username, true),
                       _buildDetailRow('Server ID', serverId, true),
                       if (createdAt != null)
                         _buildDetailRow('Created Date',

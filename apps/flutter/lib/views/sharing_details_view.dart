@@ -5,6 +5,7 @@ import '../models/user.dart';
 import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
+import '../utils/account_label.dart';
 
 class SharingDetailsView extends StatefulWidget {
   final Master? master;
@@ -79,8 +80,8 @@ class _SharingDetailsViewState extends State<SharingDetailsView> {
   }
 
   String get _title {
-    if (widget.master != null) return '${widget.master!.username} - Sharing';
-    if (widget.user != null) return '${widget.user!.username} - Sharing';
+    if (widget.master != null) return '${accountLabel(widget.master!.name, widget.master!.username)} - Sharing';
+    if (widget.user != null) return '${accountLabel(widget.user!.name, widget.user!.username)} - Sharing';
     return 'Sharing Details';
   }
 

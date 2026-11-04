@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
 import 'package:stocker/widgets/page_wash.dart';
+import '../utils/account_label.dart';
 
 class DeletedTradeView extends StatefulWidget {
   const DeletedTradeView({super.key});
@@ -294,8 +295,8 @@ class _DeletedTradeViewState extends State<DeletedTradeView> {
     final txnType = t['transaction_type'] ?? '';
     final qty = t['quantity'] ?? t['executed_quantity'] ?? 0;
     final price = t['executed_price'] ?? t['price'] ?? 0;
-    final username = t['username'] ?? '';
-    final masterUsername = t['master_username'] ?? '';
+    final username = accountLabel(t['name'], t['username']);
+    final masterUsername = accountLabel(t['master_name'], t['master_username']);
     final deletedAt = _fmtDate(t['deleted_at']?.toString());
     final isBuy = txnType == 'BUY';
 

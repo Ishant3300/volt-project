@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
 import 'package:stocker/widgets/page_wash.dart';
+import '../utils/account_label.dart';
 
 class RejectionLogHistoryView extends StatefulWidget {
   final String? userId; // If provided, filter logs to this user only
@@ -277,7 +278,7 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
     final double price = (log['price'] as num?)?.toDouble() ?? 0;
     final String status = log['status'] ?? '';
     final String remarks = log['remarks'] ?? '';
-    final String username = log['username'] ?? '';
+    final String username = accountLabel(log['name'], log['username']);
     final String dateStr = log['updated_at'] ?? log['created_at'] ?? '';
 
     final bool isBuy = txnType == 'BUY';

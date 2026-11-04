@@ -26,6 +26,7 @@ import 'rejection_log_history_view.dart';
 import 'settlement_report_view.dart';
 import 'client_pnl_summary_view.dart';
 import 'package:stocker/config/practice_session.dart';
+import '../utils/account_label.dart';
 import 'scriptwise_pnl_view.dart';
 
 class ReportsView extends StatelessWidget {
@@ -275,9 +276,11 @@ class _ReportItemData {
 class GeneratePdfBottomSheet extends StatefulWidget {
   final String? preselectedUserId;
   final String? preselectedUserName;
+  /// The preselected account's ID (username); its name goes in preselectedUserName.
+  final String? preselectedUserUsername;
 
   const GeneratePdfBottomSheet(
-      {super.key, this.preselectedUserId, this.preselectedUserName});
+      {super.key, this.preselectedUserId, this.preselectedUserName, this.preselectedUserUsername});
 
   @override
   State<GeneratePdfBottomSheet> createState() => _GeneratePdfBottomSheetState();
@@ -319,7 +322,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
       _selectedUser = {
         'id': widget.preselectedUserId,
         'name': widget.preselectedUserName ?? '',
-        'username': widget.preselectedUserName ?? ''
+        'username': widget.preselectedUserUsername ?? widget.preselectedUserName ?? ''
       };
     } else if (!_isUser) {
       _fetchUsers();
@@ -399,7 +402,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
       {required String userName}) async {
     final dateFmt = DateFormat('ddMMyyyy');
     final fileName =
-        '${userName.replaceAll(' ', '_')}_${dateFmt.format(_fromDate!)}_${dateFmt.format(_toDate!)}.pdf';
+        '${userName.replaceAll(RegExp(r'[\\/:*?"<>|\s]+'), '_')}_${dateFmt.format(_fromDate!)}_${dateFmt.format(_toDate!)}.pdf';
 
     await showModalBottomSheet(
       context: context,
@@ -581,6 +584,14 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
         final body = jsonDecode(res.body);
         if (body['success'] == true) {
           Map<String, dynamic> reportData = body['data'];
+          // "Name (ID)" for the report title, file name and share text — the
+          // server's user_name is the name only ("Unknown" for all users).
+          final String accountTitle = _selectedUser != null
+              ? accountLabel(_selectedUser!['name'], _selectedUser!['username'])
+              : _isUser
+                  ? accountLabel(ownProfileUser?.name ?? reportData['user_name'], ownProfileUser?.username)
+                  : 'All Users';
+          reportData = {...reportData, 'user_name': accountTitle};
 
           // For Live M2M mode, enrich with live positions client-side
           // ONLY when the date range includes today (live prices are relevant).
@@ -621,7 +632,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
 
           // Show options: Download or Share
           await _showPdfOptionsSheet(context, bytes,
-              userName: reportData['user_name'] ?? 'Report');
+              userName: accountTitle.isEmpty ? 'Report' : accountTitle);
         } else {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -969,7 +980,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
                         Expanded(
                           child: Text(
                             _selectedUser != null
-                                ? '${_selectedUser!['name'] ?? _selectedUser!['username']} (@${_selectedUser!['username']})'
+                                ? accountLabel(_selectedUser!['name'], _selectedUser!['username'])
                                 : 'All Users',
                             style: TextStyle(
                               color: _selectedUser != null
@@ -1113,7 +1124,7 @@ class _GeneratePdfBottomSheetState extends State<GeneratePdfBottomSheet> {
         user == null ? _selectedUser == null : selectedId == userId;
     final label = user == null
         ? 'All Users'
-        : '${user['name'] ?? user['username']} (@${user['username']})';
+        : accountLabel(user['name'], user['username']);
     return GestureDetector(
       onTap: () {
         setState(() {

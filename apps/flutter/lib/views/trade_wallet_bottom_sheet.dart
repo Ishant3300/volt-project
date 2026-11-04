@@ -11,6 +11,7 @@ import '../services/master_service.dart';
 import '../providers/user_profile_provider.dart';
 import '../utils/contants.dart';
 import '../utils/wallet_category.dart';
+import '../utils/account_label.dart';
 
 /// Dedicated Trade Wallet funding sheet — assign/withdraw category funds for the
 /// current account. Mirrors the credit/debit sheet's visual structure. The
@@ -47,7 +48,9 @@ class _TradeWalletBottomSheetState extends State<TradeWalletBottomSheet> {
 
   String get _targetId => widget.master?.id ?? widget.user!.id;
   String get _targetType => widget.user != null ? 'User' : 'Master';
-  String get _targetName => widget.master?.username ?? widget.user!.username;
+  String get _targetName => widget.master != null
+      ? accountLabel(widget.master!.name, widget.master!.username)
+      : accountLabel(widget.user!.name, widget.user!.username);
 
   @override
   void initState() {

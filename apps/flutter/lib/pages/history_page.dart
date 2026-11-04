@@ -1005,7 +1005,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                             ),
                             Flexible(
                               child: Text(
-                                'M: ${trade.masterName!}',
+                                'M: ${trade.masterLabel}',
                                 style: const TextStyle(
                                   color: kColorTextMuted,
                                   fontSize: kFontSizeCaption,
@@ -1063,7 +1063,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                         const SizedBox(width: 4),
                         Flexible(
                           child: Text(
-                            trade.userName!,
+                            trade.userLabel,
                             style: const TextStyle(
                               color: Color(0xFF333333),
                               fontSize: kFontSizeCaption,
@@ -1267,7 +1267,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                               const SizedBox(width: 4),
                               Flexible(
                                 child: Text(
-                                  trade.userName!,
+                                  trade.userLabel,
                                   style: const TextStyle(
                                     color: kColorTextMuted,
                                     fontSize: kFontSizeCaption,
@@ -1290,7 +1290,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                               const SizedBox(width: 4),
                               Flexible(
                                 child: Text(
-                                  'M: ${trade.masterName!}',
+                                  'M: ${trade.masterLabel}',
                                   style: const TextStyle(
                                     color: Color(0xFFCBD5E1),
                                     fontSize: kFontSizeCaption,

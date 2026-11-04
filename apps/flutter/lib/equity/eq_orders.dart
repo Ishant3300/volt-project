@@ -9,6 +9,7 @@ import 'package:stocker/utils/contants.dart';
 import 'eq_api.dart';
 import 'eq_format.dart';
 import 'eq_live.dart';
+import 'package:stocker/utils/account_label.dart';
 
 class EqOrdersPage extends StatefulWidget {
   final bool isManager;
@@ -35,7 +36,7 @@ class _EqOrdersPageState extends State<EqOrdersPage> {
     _poll = Timer.periodic(const Duration(seconds: 20), (_) => _load());
     if (widget.isManager && widget.clientId == null) {
       context.read<EqApi>().clients().then((l) {
-        if (mounted) setState(() => _names = {for (final c in l) c['_id'] as String: '${c['name']}'});
+        if (mounted) setState(() => _names = {for (final c in l) c['_id'] as String: accountLabel(c['name'], c['username'])});
       }).catchError((_) {});
     }
   }

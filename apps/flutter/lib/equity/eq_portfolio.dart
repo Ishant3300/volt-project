@@ -10,6 +10,7 @@ import 'package:stocker/utils/contants.dart';
 import 'eq_api.dart';
 import 'eq_format.dart';
 import 'eq_live.dart';
+import 'package:stocker/utils/account_label.dart';
 
 /// Holdings list; [showClient] adds the client name (manager view).
 class EqHoldingsList extends StatelessWidget {
@@ -42,7 +43,7 @@ class EqHoldingsList extends StatelessWidget {
                     const SizedBox(width: 6),
                     eqCategoryTag(h['approved'] == true),
                   ]),
-                  if (showClient && h['client'] != null) Text('${h['client']['name']}', style: const TextStyle(fontSize: 11, color: kColorBuy)),
+                  if (showClient && h['client'] != null) Text(accountLabel(h['client']['name'], h['client']['username']), style: const TextStyle(fontSize: 11, color: kColorBuy)),
                   Text('${eqQty(qty)} @ ${eqMoney(h['avg_price'])} (net)  ·  margin ${eqMoney(h['margin'])}', style: const TextStyle(fontSize: 10, color: kColorTextMuted)),
                 ]),
               ),
@@ -122,7 +123,7 @@ class _EqAccountViewState extends State<EqAccountView> {
         ),
       Padding(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
-        child: Text('${_acc!['client']['name']} · ${_acc!['client']['username']}', style: const TextStyle(fontWeight: FontWeight.w700)),
+        child: Text(accountLabel(_acc!['client']['name'], _acc!['client']['username']), style: const TextStyle(fontWeight: FontWeight.w700)),
       ),
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12),

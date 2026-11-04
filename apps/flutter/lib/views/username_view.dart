@@ -38,6 +38,7 @@ import 'manage_reports_view.dart';
 
 import '../utils/wallet_category.dart';
 import 'package:stocker/widgets/page_wash.dart';
+import '../utils/account_label.dart';
 class UsernameView extends StatefulWidget {
   final Master? master;
   final User? user;
@@ -141,6 +142,10 @@ class _UsernameViewState extends State<UsernameView> {
   }
 
   String get username => _currentMaster?.username ?? _currentUser!.username;
+  /// "Name (ID)" for the header.
+  String get accountTitle => _currentMaster != null
+      ? accountLabel(_currentMaster!.name, _currentMaster!.username)
+      : accountLabel(_currentUser!.name, _currentUser!.username);
   double get credits => _currentMaster?.credits ?? _currentUser!.credits;
   double get balance => _currentMaster?.equity ?? _currentUser!.equity;
   String get createdAt => _currentMaster?.createdAt ?? _currentUser!.createdAt;
@@ -625,7 +630,7 @@ class _UsernameViewState extends State<UsernameView> {
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        username,
+                        accountTitle,
                         style: const TextStyle(
                             color: kTopBarFg,
                             fontSize: kFontSizeViewTitle,
@@ -1290,7 +1295,7 @@ class _UsernameViewState extends State<UsernameView> {
                           size: 11, color: kColorTextMuted),
                       const SizedBox(width: 4),
                       Flexible(
-                        child: Text(trade.userName!,
+                        child: Text(trade.userLabel,
                             style: const TextStyle(
                                 color: kColorTextMuted,
                                 fontSize: kFontSizeTradeMetadata,
@@ -1402,7 +1407,7 @@ class _UsernameViewState extends State<UsernameView> {
                               size: 11, color: kColorTextMuted),
                           const SizedBox(width: 4),
                           Flexible(
-                            child: Text(trade.userName!,
+                            child: Text(trade.userLabel,
                                 style: const TextStyle(
                                     color: kColorTextMuted,
                                     fontSize: kFontSizeTradeMetadata,
@@ -2541,7 +2546,8 @@ class _UsernameViewState extends State<UsernameView> {
           backgroundColor: Colors.transparent,
           builder: (_) => GeneratePdfBottomSheet(
             preselectedUserId: _currentUser?.id ?? _currentMaster?.id,
-            preselectedUserName: username,
+            preselectedUserName: _currentUser?.name ?? _currentMaster?.name ?? username,
+            preselectedUserUsername: username,
           ),
         );
         break;

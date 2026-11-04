@@ -8,6 +8,7 @@ import '../utils/contants.dart';
 import '../utils/script_order.dart';
 import 'userwise_position_filter_bottom_sheet.dart';
 import 'package:stocker/widgets/page_wash.dart';
+import '../utils/account_label.dart';
 
 class UserwisePositionView extends StatefulWidget {
   const UserwisePositionView({super.key});
@@ -199,7 +200,7 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
   Widget _buildRow(Map<String, dynamic> pos) {
     final symbol = pos['tradingsymbol'] ?? '';
     final exchange = pos['exchange'] ?? '';
-    final username = pos['username'] ?? '';
+    final username = accountLabel(pos['name'], pos['username']);
     final masterUsername = pos['master_username'] ?? '';
     final side = pos['side'] ?? 'BUY';
     final marginUsed = (pos['margin_used'] as num?)?.toDouble() ?? 0;
@@ -236,7 +237,7 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
             border: Border.all(color: const Color(0xFFF1F5F9)),
           ),
           child: Row(children: [
-            Expanded(child: _gridCell('User', username.isNotEmpty ? (masterUsername.isNotEmpty ? '$username ($masterUsername)' : username) : '--', showRight: true)),
+            Expanded(child: _gridCell('User', username.isNotEmpty ? (masterUsername.isNotEmpty ? '$username · M: $masterUsername' : username) : '--', showRight: true)),
             Expanded(child: _gridCell('Qty', side == 'SELL' ? '-$vol' : vol, valueColor: sideColor, showRight: true)),
             Expanded(child: _gridCell('Avg Rate', avgRate.toStringAsFixed(2), showRight: true)),
             Expanded(child: _gridCell('Margin', marginUsed.toStringAsFixed(2), showRight: false)),

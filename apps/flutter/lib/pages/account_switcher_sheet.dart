@@ -13,6 +13,7 @@ import 'package:stocker/pages/login_page.dart';
 import 'package:stocker/home_page.dart';
 import 'package:stocker/config/practice_session.dart';
 import 'package:stocker/services/firebase_service.dart';
+import '../utils/account_label.dart';
 
 class AccountSwitcherSheet extends StatefulWidget {
   const AccountSwitcherSheet({super.key});
@@ -122,7 +123,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Switched to ${account.username}'),
+          content: Text('Switched to ${accountLabel(account.name, account.username)}'),
           backgroundColor: kColorBuy,
           duration: const Duration(seconds: 2),
         ),
@@ -151,7 +152,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
             style: TextStyle(
                 fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
         content: Text(
-          'Remove ${account.username} (${account.role}) from saved accounts?',
+          'Remove ${accountLabel(account.name, account.username)} (${account.role}) from saved accounts?',
           style: const TextStyle(fontFamily: kFontFamily),
         ),
         actions: [
@@ -377,7 +378,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                     children: [
                       Flexible(
                         child: Text(
-                          account.name ?? account.username,
+                          accountLabel(account.name, account.username),
                           style: const TextStyle(
                             color: Color(0xFF0F172A),
                             fontSize: kFontSizeButtonText,
@@ -419,7 +420,7 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
                           size: kIconSizeSmall, color: kColorTextMuted),
                       const SizedBox(width: 4),
                       Text(
-                        '${account.username} · ${account.role}${account.investor ? ' · INVESTOR' : ''}',
+                        '${account.role}${account.investor ? ' · INVESTOR' : ''}',
                         style: const TextStyle(
                           color: kColorTextMuted,
                           fontSize: kFontSizeSubtitle,

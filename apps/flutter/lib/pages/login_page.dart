@@ -444,7 +444,10 @@ class _LoginPageState extends State<LoginPage> {
                                     username: _usernameController.text.trim(),
                                     role: role,
                                     token: token,
-                                    name: accountData?['username'] ??
+                                    // The account's NAME (was its username, so the
+                                    // switcher showed the ID twice after a 2FA login).
+                                    name: accountData?['name']?.toString() ??
+                                        accountData?['username']?.toString() ??
                                         _usernameController.text.trim(),
                                   );
                                   await multiAccount.saveAccount(savedAccount);

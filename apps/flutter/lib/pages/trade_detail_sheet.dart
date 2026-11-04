@@ -203,7 +203,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (trade.userName != null)
-                      _buildRow('User', trade.userName!),
+                      _buildRow('User', trade.userLabel),
                     _buildRow('Execution', _formattedDate),
                     _buildRow('Symbol', trade.tradingSymbol),
                     _buildRow('Exchange', trade.exchange),
@@ -215,7 +215,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                       _buildRow('Product', trade.productType!),
                     _buildRow('Status', _displayStatus),
                     if (trade.masterName != null)
-                      _buildRow('Master', trade.masterName!),
+                      _buildRow('Master', trade.masterLabel),
                   ],
                 ),
               ),

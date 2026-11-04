@@ -1,3 +1,5 @@
+import '../utils/account_label.dart';
+
 class Trade {
   final String id;
   final String userId;
@@ -14,6 +16,12 @@ class Trade {
   final String status;
   final String? userName;
   final String? masterName;
+  /// The client's / master's ID (username) — shown with the name as "Name (ID)".
+  final String? userUsername;
+  final String? masterUsername;
+
+  String get userLabel => accountLabel(userName, userUsername);
+  String get masterLabel => accountLabel(masterName, masterUsername);
   final String createdAt;
   final String updatedAt;
   final int lotSize; // enriched by backend from KiteInstrument.lot_size
@@ -41,6 +49,8 @@ class Trade {
     required this.status,
     this.userName,
     this.masterName,
+    this.userUsername,
+    this.masterUsername,
     required this.createdAt,
     required this.updatedAt,
     this.lotSize = 1,
@@ -95,6 +105,8 @@ class Trade {
       status: json['status']?.toString() ?? '',
       userName: json['user_name']?.toString(),
       masterName: json['master_name']?.toString(),
+      userUsername: json['user_username']?.toString(),
+      masterUsername: json['master_username']?.toString(),
       createdAt: json['executed_at']?.toString() ??
           json['created_at']?.toString() ??
           '',

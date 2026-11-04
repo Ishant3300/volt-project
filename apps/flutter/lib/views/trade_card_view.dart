@@ -20,6 +20,7 @@ import 'chart_view.dart';
 import 'package:stocker/config/practice_session.dart';
 import 'package:stocker/services/trade_sound_service.dart';
 import 'package:stocker/widgets/page_wash.dart';
+import '../utils/account_label.dart';
 
 /// Client-side option validation is intentionally advisory. A missing local
 /// position can mean the admin selected another user or metrics have not synced;
@@ -235,9 +236,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
 
     if (widget.initialSelectedUser != null) {
       _selectedUser = widget.initialSelectedUser;
-      _userSearchCtrl.text = widget.initialSelectedUser!['username'] ??
-          widget.initialSelectedUser!['name'] ??
-          '';
+      _userSearchCtrl.text = accountLabel(
+          widget.initialSelectedUser!['name'], widget.initialSelectedUser!['username']);
       _fetchLotLimitForUser();
     }
 
@@ -459,7 +459,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
   void _selectUser(Map<String, dynamic> user) {
     setState(() {
       _selectedUser = user;
-      _userSearchCtrl.text = user['username'] ?? user['name'] ?? '';
+      _userSearchCtrl.text = accountLabel(user['name'], user['username']);
       _showUserDropdown = false;
       _userResults = [];
     });
@@ -2818,9 +2818,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
               ?.toDouble() ??
           0;
       final lotSize = (p['lot_size'] as num?)?.toInt() ?? 0;
-      final name =
-          (_selectedUser!['name'] ?? _selectedUser!['username'] ?? 'Client')
-              .toString();
+      final label = accountLabel(_selectedUser!['name'], _selectedUser!['username']);
+      final name = label.isEmpty ? 'Client' : label;
       return Consumer<WatchlistProvider>(
         builder: (context, provider, _) {
           final item =

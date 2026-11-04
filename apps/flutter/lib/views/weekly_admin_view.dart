@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
 import 'package:stocker/widgets/page_wash.dart';
+import '../utils/account_label.dart';
 
 class WeeklyAdminView extends StatefulWidget {
   const WeeklyAdminView({super.key});
@@ -253,6 +254,11 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
     final name = (row['name'] ?? '').toString().trim();
     final hasName = name.isNotEmpty && name != username;
     final parentUsername = row['parent_username'] ?? '';
+    // The parent is the viewing master — show its name with the ID.
+    final viewer = Provider.of<UserProfileProvider>(context, listen: false).master;
+    final parentLabel = viewer != null && viewer.username == parentUsername
+        ? accountLabel(viewer.name, parentUsername)
+        : parentUsername.toString();
     final realised = _d(row['realised_pnl']);
     final m2m = _d(row['m2m_pnl']);
     final brokerage = _d(row['brokerage']);
@@ -323,7 +329,7 @@ class _WeeklyAdminViewState extends State<WeeklyAdminView> {
               decoration: BoxDecoration(
                   color: kColorTextMuted,
                   borderRadius: BorderRadius.circular(6)),
-              child: Text('PARENT: $parentUsername',
+              child: Text('PARENT: $parentLabel',
                   style: const TextStyle(
                       color: Colors.white,
                       fontSize: kFontSizeCaption,
