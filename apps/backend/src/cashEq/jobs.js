@@ -33,6 +33,19 @@ async function heldTokens() {
 let started = false;
 let syncing = false;
 
+/**
+ * The practice server has config/practice.js; the LIVE server's copy never had the
+ * practice files (4 Nov 2026: requiring it there threw and the deploy rolled back) —
+ * missing file = live server.
+ */
+function isPracticeServer() {
+  try {
+    return Boolean(require('../config/practice').PRACTICE);
+  } catch (_) {
+    return false;
+  }
+}
+
 async function syncLists(trigger) {
   if (syncing) return { skipped: 'already running' };
   syncing = true;
@@ -57,7 +70,7 @@ async function syncLists(trigger) {
 
 function start(livePriceService) {
   if (started) return;
-  if (require('../config/practice').PRACTICE) return; // practice server: no equity, no Kite
+  if (isPracticeServer()) return; // practice server: no equity, no Kite
   started = true;
 
   // What equity needs prices for, most important first (the cap keeps the first 800).
