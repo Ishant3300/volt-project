@@ -289,6 +289,12 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
       MaterialPageRoute(
         builder: (_) => TradeCardPage(
           item: item,
+          // Same as the client's own Orders screen: market order, pre-filled
+          // with the full open quantity (to close it).
+          initialOrderType: 'Market Execution',
+          initialQuantity: ((user['net_qty'] as num?)?.toInt() ?? 0).abs() > 0
+              ? ((user['net_qty'] as num?)?.toInt() ?? 0).abs()
+              : null,
           initialSelectedUser: {
             'id': userId,
             'name': user['name'],

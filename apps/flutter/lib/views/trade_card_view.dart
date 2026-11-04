@@ -504,6 +504,10 @@ class _TradeCardPageState extends State<TradeCardPage> {
     } catch (_) {}
   }
 
+  /// The pre-filled quantity (closing a client's position) is used once, for the
+  /// client the window opened with; picking another client starts from 1.
+  bool _initialQtyUsed = false;
+
   Future<void> _fetchLotLimitForUser() async {
     setState(() => _isLoadingLotLimit = true);
 
@@ -528,14 +532,23 @@ class _TradeCardPageState extends State<TradeCardPage> {
         _isLoadingLotLimit = false;
 
         if (info != null && info.lotSize > 0) {
+          final initial = !_initialQtyUsed &&
+                  widget.initialQuantity != null &&
+                  widget.initialQuantity! > 0 &&
+                  widget.initialSelectedUser != null &&
+                  _selectedUser == widget.initialSelectedUser
+              ? widget.initialQuantity!
+              : null;
+          _initialQtyUsed = true;
           if (info.isTurnoverMode && !_mcxLotsOnly) {
-            _quantity = 1;
-            _selectedQuickQty = _quickQuantities.contains(1) ? 1 : -1;
-            _qtyController.text = '1';
+            _quantity = initial ?? 1;
+            _selectedQuickQty = _quickQuantities.contains(_quantity) ? _quantity : -1;
+            _qtyController.text = _quantity.toString();
           } else {
-            _lotCount = 1;
-            _selectedQuickLot = 1;
-            _qtyController.text = '1';
+            final lots = initial != null ? (initial / info.lotSize).round() : 1;
+            _lotCount = lots > 0 ? lots : 1;
+            _selectedQuickLot = _quickLots.contains(_lotCount) ? _lotCount : -1;
+            _qtyController.text = _lotCount.toString();
           }
         }
       });

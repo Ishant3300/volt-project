@@ -2033,6 +2033,12 @@ class _UsernameViewState extends State<UsernameView> {
       MaterialPageRoute(
         builder: (context) => TradeCardPage(
           item: itemToUse,
+          // Same as the client's own Orders screen: market order, pre-filled
+          // with the full open quantity (to close it).
+          initialOrderType: 'Market Execution',
+          initialQuantity: ((pos['net_qty'] as num?)?.toInt() ?? 0).abs() > 0
+              ? ((pos['net_qty'] as num?)?.toInt() ?? 0).abs()
+              : null,
           initialSelectedUser: {
             'id': user.id,
             'name': user.name,
