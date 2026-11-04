@@ -177,6 +177,8 @@ class MassiveFuturesFeedService {
         high: update.ohlc_high,
         low: update.ohlc_low,
       });
+      // The session's own high/low is the day range for the strict rule (utils/dayRange.js).
+      require('../utils/dayRange').setRange(token, update.ohlc_low, update.ohlc_high);
       await KiteInstrument.updateOne({ instrument_token: token }, { $set: update });
     } catch (err) {
       console.warn(`⚠️  [MassiveFeed] OHLC poll failed for ${ticker}: ${err.message}`);
@@ -223,6 +225,15 @@ class MassiveFuturesFeedService {
       change,
       change_percent: Math.max(-100, Math.min(1000, (change / prevClose) * 100)),
     };
+  }
+
+  /** One log line per script per minute for a price ignored by the day range. */
+  _logOutOfRange(token, price, r, kind) {
+    if (!this._outOfRangeLogAt) this._outOfRangeLogAt = new Map();
+    const now = Date.now();
+    if (now - (this._outOfRangeLogAt.get(token) || 0) < 60000) return;
+    this._outOfRangeLogAt.set(token, now);
+    console.warn(`⚠️  [MassiveFeed] ${token}: ${kind} price ${price} outside today's high–low ${r ? r.low + '–' + r.high : '?'} — ignored`);
   }
 
   /** Today's session open/high/low, refreshed every 20s by _pollOhlc. */
@@ -308,6 +319,22 @@ class MassiveFuturesFeedService {
       ? (bidPrice + askPrice) / 2
       : (Number.isFinite(bidPrice) ? bidPrice : askPrice);
 
+    // A quote whose price is outside today's high–low (no trade there yet) is not
+    // used — not shown, valued or matched — and market orders on the script are
+    // refused while it lasts (strict day range, utils/dayRange.js).
+    {
+      const dayRange = require('../utils/dayRange');
+      if (!dayRange.inRange(token, lastPrice)) {
+        if (!dayRange.monitorOnly()) {
+          dayRange.markBad(token);
+          this._logOutOfRange(token, lastPrice, dayRange.rangeOf(token), 'quote');
+          return;
+        }
+      } else {
+        dayRange.markGood(token);
+      }
+    }
+
     const lps = this.livePriceService;
     lps.latestPrices.set(token, lastPrice);
     lps.latestPrices.set(Number(token), lastPrice);
@@ -339,6 +366,22 @@ class MassiveFuturesFeedService {
 
     const lastPrice = Number(evt.p);
     if (!Number.isFinite(lastPrice) || lastPrice <= 0) return;
+
+    // A real trade outside the known range moves the low/high — up to 2% out it is
+    // taken as a new extreme; further out it waits for the next session poll (20 s)
+    // to confirm, so a one-off bad print can't fill orders (utils/dayRange.js).
+    const dayRange = require('../utils/dayRange');
+    const r = dayRange.rangeOf(token);
+    if (r && !dayRange.inRange(token, lastPrice)) {
+      const off = lastPrice < r.low ? (r.low - lastPrice) / r.low : (lastPrice - r.high) / r.high;
+      if (off > 0.02 && !dayRange.monitorOnly()) {
+        dayRange.markBad(token);
+        this._logOutOfRange(token, lastPrice, r, 'trade');
+        return;
+      }
+      dayRange.widen(token, lastPrice);
+    }
+    dayRange.markGood(token);
 
     const lps = this.livePriceService;
     lps.latestPrices.set(token, lastPrice);

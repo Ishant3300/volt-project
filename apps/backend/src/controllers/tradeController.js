@@ -1352,9 +1352,9 @@ const placeTrade = async (req, res) => {
                 // Admin Custom price (branch above) is exempt.
                 {
                     const dayRange = require('../utils/dayRange');
-                    if (!dayRange.inRange(instrument_token, executedPrice)) {
+                    if (!dayRange.inRange(instrument_token, executedPrice) || dayRange.quoteBad(instrument_token)) {
                         const r = dayRange.rangeOf(instrument_token);
-                        const err = new Error(`Price ${executedPrice} is outside today's high–low (${r.low}–${r.high}) — market order not allowed right now. Use a limit order.`);
+                        const err = new Error(`Price is outside today's high–low${r ? ` (${r.low}–${r.high})` : ''} — market order not allowed right now. Use a limit order.`);
                         err.status = 400;
                         throw err;
                     }

@@ -42,3 +42,26 @@ test('a new day starts fresh', () => {
   expect(dayRange.inRange('D', 150, next)).toBe(true);
   expect(dayRange.acceptTick('D', 150, 149, 151, next)).toBe(true);
 });
+
+describe('COMEX/Global (Massive): polled session range + real trades', () => {
+  test('poll sets the range; a quote outside it is out, and flags market orders until a good one', () => {
+    dayRange.setRange('C', 2650, 2700, NOW);
+    expect(dayRange.inRange('C', 2710, NOW)).toBe(false);
+    dayRange.markBad('C');
+    expect(dayRange.quoteBad('C')).toBe(true);
+    dayRange.markGood('C');
+    expect(dayRange.quoteBad('C')).toBe(false);
+  });
+
+  test('a real trade at a new low widens the range at once (no wait for the poll)', () => {
+    dayRange.setRange('C', 2650, 2700, NOW);
+    dayRange.widen('C', 2640, NOW);
+    expect(dayRange.rangeOf('C', NOW)).toEqual({ low: 2640, high: 2700 });
+    expect(dayRange.inRange('C', 2641, NOW)).toBe(true);
+  });
+
+  test('the bad-quote flag expires after 10 s', () => {
+    dayRange.markBad('E');
+    expect(dayRange.quoteBad('E', Date.now() + 11_000)).toBe(false);
+  });
+});

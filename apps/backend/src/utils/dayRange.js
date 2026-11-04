@@ -10,8 +10,9 @@
  *   acceptTick()  feeds: false = bad quote → not shown, not matched, not valued
  *   inRange()     order matching + market orders: is this price inside today's range?
  *
- * COMEX/Global (Massive) are not fed here yet: their high/low comes from a poll that
- * can lag the live quote.
+ * COMEX/Global (Massive): the range is the polled session high/low (every 20 s),
+ * widened by real trade prints (a trade at a new low IS the low moving); see
+ * massiveFuturesFeedService.
  */
 
 const { getIndiaDateTimeParts } = require('./settlementDates');
@@ -20,6 +21,10 @@ const ranges = new Map(); // token -> { low, high, day }
 // DAY_RANGE_FEED=monitor: feeds only log a would-be bad quote (kill switch; market
 // orders and order matching still check the range).
 const FEED_MONITOR_ONLY = String(process.env.DAY_RANGE_FEED || '').toLowerCase() === 'monitor';
+// token -> ms of the latest out-of-range quote (cleared by the next good one): market
+// orders are refused while a script's live quote is outside the day's range.
+const badAt = new Map();
+const BAD_QUOTE_HOLD_MS = 10_000;
 
 function dayKey(now = new Date()) {
   const p = getIndiaDateTimeParts(now);
@@ -58,12 +63,46 @@ function acceptTick(token, price, tickLow, tickHigh, now = new Date()) {
     bad = !moved;
   }
   if (bad) {
-    if (!FEED_MONITOR_ONLY) return false;
+    if (!FEED_MONITOR_ONLY) { markBad(token); return false; }
     console.warn(`⚠️  [DayRange] monitor: token=${token} price ${p} would be ignored (outside ${prev ? prev.low + '–' + prev.high : lo + '–' + hi})`);
     return true;
   }
   if (hasTick) ranges.set(String(token), { low: lo, high: hi, day: dayKey(now) });
+  markGood(token);
   return true;
+}
+
+/** Set today's range from an authoritative source (Massive's session OHLC poll). */
+function setRange(token, low, high, now = new Date()) {
+  const lo = Number(low);
+  const hi = Number(high);
+  if (lo > 0 && hi > 0 && hi >= lo) ranges.set(String(token), { low: lo, high: hi, day: dayKey(now) });
+}
+
+/** A real trade printed outside the known range: the range now includes it. */
+function widen(token, price, now = new Date()) {
+  const r = current(token, now);
+  const p = Number(price);
+  if (!r || !(p > 0)) return;
+  ranges.set(String(token), { low: Math.min(r.low, p), high: Math.max(r.high, p), day: r.day });
+}
+
+function markBad(token) {
+  badAt.set(String(token), Date.now());
+}
+
+function markGood(token) {
+  badAt.delete(String(token));
+}
+
+/** True while this script's latest live quote was outside the day's range. */
+function quoteBad(token, nowMs = Date.now()) {
+  const at = badAt.get(String(token));
+  return at != null && nowMs - at <= BAD_QUOTE_HOLD_MS;
+}
+
+function monitorOnly() {
+  return FEED_MONITOR_ONLY;
 }
 
 /** True when the price lies inside today's known range (or no range is known yet). */
@@ -81,6 +120,7 @@ function rangeOf(token, now = new Date()) {
 
 function _reset() {
   ranges.clear();
+  badAt.clear();
 }
 
-module.exports = { acceptTick, inRange, rangeOf, tolerance, _reset };
+module.exports = { acceptTick, inRange, rangeOf, tolerance, setRange, widen, markBad, markGood, quoteBad, monitorOnly, _reset };
