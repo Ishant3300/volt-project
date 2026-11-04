@@ -34,9 +34,11 @@ class PositionAgg {
     required this.tradingsymbol,
   });
 
+  /// A part lot shows as QTY (rounding it gave "0 LOT").
   bool get isLotBased {
     final seg = segment.toUpperCase();
-    return seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-OPT' || seg == 'COMEX-FUT';
+    final lotSeg = seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-OPT' || seg == 'COMEX-FUT';
+    return lotSeg && (lotSize <= 0 || netQty.abs() % lotSize == 0);
   }
 
   int get lots =>

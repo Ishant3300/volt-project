@@ -2067,9 +2067,9 @@ class _UsernameViewState extends State<UsernameView> {
         segment == 'COMEX-FUT' ||
         (segment.isEmpty && exchange == 'MCX');
 
-    if (isLot && lotSize > 0) {
-      final lots = (netQty / lotSize).round();
-      return '$lots LOT';
+    // A part lot shows as QTY (rounding it gave "0 LOT").
+    if (isLot && lotSize > 0 && netQty % lotSize == 0) {
+      return '${netQty ~/ lotSize} LOT';
     }
     return '$netQty QTY';
   }

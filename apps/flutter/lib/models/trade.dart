@@ -55,9 +55,12 @@ class Trade {
 
   /// True when this trade should be displayed in lots instead of raw quantity.
   /// Only MCX-FUT, MCX-OPT, NFO-OPT, COMEX-FUT use lots. Everything else (NFO-FUT, GLOBAL, etc.) uses quantity.
+  /// A part lot (e.g. 30 qty of GOLD, lot 100) shows as QTY — rounding it
+  /// gave "BUY 0 LOT" (23 Oct / 4 Nov 2026).
   bool get isLotBased {
     final seg = segment.toUpperCase();
-    return seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-OPT' || seg == 'COMEX-FUT';
+    final lotSeg = seg == 'MCX-FUT' || seg == 'MCX-OPT' || seg == 'NFO-OPT' || seg == 'COMEX-FUT';
+    return lotSeg && (lotSize <= 0 || quantity % lotSize == 0);
   }
 
   /// Lot count: quantity ÷ lotSize, rounded. Returns raw quantity if lotSize ≤ 0.

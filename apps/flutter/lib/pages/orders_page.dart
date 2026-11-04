@@ -63,9 +63,10 @@ String _positionVolumeLabel(String exchange, String tradingsymbol, int quantity,
   final String unit;
   int displayQty = quantity.abs();
 
-  if (isLot && lotSize > 0) {
+  // A part lot shows as QTY (rounding it gave "0 LOT").
+  if (isLot && lotSize > 0 && displayQty % lotSize == 0) {
     unit = 'LOT';
-    displayQty = (displayQty / lotSize).round();
+    displayQty = displayQty ~/ lotSize;
   } else {
     unit = 'QTY';
   }
