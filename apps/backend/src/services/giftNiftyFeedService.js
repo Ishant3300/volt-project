@@ -181,6 +181,8 @@ class GiftNiftyFeedService {
     // hasn't moved for STALE_THRESHOLD_MS = Kite isn't live either).
     this._kiteSeen = { price: null, changedAt: 0 };
     this._kiteFallbackOn = false;
+    // Day high/low while on Kite: NSE IX's session values, widened by Kite prices.
+    this._kiteDay = null;
   }
 
   /** Kite's GIFT NIFTY price if it moved within STALE_THRESHOLD_MS, else null. */
@@ -245,7 +247,14 @@ class GiftNiftyFeedService {
         // last spread (kept within 0.5-5 points).
         const spread = Math.min(5, Math.max(0.5, Number(r.ASKPRICE) - Number(r.BIDPRICE) || 0.5));
         const half = Math.round((spread / 2) * 20) / 20;
-        ticks.push({ instrument_token: tick.instrument_token, last_price: kitePrice, bid_price: kitePrice - half, ask_price: kitePrice + half, ...dayFields({ CLOSE: r.CLOSE }, kitePrice) });
+        const dayKey = `${nearKey}|${istToday}`;
+        if (!this._kiteDay || this._kiteDay.key !== dayKey) {
+          this._kiteDay = { key: dayKey, high: Number(r.HIGH) > 0 ? Number(r.HIGH) : kitePrice, low: Number(r.LOW) > 0 ? Number(r.LOW) : kitePrice };
+        }
+        this._kiteDay.high = Math.max(this._kiteDay.high, kitePrice);
+        this._kiteDay.low = Math.min(this._kiteDay.low, kitePrice);
+        ticks.push({ instrument_token: tick.instrument_token, last_price: kitePrice, bid_price: kitePrice - half, ask_price: kitePrice + half,
+          ...dayFields({ OPEN: r.OPEN, HIGH: this._kiteDay.high, LOW: this._kiteDay.low, CLOSE: r.CLOSE }, kitePrice) });
         usedKite = true;
         continue;
       }
