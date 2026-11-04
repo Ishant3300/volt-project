@@ -301,6 +301,9 @@ workflows:
           LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" || echo "")
           PUBSPEC_BUILD=$(grep '^version:' pubspec.yaml | sed -E 's/.*\+([0-9]+).*/\1/')
           if [ -n "$LATEST" ]; then BUILD_NUMBER=$((LATEST + 1)); else BUILD_NUMBER=$PUBSPEC_BUILD; fi
+          # Never below pubspec's build: the server lets equity accounts sign in only
+          # from app builds >= cashEq:minAppBuild (57+), and VELO's TestFlight count is lower.
+          if [ "$BUILD_NUMBER" -lt "$PUBSPEC_BUILD" ]; then BUILD_NUMBER=$PUBSPEC_BUILD; fi
           echo "Build number: $BUILD_NUMBER"
           flutter build ipa --release \
             --flavor volt \
