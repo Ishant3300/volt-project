@@ -153,6 +153,11 @@ const STALE_THRESHOLD_MS = 5 * 60 * 1000;
 // NSE IX is stale the near-month contract is priced from that. Off: GIFT_KITE_FALLBACK=off.
 const KITE_GIFT_TOKEN = 291849;
 const KITE_FALLBACK = String(process.env.GIFT_KITE_FALLBACK || 'on').toLowerCase() !== 'off';
+// A GIFT price more than 2% away from the last accepted one is ignored unless it
+// repeats (within 0.5%) for 3 polls in a row — 4 Nov 2026 12:22:09 IST NSE IX sent
+// one quote of 2375.2 (for ~23,752) and it filled 8 limit BUYs that the market never reached.
+const JUMP_LIMIT = 0.02;
+const JUMP_CONFIRM_POLLS = 3;
 
 class GiftNiftyFeedService {
   constructor() {
@@ -183,6 +188,32 @@ class GiftNiftyFeedService {
     this._kiteFallbackOn = false;
     // Day high/low while on Kite: NSE IX's session values, widened by Kite prices.
     this._kiteDay = null;
+    // Per token: a price that jumped past JUMP_LIMIT, waiting to be confirmed.
+    this._suspect = new Map();
+  }
+
+  /**
+   * False for a price that jumps more than JUMP_LIMIT from this token's last
+   * accepted price, until the same level has repeated JUMP_CONFIRM_POLLS times
+   * (a real gap gets through in ~6 s; a one-off bad quote never does).
+   */
+  _saneTick(token, price) {
+    const key = String(token);
+    const prev = Number(this.livePriceService?.latestPrices?.get(key));
+    if (!(prev > 0) || Math.abs(price / prev - 1) <= JUMP_LIMIT) {
+      this._suspect.delete(key);
+      return true;
+    }
+    const s = this._suspect.get(key);
+    const count = s && Math.abs(price / s.price - 1) <= 0.005 ? s.count + 1 : 1;
+    this._suspect.set(key, { price, count });
+    if (count >= JUMP_CONFIRM_POLLS) {
+      this._suspect.delete(key);
+      console.warn(`⚠️  [GiftNiftyFeed] ${key}: price moved ${prev} → ${price}, confirmed over ${count} polls — accepted`);
+      return true;
+    }
+    console.warn(`⚠️  [GiftNiftyFeed] ${key}: price ${price} is >${JUMP_LIMIT * 100}% from ${prev} — ignored (${count}/${JUMP_CONFIRM_POLLS})`);
+    return false;
   }
 
   /** Kite's GIFT NIFTY price if it moved within STALE_THRESHOLD_MS, else null. */
@@ -286,6 +317,9 @@ class GiftNiftyFeedService {
     if (staleSeeds.length > 0) {
       console.log(`📡 [GiftNiftyFeed] No live NSE IX quote — showing last quote for ${staleSeeds.map((t) => `${t.instrument_token}@${t.last_price}`).join(', ')} (orders stay paused)`);
       lps._broadcastToClients({ type: 'ticks', data: staleSeeds });
+    }
+    for (let i = ticks.length - 1; i >= 0; i--) {
+      if (!this._saneTick(ticks[i].instrument_token, ticks[i].last_price)) ticks.splice(i, 1);
     }
     if (ticks.length === 0) return ticks;
     for (const t of ticks) {
@@ -428,6 +462,7 @@ class GiftNiftyFeedService {
       const bidPrice = Number(row.BIDPRICE) || lastPrice;
       const askPrice = Number(row.ASKPRICE) || lastPrice;
       if (!Number.isFinite(lastPrice) || lastPrice <= 0) return;
+      if (!this._saneTick(this.instrumentToken, lastPrice)) return;
 
       this._freshQuoteAt.set(String(this.instrumentToken), Date.now());
       const lps = this.livePriceService;
