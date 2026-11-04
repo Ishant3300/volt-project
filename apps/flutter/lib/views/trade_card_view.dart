@@ -134,19 +134,33 @@ class _TradeCardPageState extends State<TradeCardPage> {
   /// Returns true if this instrument has **lot-based** limits (e.g. MCX-FUT).
   /// Lot mode: user enters number of lots; actual qty = lots × lot_size.
   bool get _hasLotInfo =>
-      _lotLimitInfo != null &&
-      _lotLimitInfo!.lotSize > 0 &&
-      !_lotLimitInfo!.isTurnoverMode;
+      (_mcxLotsOnly && _lotSizeForEntry > 0) ||
+      (_lotLimitInfo != null &&
+          _lotLimitInfo!.lotSize > 0 &&
+          !_lotLimitInfo!.isTurnoverMode);
+
+  /// MCX futures and COMEX trade in whole lots only (server rule since 4 Nov
+  /// 2026) — the box always takes LOTS for them, for every role, whatever the
+  /// client's Lot/Turnover tick and even before the lot info has loaded.
+  bool get _mcxLotsOnly {
+    final seg = widget.item.instrument.segment.toUpperCase();
+    return seg == 'MCX-FUT' || seg == 'COMEX-FUT';
+  }
+
+  /// Lot size for lot entry: the client's own (lot info) when known, else the contract's.
+  int get _lotSizeForEntry => (_lotLimitInfo?.lotSize ?? 0) > 0
+      ? _lotLimitInfo!.lotSize
+      : widget.item.instrument.lotSize;
 
   /// Returns true if this instrument has **turnover-based** limits (e.g. NFO-FUT, SGX, GLOBAL).
   /// Turnover mode: user enters raw quantity directly; max_qty is enforced.
   bool get _hasTurnoverLimit =>
-      _lotLimitInfo != null && _lotLimitInfo!.isTurnoverMode;
+      !_mcxLotsOnly && _lotLimitInfo != null && _lotLimitInfo!.isTurnoverMode;
 
   /// Returns the actual quantity to send to backend.
   int get _actualQuantity {
     if (_hasLotInfo) {
-      return _lotCount * _lotLimitInfo!.lotSize;
+      return _lotCount * _lotSizeForEntry;
     }
     // For both turnover mode and plain quantity mode, use _quantity directly.
     return _quantity;
@@ -225,6 +239,12 @@ class _TradeCardPageState extends State<TradeCardPage> {
             _selectedQuickQty =
                 _quickQuantities.contains(_quantity) ? _quantity : -1;
             _qtyController.text = _quantity.toString();
+            if (_mcxLotsOnly && _lotSizeForEntry > 0) {
+              final lots = (netQty.abs() / _lotSizeForEntry).round();
+              _lotCount = lots > 0 ? lots : 1;
+              _selectedQuickLot = _quickLots.contains(_lotCount) ? _lotCount : -1;
+              _qtyController.text = _lotCount.toString();
+            }
           });
         }
       });
@@ -234,6 +254,14 @@ class _TradeCardPageState extends State<TradeCardPage> {
       _selectedTab = _mapInitialOrderTypeToTab(widget.initialOrderType!);
     }
     _qtyController.text = _quantity.toString();
+    if (_mcxLotsOnly && _lotSizeForEntry > 0) {
+      final lots = widget.initialQuantity != null
+          ? (widget.initialQuantity! / _lotSizeForEntry).round()
+          : 1;
+      _lotCount = lots > 0 ? lots : 1;
+      _selectedQuickLot = _quickLots.contains(_lotCount) ? _lotCount : -1;
+      _qtyController.text = _lotCount.toString();
+    }
     _fetchLotLimit();
   }
 
@@ -262,7 +290,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
           if (netQty != 0 && widget.initialQuantity == null) {
             // Pre-fill from open position
             final absQty = netQty.abs();
-            if (info.isTurnoverMode) {
+            if (info.isTurnoverMode && !_mcxLotsOnly) {
               _quantity = absQty;
               _selectedQuickQty =
                   _quickQuantities.contains(absQty) ? absQty : -1;
@@ -276,7 +304,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
                   _quickLots.contains(_lotCount) ? _lotCount : -1;
               _qtyController.text = _lotCount.toString();
             }
-          } else if (widget.initialQuantity != null && !info.isTurnoverMode) {
+          } else if (widget.initialQuantity != null && (!info.isTurnoverMode || _mcxLotsOnly)) {
             // initialQuantity was passed (e.g. from orders page square-off) — convert to lots
             final lots = info.lotSize > 0
                 ? (widget.initialQuantity! / info.lotSize).round()
@@ -284,7 +312,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
             _lotCount = lots > 0 ? lots : 1;
             _selectedQuickLot = _quickLots.contains(_lotCount) ? _lotCount : -1;
             _qtyController.text = _lotCount.toString();
-          } else if (info.isTurnoverMode) {
+          } else if (info.isTurnoverMode && !_mcxLotsOnly) {
             _quantity = widget.initialQuantity ?? 1;
             _selectedQuickQty =
                 _quickQuantities.contains(_quantity) ? _quantity : -1;
@@ -484,7 +512,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
         _isLoadingLotLimit = false;
 
         if (info != null && info.lotSize > 0) {
-          if (info.isTurnoverMode) {
+          if (info.isTurnoverMode && !_mcxLotsOnly) {
             _quantity = 1;
             _selectedQuickQty = _quickQuantities.contains(1) ? 1 : -1;
             _qtyController.text = '1';
@@ -726,7 +754,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
         _reportBlocked('MIN_QTY', 'Minimum order is 1 lot', transactionType, currentPrice);
         return;
       }
-      if (_lotCount > _lotLimitInfo!.maxLots) {
+      if (_lotLimitInfo != null &&
+          !_lotLimitInfo!.isTurnoverMode &&
+          _lotCount > _lotLimitInfo!.maxLots) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -1759,7 +1789,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
                         ],
                       ),
                     ),
-                  ] else if (_hasLotInfo) ...[
+                  ] else if (_hasLotInfo &&
+                      _lotLimitInfo != null &&
+                      !_lotLimitInfo!.isTurnoverMode) ...[
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.symmetric(
