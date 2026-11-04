@@ -318,8 +318,15 @@ class GiftNiftyFeedService {
       console.log(`📡 [GiftNiftyFeed] No live NSE IX quote — showing last quote for ${staleSeeds.map((t) => `${t.instrument_token}@${t.last_price}`).join(', ')} (orders stay paused)`);
       lps._broadcastToClients({ type: 'ticks', data: staleSeeds });
     }
+    const dayRange = require('../utils/dayRange');
     for (let i = ticks.length - 1; i >= 0; i--) {
-      if (!this._saneTick(ticks[i].instrument_token, ticks[i].last_price)) ticks.splice(i, 1);
+      const t = ticks[i];
+      if (!this._saneTick(t.instrument_token, t.last_price)) { ticks.splice(i, 1); continue; }
+      // Outside the day's high–low without the low/high moving = bad quote (utils/dayRange.js).
+      if (!dayRange.acceptTick(t.instrument_token, t.last_price, t.low, t.high)) {
+        console.warn(`⚠️  [GiftNiftyFeed] ${t.instrument_token}: price ${t.last_price} outside the day's high–low ${t.low}/${t.high} — ignored`);
+        ticks.splice(i, 1);
+      }
     }
     if (ticks.length === 0) return ticks;
     for (const t of ticks) {
@@ -463,6 +470,7 @@ class GiftNiftyFeedService {
       const askPrice = Number(row.ASKPRICE) || lastPrice;
       if (!Number.isFinite(lastPrice) || lastPrice <= 0) return;
       if (!this._saneTick(this.instrumentToken, lastPrice)) return;
+      if (!require('../utils/dayRange').acceptTick(this.instrumentToken, lastPrice, Number(row.LOW), Number(row.HIGH))) return;
 
       this._freshQuoteAt.set(String(this.instrumentToken), Date.now());
       const lps = this.livePriceService;

@@ -1346,6 +1346,19 @@ const placeTrade = async (req, res) => {
                 if (!executedPrice) {
                     throw new Error('Could not determine price for MARKET order');
                 }
+                // Strict day range (user, 4 Nov 2026): a market order's own price —
+                // ask for a BUY, bid for a SELL — must lie inside today's high–low.
+                // Outside it the quote is wrong or the book is too thin to trust.
+                // Admin Custom price (branch above) is exempt.
+                {
+                    const dayRange = require('../utils/dayRange');
+                    if (!dayRange.inRange(instrument_token, executedPrice)) {
+                        const r = dayRange.rangeOf(instrument_token);
+                        const err = new Error(`Price ${executedPrice} is outside today's high–low (${r.low}–${r.high}) — market order not allowed right now. Use a limit order.`);
+                        err.status = 400;
+                        throw err;
+                    }
+                }
                 } // end else (non-admin MARKET order)
             }
 

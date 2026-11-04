@@ -701,6 +701,12 @@ const _processJob = async job => {
     console.warn(`⚠️  [PriceQueue] [${_ts()}] STALE TICK SKIPPED | token=${instrument_token} livePrice=${live_price} | tickAge=${now - tickTimestamp}ms (> ${STALE_TICK_MS}ms) — not used for order matching`);
     return;
   }
+  // Never match pending orders on a price outside today's high–low (utils/dayRange.js).
+  if (!require('../utils/dayRange').inRange(instrument_token, live_price)) {
+    const r = require('../utils/dayRange').rangeOf(instrument_token);
+    console.warn(`⚠️  [PriceQueue] [${_ts()}] OUT-OF-RANGE PRICE IGNORED | token=${instrument_token} livePrice=${live_price} | day ${r ? r.low + '–' + r.high : '?'} — not used for order matching`);
+    return;
+  }
 
   if (LOG_PRICE_QUEUE) console.log(`🔄 [PriceQueue] Processing price update: Token ${instrument_token} @ ${live_price}`);
 

@@ -714,6 +714,20 @@ class LivePriceService {
           if (t && t.instrument_token && t.last_price) {
             const tokenStr = t.instrument_token.toString();
 
+            // A price outside today's high–low that this tick's own low/high did not
+            // move to include is a bad quote: not shown, not valued, not matched
+            // (utils/dayRange.js — 4 Nov 2026 GIFT 2375.2).
+            if (!require('../utils/dayRange').acceptTick(tokenStr, t.last_price, t.low, t.high)) {
+              const nowMs = Date.now();
+              if (!this._badQuoteLogAt) this._badQuoteLogAt = new Map();
+              if (nowMs - (this._badQuoteLogAt.get(tokenStr) || 0) > 60000) {
+                this._badQuoteLogAt.set(tokenStr, nowMs);
+                const r = require('../utils/dayRange').rangeOf(tokenStr);
+                console.warn(`⚠️  [DayRange] token=${tokenStr} price ${t.last_price} outside today's range ${r ? r.low + '–' + r.high : '?'} (tick low/high ${t.low}/${t.high}) — ignored`);
+              }
+              return;
+            }
+
             // Weekend subscription snapshots must not overwrite official prices.
             // On the first weekday tick, release every lock unconditionally — a
             // real session can open at the exact same price as settlement.
