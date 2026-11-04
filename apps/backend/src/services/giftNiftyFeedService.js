@@ -147,6 +147,12 @@ function dayFields(row, last) {
 // limiting at 15 rapid back-to-back requests in testing, so 2s is safe.
 const POLL_INTERVAL_MS = 2_000;
 const STALE_THRESHOLD_MS = 5 * 60 * 1000;
+// NSE IX's public site sometimes stops publishing while GIFT NIFTY keeps trading
+// (4 Nov 2026: frozen from 10:09 IST, live everywhere else). Kite streams GIFT
+// NIFTY on our own feed (continuous token 291849 = the near-month future), so while
+// NSE IX is stale the near-month contract is priced from that. Off: GIFT_KITE_FALLBACK=off.
+const KITE_GIFT_TOKEN = 291849;
+const KITE_FALLBACK = String(process.env.GIFT_KITE_FALLBACK || 'on').toLowerCase() !== 'off';
 
 class GiftNiftyFeedService {
   constructor() {
@@ -171,6 +177,22 @@ class GiftNiftyFeedService {
     // between sessions) or the feed is down; orders are refused then — see
     // isQuoteLive and tradeController's GIFT check.
     this._freshQuoteAt = new Map();
+    // Kite GIFT NIFTY: last price seen and when it last CHANGED (a price that
+    // hasn't moved for STALE_THRESHOLD_MS = Kite isn't live either).
+    this._kiteSeen = { price: null, changedAt: 0 };
+    this._kiteFallbackOn = false;
+  }
+
+  /** Kite's GIFT NIFTY price if it moved within STALE_THRESHOLD_MS, else null. */
+  _freshKitePrice(now = Date.now()) {
+    const lps = this.livePriceService;
+    const p = Number(lps && (lps.latestPrices.get(String(KITE_GIFT_TOKEN)) ?? lps.latestPrices.get(KITE_GIFT_TOKEN)));
+    if (!Number.isFinite(p) || p <= 0) return null;
+    // First sighting doesn't count (after a restart the slot can hold a seeded
+    // close) — fresh only once the price has actually moved while we watch.
+    if (this._kiteSeen.price == null) this._kiteSeen = { price: p, changedAt: 0 };
+    else if (p !== this._kiteSeen.price) this._kiteSeen = { price: p, changedAt: now };
+    return now - this._kiteSeen.changedAt <= STALE_THRESHOLD_MS ? p : null;
   }
 
   /** True while this GIFT contract has had a fresh NSE IX quote in the last 5 minutes. */
@@ -200,6 +222,13 @@ class GiftNiftyFeedService {
     const staleSeeds = [];
     const seen = new Set();
     const lps = this.livePriceService;
+    const [nearExpiry] = listedExpiries(rows, new Date(now));
+    // Not on the near month's own expiry day (Kite's continuous may roll at another time).
+    const tp = getIndiaDateTimeParts(new Date(now));
+    const istToday = `${tp.year}-${String(tp.month).padStart(2, '0')}-${String(tp.day).padStart(2, '0')}`;
+    const nearKey = nearExpiry && dateKey(nearExpiry) !== istToday ? dateKey(nearExpiry) : null;
+    const kitePrice = KITE_FALLBACK ? this._freshKitePrice(now) : null;
+    let usedKite = false;
     for (const r of rows) {
       if (r.INSTRUMENTTYPE !== 'FUTIDX' || r.SYMBOL !== 'NIFTY') continue;
       const expiry = parseNseixDate(r.EXPIRYDATE);
@@ -209,6 +238,17 @@ class GiftNiftyFeedService {
       if (!Number.isFinite(last) || last <= 0) continue;
       const tick = { instrument_token: contractToken(expiry), last_price: last, bid_price: Number(r.BIDPRICE) || last, ask_price: Number(r.ASKPRICE) || last, ...dayFields(r, last) };
       const ts = parseNseixTimestamp(r.TIMESTMP);
+      if (!Number.isNaN(ts.getTime()) && now - ts.getTime() > STALE_THRESHOLD_MS
+          && kitePrice != null && dateKey(expiry) === nearKey) {
+        // NSE IX stale but Kite's GIFT NIFTY is live: near month from Kite. Kite
+        // sends no depth for it, so bid/ask = Kite price -/+ half of NSE IX's
+        // last spread (kept within 0.5-5 points).
+        const spread = Math.min(5, Math.max(0.5, Number(r.ASKPRICE) - Number(r.BIDPRICE) || 0.5));
+        const half = Math.round((spread / 2) * 20) / 20;
+        ticks.push({ instrument_token: tick.instrument_token, last_price: kitePrice, bid_price: kitePrice - half, ask_price: kitePrice + half, ...dayFields({ CLOSE: r.CLOSE }, kitePrice) });
+        usedKite = true;
+        continue;
+      }
       if (!Number.isNaN(ts.getTime()) && now - ts.getTime() > STALE_THRESHOLD_MS) {
         // Stale quote (holiday, between sessions). The price lives only in
         // memory (these contracts have no stored last_price), so after a
@@ -219,6 +259,12 @@ class GiftNiftyFeedService {
         continue;
       }
       ticks.push(tick);
+    }
+    if (usedKite !== this._kiteFallbackOn) {
+      this._kiteFallbackOn = usedKite;
+      console.log(usedKite
+        ? `📡 [GiftNiftyFeed] NSE IX quote stale — near month now priced from Kite GIFT NIFTY (${kitePrice})`
+        : '📡 [GiftNiftyFeed] Near month back on NSE IX quotes (Kite fallback off)');
     }
     if (ticks.length === 0 && staleSeeds.length === 0) return ticks;
     const metricsEngine = require('./metricsEngine');
