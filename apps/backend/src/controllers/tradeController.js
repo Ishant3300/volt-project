@@ -2,7 +2,7 @@ const Trade = require('../models/Trade');
 const User = require('../models/User');
 const Master = require('../models/Master');
 const { escapeRegex } = require('../utils/escapeRegex');
-const { validateComexWholeLots, tradingModeFor } = require('../utils/comexLots');
+const { validateComexWholeLots, validateMcxWholeLots, tradingModeFor } = require('../utils/comexLots');
 const KiteInstrument = require('../models/KiteInstrument');
 const BrokerageSettings = require('../models/BrokerageSettings');
 const kiteService = require('../services/kiteService');
@@ -1202,6 +1202,8 @@ const placeTrade = async (req, res) => {
             // up either way.
             // COMEX: whole lots only, for every order incl. admin's (utils/comexLots.js).
             await validateComexWholeLots({ segment, exchange, instrument_token, quantity, session });
+            // MCX futures: whole lots only, for every order incl. admin's (utils/comexLots.js).
+            await validateMcxWholeLots({ segment, exchange, instrument_token, quantity, userId: user._id, session });
 
             let instrumentRawName;
             if (req.admin) {
@@ -2284,6 +2286,8 @@ const modifyTrade = async (req, res) => {
             // comment on this check.
             // COMEX: whole lots only, for every order incl. admin's (utils/comexLots.js).
             await validateComexWholeLots({ segment: trade.segment, exchange: trade.exchange, instrument_token: trade.instrument_token, quantity: newQuantity });
+            // MCX futures: whole lots only, for every order incl. admin's (utils/comexLots.js).
+            await validateMcxWholeLots({ segment: trade.segment, exchange: trade.exchange, instrument_token: trade.instrument_token, quantity: newQuantity, userId: user._id });
 
             let instrumentRawName;
             if (isAdmin) {
