@@ -186,6 +186,22 @@ class _TradeCardPageState extends State<TradeCardPage> {
     return null;
   }
 
+  /// True when this order only closes or reduces the known open position
+  /// (the account's own, or the selected client's for master/admin). The
+  /// server treats max qty / max lots as a POSITION cap and always allows
+  /// closing (tradeController), so the app must not block it either —
+  /// 525604 couldn't SELL 8001 PNB to close an 8001 position (3 Nov 2026).
+  bool _reducesKnownPosition(String transactionType) {
+    final profile = Provider.of<UserProfileProvider>(context, listen: false);
+    final int? net = profile.isUser
+        ? _getKnownNetPosition(context)
+        : (_clientPosition?['net_qty'] as num?)?.toInt();
+    if (net == null || net == 0) return false;
+    final qty = _actualQuantity;
+    return (transactionType == 'BUY' && net < 0 && qty <= -net) ||
+        (transactionType == 'SELL' && net > 0 && qty <= net);
+  }
+
   /// Maps initialOrderType string to tab index.
   int _mapInitialOrderTypeToTab(String orderType) {
     switch (orderType) {
@@ -756,7 +772,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
       }
       if (_lotLimitInfo != null &&
           !_lotLimitInfo!.isTurnoverMode &&
-          _lotCount > _lotLimitInfo!.maxLots) {
+          _lotCount > _lotLimitInfo!.maxLots &&
+          !_reducesKnownPosition(transactionType)) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -781,7 +798,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
         _reportBlocked('MIN_QTY', 'Quantity must be at least 1', transactionType, currentPrice);
         return;
       }
-      if (_quantity > _lotLimitInfo!.maxQty) {
+      if (_quantity > _lotLimitInfo!.maxQty &&
+          !_reducesKnownPosition(transactionType)) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
