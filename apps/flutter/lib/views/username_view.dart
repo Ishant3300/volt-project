@@ -17,6 +17,7 @@ import '../services/admin_service.dart';
 import '../services/live_price_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
+import '../utils/market_hours.dart';
 import '../utils/date_formatter.dart';
 import 'package:intl/intl.dart';
 import 'create_user_view.dart';
@@ -88,6 +89,12 @@ class _UsernameViewState extends State<UsernameView> {
   Map<String, dynamic>? _liveUserMetrics;
   List<Map<String, dynamic>> _livePositions = [];
   bool _isLoadingLivePositions = false;
+
+  // Admin/master on a client's Position tab: Square Off → select → Rollover /
+  // Square Off, same as the client's own Orders screen (orders_page.dart).
+  bool _posSelecting = false;
+  final Set<String> _posSelected = {};
+  bool _posBusy = false;
 
   @override
   void initState() {
@@ -1556,6 +1563,9 @@ class _UsernameViewState extends State<UsernameView> {
                 fontWeight: kFontWeightMedium,
                 letterSpacing: 0.5),
           ),
+          const SizedBox(height: 8),
+          if (_currentUser != null && _livePositions.isNotEmpty)
+            _buildClientSquareOffBar(),
           const SizedBox(height: 12),
           // Position cards
           ..._livePositions.map((pos) => _buildLivePositionCard(pos)),
@@ -1563,6 +1573,255 @@ class _UsernameViewState extends State<UsernameView> {
         ],
       ),
     );
+  }
+
+  List<Map<String, dynamic>> get _posChosen => _livePositions
+      .where((p) =>
+          _posSelected.contains(p['instrument_token']?.toString() ?? '') &&
+          ((p['net_qty'] as num?)?.toInt() ?? 0) != 0)
+      .toList();
+
+  void _endPosSelection() => setState(() {
+        _posSelecting = false;
+        _posSelected.clear();
+      });
+
+  Widget _posChip(String label, Color bg, Color fg, VoidCallback? onTap, {IconData? icon}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: onTap == null ? const Color(0xFFE2E8F0) : bg,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (icon != null) ...[
+            Icon(icon, size: kIconSizeSmall, color: onTap == null ? const Color(0xFF9CA3AF) : fg),
+            const SizedBox(width: 4),
+          ],
+          Text(label,
+              style: TextStyle(
+                  color: onTap == null ? const Color(0xFF9CA3AF) : fg,
+                  fontSize: kFontSizeSubtitle,
+                  fontFamily: kFontFamily,
+                  fontWeight: kFontWeightSemiBold)),
+        ]),
+      ),
+    );
+  }
+
+  /// "Square Off" toggle, then Cancel · n selected · Select All · Rollover · Square Off.
+  Widget _buildClientSquareOffBar() {
+    final profile = Provider.of<UserProfileProvider>(context, listen: false);
+    // Watch-only admins can look, not trade.
+    if (profile.isWatchOnlyAdmin) return const SizedBox.shrink();
+    final openTokens = _livePositions
+        .where((p) => ((p['net_qty'] as num?)?.toInt() ?? 0) != 0)
+        .map((p) => p['instrument_token']?.toString() ?? '')
+        .toSet();
+    if (!_posSelecting) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: _posChip('Square Off', const Color(0x80E2E8F0), kBrandPrimary,
+            () => setState(() => _posSelecting = true),
+            icon: Icons.check_box_outlined),
+      );
+    }
+    final chosen = _posChosen;
+    final allSelected = openTokens.isNotEmpty && chosen.length == openTokens.length;
+    return Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _posChip('Cancel', const Color(0xFFE2E8F0), const Color(0xFF374151),
+            _posBusy ? null : _endPosSelection),
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          Text('${chosen.length} selected',
+              style: const TextStyle(
+                  color: kColorTextMuted,
+                  fontSize: kFontSizeSubtitle,
+                  fontFamily: kFontFamily)),
+          const SizedBox(width: 8),
+          _posChip(allSelected ? 'Deselect All' : 'Select All',
+              kBrandPrimary.withValues(alpha: 0.1), kBrandPrimary,
+              _posBusy
+                  ? null
+                  : () => setState(() {
+                        _posSelected.clear();
+                        if (!allSelected) _posSelected.addAll(openTokens);
+                      })),
+          const SizedBox(width: 8),
+          _posChip('Rollover', kBrandPrimary, Colors.white,
+              chosen.isEmpty || _posBusy ? null : () => _rolloverClientSelected(chosen)),
+          const SizedBox(width: 8),
+          _posChip('Square Off', kColorSell, Colors.white,
+              chosen.isEmpty || _posBusy ? null : () => _squareOffClientSelected(chosen)),
+        ]),
+      ],
+    );
+  }
+
+  Future<bool> _confirmPosAction(String title, String message, String action, Color color) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title, style: const TextStyle(fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
+        content: Text(message, style: const TextStyle(fontFamily: kFontFamily)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(action, style: TextStyle(color: color, fontWeight: kFontWeightBold))),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
+  void _showPosResult(String title, int ok, List<String> errors, String okWord) {
+    if (!mounted) return;
+    if (errors.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('$okWord $ok position(s)'), backgroundColor: kColorBuy));
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title, style: const TextStyle(fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
+        content: SingleChildScrollView(
+          child: Text(
+              '${ok > 0 ? '$okWord $ok position(s), ' : ''}${errors.length} failed:\n\n${errors.join('\n')}',
+              style: const TextStyle(fontFamily: kFontFamily, fontSize: 13)),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+      ),
+    );
+  }
+
+  /// One opposite-side MARKET order per selected position, placed for this
+  /// client (user_id) one after another — a refused one is listed and the rest
+  /// still go. Positions only: the client's pending orders are left alone.
+  Future<void> _squareOffClientSelected(List<Map<String, dynamic>> chosen) async {
+    final user = _currentUser;
+    if (user == null || chosen.isEmpty) return;
+    final ok = await _confirmPosAction(
+        'Square Off Positions',
+        'Square off ${chosen.length} position(s) of ${user.name} (${user.username}) at market price?',
+        'Square Off',
+        kColorSell);
+    if (!ok || !mounted) return;
+
+    final isAdmin = Provider.of<UserProfileProvider>(context, listen: false).isAdmin;
+    setState(() => _posBusy = true);
+    int done = 0;
+    final List<String> errors = [];
+    try {
+      final token = await _storage.getToken();
+      if (token == null) throw Exception('Not authenticated');
+      final apiService = ApiService(backendUrl);
+      for (final p in chosen) {
+        final String symbol = p['tradingsymbol']?.toString() ?? '';
+        final String? exchange = p['exchange']?.toString();
+        final int netQty = (p['net_qty'] as num?)?.toInt() ?? 0;
+        if (netQty == 0) continue;
+        // Same market-hours rule as the client's own Square Off (admin bypasses).
+        if (!isAdmin && !MarketHours.isMarketOpen(exchange: exchange, tradingsymbol: symbol)) {
+          errors.add('$symbol: ${MarketHours.getMarketStatusMessage(exchange: exchange, tradingsymbol: symbol)}');
+          continue;
+        }
+        final String iToken = p['instrument_token']?.toString() ?? '';
+        final double ltp = _ltpMap[iToken] ?? (p['ltp'] as num?)?.toDouble() ?? 0;
+        final double fallback = ((netQty > 0 ? p['avg_buy_price'] : p['avg_sell_price']) as num?)?.toDouble() ?? 0;
+        try {
+          final response = await apiService.post(
+            '/trade',
+            {
+              'user_id': user.id,
+              'instrument_token': p['instrument_token'],
+              'tradingsymbol': symbol,
+              'exchange': exchange,
+              'segment': p['segment'],
+              'transaction_type': netQty > 0 ? 'SELL' : 'BUY',
+              'quantity': netQty.abs(),
+              'order_type': 'MARKET',
+              'price': ltp > 0 ? ltp : fallback,
+            },
+            token: token,
+          );
+          Map<String, dynamic> body = {};
+          try {
+            body = jsonDecode(response.body) as Map<String, dynamic>;
+          } catch (_) {}
+          // 200 alone isn't success — the body says (same check as orders_page).
+          if ((response.statusCode == 200 || response.statusCode == 201) && body['success'] == true) {
+            done++;
+          } else {
+            errors.add('$symbol: ${body['message'] ?? 'Failed'}');
+          }
+        } catch (e) {
+          errors.add('$symbol: $e');
+        }
+      }
+    } catch (e) {
+      errors.add(e.toString());
+    }
+    if (!mounted) return;
+    setState(() => _posBusy = false);
+    _endPosSelection();
+    await _fetchLivePositions();
+    _showPosResult('Square Off', done, errors, 'Squared off');
+  }
+
+  /// One POST /trade/rollover for every selected position, for this client.
+  Future<void> _rolloverClientSelected(List<Map<String, dynamic>> chosen) async {
+    final user = _currentUser;
+    if (user == null || chosen.isEmpty) return;
+    final ok = await _confirmPosAction(
+        'Rollover Positions',
+        'This will square off ${chosen.length} position(s) of ${user.name} (${user.username}) and immediately reopen the same qty and direction on the next expiry contract. A short option position cannot be rolled over. Continue?',
+        'Rollover',
+        kBrandPrimary);
+    if (!ok || !mounted) return;
+
+    setState(() => _posBusy = true);
+    int done = 0;
+    final List<String> errors = [];
+    try {
+      final token = await _storage.getToken();
+      if (token == null) throw Exception('Not authenticated');
+      final response = await ApiService(backendUrl).post(
+        '/trade/rollover',
+        {
+          'user_id': user.id,
+          'instrument_tokens': chosen.map((p) => p['instrument_token']?.toString() ?? '').toList(),
+        },
+        token: token,
+      );
+      Map<String, dynamic> body = {};
+      try {
+        body = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (_) {}
+      if (response.statusCode == 200) {
+        final data = (body['data'] as Map?) ?? {};
+        done = (data['rolled_over'] as List?)?.length ?? 0;
+        for (final e in (data['errors'] as List?) ?? []) {
+          errors.add('${e['token'] ?? ''}: ${e['message'] ?? 'Failed'}');
+        }
+      } else {
+        errors.add(body['message']?.toString() ?? 'Rollover failed');
+      }
+    } catch (e) {
+      errors.add(e.toString());
+    }
+    if (!mounted) return;
+    setState(() => _posBusy = false);
+    _endPosSelection();
+    await _fetchLivePositions();
+    _showPosResult('Rollover', done, errors, 'Rolled over');
   }
 
   Widget _buildLivePositionCard(Map<String, dynamic> pos) {
@@ -1589,8 +1848,19 @@ class _UsernameViewState extends State<UsernameView> {
     // metricsEngine is the single source of truth for all metrics.
     double floating = (pos['floating_pnl'] as num?)?.toDouble() ?? 0;
 
+    final bool posSelected = _posSelecting && _posSelected.contains(iToken);
     return GestureDetector(
-      onTap: _currentUser != null
+      onLongPress: _currentUser != null && !_posSelecting
+          ? () => setState(() {
+                _posSelecting = true;
+                _posSelected.add(iToken);
+              })
+          : null,
+      onTap: _currentUser != null && _posSelecting
+          ? () => setState(() {
+                if (!_posSelected.remove(iToken)) _posSelected.add(iToken);
+              })
+          : _currentUser != null
           ? () => _openTradeCardFor(pos)
           : _currentMaster != null
               ? () => Navigator.push(
@@ -1609,8 +1879,9 @@ class _UsernameViewState extends State<UsernameView> {
       child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: posSelected ? const Color(0xFFE3F2FD) : Colors.white,
         borderRadius: BorderRadius.circular(24),
+        border: posSelected ? Border.all(color: kBrandPrimary.withValues(alpha: 0.5)) : null,
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.02),
