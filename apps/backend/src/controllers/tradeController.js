@@ -721,6 +721,11 @@ async function _validateSingleOrderTypePerScript(user, instrument_token, order_t
 
     const isClosingSide = (netQty > 0 && transaction_type === 'SELL') || (netQty < 0 && transaction_type === 'BUY');
     if (!isClosingSide) return;
+    // Fresh Stop-Loss ON = an SL may open a position (user, 5 Nov 2026), so a
+    // stoploss bigger than the holding is allowed: it closes the position and
+    // opens the rest the other way when it fills. The opening part is still
+    // wallet-checked (placement + fill). LIMIT orders and Fresh SL OFF keep the cap.
+    if (isStopType && user.fresh_stoploss === true) return;
 
     const sameSidePendingQty = pendingTrades
         .filter((t) => t.transaction_type === transaction_type)
@@ -2916,5 +2921,5 @@ module.exports = {
     autoSquareOffExpired,
     getInstrumentInfo,
     rolloverPositions,
-    _private: { _validateScriptQuantityLimit, _validateFreshStoplossHoldTime, _validatePendingWalletCover, _validateMinNseFutPrice },
+    _private: { _validateScriptQuantityLimit, _validateFreshStoplossHoldTime, _validatePendingWalletCover, _validateMinNseFutPrice, _validateSingleOrderTypePerScript },
 };
