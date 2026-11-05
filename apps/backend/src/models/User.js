@@ -150,9 +150,12 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // New clients start with Fresh Stop-Loss OFF (user, 5 Nov 2026; was true):
+  // ON lets an SL open a position or exceed the holding — an admin/master
+  // turns it on per client. Existing clients keep their stored value.
   fresh_stoploss: {
     type: Boolean,
-    default: true
+    default: false
   },
   // Profit book time: no closing IN PROFIT until this many minutes after the
   // quantity was opened (0 = no restriction). Set per client at creation —
