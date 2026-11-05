@@ -158,19 +158,20 @@ workflows:
   # Volt flavour's Xcode configuration is reused; this workflow swaps in Velo's
   # bundle id, name and icon at build time (the repo's Volt files are unchanged).
   #
-  # Before the first run (new account):
-  #   1. Codemagic → Team integrations → add the NEW account's App Store Connect
-  #      API key, named exactly: velo
-  #   2. (done) bundle id com.velo.simulator, app Apple ID 6826137877, team
-  #      9BJHTUS4RG (Flamingo Infotech Private Limited).
-  #   3. Code signing identities: certificate + App Store profile for that bundle id.
+  # Apple account (since the app transfer, 5 Nov 2026): Ashwinkumar Doru, team
+  # ZYUHWWGYT4 (was Flamingo Infotech 9BJHTUS4RG). App Apple ID 6826137877 and
+  # bundle id com.velo.simulator moved with the app.
+  #   1. Codemagic → Integrations → Developer Portal: the new account's App Store
+  #      Connect API key is named exactly: VELO (key 23V8FZ4PTN).
+  #   2. Code signing identities: certificate velo-distribution-ashwin + an App
+  #      Store profile for com.velo.simulator under team ZYUHWWGYT4.
   ios-velo-testflight:
     name: iOS Velo (simulator) → TestFlight
     max_build_duration: 60
     instance_type: mac_mini_m2
     working_directory: apps/flutter
     integrations:
-      app_store_connect: velo
+      app_store_connect: VELO
     environment:
       flutter: 3.47.2
       xcode: latest
@@ -179,7 +180,7 @@ workflows:
         distribution_type: app_store
         bundle_identifier: com.velo.simulator
       vars:
-        APP_STORE_APPLE_ID: "6826137877" # VELO Trading Simulator (Flamingo Infotech account)
+        APP_STORE_APPLE_ID: "6826137877" # VELO Learn (team ZYUHWWGYT4 since 5 Nov 2026)
         VELO_BUNDLE_ID: com.velo.simulator
         BRAND: velo
     scripts:
@@ -252,18 +253,18 @@ workflows:
   # server-side switch: Apple 2.3.1 / 2.5.19, the Flamingo account is at risk).
   # Start it with the environment variable VELO_LIVE_LICENCE_CONFIRMED=yes,
   # otherwise the first step stops the build. Builds version VELO_VERSION
-  # (default 1.0.54) and submits it for App Store review, MANUAL release (see
-  # publishing). Before starting: create version 1.0.54 in App Store Connect
-  # with What's New "Bug fixes and performance improvements." — review notes
-  # stay exactly as they are; the licence goes to Apple by email (3 Nov 2026).
+  # (default 1.0.55 — 1.0.54 is released) and submits it for App Store review,
+  # released automatically once approved (see publishing). Before starting:
+  # create that version in App Store Connect with What's New "Bug fixes and
+  # performance improvements." — review notes stay exactly as they are.
   ios-velo-live-testflight:
     name: iOS Velo Learn (live server, after licence) → TestFlight
     max_build_duration: 60
     instance_type: mac_mini_m2
     working_directory: apps/flutter
     integrations:
-      app_store_connect: velo
-    environment:
+      app_store_connect: VELO
+    environment: &velo_live_env
       flutter: 3.47.2
       xcode: latest
       cocoapods: default
@@ -277,7 +278,7 @@ workflows:
         # Licence received and emailed to Apple (4 Nov 2026) — lets this build run.
         # Build-time switch only; nothing of it goes into the app or to Apple.
         VELO_LIVE_LICENCE_CONFIRMED: "yes"
-    scripts:
+    scripts: &velo_live_scripts
       - name: Licence confirmed?
         script: |
           if [ "${VELO_LIVE_LICENCE_CONFIRMED:-}" != "yes" ]; then
@@ -312,7 +313,7 @@ workflows:
           flutter build ipa --release \
             --flavor volt \
             --dart-define=BRAND=velo \
-            --build-name="${VELO_VERSION:-1.0.54}" \
+            --build-name="${VELO_VERSION:-1.0.55}" \
             --build-number="$BUILD_NUMBER" \
             --export-options-plist=/Users/builder/export_options.plist
       - name: Check — this really is the live build
@@ -337,3 +338,24 @@ workflows:
         cancel_previous_submissions: false
         # Every update goes live as soon as Apple approves it (user, 5 Nov 2026).
         release_type: AFTER_APPROVAL
+
+  # Same live VELO Learn build, uploaded to App Store Connect / TestFlight ONLY —
+  # nothing is sent to App Store review. Used to prove signing and upload work
+  # on the new Apple team (5 Nov 2026); the build can later be picked for review.
+  ios-velo-live-upload:
+    name: iOS Velo Learn (live server) → upload only, no review
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    working_directory: apps/flutter
+    integrations:
+      app_store_connect: VELO
+    environment: *velo_live_env
+    scripts: *velo_live_scripts
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: false
+        submit_to_app_store: false
