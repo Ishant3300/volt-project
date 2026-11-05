@@ -19,24 +19,29 @@ const path = require('path');
 
 const DOWNLOADS_DIR = process.env.APP_DOWNLOADS_DIR || '/var/www/downloads';
 const CACHE_MS = 60 * 1000;
-const UA_RE = /^(Volt|Apex|Velo)\/[\d.]+\+(\d+)\s*\(Android/i;
+// Android and (since 5 Nov 2026) iPhone: an iOS build older than the file's
+// ios_build is refused the same way — every iOS update is a force update too.
+const UA_RE = /^(Volt|Apex|Velo)\/[\d.]+\+(\d+)\s*\((Android|iOS)/i;
 const LOGIN_RE = /^\/api\/auth\/(?:(?:user|admin|master)\/)?login\/?$/;
 const TRADE_RE = /^\/api\/trade(?:\/|$)/;
 
-const cache = new Map(); // brand -> { build, at }
+const cache = new Map(); // `${brand}|${platform}` -> { build, at }
 const logged = new Map(); // `${ip}|${build}` -> last log time
 
-function publishedBuild(brand) {
-  const hit = cache.get(brand);
+/** Published minimum build: `build` for Android, `ios_build` for iPhone; null = no enforcement. */
+function publishedBuild(brand, platform = 'android') {
+  const cacheKey = `${brand}|${platform}`;
+  const hit = cache.get(cacheKey);
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.build;
   let build = null;
   try {
     const body = JSON.parse(fs.readFileSync(path.join(DOWNLOADS_DIR, `${brand}-version.json`), 'utf8'));
-    if (Number.isInteger(body.build) && body.build > 0) build = body.build;
+    const value = platform === 'ios' ? body.ios_build : body.build;
+    if (Number.isInteger(value) && value > 0) build = value;
   } catch (_) {
     build = null; // missing/unreadable → no enforcement for this brand
   }
-  cache.set(brand, { build, at: Date.now() });
+  cache.set(cacheKey, { build, at: Date.now() });
   return build;
 }
 
@@ -50,7 +55,8 @@ function minAppVersion(req, res, next) {
     if (!m) return next();
     const brand = m[1].toLowerCase();
     const build = Number(m[2]);
-    const required = publishedBuild(brand);
+    const platform = m[3].toLowerCase() === 'ios' ? 'ios' : 'android';
+    const required = publishedBuild(brand, platform);
     if (!required || build >= required) return next();
 
     const key = `${req.ip}|${build}`;
@@ -61,7 +67,9 @@ function minAppVersion(req, res, next) {
     return res.status(403).json({
       success: false,
       code: 'APP_UPDATE_REQUIRED',
-      message: 'Please update the app to the latest version to continue. Close the app, open it again and tap Update.',
+      message: platform === 'ios'
+        ? 'Please update the app from the App Store to continue.'
+        : 'Please update the app to the latest version to continue. Close the app, open it again and tap Update.',
       data: null,
     });
   } catch (_) {
