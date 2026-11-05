@@ -102,7 +102,8 @@ workflows:
         submit_to_testflight: false
         submit_to_app_store: true
         cancel_previous_submissions: true
-        release_type: MANUAL
+        # Every update goes live as soon as Apple approves it (user, 5 Nov 2026).
+        release_type: AFTER_APPROVAL
 
   # ── VOLT LIVE: full app for INTERNAL TestFlight testers only ───────────────
   # Manual start only. The full Volt app (live login, admin / master screens) —
@@ -330,9 +331,9 @@ workflows:
       app_store_connect:
         auth: integration
         # Uploaded (internal TestFlight testers can install it) and submitted
-        # for App Store review with MANUAL release — nothing goes live until
-        # someone clicks Release in App Store Connect (3 Nov 2026).
+        # for App Store review; released automatically once approved.
         submit_to_testflight: false
         submit_to_app_store: true
         cancel_previous_submissions: false
-        release_type: MANUAL
+        # Every update goes live as soon as Apple approves it (user, 5 Nov 2026).
+        release_type: AFTER_APPROVAL

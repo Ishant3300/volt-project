@@ -12,7 +12,9 @@ import '../utils/contants.dart';
 class UpdateInfo {
   final int latestBuild;
   final String apkUrl;
-  const UpdateInfo({required this.latestBuild, required this.apkUrl});
+  /// iPhone: the App Store page to update from (no APK download on iOS).
+  final String? storeUrl;
+  const UpdateInfo({required this.latestBuild, required this.apkUrl, this.storeUrl});
 }
 
 /// Compares the installed build number against `<brand>-version.json`,
@@ -22,8 +24,8 @@ class UpdateInfo {
 /// fetch, checked once per app cold-start (see InitialScreen).
 class UpdateCheckService {
   Future<UpdateInfo?> check() async {
-    // The APK update prompt is Android-only — iPhones update via the App Store.
-    if (defaultTargetPlatform != TargetPlatform.android) return null;
+    final isIos = defaultTargetPlatform == TargetPlatform.iOS;
+    if (defaultTargetPlatform != TargetPlatform.android && !isIos) return null;
     try {
       final info = await PackageInfo.fromPlatform();
       final installedBuild = int.tryParse(info.buildNumber) ?? 0;
@@ -38,6 +40,15 @@ class UpdateCheckService {
       }
 
       final body = jsonDecode(response.body) as Map<String, dynamic>;
+      // iPhone (5 Nov 2026): every iOS release is a force update too — the file's
+      // ios_build is raised once the new version is live on the App Store, and
+      // older builds are sent to the App Store page (ios_url).
+      if (isIos) {
+        final iosBuild = (body['ios_build'] as num?)?.toInt();
+        final iosUrl = body['ios_url'] as String?;
+        if (iosBuild == null || iosUrl == null || iosBuild <= installedBuild) return null;
+        return UpdateInfo(latestBuild: iosBuild, apkUrl: '', storeUrl: iosUrl);
+      }
       final latestBuild = body['build'] as int;
       final apkUrl = body['apk_url'] as String;
 

@@ -22,6 +22,7 @@ import 'home_page.dart';
 import 'package:stocker/config/practice_session.dart';
 import 'package:stocker/config/practice_only.dart';
 import 'utils/contants.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Update: downloads the APK into the app's own temp storage and hands it
 /// straight to Android's package installer (open_filex) — a plain
@@ -54,7 +55,9 @@ Future<void> checkAndShowForceUpdate(BuildContext context) async {
         barrierDismissible: false,
         builder: (dialogContext) => PopScope(
           canPop: false,
-          child: _UpdateDialog(apkUrl: update.apkUrl),
+          child: update.storeUrl != null
+              ? _StoreUpdateDialog(storeUrl: update.storeUrl!)
+              : _UpdateDialog(apkUrl: update.apkUrl),
         ),
       );
     } finally {
@@ -272,6 +275,27 @@ enum _UpdateStage { prompt, downloading, error }
 /// (open_filex) instead of just launching a browser download the user has
 /// to go find manually. Cancel stays reachable throughout, including mid
 /// download, so a stalled/slow download can never leave the user stuck.
+/// iPhone force update: nothing to download in-app — the App Store does it.
+/// Blocking (no close) until the user updates; the check runs again on resume.
+class _StoreUpdateDialog extends StatelessWidget {
+  final String storeUrl;
+  const _StoreUpdateDialog({required this.storeUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Update required'),
+      content: const Text('A new version of the app is available. Please update from the App Store to continue.'),
+      actions: [
+        TextButton(
+          onPressed: () => launchUrl(Uri.parse(storeUrl), mode: LaunchMode.externalApplication),
+          child: const Text('Open App Store'),
+        ),
+      ],
+    );
+  }
+}
+
 class _UpdateDialog extends StatefulWidget {
   final String apkUrl;
   const _UpdateDialog({required this.apkUrl});
