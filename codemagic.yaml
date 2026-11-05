@@ -176,9 +176,13 @@ workflows:
       flutter: 3.47.2
       xcode: latest
       cocoapods: default
+      # Pinned by reference name (new Apple team ZYUHWWGYT4, 5 Nov 2026) — Flamingo's
+      # old velo-distribution / velo-appstore are still stored in Codemagic.
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.velo.simulator
+        provisioning_profiles:
+          - velo-appstore-ashwin
+        certificates:
+          - velo-distribution-ashwin
       vars:
         APP_STORE_APPLE_ID: "6826137877" # VELO Learn (team ZYUHWWGYT4 since 5 Nov 2026)
         VELO_BUNDLE_ID: com.velo.simulator
@@ -268,9 +272,13 @@ workflows:
       flutter: 3.47.2
       xcode: latest
       cocoapods: default
+      # Pinned by reference name (new Apple team ZYUHWWGYT4, 5 Nov 2026) — Flamingo's
+      # old velo-distribution / velo-appstore are still stored in Codemagic.
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.velo.simulator
+        provisioning_profiles:
+          - velo-appstore-ashwin
+        certificates:
+          - velo-distribution-ashwin
       vars:
         APP_STORE_APPLE_ID: "6826137877"
         VELO_BUNDLE_ID: com.velo.simulator
