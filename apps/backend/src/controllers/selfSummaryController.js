@@ -218,6 +218,40 @@ function totalsOf(rows) {
   };
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const isReopenLeg = (t) => /carried forward/i.test(String(t?.remarks || ''));
+
+/** A settlement's time from one of its legs: close at S, reopen ("carried forward") at S+1ms. */
+function settlementTimeOf(leg) {
+  const at = new Date(leg.executed_at).getTime();
+  return isReopenLeg(leg) ? at - 1 : at;
+}
+
+/** The B/F leg: the settlement reopen leg that opens the period (at its very start). */
+function isBroughtForward(t, periodStart) {
+  return t.trade_type === 'carry_forward' && isReopenLeg(t)
+    && new Date(t.executed_at).getTime() === periodStart.getTime();
+}
+
+/**
+ * Period bounds from the settlements (read-only lookups on the settlement's
+ * own carry-forward rows):
+ *  - start: just after the latest settlement up to 3 days before `fromDate`
+ *    (Sat 03:50 IST for a week starting Monday) — else `fromDate` itself;
+ *  - end: the latest settlement after `start` and up to `toDate` (a settled
+ *    week) — else `toDate`, and the period is still open (live M2M counts).
+ */
+async function settlementBounds(userIds, fromDate, toDate) {
+  const base = { user_id: { $in: userIds }, status: 'completed', trade_type: 'carry_forward' };
+  const startLeg = await Trade.findOne({ ...base, executed_at: { $gt: new Date(fromDate.getTime() - 3 * DAY_MS), $lte: fromDate } })
+    .sort({ executed_at: -1 }).select('executed_at remarks').lean();
+  const start = startLeg ? new Date(settlementTimeOf(startLeg) + 1) : fromDate;
+  const endLeg = await Trade.findOne({ ...base, executed_at: { $gt: start, $lte: toDate } })
+    .sort({ executed_at: -1 }).select('executed_at remarks').lean();
+  if (!endLeg) return { start, end: toDate, settled: false };
+  return { start, end: new Date(settlementTimeOf(endLeg)), settled: true };
+}
+
 const getSelfSummary = async (req, res) => {
   try {
     const { from, to, exchange, search, tradingsymbol, script_exchange: scriptExchange, parent_id: parentId } = req.query;
@@ -253,18 +287,25 @@ const getSelfSummary = async (req, res) => {
     if (users.length === 0) return res.status(200).json({ success: true, data: { rows: [], totals: totalsOf([]) } });
     const userIds = users.map((u) => u._id);
 
-    // ── The period's trades — the same set as the Weekly Admin Report: live
-    // trades (no carry_forward marker) + trades of already-settled weeks
-    // (incl. settlement's close/reopen legs, which carry the week-end P&L).
+    // ── The period follows the settlements (user, 5 Nov 2026): it starts just
+    // after the settlement that opened it — so the carried-in positions (the
+    // settlement's "carried forward" reopen legs, at S+1ms) and trades made
+    // after it on the Saturday count — and, for a settled week, ends AT the
+    // settlement that closed it (its close legs at S book the week-end P&L).
+    const { start: periodStart, end: periodEnd, settled } = await settlementBounds(userIds, fromDate, toDate);
+
+    // The period's trades — the Weekly Admin Report's set (live trades +
+    // trades of already-settled weeks incl. settlement legs) plus the current
+    // week's live carry-forward reopen legs (P&L 0) for the B/F quantity.
     const trades = await Trade.find({
       user_id: { $in: userIds },
       status: 'completed',
-      executed_at: { $gte: fromDate, $lte: toDate },
+      executed_at: { $gte: periodStart, $lte: periodEnd },
       $or: [
-        { deleted_at: null, trade_type: { $ne: 'carry_forward' } },
+        { deleted_at: null },
         { deleted_at: { $ne: null }, settlement_run_id: { $ne: null } },
       ],
-    }).select('user_id instrument_token exchange tradingsymbol transaction_type executed_price executed_quantity pnl brokerage brokerage_exempt trade_type settlement_run_id').lean();
+    }).select('user_id instrument_token exchange tradingsymbol transaction_type executed_price executed_quantity pnl brokerage brokerage_exempt trade_type settlement_run_id remarks executed_at').lean();
 
     const metricsEngine = require('../services/metricsEngine');
     const positionsByUser = new Map();
@@ -312,22 +353,30 @@ const getSelfSummary = async (req, res) => {
         if (!keep(t.instrument_token)) continue;
         const s = slot(uid, t.instrument_token);
         s.realised += Number(t.pnl) || 0;
-        if (t.trade_type === 'carry_forward') continue; // settlement legs: P&L only, not a real fill
+        if (t.trade_type === 'carry_forward') {
+          // Settlement legs: P&L only — except the B/F (carried-in) reopen leg
+          // at the period's start, counted in Buy/Sell at the settlement price.
+          if (!isBroughtForward(t, periodStart)) continue;
+        }
         const qty = Number(t.executed_quantity) || 0;
         const val = qty * (Number(t.executed_price) || 0);
-        const brk = t.brokerage_exempt ? 0 : Number(t.brokerage) || 0;
+        const brk = t.trade_type === 'carry_forward' || t.brokerage_exempt ? 0 : Number(t.brokerage) || 0;
         s.brokerage += brk;
         if (t.transaction_type === 'BUY') { s.buy_qty += qty; s.buy_value += val; s.buy_brk += brk; }
         else { s.sell_qty += qty; s.sell_value += val; s.sell_brk += brk; }
       }
     }
-    for (const [uid, list] of positionsByUser) {
-      for (const p of list) {
-        const token = String(p.instrument_token);
-        if (!keep(token) || !p.net_qty) continue;
-        const s = slot(uid, token);
-        s.floating += Number(p.floating_pnl) || 0;
-        s.ltp = p.ltp;
+    // Live open M2M only while the period is still open — a settled week's
+    // positions were closed (and their P&L booked) by its settlement legs.
+    if (!settled) {
+      for (const [uid, list] of positionsByUser) {
+        for (const p of list) {
+          const token = String(p.instrument_token);
+          if (!keep(token) || !p.net_qty) continue;
+          const s = slot(uid, token);
+          s.floating += Number(p.floating_pnl) || 0;
+          s.ltp = p.ltp;
+        }
       }
     }
     for (const s of perUserScript.values()) {
@@ -385,4 +434,4 @@ const getSelfSummary = async (req, res) => {
   }
 };
 
-module.exports = { getSelfSummary, _private: { marketName, scriptName, lineFor, buildRows, totalsOf } };
+module.exports = { getSelfSummary, _private: { marketName, scriptName, lineFor, buildRows, totalsOf, settlementTimeOf, isBroughtForward } };

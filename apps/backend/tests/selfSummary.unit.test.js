@@ -76,3 +76,23 @@ test('avg rates carry brokerage: buy + brk/qty, sell − brk/qty', () => {
   const [row] = buildRows({ perUserScript: m, userMaster: new Map([['u', 'V']]), masterMap, viewer });
   expect(row).toMatchObject({ buy_avg: 1000.5, sell_avg: 1099.5, total_m2m: 9900 });
 });
+
+describe('B/F and settlement-based period (5 Nov 2026)', () => {
+  const { _private: p } = require('../src/controllers/selfSummaryController');
+  const S = new Date('2026-10-30T22:20:00.000Z'); // Sat 31 Oct 03:50 IST
+  const close = { trade_type: 'carry_forward', executed_at: S, remarks: 'Settlement 2026-10-30: position closed at official price' };
+  const reopen = { trade_type: 'carry_forward', executed_at: new Date(S.getTime() + 1), remarks: 'Settlement 2026-10-30: carried forward at official price' };
+
+  test('settlement time from either leg', () => {
+    expect(p.settlementTimeOf(close)).toBe(S.getTime());
+    expect(p.settlementTimeOf(reopen)).toBe(S.getTime());
+  });
+
+  test('only the reopen leg at the period start is B/F', () => {
+    const start = new Date(S.getTime() + 1);
+    expect(p.isBroughtForward(reopen, start)).toBe(true);
+    expect(p.isBroughtForward(close, start)).toBe(false);
+    expect(p.isBroughtForward({ ...reopen, executed_at: new Date(S.getTime() + 7 * 864e5 + 1) }, start)).toBe(false);
+    expect(p.isBroughtForward({ trade_type: 'regular', executed_at: start }, start)).toBe(false);
+  });
+});
