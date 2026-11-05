@@ -57,6 +57,7 @@ const {
 } = require('../controllers/masterPositionController');
 
 const { getScriptwisePnl } = require('../controllers/scriptwisePnlController');
+const { getSelfSummary } = require('../controllers/selfSummaryController');
 const { getTradeAlerts } = require('../controllers/tradeAlertController');
 
 const { getPnlSummary } = require('../controllers/pnlSummaryController');
@@ -215,6 +216,9 @@ router.get('/positions/admin-master-metrics', getAdminMasterMetrics);
 // one row per user, when exchange+tradingsymbol are both given) across the
 // caller's whole hierarchy — see scriptwisePnlController.js.
 router.get('/positions/scriptwise-pnl', requireAdminPermission('REPORTS_ACCESS'), getScriptwisePnl);
+
+// Self Summary (scope view) - NEW, report-only, read-only; see selfSummaryController.js.
+router.get('/positions/self-summary', requireAdminPermission('REPORTS_ACCESS'), getSelfSummary);
 
 // Trade Alert (web-only) live-log backfill — see tradeAlertController.js.
 // This route/controller existed in the older apex-backend-node repo but was
