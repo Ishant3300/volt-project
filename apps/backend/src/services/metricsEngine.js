@@ -18,6 +18,7 @@ const SettlementRun = require('../models/SettlementRun');
 const { dateRange, isPriceWeekendInIndia, getLatestDueSettlementFriday, toIndiaDateOnly } = require('../utils/settlementDates');
 const { allowedCategories, CATEGORY_ORDER } = require('../utils/walletCategory');
 const { GLOBAL_INDEX_NAMES } = require('../constants/massiveInstruments');
+const { sortByFillTime } = require('../utils/fillOrder');
 
 /** Ticks are batched for at most this long before M2M / margin checks run. */
 const TICK_BATCH_MS = 100;
@@ -276,9 +277,11 @@ class MetricsEngine {
       );
       const allowedCats = allowedCategories(exchangesAllowed || []);
 
-      const trades = await Trade.find({
+      // Fill order, same as settlement (utils/fillOrder.js): a pending SL/LIMIT
+      // placed earlier but filled later must not move the open average.
+      const trades = sortByFillTime(await Trade.find({
         user_id: userId, status: 'completed', deleted_at: null
-      }).sort({ createdAt: 1 }).lean();
+      }).sort({ createdAt: 1 }).lean());
 
       if (trades.length === 0) {
         // Keep an explicit flat-user cache when settlement removed the final

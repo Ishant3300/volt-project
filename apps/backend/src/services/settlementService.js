@@ -20,6 +20,7 @@ const SettlementHistory = require('../models/SettlementHistory');
 const SettlementRun = require('../models/SettlementRun');
 const Trade = require('../models/Trade');
 const User = require('../models/User');
+const { sortByFillTime } = require('../utils/fillOrder');
 const {
   dateKey,
   dateRange,
@@ -1318,14 +1319,17 @@ async function computeSettlementPlan({ run, tradingDate, session, ownRunTradesAr
     throw error;
   }
 
-  const activeTrades = await Trade.find({
+  // Average-cost walk below must follow FILL order, not placement order: a
+  // pending SL/LIMIT placed earlier but filled later misplaced the open
+  // average (utils/fillOrder.js; KK GIFTNIFTY +535 on 7 Nov 2026).
+  const activeTrades = sortByFillTime(await Trade.find({
     status: 'completed',
     deleted_at: null,
     $or: [
       { executed_at: { $lt: cutoff } },
       { executed_at: null, createdAt: { $lt: cutoff } },
     ],
-  }).sort({ createdAt: 1, _id: 1 }).session(session).lean();
+  }).sort({ createdAt: 1, _id: 1 }).session(session).lean());
   const groups = buildPositionGroups(activeTrades);
   const openGroups = groups.filter(group => group.netQty !== 0);
   const tokens = [...new Set(groups.map(group => group.token))];
