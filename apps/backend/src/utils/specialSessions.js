@@ -154,11 +154,33 @@ function dueJobs(now = new Date(), sessions = SESSIONS) {
  *    week asked for on the Sunday) stops just before it.
  * Any other window is returned unchanged. Never mutates its arguments.
  */
-function adjustReportWindow(from, to, sessions = SESSIONS) {
+function adjustReportWindow(from, to, sessions = SESSIONS, now = new Date()) {
   let f = from ? new Date(from) : from;
   let t = to ? new Date(to) : to;
   for (const session of sessions) {
     const { S, M } = weekEdges(session);
+    // ON the session day only (owner, 7 Nov 2026): the app and web build
+    // "this week" / "previous week" from the calendar Monday, which on that
+    // Sunday is the settled week's Monday. Read such requests as the owner
+    // means them —
+    //  - this week (from that Monday, open-ended or reaching past the
+    //    session's open) → the session week, from the session day;
+    //  - previous week (the Monday-to-Sunday a week earlier) → the settled
+    //    week, up to the session day.
+    // A window ending before the open (the settled week asked for on the
+    // Sunday) is left to the rule below, as before.
+    const nowT = new Date(now).getTime();
+    if (f && nowT >= S.getTime() && nowT < M.getTime()) {
+      const MON = S.getTime() - 6 * DAY_MS; // the session week's Monday 00:00 IST
+      const isMonday = (x, base) => x >= base && x <= base + IST_OFFSET_MS;
+      const ft = f.getTime();
+      if (isMonday(ft, MON) && (!t || t.getTime() >= firstOpen(session).getTime())) {
+        f = new Date(S);
+      } else if (isMonday(ft, MON - 7 * DAY_MS) && t && t.getTime() >= MON - DAY_MS && t.getTime() <= MON + IST_OFFSET_MS) {
+        f = new Date(MON);
+        t = new Date(S.getTime() - 1);
+      }
+    }
     if (f && f > S && f <= M) f = new Date(S);
     if (f && t && f < S && t >= S && t <= M) t = new Date(S.getTime() - 1);
   }

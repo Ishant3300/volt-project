@@ -145,3 +145,35 @@ describe('MCX and NSE futures cuts snapshot 15 minutes after the close', () => {
     ['GIFT_NIFTY', '2026-11-24', '2026-11-24T15:31'],
   ])('%s cut on %s is unchanged: %s IST', (key, ymd, at) => expect(runs(key, ymd)).toBe(at));
 });
+
+describe('ON the session day: Monday-built "this/previous week" requests (owner, 7 Nov 2026)', () => {
+  const SUN = at('2026-11-08T06:00:00Z'); // Sun 8 Nov 11:30 IST
+  const win = (f, t, now = SUN) => {
+    const r = s.adjustReportWindow(f && at(f), t && at(t), s.SESSIONS, now);
+    return [iso(r.from), iso(r.to)];
+  };
+
+  test('this week from the calendar Monday → the session week (from Sun 00:00 IST)', () => {
+    expect(win('2026-11-02', undefined)[0]).toBe(S); // weekly report, no date_to (UTC-midnight Monday)
+    expect(win('2026-11-01T18:30:00Z', undefined)[0]).toBe(S); // Monday 00:00 IST
+    expect(win('2026-11-02', '2026-11-08T23:59:59.999Z')).toEqual([S, '2026-11-08T23:59:59.999Z']); // app/web "to today"
+  });
+
+  test('a window ending before the 14:20 open is still the settled week (web Previous Week)', () => {
+    expect(win('2026-11-02', '2026-11-07T23:59:59.999Z')).toEqual(['2026-11-02T00:00:00.000Z', '2026-11-07T18:29:59.999Z']);
+    expect(win('2026-11-02', '2026-11-08T00:00:00.000Z')).toEqual(['2026-11-02T00:00:00.000Z', '2026-11-07T18:29:59.999Z']);
+  });
+
+  test('previous week from the calendar Monday (26 Oct–1 Nov) → the settled week 2–7 Nov', () => {
+    expect(win('2026-10-26', '2026-11-01T23:59:59.999Z')).toEqual(['2026-11-01T18:30:00.000Z', '2026-11-07T18:29:59.999Z']);
+  });
+
+  test('the same requests on any other day are exactly as before', () => {
+    const SAT = at('2026-11-07T17:00:00Z');
+    const MON = at('2026-11-09T06:00:00Z');
+    expect(win('2026-11-02', '2026-11-08T23:59:59.999Z', SAT)).toEqual(['2026-11-02T00:00:00.000Z', '2026-11-07T18:29:59.999Z']);
+    expect(win('2026-10-26', '2026-11-01T23:59:59.999Z', MON)).toEqual(['2026-10-26T00:00:00.000Z', '2026-11-01T23:59:59.999Z']);
+    expect(win('2026-11-02', undefined, MON)).toEqual(['2026-11-02T00:00:00.000Z', undefined]);
+    expect(win('2026-11-09', '2026-11-09T23:59:59.999Z', MON)[0]).toBe(S);
+  });
+});
