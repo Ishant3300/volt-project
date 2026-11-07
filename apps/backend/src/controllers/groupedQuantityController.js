@@ -343,6 +343,12 @@ const bulkCreateBrokerage = async (req, res) => {
     if (!exchange_name || !type || default_brk_value === undefined) {
       return res.status(400).json({ success: false, message: 'exchange_name, type, and default_brk_value are required', data: null });
     }
+    // No user = the PLATFORM DEFAULT rows — admin only. A master's call
+    // without a user_id (the app's create-client bug, 13 times 15 Oct–7 Nov
+    // 2026) must not upsert/touch the global rows.
+    if (!user_id && !req.admin) {
+      return res.status(400).json({ success: false, message: 'user_id is required', data: null });
+    }
     const normalizedExchange = exchange_name.toUpperCase();
     const normalizedType = type.toUpperCase();
     const filter = buildSegmentFilter(normalizedExchange);

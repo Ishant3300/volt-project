@@ -458,6 +458,12 @@ const createUser = async (req, res) => {
       }
 
       resultData = {
+        // id/_id at the top as well: the app's create screen reads data.id,
+        // didn't find it under data.user, and ran its brokerage step with
+        // no user — which edited the PLATFORM DEFAULT rates (Admin03, 7 Nov
+        // 2026: NFO-FUT 4 → 6) and left the new client on its master's rate.
+        id: user._id.toString(),
+        _id: user._id.toString(),
         user: user.toJSON(),
         parent_master_remaining_balance: parentMaster.equity
       };

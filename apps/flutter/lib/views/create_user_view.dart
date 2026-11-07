@@ -579,6 +579,9 @@ class _CreateUserViewState extends State<CreateUserView> {
   /// roughly the slowest single exchange's round trip instead of the sum
   /// of all of them.
   Future<void> _applyBrokerageSettings(String? userId) async {
+    // Never without a client: a null user_id makes every call below act on
+    // the PLATFORM DEFAULT rows (7 Nov 2026).
+    if (userId == null || userId.isEmpty) return;
     final token = await SecureStorageService().getToken();
     final apiService = ApiService(backendUrl);
     await Future.wait(_allowedExchanges.map((exchange) =>
@@ -1049,7 +1052,13 @@ class _CreateUserViewState extends State<CreateUserView> {
           data['success'] == true) {
         _isSuccess = true;
         // Extract user_id: for new users from response data, for edits from widget
+        // POST /master/users answers { data: { user: {...}, ... } } — the id
+        // is under data.user. Reading only data.id gave null, and the
+        // brokerage step below then edited the PLATFORM DEFAULT rates instead
+        // of this client's (7 Nov 2026).
         final createdUserId = widget.user?.id ??
+            data['data']?['user']?['id']?.toString() ??
+            data['data']?['user']?['_id']?.toString() ??
             data['data']?['id']?.toString() ??
             data['data']?['_id']?.toString();
         // Apply brokerage settings for enabled exchanges (scoped to this user)
