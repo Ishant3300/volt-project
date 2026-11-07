@@ -23,7 +23,8 @@ const {
   getAccountLimit,
   updateAccountLimit,
   getMasterBaseRates,
-  updateMasterBaseRates
+  updateMasterBaseRates,
+  getSharingRange,
 } = require('../controllers/masterController');
 
 
@@ -34,6 +35,7 @@ router.get('/', authenticateAdminOrMaster, getAllMasters);
 // Trades (admin can see all trades) — must be before /:id to avoid matching
 router.get('/trades/all', authenticateAdminOrMaster, getAllTrades);
 
+router.get('/:id/sharing-range', authenticateAdminOrMaster, getSharingRange);
 router.get('/:id', authenticateAdminOrMaster, getMasterById);
 router.put('/:id', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, requireAdminPermission('MASTER_EDIT_ANY'), updateMaster);
 router.delete('/:id', authenticateAdminOrMaster, rejectIfInvestor, rejectIfAdminWatchOnly, requireAdminPermission('MASTER_EDIT_ANY'), deleteMaster);

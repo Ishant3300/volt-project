@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../utils/number_to_words.dart';
 import '../utils/usual_brokerage.dart';
+import '../utils/brokerage_edit.dart';
 import '../utils/profit_book_base.dart';
 import '../models/master.dart';
 import '../services/api_service.dart';
@@ -90,6 +91,19 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   static const _categorySegments = {'NFO-FUT', 'NFO-OPT'};
   static const _perScriptSegments = {'MCX-FUT', 'MCX-OPT'};
   final Map<String, bool> _brokerageCustomized = {};
+
+  // Edit mode (7 Nov 2026): the rate each segment showed when loaded — a
+  // segment still showing it is NOT re-saved (an unrelated edit used to
+  // flatten every script to one rate) — segments holding several rates,
+  // and saves the backend refused (shown instead of silently ignored).
+  final Map<String, String> _brokerageLoaded = {};
+  final Map<String, bool> _brokerageMixed = {};
+  final List<String> _brokerageErrors = [];
+
+  void _noteBrkErr(String exchange, dynamic res) {
+    final err = brokerageSaveError(exchange, res);
+    if (err != null) _brokerageErrors.add(err);
+  }
   final Map<String, TextEditingController> _indexBrkControllers = {};
   final Map<String, TextEditingController> _stockBrkControllers = {};
   final Map<String, List<Map<String, dynamic>>> _segmentScripts = {};
@@ -450,6 +464,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           _scriptQuantityGroup[key] = groupName;
         }
       }
+      WidgetsBinding.instance.addPostFrameCallback((_) => _fetchEditedMasterBrokerage());
     } else {
       // New sub-broker, created by a master (not an admin creating a
       // top-level master, which has no parent to floor against) —
@@ -459,6 +474,43 @@ class _CreateMasterViewState extends State<CreateMasterView> {
       if (!profileProvider.isAdmin) {
         _fetchOwnBrokerageFloor();
       }
+    }
+  }
+
+  /// Editing a master: show its OWN current rate per segment (the fields
+  /// were blank, and whatever was typed was never saved), remembering it so
+  /// only changed segments are saved (7 Nov 2026).
+  Future<void> _fetchEditedMasterBrokerage() async {
+    final masterId = widget.master?.id;
+    if (masterId == null) return;
+    try {
+      final token = await SecureStorageService().getToken();
+      final apiService = ApiService(backendUrl);
+      for (final exchange in _brokerageSettings.keys.toList()) {
+        final brkSettings = _brokerageSettings[exchange];
+        if (brkSettings == null) continue;
+        final apiExchange = exchange == 'GLOBAL' ? 'INDICES' : exchange;
+        final type = brkSettings['type'] as String;
+        final res = await apiService.get(
+          '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=2000&user_id=$masterId',
+          token: token,
+        );
+        if (res.statusCode != 200) continue;
+        final body = jsonDecode(res.body);
+        if (body['success'] != true) continue;
+        final items = body['data']['items'] as List? ?? [];
+        final usual = usualBrokerage(items);
+        if (items.isEmpty || usual == null || !mounted) continue;
+        setState(() {
+          final text = brokerageText(usual);
+          (brkSettings['controller'] as TextEditingController).text = text;
+          brkSettings['value'] = text;
+          _brokerageLoaded[exchange] = text;
+          _brokerageMixed[exchange] = brokerageIsMixed(items);
+        });
+      }
+    } catch (e) {
+      log('⚠️ Error loading master brokerage: $e');
     }
   }
 
@@ -727,18 +779,23 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               : scriptQuantityGroupsPayload,
         );
         if (response.statusCode == 200) {
+          // Brokerage typed on this form was never saved when editing.
+          await _applyBrokerageSettings(widget.master!.id);
+          final brkErr = _brokerageErrors.isEmpty ? null : _brokerageErrors.join('; ');
           final baseErr = baseChanged
               ? await saveProfitBookBase(widget.master!.id, profitBookBase)
               : null;
           final comexErr = _comexTicked ? await _comexRate.save('master', widget.master!.id) : null;
           if (mounted) {
             _showSnack(
-                baseErr != null
+                brkErr != null
+                    ? 'Master updated, but brokerage not changed — $brkErr'
+                    : baseErr != null
                     ? 'Master updated, but the base profit book time was not saved: $baseErr'
                     : comexErr != null
                         ? 'Master updated, but COMEX rate: $comexErr'
                         : 'Master updated successfully',
-                isError: baseErr != null || comexErr != null);
+                isError: brkErr != null || baseErr != null || comexErr != null);
             Navigator.pop(context, true);
           }
         } else {
@@ -986,6 +1043,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   /// time" complaints).
   Future<void> _applyBrokerageSettings(String? masterId) async {
     if (masterId == null) return;
+    _brokerageErrors.clear();
     final token = await SecureStorageService().getToken();
     final apiService = ApiService(backendUrl);
     await Future.wait(_exchangeAllow.keys.map((exchange) =>
@@ -1006,6 +1064,11 @@ class _CreateMasterViewState extends State<CreateMasterView> {
         if (valueStr.isEmpty) return;
         final value = double.tryParse(valueStr);
         if (value == null || value <= 0) return;
+
+        // Editing: a segment still at the rate it loaded with is left alone
+        // (unless its per-category / per-script panel was opened and filled).
+        final unchangedFlat = widget.master != null && valueStr == (_brokerageLoaded[exchange] ?? '');
+        if (unchangedFlat && !(_brokerageCustomized[exchange] ?? false)) return;
 
         final type = brkSettings['type'] as String;
         final apiExchange = exchange == 'GLOBAL' ? 'INDICES' : exchange;
@@ -1036,14 +1099,14 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               if (items.isNotEmpty) {
                 final ids =
                     items.map<String>((i) => i['id'].toString()).toList();
-                await apiService.put(
+                _noteBrkErr(exchange, await apiService.put(
                     '/admin/brokerage-settings/bulk-update',
                     {
                       'ids': ids,
                       'brk_value': value,
                       'type': type,
                     },
-                    token: token);
+                    token: token));
               }
             }
           }
@@ -1076,7 +1139,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             // naturally expects it to still apply. See create_user_view.dart's
             // matching fix for the confirmed-live repro of this bug.
             final catValue = catValueStr.isEmpty
-                ? value
+                ? (unchangedFlat ? null : value)
                 : double.tryParse(catValueStr);
             if (catValue == null || catValue <= 0) continue;
 
@@ -1085,14 +1148,14 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 .map<String>((i) => i['id'].toString())
                 .toList();
             if (ids.isEmpty) continue;
-            await apiService.put(
+            _noteBrkErr(exchange, await apiService.put(
                 '/admin/brokerage-settings/bulk-update',
                 {
                   'ids': ids,
                   'brk_value': catValue,
                   'type': type,
                 },
-                token: token);
+                token: token));
           }
         } else if (_perScriptSegments.contains(exchange)) {
           final scriptControllers = _scriptBrkControllers[exchange] ?? const {};
@@ -1105,20 +1168,20 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             final scriptValueStr = controller?.text.trim() ?? '';
             // Same fallback as the category branch above.
             final scriptValue = scriptValueStr.isEmpty
-                ? value
+                ? (unchangedFlat ? null : value)
                 : double.tryParse(scriptValueStr);
             if (scriptValue == null || scriptValue <= 0) continue;
             idsByValue.putIfAbsent(scriptValue, () => []).add(item['id'].toString());
           }
           for (final entry in idsByValue.entries) {
-            await apiService.put(
+            _noteBrkErr(exchange, await apiService.put(
                 '/admin/brokerage-settings/bulk-update',
                 {
                   'ids': entry.value,
                   'brk_value': entry.key,
                   'type': type,
                 },
-                token: token);
+                token: token));
           }
         }
     } catch (e) {
@@ -2218,6 +2281,14 @@ class _CreateMasterViewState extends State<CreateMasterView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildBrokerageFlatRow(exchange, type, controller, canCustomize, customized),
+          if (_brokerageMixed[exchange] == true)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, left: 2),
+              child: Text(
+                'Different rates per script — leave this as it is to keep them; a new value here sets every script.',
+                style: TextStyle(color: kColorTextMuted, fontSize: 11, fontFamily: kFontFamily),
+              ),
+            ),
           if (canCustomize && customized) _buildBrokerageCustomizePanel(exchange),
         ],
       ),

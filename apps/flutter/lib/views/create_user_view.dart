@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:developer';
 import '../utils/number_to_words.dart';
 import '../utils/usual_brokerage.dart';
+import '../utils/brokerage_edit.dart';
 import '../utils/profit_book_base.dart';
 import '../providers/user_profile_provider.dart';
 import '../services/admin_service.dart';
@@ -75,6 +76,19 @@ class _CreateUserViewState extends State<CreateUserView> {
   static const _categorySegments = {'NFO-FUT', 'NFO-OPT'};
   static const _perScriptSegments = {'MCX-FUT', 'MCX-OPT'};
   final Map<String, bool> _brokerageCustomized = {};
+
+  // Edit mode (7 Nov 2026): the rate each segment showed when loaded — a
+  // segment still showing it is NOT re-saved (an unrelated edit used to
+  // flatten every script to one rate) — segments holding several rates,
+  // and saves the backend refused (shown instead of silently ignored).
+  final Map<String, String> _brokerageLoaded = {};
+  final Map<String, bool> _brokerageMixed = {};
+  final List<String> _brokerageErrors = [];
+
+  void _noteBrkErr(String exchange, dynamic res) {
+    final err = brokerageSaveError(exchange, res);
+    if (err != null) _brokerageErrors.add(err);
+  }
   final Map<String, TextEditingController> _indexBrkControllers = {};
   final Map<String, TextEditingController> _stockBrkControllers = {};
   final Map<String, List<Map<String, dynamic>>> _segmentScripts = {};
@@ -481,6 +495,9 @@ class _CreateUserViewState extends State<CreateUserView> {
                   // the field above is about to become editable.
                   if (widget.user == null) {
                     _brokerageFloor[exchange] = firstVal;
+                  } else {
+                    _brokerageLoaded[exchange] = (brkSettings['controller'] as TextEditingController).text;
+                    _brokerageMixed[exchange] = brokerageIsMixed(items);
                   }
                 });
               }
@@ -582,6 +599,7 @@ class _CreateUserViewState extends State<CreateUserView> {
     // Never without a client: a null user_id makes every call below act on
     // the PLATFORM DEFAULT rows (7 Nov 2026).
     if (userId == null || userId.isEmpty) return;
+    _brokerageErrors.clear();
     final token = await SecureStorageService().getToken();
     final apiService = ApiService(backendUrl);
     await Future.wait(_allowedExchanges.map((exchange) =>
@@ -602,6 +620,11 @@ class _CreateUserViewState extends State<CreateUserView> {
         if (valueStr.isEmpty) return;
         final value = double.tryParse(valueStr);
         if (value == null || value <= 0) return;
+
+        // Editing: a segment still at the rate it loaded with is left alone
+        // (unless its per-category / per-script panel was opened and filled).
+        final unchangedFlat = widget.user != null && valueStr == (_brokerageLoaded[exchange] ?? '');
+        if (unchangedFlat && !(_brokerageCustomized[exchange] ?? false)) return;
 
         final type = brkSettings['type'] as String;
         final apiExchange = exchange == 'GLOBAL' ? 'INDICES' : exchange;
@@ -634,15 +657,14 @@ class _CreateUserViewState extends State<CreateUserView> {
               if (items.isNotEmpty) {
                 final ids =
                     items.map<String>((i) => i['id'].toString()).toList();
-                await apiService.put(
+                _noteBrkErr(exchange, await apiService.put(
                   '/admin/brokerage-settings/bulk-update',
                   {
                     'ids': ids,
                     'brk_value': value,
                     'type': type,
                   },
-                  token: token,
-                );
+                  token: token));
               }
             }
           }
@@ -679,7 +701,7 @@ class _CreateUserViewState extends State<CreateUserView> {
             // was individually overridden, and the flat field's edit never
             // reached the backend at all.
             final catValue = catValueStr.isEmpty
-                ? value
+                ? (unchangedFlat ? null : value)
                 : double.tryParse(catValueStr);
             if (catValue == null || catValue <= 0) continue;
 
@@ -688,15 +710,14 @@ class _CreateUserViewState extends State<CreateUserView> {
                 .map<String>((i) => i['id'].toString())
                 .toList();
             if (ids.isEmpty) continue;
-            await apiService.put(
+            _noteBrkErr(exchange, await apiService.put(
               '/admin/brokerage-settings/bulk-update',
               {
                 'ids': ids,
                 'brk_value': catValue,
                 'type': type,
               },
-              token: token,
-            );
+              token: token));
           }
         } else if (_perScriptSegments.contains(exchange)) {
           final scriptControllers = _scriptBrkControllers[exchange] ?? const {};
@@ -709,21 +730,20 @@ class _CreateUserViewState extends State<CreateUserView> {
             // blank in the per-script panel still gets the flat field's
             // value, not silence.
             final scriptValue = scriptValueStr.isEmpty
-                ? value
+                ? (unchangedFlat ? null : value)
                 : double.tryParse(scriptValueStr);
             if (scriptValue == null || scriptValue <= 0) continue;
             idsByValue.putIfAbsent(scriptValue, () => []).add(item['id'].toString());
           }
           for (final entry in idsByValue.entries) {
-            await apiService.put(
+            _noteBrkErr(exchange, await apiService.put(
               '/admin/brokerage-settings/bulk-update',
               {
                 'ids': entry.value,
                 'brk_value': entry.key,
                 'type': type,
               },
-              token: token,
-            );
+              token: token));
           }
         }
     } catch (e) {
@@ -1071,7 +1091,9 @@ class _CreateUserViewState extends State<CreateUserView> {
 
         await profileProvider.refreshProfile();
         if (!mounted) return;
-        if (comexError != null) {
+        if (_brokerageErrors.isNotEmpty) {
+          _showSnack('Saved, but brokerage not changed — ${_brokerageErrors.join('; ')}', isError: true);
+        } else if (comexError != null) {
           _showSnack('Saved, but COMEX rate: $comexError', isError: true);
         } else {
           _showSnack(widget.user != null
@@ -2076,6 +2098,14 @@ class _CreateUserViewState extends State<CreateUserView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildBrokerageFlatRow(exchange, type, controller, canCustomize, customized),
+          if (_brokerageMixed[exchange] == true)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, left: 2),
+              child: Text(
+                'Different rates per script — leave this as it is to keep them; a new value here sets every script.',
+                style: TextStyle(color: kColorTextMuted, fontSize: 11, fontFamily: kFontFamily),
+              ),
+            ),
           if (canCustomize && customized) _buildBrokerageCustomizePanel(exchange),
         ],
       ),

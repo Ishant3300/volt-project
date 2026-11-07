@@ -477,6 +477,14 @@ const updateMaster = async (req, res) => {
     // Bug 5 fix: Prevent bypass of credit/debit flow. Use credit/debit endpoints!
     // if (credits !== undefined) master.credits = credits;
 
+    // A changed sharing % must stay within [highest sub-master, parent]
+    // (utils/sharingRange.js) — this endpoint only checked 0–100 before.
+    {
+      const { sharingRangeError } = require('../utils/sharingRange');
+      const rangeErr = await sharingRangeError(master, { pnl_sharing, brokerage_sharing });
+      if (rangeErr) return res.status(400).json({ success: false, message: rangeErr, data: null });
+    }
+
     if (pnl_sharing !== undefined) {
       if (pnl_sharing < 0 || pnl_sharing > 100) {
         return res.status(400).json({
@@ -1868,7 +1876,27 @@ const updateAccountLimit = async (req, res) => {
   }
 };
 
+// GET /api/masters/:id/sharing-range — the % a master can be set to (utils/sharingRange.js),
+// for the edit forms. Same access as editing: admin any; a master only its sub-masters.
+const getSharingRange = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (req.master) {
+      if (id === req.master.id) return res.status(403).json({ success: false, message: 'Not authorized', data: null });
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      if (!(await getAllSubMasterIds(req.master.id)).includes(id)) return res.status(403).json({ success: false, message: 'Not authorized to view this master', data: null });
+    }
+    const master = await Master.findOne({ _id: id, deleted_at: null }).select('master_id pnl_sharing brokerage_sharing').lean();
+    if (!master) return res.status(404).json({ success: false, message: 'Master not found', data: null });
+    const { sharingRangeFor } = require('../utils/sharingRange');
+    res.json({ success: true, data: await sharingRangeFor(master) });
+  } catch (error) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
+  }
+};
+
 module.exports = {
+  getSharingRange,
   createMaster,
   getAllMasters,
   getMasterById,
