@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stocker/models/kite_instrument.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
-import 'package:stocker/providers/investor_mode_provider.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
 import 'package:stocker/services/kite_service.dart';
 import '../utils/contants.dart';
@@ -343,19 +342,8 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
   }
 
   Future<void> _addToWatchlist(KiteInstrument instrument) async {
-    // Block in investor mode
-    final investorMode =
-        Provider.of<InvestorModeProvider>(context, listen: false);
-    if (investorMode.isInvestor) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content:
-                Text('Watchlist editing is not available in investor mode'),
-            backgroundColor: Color(0xFF64748B)),
-      );
-      return;
-    }
-
+    // Investor mode may add scripts to its watchlist (owner, 9 Nov 2026) —
+    // orders stay blocked (trade_card_view.dart).
     final watchlistProvider =
         Provider.of<WatchlistProvider>(context, listen: false);
     if (!watchlistProvider.contains(instrument.instrumentToken)) {

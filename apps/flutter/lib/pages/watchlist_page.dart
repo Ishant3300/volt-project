@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stocker/pages/instrument_search_page.dart';
 import 'package:stocker/providers/watchlist_provider.dart';
-import 'package:stocker/providers/investor_mode_provider.dart';
 import 'package:stocker/providers/user_profile_provider.dart';
 import '../utils/contants.dart';
 import '../views/trade_card_view.dart';
@@ -666,18 +665,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                       onPressed: () async {
-                        final investorMode = Provider.of<InvestorModeProvider>(
-                            context,
-                            listen: false);
-                        if (investorMode.isInvestor) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text(
-                                    'Watchlist editing is not available in investor mode'),
-                                backgroundColor: Color(0xFF64748B)),
-                          );
-                          return;
-                        }
+                        // Investor mode may remove scripts too (owner, 9 Nov 2026).
                         // A script the client holds stays until the position is closed.
                         if (watchlistProvider.isHeld(instrument.instrumentToken)) {
                           ScaffoldMessenger.of(context).showSnackBar(
