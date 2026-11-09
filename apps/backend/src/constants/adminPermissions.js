@@ -18,6 +18,7 @@ const ADMIN_PERMISSION_KEYS = Object.freeze([
   'REPORTS_ACCESS', // Report generation/access endpoints
   'MASTER_EDIT_ANY', // Write access to any master's profile/limits/permissions (reads stay open to every admin)
   'QUANTITY_MANAGE', // Grouped-quantity and script-quantity CRUD (adminController/groupedQuantityController)
+  'ACCOUNT_TRANSFER', // Move client accounts to another master (accountTransferController, 9 Nov 2026)
 ]);
 
 module.exports = { ADMIN_PERMISSION_KEYS };

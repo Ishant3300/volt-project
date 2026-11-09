@@ -989,6 +989,47 @@ class MetricsEngine {
   }
 
   /**
+   * Re-reads the master tree (parent/children maps + per-master config) from
+   * the database, the same way _rebuildAllUserCaches builds it at start-up,
+   * and swaps the maps in at once. Called after an account transfer
+   * (services/accountTransferService.js) so a master created since the last
+   * restart is part of the tree and a moved client's figures roll up the new
+   * chain — no restart needed. User caches are not touched here.
+   */
+  async refreshMasterTree() {
+    try {
+      const allMasters = await Master.find({ deleted_at: null })
+        .select('_id master_id margin_square_off margin_square_off_percentage credits username active_status')
+        .lean();
+      const parentMap = {};
+      const childrenMap = {};
+      const configMap = {};
+      for (const master of allMasters) {
+        const masterId = master._id.toString();
+        const parentId = master.master_id?.toString() || null;
+        parentMap[masterId] = parentId;
+        if (parentId) {
+          if (!childrenMap[parentId]) childrenMap[parentId] = [];
+          childrenMap[parentId].push(masterId);
+        }
+        configMap[masterId] = {
+          credits: master.credits || 0,
+          margin_square_off: master.margin_square_off,
+          margin_square_off_percentage: master.margin_square_off_percentage,
+          username: master.username,
+          active_status: master.active_status,
+          deleted_at: null,
+        };
+      }
+      this._masterParentMap = parentMap;
+      this._masterChildrenMap = childrenMap;
+      this._masterConfigMap = configMap;
+    } catch (err) {
+      console.error('📊 [MetricsEngine] Error refreshing master tree:', err.message);
+    }
+  }
+
+  /**
    * Refreshes the cached master configuration (e.g. credits, margin_square_off toggle).
    * Call this when a master's configuration is modified (e.g., via Admin or Parent Master credit).
    */

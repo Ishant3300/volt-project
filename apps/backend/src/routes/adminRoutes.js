@@ -955,4 +955,7 @@ router.put('/brokers/:id', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.
 router.delete('/brokers/:id', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.deleteBroker);
 router.post('/brokers/:id/links', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.addLink);
 
+// Admin → Transfer Accounts: move clients to another master (9 Nov 2026).
+router.use('/account-transfers', require('./accountTransferRoutes'));
+
 module.exports = router;
