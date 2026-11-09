@@ -125,18 +125,21 @@ const getWatchlist = async (req, res) => {
       }
     }
 
-    // NSE futures below the client's minimum price are shown like any other
-    // script (owner, 9 Nov 2026): the minimum only limits ORDERS — closing or
-    // reducing only, never a fresh position (tradeController
-    // _validateMinNseFutPrice, rolloverService). utils/minScriptPrice.js.
+    // NSE futures below the client's minimum price are hidden — not deleted:
+    // the close changes daily and the minimum can be lowered, and then they
+    // come back on their own (utils/minScriptPrice.js).
+    const { minPriceForReq, isBelowMinPrice } = require('../utils/minScriptPrice');
+    const minPrice = await minPriceForReq(req);
 
     // Build response items — skip any where we couldn't find the instrument,
-    // it's since expired, or its exchange is no longer allowed.
+    // it's since expired, its exchange is no longer allowed, or it's below
+    // the client's minimum price.
     const items = watchlist
       .filter(w =>
         instrumentMap[w.instrument_token] &&
         !expiredWatchlistIds.has(w._id.toString()) &&
-        !disallowedWatchlistIds.has(w._id.toString()),
+        !disallowedWatchlistIds.has(w._id.toString()) &&
+        (held.has(String(w.instrument_token)) || !isBelowMinPrice(minPrice, instrumentMap[w.instrument_token])),
       )
       .map(w => ({
         id: w._id,
@@ -209,8 +212,14 @@ const addToWatchlist = async (req, res) => {
       });
     }
 
-    // An NSE future below the client's minimum price CAN be added (owner,
-    // 9 Nov 2026) — orders on it are closing-only (utils/minScriptPrice.js).
+    // An NSE future below the client's minimum price can't be added (utils/minScriptPrice.js).
+    {
+      const { minPriceForReq, isBelowMinPrice, belowMinMessage } = require('../utils/minScriptPrice');
+      const minPrice = await minPriceForReq(req);
+      if (isBelowMinPrice(minPrice, instrument)) {
+        return res.status(403).json({ success: false, message: belowMinMessage(minPrice), data: null });
+      }
+    }
 
     // A contract closed for trading (expiry close, admin disable) can't be
     // added — search already hides it. Admin may still watch anything. An NSE

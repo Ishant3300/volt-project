@@ -3,11 +3,8 @@
 /**
  * Minimum NSE FUT script price, per client (User.min_nse_fut_price, 26 Oct
  * 2026): an NSE future whose last official close is below the client's
- * minimum can't be opened or added to — closing or reducing a position is
- * always allowed. Since 9 Nov 2026 (owner) such scripts stay visible: watchlist
- * (add, list), search and browse show them; only orders are limited.
- * (minPriceForReq / minPriceMongoFilter / dropBelowMinPrice are kept for a
- * listing filter but no longer used by the listings.)
+ * minimum is hidden from that client's watchlist / search / browse and can't
+ * be opened or added to — closing or reducing a position is always allowed.
  * NFO-FUT only; every other segment is untouched. 0 = off (everyone's
  * default). Admin bypasses, like every other account rule.
  *
