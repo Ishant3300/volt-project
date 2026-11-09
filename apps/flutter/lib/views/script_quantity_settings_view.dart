@@ -33,6 +33,9 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
   bool _isLoading = true;
   bool _isUpdating = false;
   bool _isAdmin = false;
+  /// The last load for the chosen exchange did not succeed — the list on
+  /// screen can't be trusted (CREATE is refused until it loads).
+  bool _loadFailed = false;
 
   @override
   void initState() {
@@ -55,6 +58,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
   Future<void> _loadScriptQuantities() async {
     setState(() {
       _isLoading = true;
+      _loadFailed = false;
     });
 
     try {
@@ -89,13 +93,23 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
             _isLoading = false;
           });
           log('✅ Loaded ${_scriptItems.length} script quantities');
+          return;
         }
+      }
+      if (mounted) {
+        setState(() {
+          _loadFailed = true;
+          _isLoading = false;
+        });
       }
     } catch (e) {
       log('❌ Error loading script quantities: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _loadFailed = true;
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -115,39 +129,108 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
     });
   }
 
-  Future<void> _deleteScript(ScriptQuantity item) async {
+  /// Who a delete of this row reaches (the server's cascade), in words.
+  String get _deleteReach {
+    if (widget.ownerType == 'Master') return 'for this master and his direct clients';
+    if (widget.ownerType == 'User') return 'for this client';
+    return 'for EVERY master and client on the platform';
+  }
+
+  /// Block or delete? (9 Nov 2026) Deleting the row removes the limit, and a
+  /// script with no limit row has NO quantity limit at all — the old dialog
+  /// never said so. Blocking (Max 0) is what "remove this script" usually
+  /// means: no new positions, existing ones can still be closed.
+  Future<String?> _askRemove(ScriptQuantity item) {
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Remove "${item.scriptName}"?',
+            style: const TextStyle(fontFamily: kFontFamily, fontWeight: FontWeight.w600)),
+        content: Text(
+          'Block (recommended): sets Max 0 — no new positions; existing positions can still be closed.\n\n'
+          'Delete: removes the limit $_deleteReach — the script then has NO quantity limit at all.',
+          style: const TextStyle(fontFamily: kFontFamily),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'delete'),
+            child: const Text('Delete (no limit)', style: TextStyle(color: kColorSell)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, 'block'),
+            child: const Text('Block (set 0)', style: TextStyle(color: kBrandPrimary)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _snack(String text, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(text), backgroundColor: error ? kColorSell : kColorBuy),
+    );
+  }
+
+  String _serverMessage(dynamic response, String fallback) {
+    try {
+      final m = jsonDecode(response.body)['message'];
+      if (m is String && m.isNotEmpty) return m;
+    } catch (_) {}
+    return '$fallback (${response.statusCode})';
+  }
+
+  /// Max 0 / Breakup 0 for this row (the server applies its own cascade).
+  Future<void> _blockScript(ScriptQuantity item) async {
+    try {
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      final response = await AdminService(apiService).updateScriptQuantity(id: item.id, maxQty: 0, brkQty: 0);
+      if (response.statusCode == 200) {
+        _snack('"${item.scriptName}" blocked (Max 0)');
+        _loadScriptQuantities();
+      } else {
+        _snack(_serverMessage(response, 'Block failed'), error: true);
+      }
+    } catch (e) {
+      _snack('Error: $e', error: true);
+    }
+  }
+
+  /// Deletes on the server; true only when it really went through.
+  Future<bool> _deleteOnServer(ScriptQuantity item) async {
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
       final response = await AdminService(apiService).deleteScriptQuantity(item.id);
-      if (!mounted) return;
       if (response.statusCode == 200) {
-        setState(() {
-          _scriptItems.removeWhere((s) => s.id == item.id);
-          _filteredItems.removeWhere((s) => s.id == item.id);
-          _selectedIds.remove(item.id);
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('"${item.scriptName}" deleted'),
-            backgroundColor: kColorBuy,
-          ),
-        );
-      } else {
-        final d = jsonDecode(response.body);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(d['message'] ?? 'Delete failed'),
-            backgroundColor: kColorSell,
-          ),
-        );
+        _snack('"${item.scriptName}" deleted — it now has no quantity limit $_deleteReach');
+        return true;
       }
+      _snack(_serverMessage(response, 'Delete failed'), error: true);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: kColorSell),
-        );
-      }
+      _snack('Error: $e', error: true);
     }
+    return false;
+  }
+
+  void _removeFromList(ScriptQuantity item) {
+    setState(() {
+      _scriptItems.removeWhere((s) => s.id == item.id);
+      _filteredItems.removeWhere((s) => s.id == item.id);
+      _selectedIds.remove(item.id);
+    });
+  }
+
+  /// Swipe or icon: ask, then block or delete. Returns true when the row was
+  /// deleted on the server (so a swipe may dismiss it).
+  Future<bool> _removeScript(ScriptQuantity item) async {
+    final choice = await _askRemove(item);
+    if (!mounted || choice == null) return false;
+    if (choice == 'block') {
+      await _blockScript(item);
+      return false;
+    }
+    return _deleteOnServer(item);
   }
 
   Future<void> _applyUpdates() async {
@@ -302,10 +385,19 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select an exchange first')));
                           return;
                         }
+                        // "Existing" is decided from the FULL list as loaded —
+                        // not the search-filtered one, and never while loading
+                        // or after a failed load: a "new" CREATE resets every
+                        // script of the exchange to the default limits (9 Nov 2026).
+                        if (_isLoading || _loadFailed) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                              content: Text('The list has not loaded — wait or reopen, then try again')));
+                          return;
+                        }
                         Navigator.push(context, MaterialPageRoute(
                           builder: (_) => AddScriptQtyToExchangeView(
                             exchange: _selectedExchange!,
-                            isExistingGroup: _filteredItems.isNotEmpty,
+                            isExistingGroup: _scriptItems.isNotEmpty,
                             ownerId: widget.ownerId,
                             ownerType: widget.ownerType,
                           ),
@@ -593,23 +685,10 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                 color: kColorSell,
                                 child: const Icon(Icons.delete_outline, color: Colors.white, size: 22),
                               ),
-                              confirmDismiss: (_) async {
-                                return await showDialog<bool>(
-                                  context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    title: const Text('Delete Script', style: TextStyle(fontFamily: kFontFamily, fontWeight: FontWeight.w600)),
-                                    content: Text('Delete "${item.scriptName}"? This will also remove it from all Masters and Users.', style: const TextStyle(fontFamily: kFontFamily)),
-                                    actions: [
-                                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(ctx, true),
-                                        child: const Text('Delete', style: TextStyle(color: kColorSell)),
-                                      ),
-                                    ],
-                                  ),
-                                ) ?? false;
-                              },
-                              onDismissed: (_) => _deleteScript(item),
+                              // Block or delete is decided (and done on the server)
+                              // before the row is dismissed — a failed delete keeps it.
+                              confirmDismiss: (_) => _removeScript(item),
+                              onDismissed: (_) => _removeFromList(item),
                               child: GestureDetector(
                                 onTap: () {
                                   setState(() {
@@ -792,21 +871,7 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                                       if (_isAdmin)
                                         GestureDetector(
                                           onTap: () async {
-                                            final confirm = await showDialog<bool>(
-                                              context: context,
-                                              builder: (ctx) => AlertDialog(
-                                                title: const Text('Delete Script', style: TextStyle(fontFamily: kFontFamily, fontWeight: FontWeight.w600)),
-                                                content: Text('Delete "${item.scriptName}"? This will also remove it from all Masters and Users.', style: const TextStyle(fontFamily: kFontFamily)),
-                                                actions: [
-                                                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                                                  TextButton(
-                                                    onPressed: () => Navigator.pop(ctx, true),
-                                                    child: const Text('Delete', style: TextStyle(color: kColorSell)),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                            if (confirm == true) _deleteScript(item);
+                                            if (await _removeScript(item)) _removeFromList(item);
                                           },
                                           child: const Padding(
                                             padding: EdgeInsets.only(left: 8),

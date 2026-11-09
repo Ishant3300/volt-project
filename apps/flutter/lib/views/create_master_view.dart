@@ -99,6 +99,10 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   final Map<String, String> _brokerageLoaded = {};
   final Map<String, bool> _brokerageMixed = {};
   final List<String> _brokerageErrors = [];
+  // Edit mode (9 Nov 2026): the type (TURNOVER WISE / LOT WISE) the master's
+  // rows on each segment REALLY have. Saving with a different type converts
+  // those rows instead of adding a second set of the other type.
+  final Map<String, String> _brokerageLoadedType = {};
 
   void _noteBrkErr(String exchange, dynamic res) {
     final err = brokerageSaveError(exchange, res);
@@ -490,18 +494,35 @@ class _CreateMasterViewState extends State<CreateMasterView> {
         final brkSettings = _brokerageSettings[exchange];
         if (brkSettings == null) continue;
         final apiExchange = exchange == 'GLOBAL' ? 'INDICES' : exchange;
-        final type = brkSettings['type'] as String;
-        final res = await apiService.get(
+        var type = brkSettings['type'] as String;
+        var res = await apiService.get(
           '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=2000&user_id=$masterId',
           token: token,
         );
         if (res.statusCode != 200) continue;
+        // No rows of this segment's usual type — the master may hold the
+        // other type; show and save THOSE rows (9 Nov 2026).
+        if ((jsonDecode(res.body)['data']?['items'] as List? ?? []).isEmpty) {
+          final other = type == 'LOT WISE' ? 'TURNOVER WISE' : 'LOT WISE';
+          final otherRes = await apiService.get(
+            '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(other)}&limit=2000&user_id=$masterId',
+            token: token,
+          );
+          if (otherRes.statusCode == 200 &&
+              (jsonDecode(otherRes.body)['data']?['items'] as List? ?? []).isNotEmpty) {
+            type = other;
+            res = otherRes;
+          }
+        }
         final body = jsonDecode(res.body);
         if (body['success'] != true) continue;
         final items = body['data']['items'] as List? ?? [];
         final usual = usualBrokerage(items);
         if (items.isEmpty || usual == null || !mounted) continue;
+        final loadedType = type;
         setState(() {
+          brkSettings['type'] = loadedType;
+          _brokerageLoadedType[exchange] = loadedType;
           final text = brokerageText(usual);
           (brkSettings['controller'] as TextEditingController).text = text;
           brkSettings['value'] = text;
@@ -787,19 +808,38 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               : null;
           final comexErr = _comexTicked ? await _comexRate.save('master', widget.master!.id) : null;
           if (mounted) {
-            _showSnack(
-                brkErr != null
-                    ? 'Master updated, but brokerage not changed — $brkErr'
-                    : baseErr != null
-                    ? 'Master updated, but the base profit book time was not saved: $baseErr'
-                    : comexErr != null
-                        ? 'Master updated, but COMEX rate: $comexErr'
-                        : 'Master updated successfully',
-                isError: brkErr != null || baseErr != null || comexErr != null);
+            // Every part that did not save, in a dialog the editor has to
+            // read (a snack bar showed only the first one and vanished).
+            final problems = <String>[
+              if (brkErr != null) ..._brokerageErrors.map((e) => 'Brokerage — $e'),
+              if (baseErr != null) 'Base profit book time — $baseErr',
+              if (comexErr != null) 'COMEX rate — $comexErr',
+            ];
+            if (problems.isEmpty) {
+              _showSnack('Master updated successfully');
+            } else {
+              await showDialog<void>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Master saved — but some parts were NOT'),
+                  content: SingleChildScrollView(child: Text(problems.join('\n\n'))),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+                  ],
+                ),
+              );
+              if (!mounted) return;
+            }
             Navigator.pop(context, true);
           }
         } else {
-          _showSnack('Failed to update master', isError: true);
+          // The server's own reason (e.g. sharing outside the allowed range,
+          // a group not allotted) — it was always "Failed to update master".
+          String reason = '';
+          try {
+            reason = (jsonDecode(response.body)['message'] ?? '').toString();
+          } catch (_) {}
+          _showSnack(reason.isEmpty ? 'Failed to update master (${response.statusCode})' : reason, isError: true);
         }
       } else {
         if (_passwordController.text.trim().isEmpty) {
@@ -1065,16 +1105,47 @@ class _CreateMasterViewState extends State<CreateMasterView> {
         final value = double.tryParse(valueStr);
         if (value == null || value <= 0) return;
 
-        // Editing: a segment still at the rate it loaded with is left alone
-        // (unless its per-category / per-script panel was opened and filled).
-        final unchangedFlat = widget.master != null && valueStr == (_brokerageLoaded[exchange] ?? '');
-        if (unchangedFlat && !(_brokerageCustomized[exchange] ?? false)) return;
-
         final type = brkSettings['type'] as String;
         final apiExchange = exchange == 'GLOBAL' ? 'INDICES' : exchange;
 
+        // Editing: the master's rows on this segment are another type than
+        // the one now chosen (the LOT / T-O toggle) — a real change.
+        final loadedType = widget.master != null ? _brokerageLoadedType[exchange] : null;
+        final typeChanged = loadedType != null && loadedType != type;
+
+        // Editing: a segment still at the rate (and type) it loaded with is
+        // left alone (unless its per-category / per-script panel was opened).
+        final unchangedFlat = widget.master != null && !typeChanged && valueStr == (_brokerageLoaded[exchange] ?? '');
+        if (unchangedFlat && !(_brokerageCustomized[exchange] ?? false)) return;
+
+        // Type change: convert the existing rows to the new type instead of
+        // adding a second set (bulk-update sets type + value).
+        if (typeChanged) {
+          final oldRes = await apiService.get(
+            '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(loadedType)}&limit=2000&user_id=$masterId',
+            token: token,
+          );
+          if (oldRes.statusCode != 200) {
+            _brokerageErrors.add('$exchange: could not read the current rates (${oldRes.statusCode}) — type not changed');
+            return;
+          }
+          final oldItems = jsonDecode(oldRes.body)['data']?['items'] as List? ?? [];
+          if (oldItems.isNotEmpty) {
+            final before = _brokerageErrors.length;
+            _noteBrkErr(exchange, await apiService.put(
+                '/admin/brokerage-settings/bulk-update',
+                {
+                  'ids': oldItems.map<String>((i) => i['id'].toString()).toList(),
+                  'brk_value': value,
+                  'type': type,
+                },
+                token: token));
+            if (_brokerageErrors.length > before) return;
+          }
+        }
+
         // Bulk-create ensures all instruments for this exchange have brokerage entries
-        await apiService.post(
+        _noteBrkErr(exchange, await apiService.post(
             '/admin/brokerage-settings/bulk-create',
             {
               'exchange_name': apiExchange,
@@ -1082,7 +1153,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               'default_brk_value': value,
               'user_id': masterId,
             },
-            token: token);
+            token: token));
 
         final customized = _brokerageCustomized[exchange] ?? false;
         if (!customized) {
@@ -1092,7 +1163,11 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=2000&user_id=$masterId',
             token: token,
           );
-          if (fetchRes.statusCode == 200) {
+          if (fetchRes.statusCode != 200) {
+            _brokerageErrors.add('$exchange: could not read the rates to update (${fetchRes.statusCode})');
+            return;
+          }
+          {
             final body = jsonDecode(fetchRes.body);
             if (body['success'] == true) {
               final items = body['data']['items'] as List? ?? [];
@@ -1121,9 +1196,15 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=2000&user_id=$masterId',
           token: token,
         );
-        if (fetchRes.statusCode != 200) return;
+        if (fetchRes.statusCode != 200) {
+          _brokerageErrors.add('$exchange: could not read the rates to update (${fetchRes.statusCode})');
+          return;
+        }
         final body = jsonDecode(fetchRes.body);
-        if (body['success'] != true) return;
+        if (body['success'] != true) {
+          _brokerageErrors.add('$exchange: ${body['message'] ?? 'could not read the rates to update'}');
+          return;
+        }
         final items = List<Map<String, dynamic>>.from(body['data']['items'] ?? []);
         if (items.isEmpty) return;
 
@@ -1186,6 +1267,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
         }
     } catch (e) {
       log('⚠️ Error applying brokerage settings for $exchange: $e');
+      _brokerageErrors.add('$exchange: not saved ($e)');
     }
   }
 

@@ -84,6 +84,11 @@ class _CreateUserViewState extends State<CreateUserView> {
   final Map<String, String> _brokerageLoaded = {};
   final Map<String, bool> _brokerageMixed = {};
   final List<String> _brokerageErrors = [];
+  // Edit mode (9 Nov 2026): the type (TURNOVER WISE / LOT WISE) the client's
+  // rows on each segment REALLY have — not this segment's usual type. Saving
+  // with a different type converts those rows instead of adding a second set
+  // of the other type (the charge then picked one of the two arbitrarily).
+  final Map<String, String> _brokerageLoadedType = {};
 
   void _noteBrkErr(String exchange, dynamic res) {
     final err = brokerageSaveError(exchange, res);
@@ -144,6 +149,12 @@ class _CreateUserViewState extends State<CreateUserView> {
   Master? get _ownerMaster =>
       _forMaster ??
       Provider.of<UserProfileProvider>(context, listen: false).master;
+
+  /// Editing: a wallet top-up is paid by the client's DIRECT master (server,
+  /// masterUserController) — the logged-in master's balance only applies when
+  /// that is him. Creating: the owner master pays (9 Nov 2026).
+  bool get _walletPaidByOwner =>
+      widget.user == null || widget.user!.masterId == _ownerMaster?.id;
 
   Future<void> _loadDownlineMasters() async {
     final isAdmin =
@@ -470,17 +481,39 @@ class _CreateUserViewState extends State<CreateUserView> {
         final brkSettings = _brokerageSettings[exchange];
         if (brkSettings == null) continue;
 
-        final type = brkSettings['type'] as String;
+        var type = brkSettings['type'] as String;
         final userQuery = userId != null ? '&user_id=$userId' : '';
-        final res = await apiService.get(
+        var res = await apiService.get(
           '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=2000$userQuery',
           token: token,
         );
+        // Editing: no rows of this segment's usual type — the client may hold
+        // the other type (e.g. COMEX-FUT stored as TURNOVER WISE). Show and
+        // save THOSE rows, not a new set of the usual type.
+        if (widget.user != null && res.statusCode == 200) {
+          final firstItems = jsonDecode(res.body)['data']?['items'] as List? ?? [];
+          if (firstItems.isEmpty) {
+            final other = type == 'LOT WISE' ? 'TURNOVER WISE' : 'LOT WISE';
+            final otherRes = await apiService.get(
+              '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(other)}&limit=2000$userQuery',
+              token: token,
+            );
+            final otherItems = otherRes.statusCode == 200
+                ? (jsonDecode(otherRes.body)['data']?['items'] as List? ?? [])
+                : const [];
+            if (otherItems.isNotEmpty) {
+              type = other;
+              res = otherRes;
+              if (mounted) setState(() => brkSettings['type'] = other);
+            }
+          }
+        }
         if (res.statusCode == 200) {
           final body = jsonDecode(res.body);
           if (body['success'] == true) {
             final items = body['data']['items'] as List? ?? [];
             if (items.isNotEmpty) {
+              if (widget.user != null) _brokerageLoadedType[exchange] = type;
               // The usual rate, not the first row (see usualBrokerage).
               final firstVal = usualBrokerage(items) ?? 0;
               if (mounted) {
@@ -621,16 +654,50 @@ class _CreateUserViewState extends State<CreateUserView> {
         final value = double.tryParse(valueStr);
         if (value == null || value <= 0) return;
 
-        // Editing: a segment still at the rate it loaded with is left alone
-        // (unless its per-category / per-script panel was opened and filled).
-        final unchangedFlat = widget.user != null && valueStr == (_brokerageLoaded[exchange] ?? '');
-        if (unchangedFlat && !(_brokerageCustomized[exchange] ?? false)) return;
-
         final type = brkSettings['type'] as String;
         final apiExchange = exchange == 'GLOBAL' ? 'INDICES' : exchange;
+        final userQuery = userId != null ? '&user_id=$userId' : '';
+
+        // Editing: the client's rows on this segment are another type than
+        // the one now chosen (the LOT / T-O toggle) — a real change.
+        final loadedType = widget.user != null ? _brokerageLoadedType[exchange] : null;
+        final typeChanged = loadedType != null && loadedType != type;
+
+        // Editing: a segment still at the rate (and type) it loaded with is
+        // left alone (unless its per-category / per-script panel was opened).
+        final unchangedFlat = widget.user != null && !typeChanged && valueStr == (_brokerageLoaded[exchange] ?? '');
+        if (unchangedFlat && !(_brokerageCustomized[exchange] ?? false)) return;
+
+        // Type change: convert the client's existing rows to the new type
+        // (bulk-update sets type + value) instead of adding a second set.
+        if (typeChanged) {
+          final oldRes = await apiService.get(
+            '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(loadedType)}&limit=2000$userQuery',
+            token: token,
+          );
+          if (oldRes.statusCode != 200) {
+            _brokerageErrors.add('$exchange: could not read the current rates (${oldRes.statusCode}) — type not changed');
+            return;
+          }
+          final oldItems = jsonDecode(oldRes.body)['data']?['items'] as List? ?? [];
+          if (oldItems.isNotEmpty) {
+            final convertRes = await apiService.put(
+              '/admin/brokerage-settings/bulk-update',
+              {
+                'ids': oldItems.map<String>((i) => i['id'].toString()).toList(),
+                'brk_value': value,
+                'type': type,
+              },
+              token: token,
+            );
+            final before = _brokerageErrors.length;
+            _noteBrkErr(exchange, convertRes);
+            if (_brokerageErrors.length > before) return;
+          }
+        }
 
         // Bulk-create ensures all instruments for this exchange have brokerage entries
-        await apiService.post(
+        _noteBrkErr(exchange, await apiService.post(
           '/admin/brokerage-settings/bulk-create',
           {
             'exchange_name': apiExchange,
@@ -639,9 +706,8 @@ class _CreateUserViewState extends State<CreateUserView> {
             'user_id': userId,
           },
           token: token,
-        );
+        ));
 
-        final userQuery = userId != null ? '&user_id=$userId' : '';
         final customized = _brokerageCustomized[exchange] ?? false;
         if (!customized) {
           // Flat path (default, unchanged): collapse every script in this
@@ -650,7 +716,11 @@ class _CreateUserViewState extends State<CreateUserView> {
             '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=2000$userQuery',
             token: token,
           );
-          if (fetchRes.statusCode == 200) {
+          if (fetchRes.statusCode != 200) {
+            _brokerageErrors.add('$exchange: could not read the rates to update (${fetchRes.statusCode})');
+            return;
+          }
+          {
             final body = jsonDecode(fetchRes.body);
             if (body['success'] == true) {
               final items = body['data']['items'] as List? ?? [];
@@ -679,9 +749,15 @@ class _CreateUserViewState extends State<CreateUserView> {
           '/admin/brokerage-settings/exchange/$apiExchange?type=${Uri.encodeComponent(type)}&limit=2000$userQuery',
           token: token,
         );
-        if (fetchRes.statusCode != 200) return;
+        if (fetchRes.statusCode != 200) {
+          _brokerageErrors.add('$exchange: could not read the rates to update (${fetchRes.statusCode})');
+          return;
+        }
         final body = jsonDecode(fetchRes.body);
-        if (body['success'] != true) return;
+        if (body['success'] != true) {
+          _brokerageErrors.add('$exchange: ${body['message'] ?? 'could not read the rates to update'}');
+          return;
+        }
         final items = List<Map<String, dynamic>>.from(body['data']['items'] ?? []);
         if (items.isEmpty) return;
 
@@ -748,6 +824,7 @@ class _CreateUserViewState extends State<CreateUserView> {
         }
     } catch (e) {
       log('⚠️ Error applying brokerage settings for $exchange: $e');
+      _brokerageErrors.add('$exchange: not saved ($e)');
     }
   }
 
@@ -907,13 +984,17 @@ class _CreateUserViewState extends State<CreateUserView> {
     final whose =
         _forMaster != null ? "${accountLabel(_forMaster!.name, _forMaster!.username)}'s" : 'your own';
     if (ownMaster != null) {
-      if (credit > ownMaster.equity) {
+      // Opening credit only when CREATING — on edit the credit is not saved
+      // (Account Balance changes it), and comparing the client's existing
+      // credit with the master's balance blocked every edit of a large client.
+      if (widget.user == null && credit > ownMaster.equity) {
         _showSnack(
             'Opening credit exceeds $whose available balance (${ownMaster.equity.toStringAsFixed(2)}).',
             isError: true);
         return;
       }
-      for (final category in allowedCategories(_selectedExchangeNames)) {
+      // Wallet top-up: checked against the master who actually pays it.
+      for (final category in _walletPaidByOwner ? allowedCategories(_selectedExchangeNames) : const <String>[]) {
         final entered =
             double.tryParse(_walletControllerFor(category).text.trim()) ?? 0;
         final available = ownMaster.wallet[category] ?? 0;
@@ -1092,7 +1173,24 @@ class _CreateUserViewState extends State<CreateUserView> {
         await profileProvider.refreshProfile();
         if (!mounted) return;
         if (_brokerageErrors.isNotEmpty) {
-          _showSnack('Saved, but brokerage not changed — ${_brokerageErrors.join('; ')}', isError: true);
+          // A dialog, not a snack bar that vanishes: the account was saved but
+          // these rates were not — the editor has to know (9 Nov 2026).
+          await showDialog<void>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text(widget.user != null
+                  ? 'Saved — but some brokerage was NOT changed'
+                  : 'Created — but some brokerage was NOT set'),
+              content: SingleChildScrollView(
+                  child: Text(_brokerageErrors.join('\n\n'))),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('OK')),
+              ],
+            ),
+          );
+          if (!mounted) return;
         } else if (comexError != null) {
           _showSnack('Saved, but COMEX rate: $comexError', isError: true);
         } else {
@@ -1212,7 +1310,23 @@ class _CreateUserViewState extends State<CreateUserView> {
                               controller: _creditController,
                               keyboardType: TextInputType.number,
                               showWordsInIndian: true,
-                              remainingAvailable: _ownerMaster?.equity),
+                              // Editing: credit is not saved here (the server
+                              // ignores it) — shown read-only.
+                              readOnly: widget.user != null,
+                              remainingAvailable: widget.user == null
+                                  ? _ownerMaster?.equity
+                                  : null),
+                          if (widget.user != null)
+                            const Padding(
+                              padding: EdgeInsets.only(left: 100, bottom: 6),
+                              child: Text(
+                                'Change credit from Account Balance on the overview page.',
+                                style: TextStyle(
+                                    color: kColorTextMuted,
+                                    fontSize: 11,
+                                    fontFamily: kFontFamily),
+                              ),
+                            ),
                           _divider(),
                           _buildTextField(
                               label: 'Profit Book',
@@ -1982,7 +2096,15 @@ class _CreateUserViewState extends State<CreateUserView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionLabel('TRADE WALLET'),
+        _sectionLabel(widget.user != null ? 'ADD TO TRADE WALLET' : 'TRADE WALLET'),
+        if (widget.user != null)
+          const Padding(
+            padding: EdgeInsets.only(top: 4),
+            child: Text(
+              'An amount here is ADDED to the current balance (not the new total).',
+              style: TextStyle(color: kColorTextMuted, fontSize: 11, fontFamily: kFontFamily),
+            ),
+          ),
         const SizedBox(height: 12),
         _card(
           child: cats.isEmpty
@@ -2072,7 +2194,18 @@ class _CreateUserViewState extends State<CreateUserView> {
               ),
             );
           }),
+          if (widget.user != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 100, top: 2),
+              child: Text(
+                'Current: ₹ ${(widget.user!.wallet[category] ?? 0).toStringAsFixed(2)}',
+                style: const TextStyle(color: kColorTextMuted, fontSize: 11, fontFamily: kFontFamily),
+              ),
+            ),
           Builder(builder: (_) {
+            // The paying master's balance — only known when that is the
+            // logged-in master (editing a sub-master's client: his master pays).
+            if (!_walletPaidByOwner) return const SizedBox.shrink();
             final available = _ownerMaster?.wallet[category];
             if (available == null) return const SizedBox.shrink();
             return _remainingBalanceHint(available, controller.text);

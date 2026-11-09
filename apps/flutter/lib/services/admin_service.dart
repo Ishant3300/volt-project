@@ -202,6 +202,20 @@ class AdminService {
         token: token);
   }
 
+  /// Update only the given permission keys of a master, e.g. {'close_only': true}.
+  /// The overview's control switches use this (9 Nov 2026): sending the whole
+  /// permission object made the server push every control to the master's
+  /// clients, and a master caller was refused for the report keys in it.
+  Future<http.Response> updateMasterPermissionValues({
+    required String masterId,
+    required Map<String, bool> values,
+  }) async {
+    final token = await _storage.getToken();
+    return await _apiService.put(
+        '/masters/$masterId/permissions', {'permissions': values},
+        token: token);
+  }
+
   /// Update master status
   Future<http.Response> updateMasterStatus({
     required String masterId,

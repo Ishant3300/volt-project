@@ -39,6 +39,29 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
   bool _isApplying = false;
   bool _isAdmin = false;
 
+  /// Opened for one account (a master's or client's overview page): only that
+  /// account's OWN rates are ever shown or edited here — never the platform
+  /// default rows (9 Nov 2026: with no own rows of the forced type the list
+  /// used to load the defaults, and Apply then rewrote the platform defaults).
+  bool get _accountScoped => widget.ownerId != null;
+
+  /// The account has no rates at all on this exchange (offer to create them).
+  bool _noAccountRates = false;
+
+  /// Set when the account's rates on this exchange are the other type than
+  /// this exchange's usual one (e.g. COMEX-FUT stored as TURNOVER WISE).
+  String? _typeNote;
+
+  /// The last load failed (shown instead of an empty list).
+  String? _loadError;
+
+  String get _effectiveExchange =>
+      _selectedExchange == 'GLOBAL' ? 'INDICES' : _selectedExchange!;
+
+  String get _usualType => _lotWiseSegments.contains(_selectedExchange)
+      ? 'LOT WISE'
+      : 'TURNOVER WISE';
+
   @override
   void initState() {
     super.initState();
@@ -56,60 +79,139 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
     setState(() => _isAdmin = role == 'ADMIN');
   }
 
+  /// The rows for this exchange and type — the account's own when the screen
+  /// is account-scoped, else the platform defaults. Null on error.
+  Future<List<dynamic>?> _getRows(String type) async {
+    final apiService = Provider.of<ApiService>(context, listen: false);
+    final token = await SecureStorageService().getToken();
+    final userQuery = _accountScoped ? '&user_id=${widget.ownerId}' : '';
+    final res = await apiService.get(
+      '/admin/brokerage-settings/exchange/$_effectiveExchange?type=${Uri.encodeComponent(type)}&limit=2000$userQuery',
+      token: token,
+    );
+    final data = jsonDecode(res.body);
+    if (res.statusCode == 200 && data['success'] == true) {
+      return (data['data']?['items'] as List<dynamic>?) ?? [];
+    }
+    _loadError = (data is Map && data['message'] is String)
+        ? data['message'] as String
+        : 'Could not load rates (${res.statusCode})';
+    return null;
+  }
+
   Future<void> _fetch() async {
     if (_selectedExchange == null) return;
     setState(() {
       _isLoading = true;
       _items = [];
       _selected = {};
+      _noAccountRates = false;
+      _typeNote = null;
+      _loadError = null;
     });
     try {
-      final apiService = Provider.of<ApiService>(context, listen: false);
-      final effectiveExchange =
-          _selectedExchange == 'GLOBAL' ? 'INDICES' : _selectedExchange!;
-      final token = await SecureStorageService().getToken();
-      final userQuery =
-          widget.ownerId != null ? '&user_id=${widget.ownerId}' : '';
-      final res = await apiService.get(
-        '/admin/brokerage-settings/exchange/$effectiveExchange?type=${Uri.encodeComponent(_selectedType)}&limit=2000$userQuery',
-        token: token,
-      );
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        if (data['success'] == true) {
-          List<dynamic> items = data['data']['items'] ?? [];
-
-          // If no user-specific records, fall back to global for display
-          if (items.isEmpty && widget.ownerId != null) {
-            final globalRes = await apiService.get(
-              '/admin/brokerage-settings/exchange/$effectiveExchange?type=${Uri.encodeComponent(_selectedType)}&limit=2000',
-              token: token,
-            );
-            if (globalRes.statusCode == 200) {
-              final gData = jsonDecode(globalRes.body);
-              if (gData['success'] == true) {
-                items = gData['data']['items'] ?? [];
-              }
-            }
+      List<dynamic>? items;
+      if (!_accountScoped) {
+        items = await _getRows(_selectedType);
+      } else {
+        // The account's own rows of this exchange's usual type; if it has
+        // none, the account may hold the other type — show those (its real
+        // rates). Never the platform defaults.
+        var type = _usualType;
+        items = await _getRows(type);
+        if (items != null && items.isEmpty) {
+          final other = type == 'LOT WISE' ? 'TURNOVER WISE' : 'LOT WISE';
+          final otherItems = await _getRows(other);
+          if (otherItems != null && otherItems.isNotEmpty) {
+            items = otherItems;
+            type = other;
+            _typeNote = "This account's ${_selectedExchange!} rates are $other.";
           }
-
-          List<Map<String, dynamic>> filtered = [];
-          for (var s in items) {
-            filtered.add({
-              'id': s['id'],
-              'script_name': s['script_name'],
-              'brk_value': s['brk_value'],
-              'type': s['type'],
-              'exchange_name': s['exchange_name']
-            });
-          }
-          setState(() => _items = filtered);
         }
+        _selectedType = type;
+        _noAccountRates = items != null && items.isEmpty;
       }
+      if (items == null) return;
+      final filtered = <Map<String, dynamic>>[
+        for (final s in items)
+          {
+            'id': s['id'],
+            'script_name': s['script_name'],
+            'brk_value': s['brk_value'],
+            'type': s['type'],
+            'exchange_name': s['exchange_name'],
+          }
+      ];
+      if (mounted) setState(() => _items = filtered);
     } catch (e) {
       log('❌ Error: $e');
+      _loadError = 'Could not load rates: $e';
     } finally {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  /// Account-scoped, the account has no rates on this exchange yet: create
+  /// them for THIS account (every script of the exchange at the typed value).
+  /// The server refuses a value below the account's master's rate.
+  Future<void> _createForAccount() async {
+    if (!_accountScoped || _selectedExchange == null || _isApplying) return;
+    final value = double.tryParse(_amountCtrl.text);
+    if (value == null || value <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Enter the rate to create, then tap Create')));
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Create rates for this account?'),
+        content: Text(
+            'Every ${_selectedExchange!} script for this account will be set to $value ($_selectedType). Platform default rates are not changed.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Create')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _isApplying = true);
+    try {
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      final token = await SecureStorageService().getToken();
+      final res = await apiService.post(
+          '/admin/brokerage-settings/bulk-create',
+          {
+            'exchange_name': _effectiveExchange,
+            'type': _selectedType,
+            'default_brk_value': value,
+            'user_id': widget.ownerId,
+          },
+          token: token);
+      final body = jsonDecode(res.body);
+      if (!mounted) return;
+      final done = (res.statusCode == 200 || res.statusCode == 201) &&
+          body['success'] == true;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(done
+              ? 'Created ${body['data']?['inserted'] ?? ''} rate(s) for this account'
+              : (body['message'] ?? 'Create failed (${res.statusCode})')),
+          backgroundColor: done ? kColorBuy : kColorSell));
+      if (done) {
+        _amountCtrl.clear();
+        await _fetch();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isApplying = false);
     }
   }
 
@@ -128,26 +230,17 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
           const SnackBar(content: Text('Select at least one script')));
       return;
     }
+    // Account-scoped with no own rates: nothing to update here (see
+    // _createForAccount) — never send rows that aren't this account's.
+    if (_accountScoped && _noAccountRates) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('This account has no rates here yet — use Create')));
+      return;
+    }
     setState(() => _isApplying = true);
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
       final token = await SecureStorageService().getToken();
-
-      // If owner-specific and no items exist yet, create user-specific records first
-      if (widget.ownerId != null && _items.isEmpty) {
-        final effectiveExchange =
-            _selectedExchange == 'GLOBAL' ? 'INDICES' : _selectedExchange!;
-        await apiService.post(
-            '/admin/brokerage-settings/bulk-create',
-            {
-              'exchange_name': effectiveExchange,
-              'type': _selectedType,
-              'default_brk_value': value,
-              'user_id': widget.ownerId,
-            },
-            token: token);
-        await _fetch();
-      }
 
       // Collect IDs of selected items
       final ids = <String>[];
@@ -238,14 +331,30 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                       child: const Icon(Icons.arrow_back,
                           color: kTopBarFg, size: kIconSizeMedium))),
               const SizedBox(width: 12),
-              const Expanded(
-                  child: Text('Brokerage Settings',
-                      style: TextStyle(
-                          color: kTopBarFg,
-                          fontSize: kFontSizeViewTitle,
-                          fontFamily: kFontFamily,
-                          fontWeight: kFontWeightSemiBold))),
-              if (_isAdmin) ...[
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                    const Text('Brokerage Settings',
+                        style: TextStyle(
+                            color: kTopBarFg,
+                            fontSize: kFontSizeViewTitle,
+                            fontFamily: kFontFamily,
+                            fontWeight: kFontWeightSemiBold)),
+                    Text(
+                        _accountScoped
+                            ? "This account's own rates"
+                            : 'Platform default rates',
+                        style: const TextStyle(
+                            color: kTopBarFg,
+                            fontSize: kFontSizeCaption,
+                            fontFamily: kFontFamily)),
+                  ])),
+              // Create edits the PLATFORM DEFAULT rows (AddBrokerageToExchangeView
+              // has no account) — only on the Admin Settings screen, never on
+              // an account's page (9 Nov 2026).
+              if (_isAdmin && !_accountScoped) ...[
                 GestureDetector(
                   onTap: () {
                     if (_selectedExchange == null) {
@@ -379,6 +488,14 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
                                   fontWeight: kFontWeightSemiBold)))),
             ])),
         const SizedBox(height: 10),
+        if (_typeNote != null)
+          Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(_typeNote!,
+                  style: const TextStyle(
+                      color: kColorTextMuted,
+                      fontSize: kFontSizeCaption,
+                      fontFamily: kFontFamily))),
 
         // Table header
         Padding(
@@ -418,16 +535,47 @@ class _BrokerageSettingsViewState extends State<BrokerageSettingsView> {
               ? const Center(
                   child: CircularProgressIndicator(
                       color: kBrandPrimary, strokeWidth: 2.5))
-              : _items.isEmpty
+              : _loadError != null
                   ? Center(
-                      child: Text(
-                          _selectedExchange == null
-                              ? 'Select an exchange'
-                              : 'No settings found',
-                          style: const TextStyle(
-                              color: kColorTextMuted,
-                              fontSize: kFontSizeBodySmall,
-                              fontFamily: kFontFamily)))
+                      child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(_loadError!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                  color: kColorSell,
+                                  fontSize: kFontSizeBodySmall,
+                                  fontFamily: kFontFamily))))
+                  : _items.isEmpty
+                  ? Center(
+                      child: _accountScoped && _noAccountRates
+                          ? Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                        'No rates yet for this account on ${_selectedExchange ?? ''}.\nType the rate above and tap Create.',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                            color: kColorTextMuted,
+                                            fontSize: kFontSizeBodySmall,
+                                            fontFamily: kFontFamily)),
+                                    const SizedBox(height: 12),
+                                    ElevatedButton(
+                                        onPressed: _isApplying
+                                            ? null
+                                            : _createForAccount,
+                                        child: const Text(
+                                            'Create for this account')),
+                                  ]))
+                          : Text(
+                              _selectedExchange == null
+                                  ? 'Select an exchange'
+                                  : 'No settings found',
+                              style: const TextStyle(
+                                  color: kColorTextMuted,
+                                  fontSize: kFontSizeBodySmall,
+                                  fontFamily: kFontFamily)))
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       itemCount: _items.length,

@@ -641,6 +641,12 @@ class _UsernameViewState extends State<UsernameView> {
                   ),
                   GestureDetector(
                     onTap: () async {
+                      // Re-read the account first: the form saves its whole
+                      // exchange/group list, so starting from an old copy
+                      // could undo a change made meanwhile (e.g. on the web)
+                      // — including switching a group back (9 Nov 2026).
+                      await _refreshData();
+                      if (!context.mounted) return;
                       final result = await Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -2366,20 +2372,41 @@ class _UsernameViewState extends State<UsernameView> {
     );
   }
 
+  /// The server's reason for a refused switch (it used to be ignored silently).
+  void _toggleRefused(String label, dynamic r) {
+    if (!mounted) return;
+    String msg = '';
+    try {
+      msg = (jsonDecode(r.body)['message'] ?? '').toString();
+    } catch (_) {}
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('$label not changed — ${msg.isEmpty ? 'refused (${r.statusCode})' : msg}'),
+      backgroundColor: kColorSell,
+    ));
+  }
+
+  static const Map<String, String> _masterControlKey = {
+    'Close Only': 'close_only',
+    'BET': 'bet',
+    'Margin Square Off': 'margin_square',
+    'Fresh Stop-Loss': 'fresh_stoploss',
+  };
+
   void _handleToggle(String label, bool newValue) async {
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
       final adminService = AdminService(apiService);
 
       if (label == 'User Status') {
-        if (_currentMaster != null) {
-          final r = await adminService.updateMasterStatus(
-              masterId: _currentMaster!.id, activeStatus: newValue);
-          if (r.statusCode == 200) setState(() => _activeStatus = newValue);
+        final r = _currentMaster != null
+            ? await adminService.updateMasterStatus(
+                masterId: _currentMaster!.id, activeStatus: newValue)
+            : await adminService.updateUserDetails(
+                userId: _currentUser!.id, activeStatus: newValue);
+        if (r.statusCode == 200) {
+          setState(() => _activeStatus = newValue);
         } else {
-          final r = await adminService.updateUserDetails(
-              userId: _currentUser!.id, activeStatus: newValue);
-          if (r.statusCode == 200) setState(() => _activeStatus = newValue);
+          _toggleRefused(label, r);
         }
         return;
       }
@@ -2401,50 +2428,20 @@ class _UsernameViewState extends State<UsernameView> {
           });
           // Refresh the user object so Edit page gets the latest state
           await _refreshData();
+        } else {
+          _toggleRefused(label, r);
         }
         return;
       }
 
       if (_currentMaster != null) {
-        final cp = _currentMaster!.permissions ??
-            MasterPermissions(
-              accountSummary: false,
-              pnlSummary: false,
-              clientSummary: false,
-              settlementReport: false,
-              generatePdf: false,
-              weeklyAdmin: false,
-              intradayHistory: false,
-              userwiseOpenPosition: false,
-              scriptQuantity: false,
-              deletedTrade: false,
-              tradeAccount: false,
-              closeOnly: _closeOnly,
-              bet: _bet,
-              marginSquare: _marginSquare,
-              freshStoploss: _freshStoploss,
-            );
-
-        final updated = MasterPermissions(
-          accountSummary: cp.accountSummary,
-          pnlSummary: cp.pnlSummary,
-          clientSummary: cp.clientSummary,
-          settlementReport: cp.settlementReport,
-          generatePdf: cp.generatePdf,
-          weeklyAdmin: cp.weeklyAdmin,
-          intradayHistory: cp.intradayHistory,
-          userwiseOpenPosition: cp.userwiseOpenPosition,
-          scriptQuantity: cp.scriptQuantity,
-          deletedTrade: cp.deletedTrade,
-          tradeAccount: cp.tradeAccount,
-          closeOnly: label == 'Close Only' ? newValue : _closeOnly,
-          bet: label == 'BET' ? newValue : _bet,
-          marginSquare: label == 'Margin Square Off' ? newValue : _marginSquare,
-          freshStoploss: label == 'Fresh Stop-Loss' ? newValue : _freshStoploss,
-        );
-
-        final r = await adminService.updateMasterPermissions(
-            masterId: _currentMaster!.id, permissions: updated);
+        // Only the switch that was tapped — the server pushes Close Only /
+        // BET / Margin Square Off down to the master's clients when THAT
+        // value changes, so the others must not be sent along (9 Nov 2026).
+        final key = _masterControlKey[label];
+        if (key == null) return;
+        final r = await adminService.updateMasterPermissionValues(
+            masterId: _currentMaster!.id, values: {key: newValue});
         if (r.statusCode == 200) {
           setState(() {
             if (label == 'Close Only') _closeOnly = newValue;
@@ -2452,13 +2449,18 @@ class _UsernameViewState extends State<UsernameView> {
             if (label == 'Margin Square Off') _marginSquare = newValue;
             if (label == 'Fresh Stop-Loss') _freshStoploss = newValue;
           });
+          await _refreshData();
+        } else {
+          _toggleRefused(label, r);
         }
       }
     } catch (e) {
+      log('Error toggling $label: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: kColorSell));
+          content: Text('$label not changed — $e'),
+          backgroundColor: kColorSell,
+        ));
       }
     }
   }
