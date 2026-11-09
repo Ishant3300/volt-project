@@ -465,7 +465,19 @@ class _CreateUserViewState extends State<CreateUserView> {
       String exchange, AdminService adminService) async {
     final String apiExchange = exchange == 'GLOBAL' ? 'INDICES' : exchange;
     try {
-      final response = await adminService.getLotNamesByExchange(apiExchange);
+      // A master editing a client: the groups the client's OWN master may
+      // hand out (the server checks that master's allotment on save) — for a
+      // sub-master's client these differ from the logged-in master's. Admin
+      // isn't bound by any allotment, so admin still sees every group.
+      final isAdmin =
+          Provider.of<UserProfileProvider>(context, listen: false).isAdmin;
+      final clientMasterId = widget.user?.masterId;
+      final response = await adminService.getLotNamesByExchange(apiExchange,
+          forMasterId: (!isAdmin &&
+                  clientMasterId != null &&
+                  clientMasterId.isNotEmpty)
+              ? clientMasterId
+              : null);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true && data['data'] != null) {

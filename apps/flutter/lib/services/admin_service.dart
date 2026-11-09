@@ -691,11 +691,16 @@ class AdminService {
     return await _apiService.get('/admin/script-quantities/$id', token: token);
   }
 
-  /// Get lot names by exchange
-  Future<http.Response> getLotNamesByExchange(String exchangeName) async {
+  /// Get lot names by exchange. [forMasterId]: the groups THAT master may
+  /// hand out (editing a client of a sub-master) instead of the caller's own.
+  Future<http.Response> getLotNamesByExchange(String exchangeName,
+      {String? forMasterId}) async {
     final token = await _storage.getToken();
+    final query = (forMasterId != null && forMasterId.isNotEmpty)
+        ? '?for_master_id=${Uri.encodeQueryComponent(forMasterId)}'
+        : '';
     return await _apiService.get(
-        '/admin/grouped-quantities/exchange/$exchangeName/lot-names',
+        '/admin/grouped-quantities/exchange/$exchangeName/lot-names$query',
         token: token);
   }
 
