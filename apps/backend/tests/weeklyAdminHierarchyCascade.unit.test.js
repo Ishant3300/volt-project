@@ -413,3 +413,38 @@ describe('aggregate-row brokerage — each tier\'s owed-upward is computed indep
     expect(incoming).toBeCloseTo(47.94, 1);
   });
 });
+
+describe('_getUserBrokerageAndTurnoverBatched — the brokerage actually charged on a trade wins over today\'s rule (owner, 9 Nov 2026)', () => {
+  const kiteMap3 = {
+    GIFT: { lot_size: 1, segment: 'INDICES', raw_name: 'GIFT NIFTY' },
+    CMX: { lot_size: 100, segment: 'COMEX-FUT', raw_name: 'GC' },
+  };
+  // Rate raised 1 -> 3 after the trades were charged at 1 (JIGAR 477391, 7 Nov).
+  const ownRules = [{ script_name: 'GIFT NIFTY', exchange_name: 'INDICES', type: 'TURNOVER WISE', brk_value: 3 }];
+
+  test('charged trades use the charged amount, not the later rate', () => {
+    const trades = { u: [
+      { instrument_token: 'GIFT', executed_price: 25025, executed_quantity: 50, brokerage: 125.125 },
+      { instrument_token: 'GIFT', executed_price: 25018, executed_quantity: 51, brokerage: 127.5918 },
+    ] };
+    const r = _getUserBrokerageAndTurnoverBatched('u', trades, { u: ownRules }, [], kiteMap3);
+    expect(r.brokerage).toBeCloseTo(252.7168, 4);
+    expect(r.turnover).toBeCloseTo(25025 * 50 + 25018 * 51, 4); // turnover unchanged
+  });
+
+  test('a trade with no charge recorded still falls back to the rule', () => {
+    const trades = { u: [{ instrument_token: 'GIFT', executed_price: 25000, executed_quantity: 40, brokerage: 0 }] };
+    const r = _getUserBrokerageAndTurnoverBatched('u', trades, { u: ownRules }, [], kiteMap3);
+    expect(r.brokerage).toBeCloseTo(25000 * 40 * 3 / 10000, 4);
+  });
+
+  test('exempt trades still count nothing; COMEX keeps the rule path', () => {
+    const comexRules = [{ script_name: 'GC', exchange_name: 'COMEX-FUT', type: 'LOT WISE', brk_value: 10 }];
+    const trades = { u: [
+      { instrument_token: 'GIFT', executed_price: 25000, executed_quantity: 40, brokerage: 300, brokerage_exempt: true },
+      { instrument_token: 'CMX', executed_price: 2000, executed_quantity: 200, brokerage: 999 },
+    ] };
+    const r = _getUserBrokerageAndTurnoverBatched('u', trades, { u: comexRules }, [], kiteMap3);
+    expect(r.brokerage).toBeCloseTo(20, 4); // 2 lots x 10 from the rule, not the stored 999
+  });
+});

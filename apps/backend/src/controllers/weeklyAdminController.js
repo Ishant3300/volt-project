@@ -240,7 +240,7 @@ const getWeeklyAdminReport = async (req, res) => {
           // no brokerage — marked brokerage_exempt below.
           { deleted_at: { $ne: null }, settlement_run_id: { $ne: null } },
         ],
-      }).select('user_id instrument_token executed_price executed_quantity pnl brokerage_exempt trade_type settlement_run_id').lean();
+      }).select('user_id instrument_token executed_price executed_quantity pnl brokerage brokerage_exempt trade_type settlement_run_id').lean();
 
       for (const t of liveTrades) {
         if (t.trade_type === 'carry_forward') t.brokerage_exempt = true;
@@ -975,6 +975,19 @@ function _getUserBrokerageAndTurnoverBatched(userId, tradesByUser, brkRulesByUse
     // previously fell through silently: real turnover, zero brokerage, no
     // error, because the old code only consulted the global list when the
     // client's own rule array was completely empty.
+    //
+    // But first: the brokerage actually CHARGED on the trade (owner, 9 Nov
+    // 2026) — what settlement booked and the Live Bill shows. Recomputing from
+    // the rules in force TODAY billed a later rate change backwards: JIGAR
+    // 477391's GIFT NIFTY rate went 1 -> 3 on 7 Nov after his week settled,
+    // and the Ledger showed 1,530.28 instead of the 510.09 charged. A trade
+    // with no charge recorded falls back to the rule as before; COMEX (dollar
+    // trades scaled by _fx) is unchanged.
+    const charged = Number(t.brokerage);
+    if (Number.isFinite(charged) && charged > 0 && seg !== 'COMEX-FUT' && !t._fx) {
+      totalBrk += charged;
+      continue;
+    }
     const brkRule = _findRule(ownRules, rawName, seg) || _findRule(globalBrkRules, rawName, seg);
     if (brkRule) {
       if (brkRule.type === 'TURNOVER WISE') {
