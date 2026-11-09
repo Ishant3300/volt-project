@@ -48,6 +48,11 @@ const scriptQuantitySchema = new mongoose.Schema({
   deleted_at: {
     type: Date,
     default: null
+  },
+  // Set on a MASTER's row that an admin platform block (max 0) put at 0, so
+  // the admin's unblock can tell it from the master's own block (9 Nov 2026).
+  blocked_by_admin: {
+    type: Boolean
   }
 }, {
   timestamps: false,

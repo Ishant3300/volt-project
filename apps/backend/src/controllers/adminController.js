@@ -1117,11 +1117,12 @@ const createScriptQuantity = async (req, res) => {
       await cascadeMasterRowChange(effectiveOwnerId, exchange_name, script_name, before ? before.max_qty : null, scriptQty.max_qty, scriptQty.lot_size);
     }
 
-    // Admin's platform row: masters and clients that have NO row for it get
-    // one; an existing limit is never overwritten by a create.
+    // Admin's platform row — same rule as joining (owner, 9 Nov 2026): accounts
+    // with NO row get it, existing limits are never overwritten; a block (0)
+    // reaches everyone under this admin, and lifting it gives what joining gives.
     if (effectiveOwnerType === 'Admin') {
-      const { fillMissingScriptsGlobally } = require('../services/scriptQuantityCopyService');
-      await fillMissingScriptsGlobally(exchange_name, [{ script_name, lot_size, max_qty, brk_qty }], effectiveOwnerId);
+      const { cascadeAdminRowChange } = require('../services/scriptQuantityCopyService');
+      await cascadeAdminRowChange(effectiveOwnerId, exchange_name, script_name, before ? before.max_qty : null, scriptQty.max_qty, { lot_size: scriptQty.lot_size, brk_qty: scriptQty.brk_qty });
     }
 
     res.status(201).json({ success: true, message: 'Script quantity saved successfully', data: scriptQty.toJSON() });
@@ -1279,8 +1280,10 @@ const updateScriptQuantity = async (req, res) => {
     await scriptQty.save();
 
     if (req.admin && scriptQty.owner_type === 'Admin') {
-      const { cascadeNewScriptGlobally } = require('../services/scriptQuantityCopyService');
-      await cascadeNewScriptGlobally(scriptQty.exchange_name, scriptQty.script_name, { lot_size: scriptQty.lot_size, max_qty: scriptQty.max_qty, brk_qty: scriptQty.brk_qty }, req.admin.id);
+      // Same rule as joining (owner, 9 Nov 2026) — it used to overwrite this
+      // script's limit for every master and client under the admin.
+      const { cascadeAdminRowChange } = require('../services/scriptQuantityCopyService');
+      await cascadeAdminRowChange(scriptQty.owner_id.toString(), scriptQty.exchange_name, scriptQty.script_name, maxBefore, scriptQty.max_qty, { lot_size: scriptQty.lot_size, brk_qty: scriptQty.brk_qty });
     } else if (scriptQty.owner_type === 'Master') {
       // Same rule as joining a group (owner, 9 Nov 2026): only a block (0) or
       // its removal reaches his clients — their other limits come from their
@@ -1335,9 +1338,12 @@ const deleteScriptQuantity = async (req, res) => {
     // it, removing the script for every master of that admin and all their
     // clients — and a script with no row has no limit at all (owner, 9 Nov
     // 2026). Only deleting the Admin's own platform row is platform-wide.
+    // Admin's platform row removed: accounts keep their own limits (it used to
+    // delete the script for every account under the admin — no row = no
+    // limit); if it was a block, lifting it gives what joining gives (9 Nov 2026).
     if (scriptQty.owner_type === 'Admin') {
-      const { cascadeDeleteScriptGlobally } = require('../services/scriptQuantityCopyService');
-      await cascadeDeleteScriptGlobally(scriptQty.exchange_name, scriptQty.script_name, scriptQty.owner_id.toString());
+      const { cascadeAdminRowChange } = require('../services/scriptQuantityCopyService');
+      await cascadeAdminRowChange(scriptQty.owner_id.toString(), scriptQty.exchange_name, scriptQty.script_name, scriptQty.max_qty, null, { lot_size: scriptQty.lot_size, brk_qty: scriptQty.brk_qty });
     }
 
     res.status(200).json({ success: true, message: 'Script quantity deleted successfully', data: null });

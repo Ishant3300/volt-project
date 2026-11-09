@@ -603,11 +603,21 @@ const bulkCreateScriptQuantity = async (req, res) => {
     // Admin's platform rows: accounts with NO row for a script get one;
     // existing limits are never overwritten (it used to reset every account
     // on the exchange, one script at a time).
+    // Admin platform rows, same rule as joining (owner, 9 Nov 2026): a script
+    // this call CREATED reaches accounts by cascadeAdminRowChange (fill the ones
+    // with no row; a 0 default is a block for everyone under the admin). A
+    // script the admin already had keeps its value: accounts with no row get
+    // THAT value (a block already went out when it was set).
     if (effectiveOwnerType === 'Admin') {
-      const { fillMissingScriptsGlobally } = require('../services/scriptQuantityCopyService');
-      await fillMissingScriptsGlobally(normalizedExchange, results.map((r) => ({
-        script_name: r._id, lot_size: r.lot_size || 1, max_qty: default_max_qty, brk_qty: default_brk_qty,
-      })), effectiveOwnerId);
+      const { fillMissingScriptsGlobally, cascadeAdminRowChange } = require('../services/scriptQuantityCopyService');
+      const created = new Set(createdScripts.map((r) => r._id));
+      for (const r of createdScripts) {
+        await cascadeAdminRowChange(effectiveOwnerId, normalizedExchange, r._id, null, Number(default_max_qty), { lot_size: r.lot_size || 1, brk_qty: default_brk_qty });
+      }
+      const existing = await ScriptQuantity.find({ owner_id: effectiveOwnerId, owner_type: 'Admin', exchange_name: normalizedExchange, script_name: { $in: results.filter((r) => !created.has(r._id)).map((r) => r._id) }, max_qty: { $gt: 0 }, deleted_at: null }).select('script_name lot_size max_qty brk_qty').lean();
+      if (existing.length) {
+        await fillMissingScriptsGlobally(normalizedExchange, existing.map((r) => ({ script_name: r.script_name, lot_size: r.lot_size || 1, max_qty: r.max_qty, brk_qty: r.brk_qty })), effectiveOwnerId);
+      }
     }
 
     res.status(201).json({

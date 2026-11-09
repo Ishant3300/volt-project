@@ -8,11 +8,18 @@
 const mockInserted = [];
 let mockGroupRows = [];
 let mockMasterRows = [];
+let mockAdminRows = [];
 jest.mock('../src/models/GroupedQuantity', () => ({ find: () => ({ lean: async () => mockGroupRows, session: () => ({ lean: async () => mockGroupRows }) }) }));
 jest.mock('../src/models/User', () => ({ findById: () => { const q = { select: () => q, session: () => q, lean: async () => ({ master_id: 'kk20' }) }; return q; } }));
-jest.mock('../src/models/Master', () => ({}));
+jest.mock('../src/models/Master', () => ({ find: () => { const q = { select: () => q, session: () => q, lean: async () => [{ _id: 'kk20', admin_id: 'adm1' }] }; return q; } }));
 jest.mock('../src/models/ScriptQuantity', () => ({
   find: (query) => {
+    if (query.owner_type === 'Admin') {
+      // the admin's platform blocks (9 Nov 2026)
+      const rows = mockAdminRows.filter((r) => query.owner_id.$in.includes('adm1') && query.exchange_name.$in.includes(r.exchange_name) && r.max_qty === 0).map((r) => ({ ...r, owner_id: 'adm1' }));
+      const q = { select: () => q, session: () => q, lean: async () => rows };
+      return q;
+    }
     const rows = mockMasterRows.filter((r) => query.owner_id === 'kk20' && query.exchange_name.$in.includes(r.exchange_name) && r.max_qty === 0);
     const q = { select: () => q, session: () => q, lean: async () => rows };
     return q;
@@ -27,7 +34,14 @@ const group = (raw_name, max_qty, break_qty) => ({ raw_name, max_qty, break_qty,
 const masterRow = (exchange_name, script_name, max_qty) => ({ exchange_name, script_name, max_qty, brk_qty: 0, lot_size: 1 });
 const byScript = () => Object.fromEntries(mockInserted.map((d) => [`${d.exchange_name} ${d.script_name}`, `${d.max_qty}/${d.brk_qty}`]));
 
-beforeEach(() => { mockInserted.length = 0; mockGroupRows = []; mockMasterRows = []; });
+beforeEach(() => { mockInserted.length = 0; mockGroupRows = []; mockMasterRows = []; mockAdminRows = []; });
+
+test("the admin's platform block carries like the master's (9 Nov 2026)", async () => {
+  mockGroupRows = [group('GOLD', 5, 2), group('SILVER', 5, 2)];
+  mockAdminRows = [masterRow('MCX-FUT', 'SILVER', 0), masterRow('MCX-FUT', 'CRUDE', 0), masterRow('MCX-FUT', 'GOLD', 7)];
+  await seedUserScriptQuantityFromGroups('u1', [{ exchange_name: 'MCX-FUT', group_name: 'GOLDMIN' }]);
+  expect(byScript()).toEqual({ 'MCX-FUT GOLD': '5/2', 'MCX-FUT SILVER': '0/0', 'MCX-FUT CRUDE': '0/0' });
+});
 
 test('new client: a script the master blocked is 0, the rest come from the group', async () => {
   mockGroupRows = [group('GOLD', 5, 2), group('GOLDM', 10, 5), group('SILVER', 5, 2)];

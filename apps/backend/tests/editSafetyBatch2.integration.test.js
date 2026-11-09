@@ -337,6 +337,102 @@ describeIntegration('edit safety batch 2 on a local MongoDB', () => {
     expect(res.body.data.children_below).toHaveLength(1);
   });
 
+  // ── admin platform rows: joining rule
+  const adminRow = (script, max) => sq(ids.superA, 'Admin', script, max);
+  const marked = async (owner, script) => (await db.collection('scriptquantities').findOne({ owner_id: owner, script_name: script, deleted_at: null }))?.blocked_by_admin === true;
+  const putAdmin = async (script, body) => {
+    const row = await db.collection('scriptquantities').findOne({ owner_id: ids.superA, owner_type: 'Admin', script_name: script, deleted_at: null });
+    return request(app).put(`/api/admin/script-quantities/${row._id}`).set('Authorization', asSuper()).send(body);
+  };
+
+  test('admin row edit (not a block) never overwrites; only accounts with no row get it', async () => {
+    await db.collection('scriptquantities').insertMany([adminRow('ABC', 100), adminRow('GHI', 100)]);
+    const res = await putAdmin('ABC', { max_qty: 60, brk_qty: 60 });
+    expect(res.status).toBe(200);
+    expect(await maxOf(ids.c1, 'ABC')).toBe(20);
+    expect(await maxOf(ids.c2, 'ABC')).toBe(15);
+    expect(await maxOf(ids.bds, 'ABC')).toBe(20);
+    await db.collection('scriptquantities').updateOne({ owner_id: ids.cx, script_name: 'ABC' }, { $set: { deleted_at: new Date() } });
+    await putAdmin('ABC', { max_qty: 70, brk_qty: 70 });
+    expect(await maxOf(ids.cx, 'ABC')).toBe(70); // had no row → gets it
+    expect(await maxOf(ids.c1, 'ABC')).toBe(20);
+  });
+
+  test('admin block reaches everyone, sticks on joining / group edit / master unblock, and unblock gives what joining gives', async () => {
+    await db.collection('scriptquantities').insertMany([adminRow('DEF', 100)]);
+    let res = await putAdmin('DEF', { max_qty: 0, brk_qty: 0 });
+    expect(res.status).toBe(200);
+    for (const who of [ids.c1, ids.c2, ids.c3, ids.cx, ids.rit, ids.other, ids.harry]) expect(await maxOf(who, 'DEF')).toBe(0);
+    expect(await marked(ids.rit, 'DEF')).toBe(true);
+    expect(await marked(ids.bds, 'DEF')).toBe(false); // his own block, left alone
+
+    // sticks: a group edit, a client's group switch, a master's own unblock
+    res = await request(app).put(`/api/admin/grouped-quantities/${(await groupRow('G2', 'DEF'))._id}`).set('Authorization', asSuper()).send({ max_qty: 45, break_qty: 45 });
+    expect(res.status).toBe(200);
+    expect(await maxOf(ids.c3, 'DEF')).toBe(0);
+    res = await request(app).put(`/api/master/users/${ids.cx}`).set('Authorization', asSuper()).send({ exchanges_allowed: [{ exchange_name: 'NFO-FUT', turnover: true, lot: false, group_name: 'G2' }] });
+    expect(res.status).toBe(200);
+    expect(await maxOf(ids.cx, 'DEF')).toBe(0);
+    expect(await maxOf(ids.cx, 'GHI')).toBe(50);
+    const bdsDef = await db.collection('scriptquantities').findOne({ owner_id: ids.bds, script_name: 'DEF', deleted_at: null });
+    res = await request(app).put(`/api/admin/script-quantities/${bdsDef._id}`).set('Authorization', asSuper()).send({ max_qty: 9 });
+    expect(res.status).toBe(200);
+    expect(await maxOf(ids.c1, 'DEF')).toBe(0); // the admin still blocks it
+    await db.collection('scriptquantities').updateOne({ _id: bdsDef._id }, { $set: { max_qty: 0, brk_qty: 0 } }); // his own block again
+
+    // a master switching group keeps the admin block (marked)
+    res = await request(app).put(`/api/masters/${ids.rit}`).set('Authorization', asSuper()).send({ script_quantity_groups: [{ exchange_name: 'NFO-FUT', group_name: 'G2' }] });
+    expect(res.status).toBe(200);
+    expect(await maxOf(ids.rit, 'DEF')).toBe(0);
+    expect(await marked(ids.rit, 'DEF')).toBe(true);
+
+    // unblock: what joining gives
+    res = await putAdmin('DEF', { max_qty: 30, brk_qty: 30 });
+    expect(res.status).toBe(200);
+    expect(await maxOf(ids.rit, 'DEF')).toBe(45); // his group (now G2, edited to 45)
+    expect(await marked(ids.rit, 'DEF')).toBe(false);
+    expect(await maxOf(ids.bds, 'DEF')).toBe(0); // his own block kept
+    expect(await maxOf(ids.c1, 'DEF')).toBe(0); // BDS82's clients stay blocked by him
+    expect(await maxOf(ids.c2, 'DEF')).toBe(0);
+    expect(await maxOf(ids.c3, 'DEF')).toBe(45); // G2
+    expect(await maxOf(ids.cx, 'DEF')).toBe(45); // now on G2
+    expect(await maxOf(ids.harry, 'DEF')).toBe(20); // G1
+  });
+
+  test('deleting an admin row: nobody changes; deleting a block lifts it (no row where the group lacks the script)', async () => {
+    await db.collection('scriptquantities').insertMany([adminRow('ABC', 100)]);
+    let row = await db.collection('scriptquantities').findOne({ owner_type: 'Admin', script_name: 'ABC' });
+    let res = await request(app).delete(`/api/admin/script-quantities/${row._id}`).set('Authorization', asSuper());
+    expect(res.status).toBe(200);
+    for (const [who, v] of [[ids.c1, 20], [ids.c2, 15], [ids.c3, 50], [ids.bds, 20]]) expect(await maxOf(who, 'ABC')).toBe(v);
+
+    res = await request(app).post('/api/admin/script-quantities').set('Authorization', asSuper()).send({ exchange_name: 'NFO-FUT', script_name: 'GHI', lot_size: 1, max_qty: 0, brk_qty: 0 });
+    expect(res.status).toBe(201);
+    expect(await maxOf(ids.c1, 'GHI')).toBe(0);
+    expect(await maxOf(ids.bds, 'GHI')).toBe(0);
+    row = await db.collection('scriptquantities').findOne({ owner_type: 'Admin', script_name: 'GHI', deleted_at: null });
+    res = await request(app).delete(`/api/admin/script-quantities/${row._id}`).set('Authorization', asSuper());
+    expect(res.status).toBe(200);
+    expect(await maxOf(ids.c1, 'GHI')).toBeNull(); // G1 has no GHI
+    expect(await maxOf(ids.bds, 'GHI')).toBeNull();
+    expect(await maxOf(ids.c3, 'GHI')).toBe(50); // G2
+    expect(await maxOf(ids.rit, 'GHI')).toBeNull();
+  });
+
+  test('admin bulk create: a 0 default blocks the NEW scripts for everyone; existing admin scripts fill with their own value', async () => {
+    await db.collection('scriptquantities').insertMany([adminRow('ABC', 100), adminRow('DEF', 100)]);
+    await db.collection('scriptquantities').updateOne({ owner_id: ids.cx, script_name: 'ABC' }, { $set: { deleted_at: new Date() } });
+    const res = await request(app).post('/api/admin/script-quantities/bulk-create').set('Authorization', asSuper())
+      .send({ exchange_name: 'NFO-FUT', default_max_qty: 0, default_brk_qty: 0 });
+    expect(res.status).toBe(201);
+    expect(await maxOf(ids.c3, 'GHI')).toBe(0); // new admin script GHI, blocked
+    expect(await maxOf(ids.c1, 'RELIANCE')).toBe(0);
+    expect(await marked(ids.rit, 'GHI')).toBe(true);
+    expect(await maxOf(ids.cx, 'ABC')).toBe(100); // had no row → the admin row's own value
+    expect(await maxOf(ids.c1, 'ABC')).toBe(20);
+    expect(await maxOf(ids.c3, 'ABC')).toBe(50);
+  });
+
   // ── 10. group list for another master
   test('lot names for a given master: own tree only, filtered by that master\'s allotment', async () => {
     await db.collection('masters').updateOne({ _id: ids.rit }, { $set: { allotted_script_quantity_groups: [{ exchange_name: 'NFO-FUT', group_names: ['G2'] }] } });
