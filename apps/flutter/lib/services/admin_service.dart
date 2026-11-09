@@ -632,7 +632,8 @@ class AdminService {
   }) async {
     final token = await _storage.getToken();
     return await _apiService.get(
-      '/admin/grouped-quantities/group/$exchangeName/$lotName?page=$page&limit=$limit',
+      // Encoded: a group name with '&', '/', '#' or '?' broke the request.
+      '/admin/grouped-quantities/group/$exchangeName/${Uri.encodeComponent(lotName)}?page=$page&limit=$limit',
       token: token,
     );
   }

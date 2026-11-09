@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 import '../services/admin_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../models/script_quantity.dart';
+import '../models/user.dart';
 import 'add_script_qty_to_exchange_view.dart';
 import '../utils/contants.dart';
 
@@ -37,11 +38,65 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
   /// screen can't be trusted (CREATE is refused until it loads).
   bool _loadFailed = false;
 
+  /// A client's list: per exchange (display name), whether his limits are
+  /// read as 'lots' or 'qty' — the same rule the server applies to his orders
+  /// (utils/comexLots.js tradingModeFor: COMEX always lots; T/O = quantity;
+  /// Lot = lots). 'off' = exchange not enabled for him. Null until loaded.
+  Map<String, String>? _clientUnits;
+
+  Future<void> _loadClientUnits() async {
+    if (widget.ownerType != 'User' || widget.ownerId == null) return;
+    try {
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      final res = await AdminService(apiService).getUserById(widget.ownerId!);
+      if (res.statusCode != 200) return;
+      final data = jsonDecode(res.body)['data'];
+      if (data is! Map<String, dynamic>) return;
+      final user = User.fromJson(data);
+      final units = <String, String>{};
+      for (final ex in user.exchangesAllowed) {
+        final name = ex.exchangeName == 'INDICES' ? 'GLOBAL' : ex.exchangeName;
+        units[name] = !(ex.turnover || ex.lot)
+            ? 'off'
+            : name == 'COMEX-FUT'
+                ? 'lots'
+                : ex.turnover
+                    ? 'qty'
+                    : 'lots';
+      }
+      if (mounted) setState(() => _clientUnits = units);
+    } catch (e) {
+      log('⚠️ Could not load the client\'s lot/qty settings: $e');
+    }
+  }
+
+  /// "lots" / "qty" for the input hints ("lots or qty" when it depends on the client).
+  String get _unitShort {
+    if (widget.ownerType != 'User') return 'lots or qty';
+    final u = _clientUnits?[_selectedExchange];
+    return u == 'lots' || u == 'qty' ? u! : 'lots or qty';
+  }
+
+  /// One line under the exchange picker saying how these numbers are read.
+  String? get _unitNote {
+    final ex = _selectedExchange;
+    if (ex == null) return null;
+    if (widget.ownerType != 'User') {
+      return 'Each client reads these limits as lots or quantity per his own Lot / T-O setting on $ex (COMEX: always lots).';
+    }
+    final u = _clientUnits?[ex];
+    if (_clientUnits == null) return null;
+    if (u == 'lots') return 'Limits for this client on $ex are in LOTS (Lot mode).';
+    if (u == 'qty') return 'Limits for this client on $ex are in QUANTITY (T/O mode).';
+    return '$ex is not enabled for this client.';
+  }
+
   @override
   void initState() {
     super.initState();
     _checkUserRole();
     _loadScriptQuantities();
+    _loadClientUnits();
   }
 
   Future<void> _checkUserRole() async {
@@ -253,6 +308,17 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
       );
       return;
     }
+    // Whole numbers only (9 Nov 2026): 0.5 used to be cut to 0 — which
+    // BLOCKS the script — without a word.
+    for (final v in [maxQty, brkQty]) {
+      if (v != null && (v < 0 || v != v.roundToDouble())) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Use a whole number of $_unitShort (0 or more) — ${v.toString()} is not allowed'),
+          backgroundColor: kColorSell,
+        ));
+        return;
+      }
+    }
 
     // Confirm the exact scope first — one tap on "select all" used to change
     // every script of the account with no warning.
@@ -454,6 +520,14 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                 ),
               ),
             ),
+            if (_unitNote != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                child: Text(
+                  _unitNote!,
+                  style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeCaption, fontFamily: kFontFamily),
+                ),
+              ),
             const SizedBox(height: 8),
 
             // Search Bar
@@ -557,10 +631,10 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                       child: TextField(
                         controller: _maxQtyController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           border: InputBorder.none,
-                          hintText: 'Max Qty',
-                          hintStyle: TextStyle(
+                          hintText: 'Max ($_unitShort)',
+                          hintStyle: const TextStyle(
                             color: kColorTextPrimary,
                             fontSize: kFontSizeSubtitle,
                             fontFamily: kFontFamily,
@@ -592,10 +666,10 @@ class _ScriptQuantitySettingsViewState extends State<ScriptQuantitySettingsView>
                       child: TextField(
                         controller: _brkQtyController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           border: InputBorder.none,
-                          hintText: 'Breakup',
-                          hintStyle: TextStyle(
+                          hintText: 'Breakup ($_unitShort)',
+                          hintStyle: const TextStyle(
                             color: kColorTextPrimary,
                             fontSize: kFontSizeSubtitle,
                             fontFamily: kFontFamily,

@@ -36,19 +36,25 @@ class _GroupQuantityLotDetailViewState extends State<GroupQuantityLotDetailView>
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
       final adminService = AdminService(apiService);
-      final response = await adminService.getAllGroupedQuantities(limit: 1000);
+      // Exactly this group's rows (9 Nov 2026) — it used to filter the newest
+      // 1,000 group rows of ALL exchanges, so most of a group could be missing.
+      final exchange = widget.exchange.toUpperCase() == 'GLOBAL' ? 'INDICES' : widget.exchange.toUpperCase();
+      final response = await adminService.getGroupInstruments(
+          exchangeName: exchange, lotName: widget.lotName, limit: 5000);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data['success'] == true) {
-          final List<dynamic> allDocs = data['data']['grouped_quantities'] ?? [];
-          List<Map<String, dynamic>> filtered = [];
-          for (var doc in allDocs) {
-            if (doc['exchange_name']?.toString().toUpperCase() == (widget.exchange.toUpperCase() == 'GLOBAL' ? 'INDICES' : widget.exchange) && doc['lot_name'] == widget.lotName) {
-              filtered.add({'id': doc['id'], 'instrument_id': doc['instrument_id'], 'instrument_symbol': doc['instrument_symbol'], 'max_qty': doc['max_qty'], 'break_qty': doc['break_qty'], 'lot_size': doc['lot_size']});
-            }
-          }
-          setState(() => _instruments = filtered);
+          final List<dynamic> docs = data['data']['instruments'] ?? [];
+          final rows = <Map<String, dynamic>>[
+            for (final doc in docs)
+              {'id': doc['id'], 'instrument_id': doc['instrument_id'], 'instrument_symbol': doc['instrument_symbol'] ?? doc['raw_name'], 'max_qty': doc['max_qty'], 'break_qty': doc['break_qty'], 'lot_size': doc['lot_size']}
+          ];
+          setState(() => _instruments = rows);
         }
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Could not load this group (${response.statusCode})'),
+            backgroundColor: kColorSell));
       }
     } catch (e) { log('❌ Error: $e'); }
     finally { if (mounted) setState(() => _isLoading = false); }

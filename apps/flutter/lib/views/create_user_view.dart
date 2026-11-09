@@ -303,15 +303,21 @@ class _CreateUserViewState extends State<CreateUserView> {
     List<String>? masterTradeLimit;
 
     final owner = _ownerMaster;
-    if (owner != null) {
+    // An upper master editing a SUB-master's client: the choices are that
+    // client's own master's, not the logged-in master's (9 Nov 2026).
+    final editingSubClient = widget.user != null &&
+        owner != null &&
+        widget.user!.masterId.isNotEmpty &&
+        widget.user!.masterId != owner.id;
+    if (owner != null && !editingSubClient) {
       masterExchanges = owner.exchangesAllowed
           .map((ex) => ex == 'INDICES' ? 'GLOBAL' : ex)
           .toList();
       masterTradeLimit = owner.tradeLimit
           .map((ex) => ex == 'INDICES' ? 'GLOBAL' : ex)
           .toList();
-    } else if (profileProvider.isAdmin && widget.user != null) {
-      // Admin editing user: get exchanges from the user's parent master
+    } else if ((profileProvider.isAdmin || editingSubClient) && widget.user != null) {
+      // Admin (or an upper master) editing a client: the client's own master's exchanges
       try {
         final token = await SecureStorageService().getToken();
         final apiService = ApiService(backendUrl);
@@ -344,6 +350,15 @@ class _CreateUserViewState extends State<CreateUserView> {
         log('⚠️ Error fetching parent master permissions: $e');
       }
 
+      // An upper master whose sub-master couldn't be read: his own lists.
+      if ((masterExchanges == null || masterExchanges.isEmpty) && editingSubClient) {
+        masterExchanges = owner.exchangesAllowed
+            .map((ex) => ex == 'INDICES' ? 'GLOBAL' : ex)
+            .toList();
+        masterTradeLimit = owner.tradeLimit
+            .map((ex) => ex == 'INDICES' ? 'GLOBAL' : ex)
+            .toList();
+      }
       // Fallback for admin: if we couldn't get master data, show all standard exchanges
       if (masterExchanges == null || masterExchanges!.isEmpty) {
         masterExchanges = [
@@ -362,6 +377,18 @@ class _CreateUserViewState extends State<CreateUserView> {
           'GLOBAL',
           'COMEX-FUT'
         ];
+      }
+    }
+
+    // Editing: an exchange the client already has stays on the form even if
+    // his master no longer has it — it used to be left off the form and so
+    // silently removed from the client by any unrelated save (9 Nov 2026).
+    if (widget.user != null && masterExchanges != null) {
+      for (final ue in widget.user!.exchangesAllowed) {
+        final name = ue.exchangeName == 'INDICES' ? 'GLOBAL' : ue.exchangeName;
+        if ((ue.turnover || ue.lot) && !masterExchanges!.contains(name)) {
+          masterExchanges = [...masterExchanges, name];
+        }
       }
     }
 
@@ -402,7 +429,10 @@ class _CreateUserViewState extends State<CreateUserView> {
                 : userExchange.exchangeName;
             if (_exchangeSettings.containsKey(displayName)) {
               _exchangeSettings[displayName] = {
-                'enabled': true,
+                // A saved row with both T/O and Lot off is NOT allowed (the
+                // server treats it so) — it showed ticked and then blocked
+                // every save with "Select either T/O or Lot" (9 Nov 2026).
+                'enabled': userExchange.turnover || userExchange.lot,
                 'turnover': userExchange.turnover,
                 'lot': userExchange.lot,
                 'group': userExchange.groupName.isNotEmpty
@@ -1051,6 +1081,26 @@ class _CreateUserViewState extends State<CreateUserView> {
                 : 'No group exists for $displayName yet — create one first or untick it',
             isError: true);
         return;
+      }
+    }
+
+    // Editing: an exchange the client has switched OFF (both T/O and Lot off,
+    // still unticked here) is sent back exactly as it is, so its group isn't
+    // lost — the server replaces the whole list on save.
+    if (widget.user != null) {
+      for (final ue in widget.user!.exchangesAllowed) {
+        if (ue.turnover || ue.lot) continue;
+        // The server refuses a row without a group — such a row is dropped
+        // (it allows nothing anyway), as before.
+        if (ue.groupName.isEmpty) continue;
+        final displayName = ue.exchangeName == 'INDICES' ? 'GLOBAL' : ue.exchangeName;
+        if (_exchangeSettings[displayName]?['enabled'] == true) continue;
+        exchangesAllowed.add({
+          'exchange_name': ue.exchangeName,
+          'turnover': false,
+          'lot': false,
+          'group_name': ue.groupName,
+        });
       }
     }
 

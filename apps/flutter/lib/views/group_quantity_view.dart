@@ -28,6 +28,9 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
   ];
   Map<String, int> _lotCounts = {};
   bool _isLoading = false;
+  /// The group list for this exchange did not load — creating a group is
+  /// refused until it does (the duplicate-name check needs the list).
+  bool _loadFailed = false;
   bool _hasInitialized = false;
   bool _isAdmin = false;
   final SecureStorageService _storage = SecureStorageService();
@@ -58,39 +61,51 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
     if (_hasInitialized && _selectedExchange != null) _fetchGroupQuantities();
   }
 
+  /// Every group of the selected exchange with its script count — per
+  /// exchange and per group (9 Nov 2026). It used to read the newest 1,000
+  /// group rows of ALL exchanges (6,494 exist), so older groups were missing
+  /// or showed short counts.
   Future<void> _fetchGroupQuantities() async {
     if (_selectedExchange == null) return;
     log('📊 Fetching group quantities for: $_selectedExchange');
     setState(() {
       _isLoading = true;
+      _loadFailed = false;
       _lotCounts = {};
     });
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
       final adminService = AdminService(apiService);
-      final response = await adminService.getAllGroupedQuantities(limit: 1000);
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['success'] == true) {
-          final List<dynamic> allDocs =
-              data['data']['grouped_quantities'] ?? [];
-          Map<String, int> counts = {};
-          final effectiveExchange =
-              _selectedExchange == 'GLOBAL' ? 'INDICES' : _selectedExchange;
-          for (var doc in allDocs) {
-            if (doc['exchange_name']?.toString().toUpperCase() ==
-                effectiveExchange) {
-              final lotName = doc['lot_name'];
-              counts[lotName] = (counts[lotName] ?? 0) + 1;
-            }
-          }
-          setState(() {
-            _lotCounts = counts;
-          });
-        }
+      final effectiveExchange =
+          _selectedExchange == 'GLOBAL' ? 'INDICES' : _selectedExchange!;
+      final namesRes = await adminService.getLotNamesByExchange(effectiveExchange);
+      final namesBody = jsonDecode(namesRes.body);
+      if (namesRes.statusCode != 200 || namesBody['success'] != true) {
+        if (mounted) setState(() => _loadFailed = true);
+        return;
+      }
+      final names = List<String>.from(namesBody['data'] ?? const [])..sort();
+      final counts = await Future.wait(names.map((name) async {
+        final r = await adminService.getGroupInstruments(
+            exchangeName: effectiveExchange, lotName: name, limit: 1);
+        if (r.statusCode != 200) return -1;
+        final total = jsonDecode(r.body)['data']?['total'];
+        return total is num ? total.toInt() : -1;
+      }));
+      if (counts.contains(-1) && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Some group counts could not be loaded — pull down to retry')));
+      }
+      if (mounted) {
+        setState(() {
+          _lotCounts = {
+            for (var i = 0; i < names.length; i++) names[i]: counts[i] < 0 ? 0 : counts[i]
+          };
+        });
       }
     } catch (e) {
       log('❌ Error: $e');
+      if (mounted) setState(() => _loadFailed = true);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -156,17 +171,34 @@ class _GroupQuantityViewState extends State<GroupQuantityView> {
                       fontWeight: kFontWeightSemiBold))),
           GestureDetector(
             onTap: () {
-              if (controller.text.isNotEmpty) {
-                Navigator.pop(ctx);
-                Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => AddInstrumentToLotView(
-                                exchange: _selectedExchange!,
-                                lotName: controller.text,
-                                isExistingGroup: false)))
-                    .then((_) => _fetchGroupQuantities());
+              final name = controller.text.trim();
+              if (name.isEmpty) return;
+              // A NEW group with an existing name used to reset that whole
+              // group's limits to the defaults (9 Nov 2026) — refused here;
+              // the list must have loaded to check.
+              if (_isLoading || _loadFailed) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('The group list has not loaded — try again in a moment')));
+                return;
               }
+              final clash = _lotCounts.keys
+                  .where((k) => k.toLowerCase() == name.toLowerCase())
+                  .toList();
+              if (clash.isNotEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text('A group named "${clash.first}" already exists on ${_selectedExchange!} — open it from the list to edit it'),
+                    backgroundColor: kColorSell));
+                return;
+              }
+              Navigator.pop(ctx);
+              Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => AddInstrumentToLotView(
+                              exchange: _selectedExchange!,
+                              lotName: name,
+                              isExistingGroup: false)))
+                  .then((_) => _fetchGroupQuantities());
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
