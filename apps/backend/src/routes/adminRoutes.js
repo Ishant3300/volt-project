@@ -119,7 +119,7 @@ router.put('/brokerage-settings/bulk-update', authenticateAdminOrMaster, rejectI
     // whole batch — a sample-only check let a stricter script's floor slip
     // through unchecked whenever it shared a batch with a looser one.
     const records = await BrokerageSettings.find({ _id: { $in: ids }, deleted_at: null })
-      .select('user_id exchange_name script_name type')
+      .select('user_id exchange_name script_name type brk_value')
       .lean();
     if (records.length === 0) {
       return res.status(404).json({ success: false, message: 'No matching brokerage settings found', data: null });
@@ -229,6 +229,25 @@ router.put('/brokerage-settings/bulk-update', authenticateAdminOrMaster, rejectI
       }
     }
 
+    // The other direction (owner, 9 Nov 2026): a master's rate must not rise
+    // above the rate of an account directly under him. A master is refused
+    // with the list; admin may, and is told which accounts are now below.
+    const { childrenBelowNewRate, describeChildrenBelow } = require('../services/brokerageCopyService');
+    const below = [];
+    {
+      const byOwner = new Map();
+      for (const r of records) {
+        if (!r.user_id || Number(brk_value) <= Number(r.brk_value)) continue; // only a raise can cross a child
+        const k = r.user_id.toString();
+        if (!byOwner.has(k)) byOwner.set(k, []);
+        byOwner.get(k).push({ exchange_name: r.exchange_name, script_name: r.script_name, type: type || r.type, brk_value: Number(brk_value) });
+      }
+      for (const [ownerId, rates] of byOwner) below.push(...(await childrenBelowNewRate(ownerId, rates)));
+    }
+    if (below.length && !req.admin) {
+      return res.status(422).json({ success: false, message: `Brokerage cannot be more than the rate of an account under it: ${describeChildrenBelow(below)} — raise those first`, data: { children_below: below } });
+    }
+
     // Stamp effective_from so this new rate only applies to trades from now onwards.
     const updateFields = { brk_value, effective_from: new Date() };
     if (type) updateFields.type = type;
@@ -245,7 +264,7 @@ router.put('/brokerage-settings/bulk-update', authenticateAdminOrMaster, rejectI
     // Reload metricsEngine rules so brokerage calculations use the new values immediately
     try { const me = require('../services/metricsEngine'); me.reloadRules(); } catch (_) {}
 
-    res.json({ success: true, message: `Updated ${result.modifiedCount} brokerage setting(s)`, data: { modified: result.modifiedCount } });
+    res.json({ success: true, message: `Updated ${result.modifiedCount} brokerage setting(s)` + (below.length ? ` — note: ${below.length} account(s) under it are now below this rate: ${describeChildrenBelow(below)}` : ''), data: { modified: result.modifiedCount, children_below: below } });
   } catch (e) {
     res.status(500).json({ success: false, message: sanitizeErrorMessage(e), data: null });
   }

@@ -718,17 +718,34 @@ const updateChildMasterDetails = async (req, res) => {
 
     // Same ceiling + re-seed pattern as masterController.js's updateMaster.
     let groupChanges = [];
+    let previousMasterGroups = new Map();
     if (Array.isArray(script_quantity_groups)) {
       const oldGroupByExchange = new Map(
         (childMaster.script_quantity_groups || []).map(g => [g.exchange_name, g.group_name])
       );
+      previousMasterGroups = oldGroupByExchange;
       const normalized = script_quantity_groups
         .filter(g => g && g.exchange_name && g.group_name)
         .map(g => ({ exchange_name: normalizeGroupExchange(g.exchange_name), group_name: g.group_name }));
+      const changedGroups = normalized.filter(g => g.group_name !== oldGroupByExchange.get(g.exchange_name));
+
+      // Only a CHANGED group is checked against the allotment (an unchanged
+      // one could fail after the admin narrowed the allotment and block every
+      // unrelated edit), and a group with no scripts is refused (9 Nov 2026).
+      const { groupHasScripts } = require('../services/scriptQuantityCopyService');
+      for (const g of changedGroups) {
+        if (!(await groupHasScripts(g.exchange_name, g.group_name))) {
+          return res.status(400).json({
+            success: false,
+            message: `Group "${g.group_name}" has no scripts for ${g.exchange_name === 'INDICES' ? 'GLOBAL' : g.exchange_name} — choose another group`,
+            data: null
+          });
+        }
+      }
 
       if (req.master) {
         const { isGroupAllotted } = require('../services/scriptQuantityCopyService');
-        for (const g of normalized) {
+        for (const g of changedGroups) {
           if (!isGroupAllotted(childMaster, g.exchange_name, g.group_name)) {
             return res.status(400).json({
               success: false,
@@ -746,9 +763,26 @@ const updateChildMasterDetails = async (req, res) => {
     await childMaster.save();
 
     if (groupChanges.length > 0) {
+      // All-or-nothing per exchange (reseedMasterScriptQuantityForExchange,
+      // 9 Nov 2026). A switch that fails puts the previous group back on the
+      // record, so it matches the limits really in place, and is reported.
       const { reseedMasterScriptQuantityForExchange } = require('../services/scriptQuantityCopyService');
+      const failedGroups = [];
       for (const g of groupChanges) {
-        await reseedMasterScriptQuantityForExchange(childMaster._id.toString(), g.exchange_name, g.group_name);
+        const r = await reseedMasterScriptQuantityForExchange(childMaster._id.toString(), g.exchange_name, g.group_name);
+        if (r && r.ok === false) {
+          const old = previousMasterGroups.get(g.exchange_name);
+          await Master.updateOne({ _id: childMaster._id }, { $pull: { script_quantity_groups: { exchange_name: g.exchange_name } } });
+          if (old) await Master.updateOne({ _id: childMaster._id }, { $push: { script_quantity_groups: { exchange_name: g.exchange_name, group_name: old } } });
+          failedGroups.push(`${g.exchange_name === 'INDICES' ? 'GLOBAL' : g.exchange_name} → "${g.group_name}" (${r.error})`);
+        }
+      }
+      if (failedGroups.length > 0) {
+        return res.status(409).json({
+          success: false,
+          message: `Other changes were saved, but the group change did not go through: ${failedGroups.join('; ')} — previous group and limits kept.${req.body.wallet ? ' The wallet top-up was not applied.' : ''}`,
+          data: null,
+        });
       }
     }
 

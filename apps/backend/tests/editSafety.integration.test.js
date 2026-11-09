@@ -122,7 +122,9 @@ describeIntegration('edit safety fixes on a local MongoDB', () => {
     const res = await request(app).delete(`/api/admin/script-quantities/${row._id}`).set('Authorization', asSuper());
     expect(res.status).toBe(200);
     expect(await sqRows(ids.bds, 'RELIANCE')).toHaveLength(0);
-    expect(await sqRows(ids.c1, 'RELIANCE')).toHaveLength(0); // his direct client (unchanged behaviour)
+    // his direct client keeps his own limit: a master's ordinary (non-0) row
+    // never reaches clients — same rule as joining a group (server batch 2)
+    expect(await sqRows(ids.c1, 'RELIANCE')).toHaveLength(1);
     // another master of the same admin and his client keep their limit
     expect(await sqRows(ids.other, 'RELIANCE')).toHaveLength(1);
     expect(await sqRows(ids.cx, 'RELIANCE')).toHaveLength(1);

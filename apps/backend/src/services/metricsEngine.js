@@ -1298,8 +1298,33 @@ class MetricsEngine {
    * Reload margin/brokerage rules from DB and recompute all user metrics.
    * Call this after admin updates trade margins or brokerage settings.
    */
-  async reloadRules() {
-    if (!this._initialized) return;
+  reloadRules() {
+    if (!this._initialized) return Promise.resolve();
+    // One reload at a time (owner, 9 Nov 2026): two saves close together ran
+    // two reloads side by side, and the one that finished LAST could hold the
+    // older rules. A call during a reload asks for one more pass after it; the
+    // promise every caller gets settles after that final pass. Never rejects —
+    // most callers fire and forget.
+    if (this._rulesReload) {
+      this._rulesReloadAgain = true;
+      return this._rulesReload;
+    }
+    this._rulesReload = (async () => {
+      try {
+        do {
+          this._rulesReloadAgain = false;
+          await this._reloadRulesOnce();
+        } while (this._rulesReloadAgain);
+      } catch (e) {
+        console.error('📊 [MetricsEngine] Rules reload failed:', e.message);
+      } finally {
+        this._rulesReload = null;
+      }
+    })();
+    return this._rulesReload;
+  }
+
+  async _reloadRulesOnce() {
     console.log('📊 [MetricsEngine] Reloading rules (admin update)...');
     await this._loadRules();
     // Recompute metrics for all cached users with the new rules

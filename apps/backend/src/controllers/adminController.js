@@ -313,6 +313,7 @@ const getUserById = async (req, res) => {
 };
 
 // Update User
+
 const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
@@ -560,6 +561,13 @@ const updateUser = async (req, res) => {
         await metricsEngine.onTradeExecuted(user._id.toString());
       } catch (err) {}
     }
+
+    // Live metrics re-read the client's settings after every edit (owner,
+    // 9 Nov 2026) — e.g. Margin Square Off switched OFF kept sending margin
+    // alerts until the next restart.
+    try {
+      await require('../services/metricsEngine').onTradeExecuted(user._id.toString());
+    } catch (_) { /* best-effort */ }
 
     res.status(200).json({
       success: true,
@@ -834,6 +842,8 @@ const createGroupedQuantity = async (req, res) => {
     // Use raw_name as the primary key for matching; fall back to instrument_symbol
     const matchRawName = raw_name || instrument_symbol || '';
 
+    const groupBefore = await GroupedQuantity.findOne({ exchange_name, lot_name, raw_name: matchRawName, deleted_at: null }).select('max_qty').lean();
+    const groupOldMax = groupBefore ? groupBefore.max_qty : null;
     const groupedQty = await GroupedQuantity.findOneAndUpdate(
       { exchange_name, lot_name, raw_name: matchRawName, deleted_at: null },
       {
@@ -852,18 +862,24 @@ const createGroupedQuantity = async (req, res) => {
 
     console.log('✅ Grouped quantity upserted:', groupedQty._id);
 
-    // Push the (new-or-updated) value out to every master/user currently
-    // on this group — see cascadeGroupedQuantityUpdate's own comment for
-    // why this didn't happen before.
+    // Push the value to every account on this group (the owner's way to
+    // lower a limit for everyone on it), keeping a script the client's own
+    // master has blocked at 0 — same rule as joining the group. A failure is
+    // reported (9 Nov 2026: it used to be logged and the edit said "saved").
     try {
       const { cascadeGroupedQuantityUpdate } = require('../services/scriptQuantityCopyService');
       await cascadeGroupedQuantityUpdate(groupedQty.exchange_name, groupedQty.lot_name, groupedQty.raw_name, {
         max_qty: groupedQty.max_qty,
         brk_qty: groupedQty.break_qty,
         lot_size: groupedQty.lot_size,
-      });
+      }, groupOldMax);
     } catch (e) {
       console.error('❌ Error cascading grouped quantity to members:', e.message);
+      return res.status(500).json({
+        success: false,
+        message: `The group was saved, but updating the accounts on it failed (${e.message}) — save it again to retry`,
+        data: groupedQty.toJSON(),
+      });
     }
 
     res.status(201).json({
@@ -959,6 +975,7 @@ const updateGroupedQuantity = async (req, res) => {
       });
     }
 
+    const groupOldMax = groupedQty.max_qty;
     if (exchange_name) groupedQty.exchange_name = exchange_name;
     if (lot_name) groupedQty.lot_name = lot_name;
     if (instrument_id) groupedQty.instrument_id = instrument_id;
@@ -969,21 +986,28 @@ const updateGroupedQuantity = async (req, res) => {
 
     await groupedQty.save();
 
-    // Push the new value out to every master/user currently on this group
-    // — see cascadeGroupedQuantityUpdate's own comment for why this didn't
-    // happen before. If exchange_name/lot_name/raw_name themselves changed
+    // If exchange_name/lot_name/raw_name themselves changed
     // in this edit, old members keyed on the group's PREVIOUS identity are
     // deliberately not touched — they're no longer "on" the (renamed) group
     // by definition, same as if the group had been deleted and recreated.
+    // Push the value to every account on this group (the owner's way to
+    // lower a limit for everyone on it), keeping a script the client's own
+    // master has blocked at 0 — same rule as joining the group. A failure is
+    // reported (9 Nov 2026: it used to be logged and the edit said "saved").
     try {
       const { cascadeGroupedQuantityUpdate } = require('../services/scriptQuantityCopyService');
       await cascadeGroupedQuantityUpdate(groupedQty.exchange_name, groupedQty.lot_name, groupedQty.raw_name, {
         max_qty: groupedQty.max_qty,
         brk_qty: groupedQty.break_qty,
         lot_size: groupedQty.lot_size,
-      });
+      }, groupOldMax);
     } catch (e) {
       console.error('❌ Error cascading grouped quantity to members:', e.message);
+      return res.status(500).json({
+        success: false,
+        message: `The group was saved, but updating the accounts on it failed (${e.message}) — save it again to retry`,
+        data: groupedQty.toJSON(),
+      });
     }
 
     res.status(200).json({
@@ -1017,6 +1041,22 @@ const deleteGroupedQuantity = async (req, res) => {
 
     groupedQty.deleted_at = new Date();
     await groupedQty.save();
+
+    // Same rule as joining the group (owner, 9 Nov 2026): the accounts on it
+    // lose the row the group gave them — except a client whose own master
+    // blocked the script, who keeps a 0. It used to touch no one: members kept
+    // the old limit and new members got none.
+    try {
+      const { removeGroupScriptFromMembers } = require('../services/scriptQuantityCopyService');
+      await removeGroupScriptFromMembers(groupedQty.exchange_name, groupedQty.lot_name, groupedQty.raw_name, groupedQty.max_qty);
+    } catch (e) {
+      console.error('❌ Error removing grouped quantity from members:', e.message);
+      return res.status(500).json({
+        success: false,
+        message: `The script was removed from the group, but updating the accounts on it failed (${e.message})`,
+        data: null,
+      });
+    }
 
     res.status(200).json({
       success: true,
@@ -1062,20 +1102,26 @@ const createScriptQuantity = async (req, res) => {
       }
     }
 
+    const before = await ScriptQuantity.findOne({ owner_id: effectiveOwnerId, owner_type: effectiveOwnerType, exchange_name, script_name, deleted_at: null }).select('max_qty').lean();
     const scriptQty = await ScriptQuantity.findOneAndUpdate(
       { owner_id: effectiveOwnerId, owner_type: effectiveOwnerType, exchange_name, script_name, deleted_at: null },
       { owner_id: effectiveOwnerId, owner_type: effectiveOwnerType, exchange_name, script_name, lot_size, max_qty, brk_qty, deleted_at: null },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
+    // Same rule as joining a group (owner, 9 Nov 2026): from a master his
+    // clients take only a BLOCK (0) or its removal — every other limit comes
+    // from their own group. It used to overwrite every direct client.
     if (effectiveOwnerType === 'Master') {
-      const { cascadeNewScriptToUsers } = require('../services/scriptQuantityCopyService');
-      await cascadeNewScriptToUsers(effectiveOwnerId, exchange_name, script_name, { lot_size, max_qty, brk_qty });
+      const { cascadeMasterRowChange } = require('../services/scriptQuantityCopyService');
+      await cascadeMasterRowChange(effectiveOwnerId, exchange_name, script_name, before ? before.max_qty : null, scriptQty.max_qty, scriptQty.lot_size);
     }
 
+    // Admin's platform row: masters and clients that have NO row for it get
+    // one; an existing limit is never overwritten by a create.
     if (effectiveOwnerType === 'Admin') {
-      const { cascadeNewScriptGlobally } = require('../services/scriptQuantityCopyService');
-      await cascadeNewScriptGlobally(exchange_name, script_name, { lot_size, max_qty, brk_qty }, effectiveOwnerId);
+      const { fillMissingScriptsGlobally } = require('../services/scriptQuantityCopyService');
+      await fillMissingScriptsGlobally(exchange_name, [{ script_name, lot_size, max_qty, brk_qty }], effectiveOwnerId);
     }
 
     res.status(201).json({ success: true, message: 'Script quantity saved successfully', data: scriptQty.toJSON() });
@@ -1223,6 +1269,7 @@ const updateScriptQuantity = async (req, res) => {
       }
     }
 
+    const maxBefore = scriptQty.max_qty;
     if (exchange_name) scriptQty.exchange_name = exchange_name;
     if (script_name) scriptQty.script_name = script_name;
     if (lot_size !== undefined) scriptQty.lot_size = lot_size;
@@ -1235,8 +1282,11 @@ const updateScriptQuantity = async (req, res) => {
       const { cascadeNewScriptGlobally } = require('../services/scriptQuantityCopyService');
       await cascadeNewScriptGlobally(scriptQty.exchange_name, scriptQty.script_name, { lot_size: scriptQty.lot_size, max_qty: scriptQty.max_qty, brk_qty: scriptQty.brk_qty }, req.admin.id);
     } else if (scriptQty.owner_type === 'Master') {
-      const { cascadeToDirectUsers } = require('../services/scriptQuantityCopyService');
-      await cascadeToDirectUsers(scriptQty.owner_id.toString(), scriptQty.exchange_name, scriptQty.script_name, { max_qty: scriptQty.max_qty, brk_qty: scriptQty.brk_qty, lot_size: scriptQty.lot_size });
+      // Same rule as joining a group (owner, 9 Nov 2026): only a block (0) or
+      // its removal reaches his clients — their other limits come from their
+      // own group. It used to overwrite every direct client, both ways.
+      const { cascadeMasterRowChange } = require('../services/scriptQuantityCopyService');
+      await cascadeMasterRowChange(scriptQty.owner_id.toString(), scriptQty.exchange_name, scriptQty.script_name, maxBefore, scriptQty.max_qty, scriptQty.lot_size);
     }
 
     res.status(200).json({ success: true, message: 'Script quantity updated successfully', data: scriptQty.toJSON() });
@@ -1271,9 +1321,13 @@ const deleteScriptQuantity = async (req, res) => {
     scriptQty.deleted_at = new Date();
     await scriptQty.save();
 
+    // A master's row removed: his clients keep their own group limits; if it
+    // was a block, the clients it blocked go back to their group's value
+    // (same rule as joining a group, owner 9 Nov 2026). It used to delete the
+    // script for all his clients — no row means no limit.
     if (scriptQty.owner_type === 'Master') {
-      const { cascadeDeleteScriptToUsers } = require('../services/scriptQuantityCopyService');
-      await cascadeDeleteScriptToUsers(scriptQty.owner_id.toString(), scriptQty.exchange_name, scriptQty.script_name);
+      const { cascadeMasterRowChange } = require('../services/scriptQuantityCopyService');
+      await cascadeMasterRowChange(scriptQty.owner_id.toString(), scriptQty.exchange_name, scriptQty.script_name, scriptQty.max_qty, null, scriptQty.lot_size);
     }
 
     // Deleting a MASTER's row stays inside that master (and his direct clients,
@@ -1354,6 +1408,20 @@ const createBrokerageSettings = async (req, res) => {
       }
     }
 
+    // A master's rate must not rise above an account directly under him
+    // (owner, 9 Nov 2026): master refused with the list, admin told.
+    const { childrenBelowNewRate, describeChildrenBelow } = require('../services/brokerageCopyService');
+    let below = [];
+    if (user_id) {
+      const existing = await BrokerageSettings.findOne({ type, exchange_name, script_name, user_id, deleted_at: null }).select('brk_value').lean();
+      if (!existing || Number(brk_value) > Number(existing.brk_value)) {
+        below = await childrenBelowNewRate(user_id, [{ exchange_name, script_name, type, brk_value: Number(brk_value) }]);
+      }
+    }
+    if (below.length && !req.admin) {
+      return res.status(422).json({ success: false, message: `Brokerage cannot be more than the rate of an account under it: ${describeChildrenBelow(below)} — raise those first`, data: { children_below: below } });
+    }
+
     const newBrokerageSettings = await BrokerageSettings.findOneAndUpdate(
       { type, exchange_name, script_name, user_id: user_id || null, deleted_at: null },
       // effective_from stamps the moment this rate takes effect (insert or update).
@@ -1367,8 +1435,8 @@ const createBrokerageSettings = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Brokerage settings saved successfully',
-      data: newBrokerageSettings.toJSON()
+      message: 'Brokerage settings saved successfully' + (below.length ? ` — note: ${below.length} account(s) under it are now below this rate: ${describeChildrenBelow(below)}` : ''),
+      data: below.length ? { ...newBrokerageSettings.toJSON(), children_below: below } : newBrokerageSettings.toJSON()
     });
   } catch (error) {
     res.status(500).json({
@@ -1539,6 +1607,22 @@ const updateBrokerageSettings = async (req, res) => {
       }
     }
 
+    // A master's rate must not rise above an account directly under him
+    // (owner, 9 Nov 2026): master refused with the list, admin told.
+    const { childrenBelowNewRate, describeChildrenBelow } = require('../services/brokerageCopyService');
+    let below = [];
+    if (brokerageSettings.user_id && brk_value !== undefined && Number(brk_value) > Number(brokerageSettings.brk_value)) {
+      below = await childrenBelowNewRate(brokerageSettings.user_id.toString(), [{
+        exchange_name: exchange_name || brokerageSettings.exchange_name,
+        script_name: script_name || brokerageSettings.script_name,
+        type: type || brokerageSettings.type,
+        brk_value: Number(brk_value),
+      }]);
+    }
+    if (below.length && !req.admin) {
+      return res.status(422).json({ success: false, message: `Brokerage cannot be more than the rate of an account under it: ${describeChildrenBelow(below)} — raise those first`, data: { children_below: below } });
+    }
+
     if (type) brokerageSettings.type = type;
     if (exchange_name) brokerageSettings.exchange_name = exchange_name;
     if (script_name) brokerageSettings.script_name = script_name;
@@ -1555,8 +1639,8 @@ const updateBrokerageSettings = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Brokerage settings updated successfully',
-      data: brokerageSettings.toJSON()
+      message: 'Brokerage settings updated successfully' + (below.length ? ` — note: ${below.length} account(s) under it are now below this rate: ${describeChildrenBelow(below)}` : ''),
+      data: below.length ? { ...brokerageSettings.toJSON(), children_below: below } : brokerageSettings.toJSON()
     });
   } catch (error) {
     res.status(500).json({

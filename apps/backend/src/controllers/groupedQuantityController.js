@@ -42,10 +42,21 @@ const getLotNamesByExchange = async (req, res) => {
     // this exchange — same ceiling enforced server-side on create/update,
     // surfaced here so their own dropdown doesn't even offer the rest.
     // Admin callers see every group, unrestricted.
-    if (req.master) {
+    // ?for_master_id=: the groups THAT master may hand out (an upper master
+    // or admin editing a sub-master's client — the server checks the client's
+    // own master's allotment on save). Must be in the caller's tree (9 Nov 2026).
+    const forMasterId = req.query.for_master_id ? String(req.query.for_master_id) : null;
+    if (forMasterId && req.master && forMasterId !== String(req.master.id)) {
+      const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+      if (!(await getAllSubMasterIds(req.master.id)).includes(forMasterId)) {
+        return res.status(403).json({ success: false, message: 'Not authorized for this master', data: null });
+      }
+    }
+    const allotmentOwnerId = forMasterId || (req.master ? req.master.id : null);
+    if (allotmentOwnerId) {
       const Master = require('../models/Master');
       const { isGroupAllotted } = require('../services/scriptQuantityCopyService');
-      const master = await Master.findById(req.master.id).select('allotted_script_quantity_groups').lean();
+      const master = await Master.findById(allotmentOwnerId).select('allotted_script_quantity_groups').lean();
       lotNames = lotNames.filter(name => isGroupAllotted(master, exchange_name, name));
     }
 
@@ -222,11 +233,14 @@ const bulkCreateGroup = async (req, res) => {
             instrument_symbol: r._id,
             
             lot_size: r.lot_size || 1,
+            // Limits only for a NEW row (owner, 9 Nov 2026): creating a group
+            // under a name that already exists used to reset every row of
+            // that group to these defaults.
+            max_qty: default_max_qty,
+            break_qty: default_break_qty,
             created_at: new Date()
           },
           $set: {
-            max_qty: default_max_qty,
-            break_qty: default_break_qty,
             updated_at: new Date(),
             deleted_at: null
           }
@@ -434,6 +448,20 @@ const bulkCreateBrokerage = async (req, res) => {
       }
     }
 
+    // A master's NEW rows must not sit above an account directly under him
+    // (owner, 9 Nov 2026) — existing rows are left as they are by this call.
+    // Master refused with the list; admin told.
+    const { childrenBelowNewRate, describeChildrenBelow } = require('../services/brokerageCopyService');
+    let below = [];
+    if (user_id) {
+      const have = new Set((await BrokerageSettings.find({ user_id, exchange_name: normalizedExchange, type: normalizedType, deleted_at: null }).select('script_name').lean()).map(r => r.script_name));
+      const newRates = results.filter(r => !have.has(r._id)).map(r => ({ exchange_name: normalizedExchange, script_name: r._id, type: normalizedType, brk_value: Number(default_brk_value) }));
+      below = await childrenBelowNewRate(user_id, newRates);
+    }
+    if (below.length && !req.admin) {
+      return res.status(422).json({ success: false, message: `Brokerage cannot be more than the rate of an account under it: ${describeChildrenBelow(below)} — raise those first`, data: { children_below: below } });
+    }
+
     const bulkOps = results.map(r => ({
       updateOne: {
         filter: { type: type.toUpperCase(), exchange_name: normalizedExchange, script_name: r._id, user_id: user_id || null, deleted_at: null },
@@ -447,8 +475,8 @@ const bulkCreateBrokerage = async (req, res) => {
     const bulkResult = await BrokerageSettings.bulkWrite(bulkOps);
     res.status(201).json({
       success: true,
-      message: `Brokerage created for ${results.length} instruments`,
-      data: { exchange_name: normalizedExchange, type, total: results.length, inserted: bulkResult.upsertedCount, existing: results.length - bulkResult.upsertedCount }
+      message: `Brokerage created for ${results.length} instruments` + (below.length ? ` — note: ${below.length} account(s) under it are now below this rate: ${describeChildrenBelow(below)}` : ''),
+      data: { exchange_name: normalizedExchange, type, total: results.length, inserted: bulkResult.upsertedCount, existing: results.length - bulkResult.upsertedCount, children_below: below }
     });
   } catch (error) {
     res.status(500).json({ success: false, message: sanitizeErrorMessage(error), data: null });
@@ -515,13 +543,20 @@ const bulkCreateScriptQuantity = async (req, res) => {
 
     if (req.master) {
       // Same rule as the single create/update (services/scriptQuantityGate.js):
-      // self, any sub-broker below, or any client in the tree. We only check
-      // against the first script for the ceiling, as bulk applies one limit.
+      // self, any sub-broker below, or any client in the tree — checked for
+      // EVERY script (owner, 9 Nov 2026: only the first script was checked,
+      // and the value then applied to all of them).
       const { masterScriptQtyGate } = require('../services/scriptQuantityGate');
-      const gate = await masterScriptQtyGate(req.master.id, effectiveOwnerId, effectiveOwnerType, normalizedExchange, results[0]._id);
-      if (gate.error) return res.status(gate.error.status).json({ success: false, message: gate.error.message });
-      if (default_max_qty > gate.ceiling) {
-        return res.status(400).json({ success: false, message: `max_qty cannot exceed limit of ${gate.ceiling}` });
+      const over = [];
+      for (const r of results) {
+        const gate = await masterScriptQtyGate(req.master.id, effectiveOwnerId, effectiveOwnerType, normalizedExchange, r._id);
+        if (gate.error && gate.error.status === 403) return res.status(403).json({ success: false, message: gate.error.message });
+        // Same as the single create: a script with no limit to check against is refused.
+        if (gate.error) { over.push(`${r._id} (${gate.error.message})`); continue; }
+        if (default_max_qty > gate.ceiling) over.push(`${r._id} (limit ${gate.ceiling})`);
+      }
+      if (over.length > 0) {
+        return res.status(400).json({ success: false, message: `Refused for ${over.length} script(s) — max_qty above the limit or no limit to check against, e.g. ${over.slice(0, 5).join(', ')}` });
       }
     }
 
@@ -536,14 +571,16 @@ const bulkCreateScriptQuantity = async (req, res) => {
             script_name: r._id,
             owner_id: effectiveOwnerId,
             owner_type: effectiveOwnerType,
-            created_at: new Date(),
-          },
-          $set: { 
-            lot_size: r.lot_size || 1,
             max_qty: default_max_qty,
             brk_qty: default_brk_qty,
-            updated_at: new Date(), 
-            deleted_at: null 
+            created_at: new Date(),
+          },
+          // Limits only for a NEW row (owner, 9 Nov 2026): a bulk create used
+          // to overwrite every existing limit of the exchange (0 blocks too).
+          $set: {
+            lot_size: r.lot_size || 1,
+            updated_at: new Date(),
+            deleted_at: null
           }
         },
         upsert: true
@@ -551,21 +588,26 @@ const bulkCreateScriptQuantity = async (req, res) => {
     }));
     const bulkResult = await ScriptQuantity.bulkWrite(bulkOps);
 
-    if (effectiveOwnerType === 'Master') {
-      const { bulkCascadeNewScriptsToUsers } = require('../services/scriptQuantityCopyService');
-      const scriptsToCascade = results.map(r => ({ script_name: r._id, max_qty: default_max_qty, brk_qty: default_brk_qty, lot_size: r.lot_size || 1 }));
-      await bulkCascadeNewScriptsToUsers(effectiveOwnerId, normalizedExchange, scriptsToCascade);
+    // Rows this call really created (existing ones were left as they were).
+    const createdScripts = Object.keys(bulkResult.upsertedIds || {}).map((i) => results[Number(i)]).filter(Boolean);
+
+    // A master's new rows reach his clients only as BLOCKS (0) — same rule
+    // as joining a group (owner, 9 Nov 2026); other limits come from their group.
+    if (effectiveOwnerType === 'Master' && Number(default_max_qty) === 0) {
+      const { cascadeMasterRowChange } = require('../services/scriptQuantityCopyService');
+      for (const r of createdScripts) {
+        await cascadeMasterRowChange(effectiveOwnerId, normalizedExchange, r._id, null, 0, r.lot_size || 1);
+      }
     }
 
+    // Admin's platform rows: accounts with NO row for a script get one;
+    // existing limits are never overwritten (it used to reset every account
+    // on the exchange, one script at a time).
     if (effectiveOwnerType === 'Admin') {
-      const { cascadeNewScriptGlobally } = require('../services/scriptQuantityCopyService');
-      for (const r of results) {
-        await cascadeNewScriptGlobally(normalizedExchange, r._id, {
-          lot_size: r.lot_size || 1,
-          max_qty: default_max_qty,
-          brk_qty: default_brk_qty,
-        }, effectiveOwnerId);
-      }
+      const { fillMissingScriptsGlobally } = require('../services/scriptQuantityCopyService');
+      await fillMissingScriptsGlobally(normalizedExchange, results.map((r) => ({
+        script_name: r._id, lot_size: r.lot_size || 1, max_qty: default_max_qty, brk_qty: default_brk_qty,
+      })), effectiveOwnerId);
     }
 
     res.status(201).json({
@@ -636,7 +678,9 @@ const getScriptQuantityByExchange = async (req, res) => {
         // Prefer Admin-owned, then Master, then User
         const existing = seen.get(key);
         const priority = { 'Admin': 0, 'Master': 1, 'User': 2 };
-        if ((priority[item.owner_type] || 2) < (priority[existing.owner_type] || 2)) {
+        // ?? (not ||): Admin's priority is 0, and "0 || 2" made every Master
+        // row replace the Admin row (owner, 9 Nov 2026).
+        if ((priority[item.owner_type] ?? 2) < (priority[existing.owner_type] ?? 2)) {
           seen.set(key, item);
         }
       }

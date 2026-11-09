@@ -233,6 +233,53 @@ async function validateBrokerageFloor(targetId, targetType, exchangeName, script
 }
 
 /**
+ * The other direction of the floor (owner, 9 Nov 2026): when a MASTER's own
+ * rate is set, his direct sub-masters and clients whose rate for the same
+ * exchange / script / type would then be BELOW his (he'd earn a negative
+ * markup on them). Scripts that trade nowhere have no floor.
+ * @param {string} ownerId  the account whose rates change (only a Master has children)
+ * @param {Array<{exchange_name:string, script_name:string, type:string, brk_value:number}>} newRates
+ * @returns {Promise<Array<{account:string, exchange_name:string, script_name:string, type:string, child_value:number, new_value:number}>>}
+ */
+async function childrenBelowNewRate(ownerId, newRates) {
+  if (!ownerId || !Array.isArray(newRates) || newRates.length === 0) return [];
+  const Master = require('../models/Master');
+  const User = require('../models/User');
+  if (!(await Master.exists({ _id: ownerId }))) return [];
+  const [subMasters, clients] = await Promise.all([
+    Master.find({ master_id: ownerId, deleted_at: null }).select('_id name username').lean(),
+    User.find({ master_id: ownerId, deleted_at: null }).select('_id name username').lean(),
+  ]);
+  const children = [...subMasters, ...clients];
+  if (!children.length) return [];
+  const label = new Map(children.map((c) => [String(c._id), c.name && c.name !== c.username ? `${c.name} (${c.username})` : c.username]));
+  const trading = await tradingScriptNames();
+  const want = newRates.filter((r) => isTradingName(trading, r.script_name));
+  if (!want.length) return [];
+  const key = (ex, sc, t) => `${String(ex).toUpperCase()}|${String(sc).toUpperCase()}|${t}`;
+  const newByKey = new Map(want.map((r) => [key(r.exchange_name, r.script_name, r.type), Number(r.brk_value)]));
+  const rows = await BrokerageSettings.find({
+    user_id: { $in: children.map((c) => c._id) },
+    exchange_name: { $in: [...new Set(want.map((r) => String(r.exchange_name).toUpperCase()))] },
+    script_name: { $in: [...new Set(want.map((r) => r.script_name))] },
+    deleted_at: null,
+  }).select('user_id exchange_name script_name type brk_value').lean();
+  const out = [];
+  for (const r of rows) {
+    const nv = newByKey.get(key(r.exchange_name, r.script_name, r.type));
+    if (nv !== undefined && Number(r.brk_value) < nv) {
+      out.push({ account: label.get(String(r.user_id)) || String(r.user_id), exchange_name: r.exchange_name, script_name: r.script_name, type: r.type, child_value: Number(r.brk_value), new_value: nv });
+    }
+  }
+  return out;
+}
+
+/** "KARAN (412378) EXIDEIND 1, …" — the first few, for a message. */
+function describeChildrenBelow(list, max = 5) {
+  return list.slice(0, max).map((x) => `${x.account} ${x.script_name} ${x.child_value}`).join(', ') + (list.length > max ? ` +${list.length - max} more` : '');
+}
+
+/**
  * Apply creation-form brokerage overrides for a newly created account —
  * real `BrokerageSettings` rows, not the display-only `MasterBaseRate`
  * table. Call this AFTER copyBrokerageFromParent/copyBrokerageFromGlobal
@@ -363,6 +410,8 @@ module.exports = {
   copyBrokerageFromGlobal,
   getParentBrokerageRate,
   validateBrokerageFloor,
+  childrenBelowNewRate,
+  describeChildrenBelow,
   applyBrokerageOverrides,
   tradingScriptNames,
   isTradingName,

@@ -368,57 +368,53 @@ async function groupHasScripts(exchangeName, groupName) {
  * @param {object} [session]
  */
 async function reseedMasterScriptQuantityForExchange(masterId, exchangeName, groupName, session) {
-  try {
-    const normalizedExchange = exchangeName.toUpperCase();
-
-    const groupRows = await (session
-      ? GroupedQuantity.find({ exchange_name: normalizedExchange, lot_name: groupName, deleted_at: null }).session(session)
-      : GroupedQuantity.find({ exchange_name: normalizedExchange, lot_name: groupName, deleted_at: null })
-    ).lean();
-
-    const deleteQuery = { owner_id: masterId, owner_type: 'Master', exchange_name: normalizedExchange, deleted_at: null };
-    if (session) {
-      await ScriptQuantity.updateMany(deleteQuery, { $set: { deleted_at: new Date() } }, { session });
-    } else {
-      await ScriptQuantity.updateMany(deleteQuery, { $set: { deleted_at: new Date() } });
-    }
-
-    // Record the new group membership on the master itself, replacing any
-    // existing pick for this exchange.
-    const masterUpdate = {
-      $pull: { script_quantity_groups: { exchange_name: normalizedExchange } },
-    };
-    if (session) {
-      await Master.updateOne({ _id: masterId }, masterUpdate, { session });
-      await Master.updateOne({ _id: masterId }, { $push: { script_quantity_groups: { exchange_name: normalizedExchange, group_name: groupName } } }, { session });
-    } else {
-      await Master.updateOne({ _id: masterId }, masterUpdate);
-      await Master.updateOne({ _id: masterId }, { $push: { script_quantity_groups: { exchange_name: normalizedExchange, group_name: groupName } } });
-    }
-
-    if (groupRows.length === 0) {
-      console.log(`📋 [ScriptQtyCopy] Master ${masterId} switched to group "${groupName}" on ${normalizedExchange}, but that group has no data — exchange now has no script limits`);
-      return;
-    }
-
-    const docs = groupRows.map(gq => ({
+  // All-or-nothing (owner, 9 Nov 2026), like the client's group switch: the
+  // old rows go and the new group's arrive in ONE transaction, the master's
+  // own blocks (max 0) are kept, and a group with no scripts is refused —
+  // it used to delete everything first, swallow errors, and could leave the
+  // master with no rows (no row = no limit). Returns { ok, count } / { ok:false, error }.
+  const normalizedExchange = String(exchangeName || '').toUpperCase();
+  const run = async (s) => {
+    const groupRows = await GroupedQuantity.find({ exchange_name: normalizedExchange, lot_name: groupName, deleted_at: null }).session(s).lean();
+    if (groupRows.length === 0) throw new Error(`group "${groupName}" has no scripts for ${normalizedExchange}`);
+    const blocked = new Map((await ScriptQuantity.find({ owner_id: masterId, owner_type: 'Master', exchange_name: normalizedExchange, max_qty: 0, deleted_at: null })
+      .select('script_name lot_size').session(s).lean()).map((r) => [r.script_name, r.lot_size || 1]));
+    await ScriptQuantity.updateMany({ owner_id: masterId, owner_type: 'Master', exchange_name: normalizedExchange, deleted_at: null }, { $set: { deleted_at: new Date() } }, { session: s });
+    await Master.updateOne({ _id: masterId }, { $pull: { script_quantity_groups: { exchange_name: normalizedExchange } } }, { session: s });
+    await Master.updateOne({ _id: masterId }, { $push: { script_quantity_groups: { exchange_name: normalizedExchange, group_name: groupName } } }, { session: s });
+    const docs = groupRows.map((gq) => ({
       owner_id: masterId,
       owner_type: 'Master',
       exchange_name: normalizedExchange,
       script_name: gq.raw_name,
       lot_size: gq.lot_size || 1,
-      max_qty: gq.max_qty || 0,
-      brk_qty: gq.break_qty || 0,
+      max_qty: blocked.has(gq.raw_name) ? 0 : (gq.max_qty || 0),
+      brk_qty: blocked.has(gq.raw_name) ? 0 : (gq.break_qty || 0),
     }));
-
-    if (session) {
-      await ScriptQuantity.insertMany(docs, { session });
-    } else {
-      await ScriptQuantity.insertMany(docs);
+    const listed = new Set(docs.map((d) => d.script_name));
+    for (const [script, lotSize] of blocked) {
+      if (!listed.has(script)) docs.push({ owner_id: masterId, owner_type: 'Master', exchange_name: normalizedExchange, script_name: script, lot_size: lotSize, max_qty: 0, brk_qty: 0 });
     }
-    console.log(`📋 [ScriptQtyCopy] Re-seeded ${docs.length} entries for Master ${masterId} on ${normalizedExchange} from group "${groupName}"`);
+    await ScriptQuantity.insertMany(docs, { session: s });
+    return docs.length;
+  };
+  try {
+    let count = 0;
+    if (session) {
+      count = await run(session);
+    } else {
+      const own = await mongoose.startSession();
+      try {
+        await own.withTransaction(async () => { count = await run(own); });
+      } finally {
+        await own.endSession();
+      }
+    }
+    console.log(`📋 [ScriptQtyCopy] Re-seeded ${count} entries for Master ${masterId} on ${normalizedExchange} from group "${groupName}" (own blocks kept)`);
+    return { ok: true, count };
   } catch (e) {
-    console.error(`❌ [ScriptQtyCopy] Error re-seeding master ${masterId} for ${exchangeName}:`, e.message);
+    console.error(`❌ [ScriptQtyCopy] Master re-seed refused for ${masterId} on ${normalizedExchange} (group "${groupName}") — current limits kept:`, e.message);
+    return { ok: false, error: e.message };
   }
 }
 
@@ -793,55 +789,230 @@ async function bulkCascadeNewScriptsToUsers(masterId, exchangeName, scripts) {
  * @param {string} rawName - the Group's raw_name (== ScriptQuantity.script_name)
  * @param {{max_qty:number, brk_qty:number, lot_size?:number}} newValues
  */
-async function cascadeGroupedQuantityUpdate(exchangeName, lotName, rawName, newValues) {
-  try {
-    const normalizedExchange = exchangeName.toUpperCase();
-    const now = new Date();
+async function cascadeGroupedQuantityUpdate(exchangeName, lotName, rawName, newValues, groupOldMax = null) {
+  // Owner, 9 Nov 2026 — the group sets every member's limit (that is how a
+  // limit is lowered for everyone on it), with the SAME rule as joining the
+  // group: a script the client's own master has blocked (max 0) stays 0
+  // (masterBlockedScripts / applyMasterBlocks). Errors are no longer
+  // swallowed — the caller reports them (the group itself is already saved).
+  const normalizedExchange = exchangeName.toUpperCase();
+  const now = new Date();
 
-    const [users, masters] = await Promise.all([
-      User.find({
-        deleted_at: null,
-        exchanges_allowed: { $elemMatch: { exchange_name: normalizedExchange, group_name: lotName } },
-      }).select('_id').lean(),
-      Master.find({
-        deleted_at: null,
-        script_quantity_groups: { $elemMatch: { exchange_name: normalizedExchange, group_name: lotName } },
-      }).select('_id').lean(),
-    ]);
+  const [users, masters] = await Promise.all([
+    User.find({
+      deleted_at: null,
+      exchanges_allowed: { $elemMatch: { exchange_name: normalizedExchange, group_name: lotName } },
+    }).select('_id master_id').lean(),
+    Master.find({
+      deleted_at: null,
+      script_quantity_groups: { $elemMatch: { exchange_name: normalizedExchange, group_name: lotName } },
+    }).select('_id').lean(),
+  ]);
 
-    const bulkOps = [];
-    for (const u of users) {
-      bulkOps.push({
-        updateOne: {
-          filter: { owner_id: u._id, owner_type: 'User', exchange_name: normalizedExchange, script_name: rawName, deleted_at: null },
-          update: {
-            $set: { max_qty: newValues.max_qty, brk_qty: newValues.brk_qty, ...(newValues.lot_size !== undefined ? { lot_size: newValues.lot_size } : {}), updated_at: now },
-            $setOnInsert: { owner_id: u._id, owner_type: 'User', exchange_name: normalizedExchange, script_name: rawName, created_at: now },
-          },
-          upsert: true,
+  // Masters on the group first. A master's own block (a 0 the group did not
+  // give him: the group's previous value was not 0, or the group had no such
+  // script) is kept, like on joining. When the group turns a master's script
+  // blocked / unblocked, his direct clients follow (cascadeMasterRowChange).
+  const masterRows = masters.length
+    ? await ScriptQuantity.find({ owner_id: { $in: masters.map((m) => m._id) }, owner_type: 'Master', exchange_name: normalizedExchange, script_name: rawName, deleted_at: null }).select('owner_id max_qty').lean()
+    : [];
+  const masterMax = new Map(masterRows.map((r) => [String(r.owner_id), r.max_qty]));
+  const masterOps = [];
+  const blockChanges = [];
+  let mastersKeptBlocked = 0;
+  for (const m of masters) {
+    const cur = masterMax.has(String(m._id)) ? masterMax.get(String(m._id)) : null;
+    if (cur === 0 && groupOldMax !== 0) { mastersKeptBlocked++; continue; }
+    masterOps.push({
+      updateOne: {
+        filter: { owner_id: m._id, owner_type: 'Master', exchange_name: normalizedExchange, script_name: rawName, deleted_at: null },
+        update: {
+          $set: { max_qty: newValues.max_qty, brk_qty: newValues.brk_qty, ...(newValues.lot_size !== undefined ? { lot_size: newValues.lot_size } : {}), updated_at: now },
+          $setOnInsert: { owner_id: m._id, owner_type: 'Master', exchange_name: normalizedExchange, script_name: rawName, created_at: now },
         },
-      });
-    }
-    for (const m of masters) {
-      bulkOps.push({
-        updateOne: {
-          filter: { owner_id: m._id, owner_type: 'Master', exchange_name: normalizedExchange, script_name: rawName, deleted_at: null },
-          update: {
-            $set: { max_qty: newValues.max_qty, brk_qty: newValues.brk_qty, ...(newValues.lot_size !== undefined ? { lot_size: newValues.lot_size } : {}), updated_at: now },
-            $setOnInsert: { owner_id: m._id, owner_type: 'Master', exchange_name: normalizedExchange, script_name: rawName, created_at: now },
-          },
-          upsert: true,
-        },
-      });
-    }
-
-    if (bulkOps.length > 0) {
-      const result = await ScriptQuantity.bulkWrite(bulkOps);
-      console.log(`📋 [ScriptQtyCopy] Cascaded group "${lotName}"/${normalizedExchange}/${rawName} update to ${users.length} user(s) + ${masters.length} master(s) (upserted: ${result.upsertedCount}, modified: ${result.modifiedCount})`);
-    }
-  } catch (e) {
-    console.error(`❌ [ScriptQtyCopy] Error cascading group update:`, e.message);
+        upsert: true,
+      },
+    });
+    if ((cur === 0) !== (Number(newValues.max_qty) === 0)) blockChanges.push([String(m._id), cur, Number(newValues.max_qty)]);
   }
+  if (masterOps.length) await ScriptQuantity.bulkWrite(masterOps, { ordered: false });
+  for (const [mid, oldMax, newMax] of blockChanges) {
+    await cascadeMasterRowChange(mid, normalizedExchange, rawName, oldMax, newMax, newValues.lot_size);
+  }
+
+  // Clients on the group — read AFTER the masters were written.
+  const blockingMasters = await mastersBlockingScript(users.map((u) => u.master_id), normalizedExchange, rawName);
+
+  const bulkOps = [];
+  let keptBlocked = 0;
+  for (const u of users) {
+    const blocked = blockingMasters.has(String(u.master_id));
+    if (blocked) keptBlocked++;
+    const values = blocked ? { max_qty: 0, brk_qty: 0 } : { max_qty: newValues.max_qty, brk_qty: newValues.brk_qty };
+    bulkOps.push({
+      updateOne: {
+        filter: { owner_id: u._id, owner_type: 'User', exchange_name: normalizedExchange, script_name: rawName, deleted_at: null },
+        update: {
+          $set: { ...values, ...(newValues.lot_size !== undefined ? { lot_size: newValues.lot_size } : {}), updated_at: now },
+          $setOnInsert: { owner_id: u._id, owner_type: 'User', exchange_name: normalizedExchange, script_name: rawName, created_at: now },
+        },
+        upsert: true,
+      },
+    });
+  }
+  if (bulkOps.length > 0) await ScriptQuantity.bulkWrite(bulkOps, { ordered: false });
+  console.log(`📋 [ScriptQtyCopy] Cascaded group "${lotName}"/${normalizedExchange}/${rawName} update to ${users.length} user(s) (${keptBlocked} kept blocked by their master) + ${masters.length} master(s) (${mastersKeptBlocked} kept their own block)`);
+  return { users: users.length, masters: masters.length, keptBlocked, mastersKeptBlocked };
+}
+
+/**
+ * A script REMOVED from a group (owner, 9 Nov 2026 — same rule as joining a
+ * group): every member loses the row the group gave him, except a client
+ * whose own master has blocked the script, who keeps (or gets) a 0 row.
+ * Masters on the group lose the row too. Errors reach the caller.
+ */
+async function removeGroupScriptFromMembers(exchangeName, lotName, rawName, groupOldMax = null) {
+  const normalizedExchange = exchangeName.toUpperCase();
+  const now = new Date();
+  const [users, masters] = await Promise.all([
+    User.find({ deleted_at: null, exchanges_allowed: { $elemMatch: { exchange_name: normalizedExchange, group_name: lotName } } }).select('_id master_id').lean(),
+    Master.find({ deleted_at: null, script_quantity_groups: { $elemMatch: { exchange_name: normalizedExchange, group_name: lotName } } }).select('_id').lean(),
+  ]);
+  // Masters first: the row the group gave goes; a master's own block (a 0
+  // the group didn't give — the group's value was not 0) stays, like on
+  // joining. A block that came from the group and now goes reaches his clients.
+  let mastersKeptBlocked = 0;
+  if (masters.length) {
+    const rows = await ScriptQuantity.find({ owner_id: { $in: masters.map((m) => m._id) }, owner_type: 'Master', exchange_name: normalizedExchange, script_name: rawName, deleted_at: null }).select('owner_id max_qty lot_size').lean();
+    const drop = rows.filter((r) => !(r.max_qty === 0 && groupOldMax !== 0));
+    mastersKeptBlocked = rows.length - drop.length;
+    if (drop.length) await ScriptQuantity.updateMany({ _id: { $in: drop.map((r) => r._id) } }, { $set: { deleted_at: now } });
+    for (const r of drop.filter((x) => x.max_qty === 0)) {
+      await cascadeMasterRowChange(String(r.owner_id), normalizedExchange, rawName, 0, null, r.lot_size);
+    }
+  }
+
+  const blockingMasters = await mastersBlockingScript(users.map((u) => u.master_id), normalizedExchange, rawName);
+  const blockedUsers = users.filter((u) => blockingMasters.has(String(u.master_id))).map((u) => u._id);
+  const freeUsers = users.filter((u) => !blockingMasters.has(String(u.master_id))).map((u) => u._id);
+  const ops = [];
+  if (freeUsers.length) {
+    ops.push({ updateMany: { filter: { owner_id: { $in: freeUsers }, owner_type: 'User', exchange_name: normalizedExchange, script_name: rawName, deleted_at: null }, update: { $set: { deleted_at: now } } } });
+  }
+  for (const uid of blockedUsers) {
+    ops.push({
+      updateOne: {
+        filter: { owner_id: uid, owner_type: 'User', exchange_name: normalizedExchange, script_name: rawName, deleted_at: null },
+        update: { $set: { max_qty: 0, brk_qty: 0, updated_at: now }, $setOnInsert: { owner_id: uid, owner_type: 'User', exchange_name: normalizedExchange, script_name: rawName, lot_size: 1, created_at: now } },
+        upsert: true,
+      },
+    });
+  }
+  if (ops.length) await ScriptQuantity.bulkWrite(ops, { ordered: false });
+  console.log(`📋 [ScriptQtyCopy] Group "${lotName}"/${normalizedExchange}: removed ${rawName} from ${freeUsers.length} user(s) + ${masters.length} master(s); ${blockedUsers.length} user(s) kept blocked by their master, ${mastersKeptBlocked} master(s) kept their own block`);
+  return { users: users.length, masters: masters.length, keptBlocked: blockedUsers.length, mastersKeptBlocked };
+}
+
+/** The masters (of the given ids) that have this script blocked (max 0) on this exchange. */
+async function mastersBlockingScript(masterIds, exchangeName, scriptName, session = null) {
+  const ids = [...new Set((masterIds || []).filter(Boolean).map(String))];
+  if (!ids.length) return new Set();
+  const q = ScriptQuantity.find({ owner_id: { $in: ids }, owner_type: 'Master', exchange_name: exchangeName, script_name: scriptName, max_qty: 0, deleted_at: null }).select('owner_id');
+  if (session) q.session(session);
+  return new Set((await q.lean()).map((r) => String(r.owner_id)));
+}
+
+/**
+ * A master's OWN script row changed (owner, 9 Nov 2026 — same rule as joining
+ * a group: from his master a client only takes BLOCKS; every other limit comes
+ * from the client's own group).
+ *  - blocked now (max 0, wasn't): his direct clients get 0 for that script;
+ *  - unblocked (was 0, now another value, or the row was deleted): his direct
+ *    clients that sit at 0 for it go back to their group's value, or lose the
+ *    row when their group doesn't list the script — exactly what joining gives;
+ *  - any other change: clients untouched (it used to overwrite them all).
+ * @param {number|null} oldMax  the master's max before (null = had no row)
+ * @param {number|null} newMax  the master's max after (null = row deleted)
+ */
+async function cascadeMasterRowChange(masterId, exchangeName, scriptName, oldMax, newMax, lotSize) {
+  const ex = String(exchangeName).toUpperCase();
+  const wasBlocked = oldMax === 0;
+  const isBlocked = newMax === 0;
+  if (wasBlocked === isBlocked) return { action: 'none', users: 0 };
+  const users = await User.find({ master_id: masterId, deleted_at: null }).select('_id exchanges_allowed').lean();
+  if (!users.length) return { action: isBlocked ? 'block' : 'unblock', users: 0 };
+  const now = new Date();
+  const ops = [];
+  if (isBlocked) {
+    for (const u of users) {
+      ops.push({
+        updateOne: {
+          filter: { owner_id: u._id, owner_type: 'User', exchange_name: ex, script_name: scriptName, deleted_at: null },
+          update: { $set: { max_qty: 0, brk_qty: 0, updated_at: now }, $setOnInsert: { owner_id: u._id, owner_type: 'User', exchange_name: ex, script_name: scriptName, lot_size: lotSize || 1, created_at: now } },
+          upsert: true,
+        },
+      });
+    }
+  } else {
+    const groupOf = (u) => (u.exchanges_allowed || []).find((e) => String(e.exchange_name).toUpperCase() === ex)?.group_name || null;
+    const groups = [...new Set(users.map(groupOf).filter(Boolean))];
+    const groupRows = groups.length
+      ? await GroupedQuantity.find({ exchange_name: ex, lot_name: { $in: groups }, raw_name: scriptName, deleted_at: null }).lean()
+      : [];
+    const byGroup = new Map(groupRows.map((g) => [g.lot_name, g]));
+    for (const u of users) {
+      const g = byGroup.get(groupOf(u));
+      const filter = { owner_id: u._id, owner_type: 'User', exchange_name: ex, script_name: scriptName, max_qty: 0, deleted_at: null };
+      ops.push(g
+        ? { updateOne: { filter, update: { $set: { max_qty: g.max_qty || 0, brk_qty: g.break_qty || 0, lot_size: g.lot_size || lotSize || 1, updated_at: now } } } }
+        : { updateOne: { filter, update: { $set: { deleted_at: now } } } });
+    }
+  }
+  const result = await ScriptQuantity.bulkWrite(ops, { ordered: false });
+  console.log(`📋 [ScriptQtyCopy] Master ${masterId} ${isBlocked ? 'blocked' : 'unblocked'} ${scriptName}/${ex}: ${result.modifiedCount + result.upsertedCount} client row(s) changed`);
+  return { action: isBlocked ? 'block' : 'unblock', users: result.modifiedCount + result.upsertedCount };
+}
+
+/**
+ * Admin CREATES platform script rows (single or bulk): every master of that
+ * admin and their direct clients get the row ONLY where they have none —
+ * an existing limit is never overwritten (owner, 9 Nov 2026: a "create" used
+ * to reset every account on the exchange, one script at a time).
+ * @param {Array<{script_name:string, lot_size:number, max_qty:number, brk_qty:number}>} scripts
+ */
+async function fillMissingScriptsGlobally(exchangeName, scripts, adminId) {
+  const ex = String(exchangeName).toUpperCase();
+  const masterFilter = { deleted_at: null };
+  if (adminId) masterFilter.admin_id = adminId;
+  const masters = await Master.find(masterFilter).select('_id').lean();
+  if (!masters.length || !scripts.length) return { masters: masters.length, users: 0, inserted: 0 };
+  const users = await User.find({ master_id: { $in: masters.map((m) => m._id) }, deleted_at: null }).select('_id').lean();
+  const now = new Date();
+  const owners = [...masters.map((m) => [m._id, 'Master']), ...users.map((u) => [u._id, 'User'])];
+  let inserted = 0;
+  const CHUNK = 5000;
+  let ops = [];
+  const flush = async () => {
+    if (!ops.length) return;
+    const r = await ScriptQuantity.bulkWrite(ops, { ordered: false });
+    inserted += r.upsertedCount;
+    ops = [];
+  };
+  for (const [ownerId, ownerType] of owners) {
+    for (const sc of scripts) {
+      ops.push({
+        updateOne: {
+          filter: { owner_id: ownerId, owner_type: ownerType, exchange_name: ex, script_name: sc.script_name, deleted_at: null },
+          update: { $setOnInsert: { owner_id: ownerId, owner_type: ownerType, exchange_name: ex, script_name: sc.script_name, lot_size: sc.lot_size || 1, max_qty: sc.max_qty, brk_qty: sc.brk_qty, created_at: now, deleted_at: null } },
+          upsert: true,
+        },
+      });
+      if (ops.length >= CHUNK) await flush();
+    }
+  }
+  await flush();
+  console.log(`📋 [ScriptQtyCopy] Filled ${inserted} missing row(s) for ${scripts.length} script(s) on ${ex} across ${masters.length} masters + ${users.length} users (existing limits untouched)`);
+  return { masters: masters.length, users: users.length, inserted };
 }
 
 // Is `groupName` one this master is allowed to draw from for `exchangeName`
@@ -876,5 +1047,9 @@ module.exports = {
   cascadeDeleteScriptGlobally,
   bulkCascadeNewScriptsToUsers,
   cascadeGroupedQuantityUpdate,
+  removeGroupScriptFromMembers,
+  mastersBlockingScript,
+  cascadeMasterRowChange,
+  fillMissingScriptsGlobally,
   isGroupAllotted,
 };

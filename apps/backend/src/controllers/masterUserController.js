@@ -584,6 +584,7 @@ const getUserById = async (req, res) => {
 };
 
 // Update User Details
+
 const updateUserDetails = async (req, res) => {
   try {
     const { id } = req.params;
@@ -900,6 +901,13 @@ const updateUserDetails = async (req, res) => {
       } catch (e) {
         console.error('[MarginSquareOff] Immediate check after toggle failed:', e.message);
       }
+    } else {
+      // Live metrics re-read the client's settings after every edit (owner,
+      // 9 Nov 2026) — e.g. Margin Square Off switched OFF kept sending margin
+      // alerts until the next restart.
+      try {
+        await require('../services/metricsEngine').onTradeExecuted(user._id.toString());
+      } catch (_) { /* best-effort */ }
     }
 
     res.status(200).json({
