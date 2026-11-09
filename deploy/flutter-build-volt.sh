@@ -12,7 +12,7 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 # after migration; this script silently published nowhere useful for a
 # while after that until someone noticed, since scp/ssh to a dead host just
 # times out rather than erroring obviously.
-EC2_HOST="13.207.113.128"
+EC2_HOST="13.232.214.61"  # live server since the AWS account move (25 Oct 2026); 13.207.113.128 (old account) only forwards and is being closed
 EC2_USER="ec2-user"
 # Per-developer SSH key path — override with APEX_SSH_KEY if yours differs
 # from the default used on this machine.
