@@ -699,6 +699,7 @@ const updateUserDetails = async (req, res) => {
 
     // Validate and normalize exchanges_allowed if provided
     let groupChanges = [];
+    let previousGroups = new Map();
     if (exchanges_allowed) {
       if (!Array.isArray(exchanges_allowed)) {
         return res.status(400).json({
@@ -725,6 +726,7 @@ const updateUserDetails = async (req, res) => {
       const oldGroupByExchange = new Map(
         (user.exchanges_allowed || []).map(ex => [ex.exchange_name, ex.group_name])
       );
+      previousGroups = oldGroupByExchange;
 
       // Normalize exchange names to uppercase and map GLOBAL to INDICES
       user.exchanges_allowed = exchanges_allowed.map(ex => {
@@ -770,6 +772,16 @@ const updateUserDetails = async (req, res) => {
               message: `Group "${g.group_name}" is not allotted to you for ${g.exchange_name}`,
               data: null
             });
+          }
+        }
+      }
+      // A group with no scripts for the exchange would leave the client with no
+      // limit rows there — and no row means no limit (owner, 9 Nov 2026).
+      if (groupChanges.length > 0) {
+        const { groupHasScripts } = require('../services/scriptQuantityCopyService');
+        for (const g of groupChanges) {
+          if (!(await groupHasScripts(g.exchange_name, g.group_name))) {
+            return res.status(400).json({ success: false, message: `Group "${g.group_name}" has no scripts for ${g.exchange_name === 'INDICES' ? 'GLOBAL' : g.exchange_name} — choose another group`, data: null });
           }
         }
       }
@@ -854,9 +866,14 @@ const updateUserDetails = async (req, res) => {
     }
 
     if (groupChanges.length > 0) {
-      const { reseedUserScriptQuantityForExchange } = require('../services/scriptQuantityCopyService');
-      for (const ex of groupChanges) {
-        await reseedUserScriptQuantityForExchange(user._id.toString(), ex.exchange_name, ex.group_name);
+      const { applyUserGroupChanges, groupChangeFailureMessage } = require('../services/scriptQuantityCopyService');
+      const failedGroups = await applyUserGroupChanges(user, groupChanges, previousGroups);
+      if (failedGroups.length > 0) {
+        return res.status(409).json({
+          success: false,
+          message: groupChangeFailureMessage(failedGroups) + (req.body.wallet ? ' The wallet top-up was not applied.' : ''),
+          data: { group_changes_failed: failedGroups },
+        });
       }
     }
 

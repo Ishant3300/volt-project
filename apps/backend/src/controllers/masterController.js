@@ -757,6 +757,14 @@ const updateMasterPermissions = async (req, res) => {
       });
     }
 
+    // The master's control values BEFORE this request — only a control whose
+    // value really changes is pushed down to his clients (below).
+    const controlBefore = {
+      close_only: master.permissions?.close_only,
+      bet: master.permissions?.bet,
+      margin_square: master.permissions?.margin_square,
+    };
+
     // Update only provided permissions
     Object.keys(permissions).forEach(key => {
       if (master.permissions[key] !== undefined) {
@@ -767,11 +775,16 @@ const updateMasterPermissions = async (req, res) => {
     await master.save();
 
     // ── Cascade control toggles to all child users ──
-    // When master toggles are changed, propagate to all users under this master
+    // Only the control(s) that actually CHANGED on this master are pushed to
+    // his direct clients (owner, 9 Nov 2026). The app sends all four controls
+    // on every toggle, so pushing every key present reset each client's own
+    // close-only / bet / margin-square-off whenever any one switch — even
+    // Fresh Stop-Loss, which never cascades — was flipped on the master.
+    const controlChanged = (key) => permissions[key] !== undefined && Boolean(permissions[key]) !== Boolean(controlBefore[key]);
     const cascadeFields = {};
-    if (permissions.close_only !== undefined) cascadeFields.close_only = permissions.close_only;
-    if (permissions.bet !== undefined) cascadeFields.bet = permissions.bet;
-    if (permissions.margin_square !== undefined) cascadeFields.margin_square_off = permissions.margin_square;
+    if (controlChanged('close_only')) cascadeFields.close_only = permissions.close_only;
+    if (controlChanged('bet')) cascadeFields.bet = permissions.bet;
+    if (controlChanged('margin_square')) cascadeFields.margin_square_off = permissions.margin_square;
 
     if (Object.keys(cascadeFields).length > 0) {
       await User.updateMany(

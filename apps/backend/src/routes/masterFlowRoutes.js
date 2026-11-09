@@ -4,6 +4,7 @@ const router = express.Router();
 const { authenticateAdminOrMaster } = require('../middlewares/auth');
 const { rejectIfInvestor } = require('../middlewares/rejectIfInvestor');
 const { requireAdminPermission } = require('../middlewares/requireAdminPermission');
+const { rejectIfAdminWatchOnly } = require('../middlewares/rejectIfAdminWatchOnly');
 const { escapeRegex } = require('../utils/escapeRegex');
 const User = require('../models/User');
 const Master = require('../models/Master');
@@ -124,7 +125,7 @@ router.get('/masters/:id', getChildMasterById);
 router.put('/masters/:id/permissions', rejectIfInvestor, updateChildMasterPermissions);
 
 // Update child master details
-router.put('/masters/:id/details', rejectIfInvestor, updateChildMasterDetails);
+router.put('/masters/:id/details', rejectIfInvestor, rejectIfAdminWatchOnly, updateChildMasterDetails);
 
 // Credit child master
 router.post('/masters/:id/credit', rejectIfInvestor, creditChildMaster);
@@ -155,10 +156,10 @@ router.get('/users', getAllUsers);
 router.get('/users/:id', getUserById);
 
 // Update user details
-router.put('/users/:id/details', rejectIfInvestor, updateUserDetails);
+router.put('/users/:id/details', rejectIfInvestor, rejectIfAdminWatchOnly, updateUserDetails);
 
 // Update user (full update)
-router.put('/users/:id', rejectIfInvestor, updateUserDetails);
+router.put('/users/:id', rejectIfInvestor, rejectIfAdminWatchOnly, updateUserDetails);
 
 // Update user intraday squareoff settings
 router.put('/users/:id/intraday-squareoff', rejectIfInvestor, updateUserIntradaySquareoff);

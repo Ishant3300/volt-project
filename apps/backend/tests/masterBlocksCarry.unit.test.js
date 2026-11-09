@@ -53,7 +53,10 @@ test('blocks only apply to their own exchange', async () => {
 test('group change: the new group with the master blocks on top', async () => {
   mockGroupRows = [group('ANGELONE', 4, 2), group('IDEA', 4, 2)];
   mockMasterRows = [masterRow('NFO-OPT', 'IDEA', 0)];
-  await reseedUserScriptQuantityForExchange('u1', 'NFO-OPT', '4 LOT NEW');
+  // A session is passed so the re-seed runs on the stubbed models (without one it opens its own
+  // transaction, 9 Nov 2026 — covered against a real MongoDB in editSafety.integration.test.js).
+  const result = await reseedUserScriptQuantityForExchange('u1', 'NFO-OPT', '4 LOT NEW', {});
+  expect(result).toEqual({ ok: true, count: 2 });
   expect(byScript()).toEqual({ 'NFO-OPT ANGELONE': '4/2', 'NFO-OPT IDEA': '0/0' });
 });
 

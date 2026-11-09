@@ -492,6 +492,7 @@ const updateUser = async (req, res) => {
     // the group NAME: client 994912 showed "HRY 5 LOT" for NFO-FUT while
     // every script limit was still GOLDMIN's (23 Oct 2026).
     let groupChanges = [];
+    let previousGroups = new Map();
     if (exchanges_allowed) {
       if (!Array.isArray(exchanges_allowed)) return res.status(400).json({ success: false, message: 'exchanges_allowed must be an array', data: null });
       for (const exchange of exchanges_allowed) {
@@ -500,6 +501,7 @@ const updateUser = async (req, res) => {
       const oldGroupByExchange = new Map(
         (user.exchanges_allowed || []).map(ex => [ex.exchange_name, ex.group_name])
       );
+      previousGroups = oldGroupByExchange;
       user.exchanges_allowed = exchanges_allowed.map(ex => {
         let name = ex.exchange_name.toUpperCase();
         if (name === 'GLOBAL') name = 'INDICES';
@@ -511,6 +513,16 @@ const updateUser = async (req, res) => {
       groupChanges = user.exchanges_allowed.filter(ex =>
         ex.group_name && ex.group_name !== oldGroupByExchange.get(ex.exchange_name)
       );
+      // A group with no scripts for the exchange would leave the client with no
+      // limit rows there — and no row means no limit (owner, 9 Nov 2026).
+      if (groupChanges.length > 0) {
+        const { groupHasScripts } = require('../services/scriptQuantityCopyService');
+        for (const g of groupChanges) {
+          if (!(await groupHasScripts(g.exchange_name, g.group_name))) {
+            return res.status(400).json({ success: false, message: `Group "${g.group_name}" has no scripts for ${g.exchange_name === 'INDICES' ? 'GLOBAL' : g.exchange_name} — choose another group`, data: null });
+          }
+        }
+      }
     }
 
     if (trade_limit) {
@@ -530,9 +542,14 @@ const updateUser = async (req, res) => {
     await user.save();
 
     if (groupChanges.length > 0) {
-      const { reseedUserScriptQuantityForExchange } = require('../services/scriptQuantityCopyService');
-      for (const ex of groupChanges) {
-        await reseedUserScriptQuantityForExchange(user._id.toString(), ex.exchange_name, ex.group_name);
+      const { applyUserGroupChanges, groupChangeFailureMessage } = require('../services/scriptQuantityCopyService');
+      const failedGroups = await applyUserGroupChanges(user, groupChanges, previousGroups);
+      if (failedGroups.length > 0) {
+        return res.status(409).json({
+          success: false,
+          message: groupChangeFailureMessage(failedGroups) + (req.body.wallet ? ' The wallet top-up was not applied.' : ''),
+          data: { group_changes_failed: failedGroups },
+        });
       }
     }
 
@@ -1259,12 +1276,14 @@ const deleteScriptQuantity = async (req, res) => {
       await cascadeDeleteScriptToUsers(scriptQty.owner_id.toString(), scriptQty.exchange_name, scriptQty.script_name);
     }
 
+    // Deleting a MASTER's row stays inside that master (and his direct clients,
+    // above). It used to also run the platform-wide delete when an admin did
+    // it, removing the script for every master of that admin and all their
+    // clients — and a script with no row has no limit at all (owner, 9 Nov
+    // 2026). Only deleting the Admin's own platform row is platform-wide.
     if (scriptQty.owner_type === 'Admin') {
       const { cascadeDeleteScriptGlobally } = require('../services/scriptQuantityCopyService');
       await cascadeDeleteScriptGlobally(scriptQty.exchange_name, scriptQty.script_name, scriptQty.owner_id.toString());
-    } else if (req.admin && scriptQty.owner_type === 'Master') {
-      const { cascadeDeleteScriptGlobally } = require('../services/scriptQuantityCopyService');
-      await cascadeDeleteScriptGlobally(scriptQty.exchange_name, scriptQty.script_name, req.admin.id);
     }
 
     res.status(200).json({ success: true, message: 'Script quantity deleted successfully', data: null });
@@ -1301,6 +1320,13 @@ const createBrokerageSettings = async (req, res) => {
         message: 'type, exchange_name, script_name, and brk_value are required',
         data: null
       });
+    }
+
+    // Platform default rates (user_id null) are admin-only — a master without
+    // user_id used to upsert a platform default row here (owner, 9 Nov 2026;
+    // bulk-create already refuses this, groupedQuantityController).
+    if (!user_id && !req.admin) {
+      return res.status(403).json({ success: false, message: 'Only admin can change the platform default brokerage', data: null });
     }
 
     // Floor validation: a master creating their own rate cannot go below
@@ -1452,6 +1478,13 @@ const updateBrokerageSettings = async (req, res) => {
       });
     }
 
+    // Platform default rates (user_id null) are admin-only (owner, 9 Nov 2026):
+    // the master checks below only ran for rows WITH an owner, so a master
+    // could edit a platform default row by its id.
+    if (!brokerageSettings.user_id && !req.admin) {
+      return res.status(403).json({ success: false, message: 'Only admin can change the platform default brokerage', data: null });
+    }
+
     if (brokerageSettings.user_id && req.master) {
       const { getAllSubMasterIds } = require('../services/masterHierarchyService');
       const allowedMasterIds = await getAllSubMasterIds(req.master.id);
@@ -1547,6 +1580,13 @@ const deleteBrokerageSettings = async (req, res) => {
         message: 'Brokerage settings not found',
         data: null
       });
+    }
+
+    // Platform default rates (user_id null) are admin-only (owner, 9 Nov 2026):
+    // the master checks below only ran for rows WITH an owner, so a master
+    // could delete a platform default row by its id.
+    if (!brokerageSettings.user_id && !req.admin) {
+      return res.status(403).json({ success: false, message: 'Only admin can change the platform default brokerage', data: null });
     }
 
     if (brokerageSettings.user_id && req.master) {

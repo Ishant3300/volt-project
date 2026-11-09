@@ -7,7 +7,18 @@
 // refused at GOLDMIN's 500-per-order.
 
 jest.mock('../src/models/User', () => ({ findById: jest.fn(), findOne: jest.fn() }));
-jest.mock('../src/services/scriptQuantityCopyService', () => ({ reseedUserScriptQuantityForExchange: jest.fn() }));
+// The controller pre-checks the new group (groupHasScripts) and applies switches through
+// applyUserGroupChanges, which re-seeds each changed exchange (9 Nov 2026) — stubbed here to
+// call the re-seed stub the way the real one does, returning no failures.
+jest.mock('../src/services/scriptQuantityCopyService', () => {
+  const reseed = jest.fn();
+  return {
+    reseedUserScriptQuantityForExchange: reseed,
+    groupHasScripts: jest.fn(async () => true),
+    applyUserGroupChanges: jest.fn(async (user, changes) => { for (const c of changes) await reseed(String(user._id), c.exchange_name, c.group_name); return []; }),
+    groupChangeFailureMessage: jest.fn(() => 'failed'),
+  };
+});
 // updateUser also checks the client's time against its master's base (utils/profitBookTime.js).
 jest.mock('../src/models/Master', () => ({ findById: jest.fn(() => ({ select: () => ({ lean: async () => ({ profit_book_base_minutes: 10 }) }) })) }));
 

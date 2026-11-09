@@ -16,6 +16,7 @@
  *   user to a different Group first (reseedUserScriptQuantityForExchange)
  */
 
+const mongoose = require('mongoose');
 const ScriptQuantity = require('../models/ScriptQuantity');
 const GroupedQuantity = require('../models/GroupedQuantity');
 const User = require('../models/User');
@@ -270,23 +271,23 @@ async function seedUserScriptQuantityFromGroups(userId, exchangesAllowed, sessio
  * @param {object} [session]
  */
 async function reseedUserScriptQuantityForExchange(userId, exchangeName, groupName, session) {
-  try {
-    const normalizedExchange = exchangeName.toUpperCase();
-
-    const groupRows = await (session
-      ? GroupedQuantity.find({ exchange_name: normalizedExchange, lot_name: groupName, deleted_at: null }).session(session)
-      : GroupedQuantity.find({ exchange_name: normalizedExchange, lot_name: groupName, deleted_at: null })
-    ).lean();
+  // All-or-nothing (owner, 9 Nov 2026): the old rows are removed and the new
+  // group's rows added in ONE transaction. Before, the old rows were deleted
+  // first with no transaction and errors only logged — a failure (or a group
+  // with no scripts) left the client with NO limit rows on that exchange, and
+  // a script with no row has no limit at all. A group with no scripts now
+  // aborts and keeps the client's current limits.
+  // Returns { ok: true, count } or { ok: false, error }.
+  const normalizedExchange = String(exchangeName || '').toUpperCase();
+  const run = async (s) => {
+    const groupRows = await GroupedQuantity.find({ exchange_name: normalizedExchange, lot_name: groupName, deleted_at: null }).session(s).lean();
+    if (groupRows.length === 0) throw new Error(`group "${groupName}" has no scripts for ${normalizedExchange}`);
 
     const deleteQuery = { owner_id: userId, owner_type: 'User', exchange_name: normalizedExchange, deleted_at: null };
-    if (session) {
-      await ScriptQuantity.updateMany(deleteQuery, { $set: { deleted_at: new Date() } }, { session });
-    } else {
-      await ScriptQuantity.updateMany(deleteQuery, { $set: { deleted_at: new Date() } });
-    }
+    await ScriptQuantity.updateMany(deleteQuery, { $set: { deleted_at: new Date() } }, { session: s });
 
     // The master's blocks apply on top of the new group (masterBlockedScripts).
-    const blocked = (await masterBlockedScripts(userId, [normalizedExchange], session)).get(normalizedExchange);
+    const blocked = (await masterBlockedScripts(userId, [normalizedExchange], s)).get(normalizedExchange);
     const docs = applyMasterBlocks(groupRows.map(gq => ({
       owner_id: userId,
       owner_type: 'User',
@@ -296,21 +297,63 @@ async function reseedUserScriptQuantityForExchange(userId, exchangeName, groupNa
       max_qty: gq.max_qty || 0,
       brk_qty: gq.break_qty || 0,
     })), userId, normalizedExchange, blocked);
-
-    if (docs.length === 0) {
-      console.log(`📋 [ScriptQtyCopy] User ${userId} switched to group "${groupName}" on ${normalizedExchange}, but that group has no data — exchange now has no script limits`);
-      return;
-    }
-
+    if (docs.length === 0) throw new Error(`group "${groupName}" gave no rows for ${normalizedExchange}`);
+    await ScriptQuantity.insertMany(docs, { session: s });
+    return docs.length;
+  };
+  try {
+    let count = 0;
     if (session) {
-      await ScriptQuantity.insertMany(docs, { session });
+      count = await run(session);
     } else {
-      await ScriptQuantity.insertMany(docs);
+      const own = await mongoose.startSession();
+      try {
+        await own.withTransaction(async () => { count = await run(own); });
+      } finally {
+        await own.endSession();
+      }
     }
-    console.log(`📋 [ScriptQtyCopy] Re-seeded ${docs.length} entries for User ${userId} on ${normalizedExchange} from group "${groupName}"`);
+    console.log(`📋 [ScriptQtyCopy] Re-seeded ${count} entries for User ${userId} on ${normalizedExchange} from group "${groupName}"`);
+    return { ok: true, count };
   } catch (e) {
-    console.error(`❌ [ScriptQtyCopy] Error re-seeding user ${userId} for ${exchangeName}:`, e.message);
+    console.error(`❌ [ScriptQtyCopy] Re-seed refused for user ${userId} on ${normalizedExchange} (group "${groupName}") — current limits kept:`, e.message);
+    return { ok: false, error: e.message };
   }
+}
+
+/**
+ * After a client's record was saved with new group names: re-seed each
+ * changed exchange (all-or-nothing each). A switch that fails is put back on
+ * the record so it matches the limits he really has — the previous group,
+ * or, for an exchange he didn't have before (no limits to keep), the
+ * exchange is left switched off instead of open without limits. A retry then
+ * sees the change again. Returns the failures [{ exchange_name, group_name,
+ * error, disabled }] — empty when every switch went through.
+ */
+async function applyUserGroupChanges(user, groupChanges, previousGroups) {
+  const failed = [];
+  for (const ex of groupChanges) {
+    const r = await reseedUserScriptQuantityForExchange(String(user._id), ex.exchange_name, ex.group_name);
+    if (r.ok) continue;
+    const old = previousGroups.get(ex.exchange_name);
+    const set = old
+      ? { 'exchanges_allowed.$.group_name': old }
+      : { 'exchanges_allowed.$.turnover': false, 'exchanges_allowed.$.lot': false };
+    await User.updateOne({ _id: user._id, 'exchanges_allowed.exchange_name': ex.exchange_name }, { $set: set });
+    failed.push({ exchange_name: ex.exchange_name, group_name: ex.group_name, error: r.error, disabled: !old });
+  }
+  return failed;
+}
+
+/** A clear message for a client edit whose group switch(es) did not go through. */
+function groupChangeFailureMessage(failed) {
+  const parts = failed.map((f) => `${f.exchange_name === 'INDICES' ? 'GLOBAL' : f.exchange_name} → "${f.group_name}" (${f.error})${f.disabled ? ' — this exchange was left switched off' : ' — previous group and limits kept'}`);
+  return `Other changes were saved, but the group change did not go through: ${parts.join('; ')}. Please try again.`;
+}
+
+/** True when the group has at least one script for this exchange (a client can be switched to it). */
+async function groupHasScripts(exchangeName, groupName) {
+  return Boolean(await GroupedQuantity.exists({ exchange_name: String(exchangeName || '').toUpperCase(), lot_name: groupName, deleted_at: null }));
 }
 
 /**
@@ -821,6 +864,9 @@ module.exports = {
   copyFromMasterToSubMaster,
   seedUserScriptQuantityFromGroups,
   reseedUserScriptQuantityForExchange,
+  groupHasScripts,
+  applyUserGroupChanges,
+  groupChangeFailureMessage,
   masterBlockedScripts,
   reseedMasterScriptQuantityForExchange,
   cascadeToDirectUsers,

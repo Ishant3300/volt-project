@@ -334,6 +334,33 @@ function buildSegmentFilter(segment) {
 const BrokerageSettings = require('../models/BrokerageSettings');
 
 /**
+ * May this master touch / read the brokerage rows owned by `ownerId` (a
+ * client or master id)? Same rule as PUT /brokerage-settings/bulk-update
+ * (adminRoutes.js): the row's subtree root must be in the caller's own
+ * subtree. With `allowUpline` (reads only) the caller's own parent chain is
+ * allowed too — a master may see the rates above him (his floor). Owner,
+ * 9 Nov 2026: these two endpoints had no tree check at all.
+ */
+async function masterMayUseRatesOf(masterId, ownerId, { allowUpline = false } = {}) {
+  const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+  const { resolveBrokerageOwnerMasterId } = require('./adminController');
+  const ownerRoot = await resolveBrokerageOwnerMasterId(ownerId);
+  if (!ownerRoot) return false;
+  const subtree = await getAllSubMasterIds(String(masterId));
+  if (subtree.includes(ownerRoot)) return true;
+  if (!allowUpline) return false;
+  const Master = require('../models/Master');
+  const seen = new Set();
+  for (let cur = String(masterId); cur && !seen.has(cur); ) {
+    seen.add(cur);
+    if (cur === String(ownerId)) return true;
+    const m = await Master.findById(cur).select('master_id').lean();
+    cur = m?.master_id ? String(m.master_id) : null;
+  }
+  return false;
+}
+
+/**
  * POST /api/admin/brokerage-settings/bulk-create
  * Body: { exchange_name, type, default_brk_value }
  */
@@ -348,6 +375,9 @@ const bulkCreateBrokerage = async (req, res) => {
     // 2026) must not upsert/touch the global rows.
     if (!user_id && !req.admin) {
       return res.status(400).json({ success: false, message: 'user_id is required', data: null });
+    }
+    if (user_id && req.master && !(await masterMayUseRatesOf(req.master.id, user_id))) {
+      return res.status(403).json({ success: false, message: 'Not authorized to set brokerage for this account', data: null });
     }
     const normalizedExchange = exchange_name.toUpperCase();
     const normalizedType = type.toUpperCase();
@@ -433,6 +463,9 @@ const getBrokerageByExchange = async (req, res) => {
   try {
     const { exchange_name } = req.params;
     const { type, user_id, page = 1, limit = 500 } = req.query;
+    if (user_id && req.master && !(await masterMayUseRatesOf(req.master.id, user_id, { allowUpline: true }))) {
+      return res.status(403).json({ success: false, message: 'Not authorized to view brokerage for this account', data: null });
+    }
     let filter = { exchange_name: exchange_name.toUpperCase(), user_id: user_id || null, deleted_at: null };
     if (type) filter.type = type.toUpperCase();
     filter = await withoutNonTrading(BrokerageSettings, filter, 'script_name'); // utils/hideNonTrading.js

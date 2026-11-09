@@ -656,6 +656,16 @@ const updateChildMasterDetails = async (req, res) => {
     const detailQuery = { _id: id, deleted_at: null };
     
     if (req.master) {
+      // getAllSubMasterIds includes the caller himself — a master must not
+      // edit his OWN exchanges / groups / allotment here (owner, 9 Nov 2026;
+      // PUT /api/masters/:id already refuses self-edit).
+      if (String(id) === String(req.master.id)) {
+        return res.status(403).json({
+          success: false,
+          message: 'You cannot edit your own account here',
+          data: null
+        });
+      }
       const allowedSubMasters = await getAllSubMasterIds(req.master.id);
       if (!allowedSubMasters.includes(id)) {
         return res.status(403).json({
