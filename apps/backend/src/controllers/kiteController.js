@@ -239,9 +239,9 @@ const searchInstruments = async (req, res) => {
     const permitted = allowedExchanges === null
       ? found
       : found.filter((i) => isExchangeAllowed(allowedExchanges, i.segment || i.exchange));
-    // NSE futures below the client's minimum price (utils/minScriptPrice.js).
-    const { minPriceForReq, dropBelowMinPrice } = require('../utils/minScriptPrice');
-    const instruments = await dropBelowMinPrice(permitted, await minPriceForReq(req));
+    // NSE futures below the client's minimum price are listed too (owner,
+    // 9 Nov 2026) — orders on them are closing-only (utils/minScriptPrice.js).
+    const instruments = permitted;
 
     const limitedResults = limit ? instruments.slice(0, parseInt(limit)) : instruments;
 
@@ -301,18 +301,8 @@ const smartSearchInstruments = async (req, res) => {
       filteredResult = { ...result, groups, total };
     }
 
-    // NSE futures below the client's minimum price (utils/minScriptPrice.js).
-    const { minPriceForReq, dropBelowMinPrice } = require('../utils/minScriptPrice');
-    const minPrice = await minPriceForReq(req);
-    if (minPrice > 0) {
-      const groups = [];
-      for (const group of filteredResult.groups || []) {
-        const items = await dropBelowMinPrice(group.items || [], minPrice);
-        if (items.length > 0) groups.push({ ...group, items });
-      }
-      const total = groups.reduce((sum, g) => sum + g.items.length, 0);
-      filteredResult = { ...filteredResult, groups, total };
-    }
+    // NSE futures below the client's minimum price are listed too (owner,
+    // 9 Nov 2026) — orders on them are closing-only (utils/minScriptPrice.js).
 
     res.status(200).json({
       success: true,
@@ -386,13 +376,8 @@ const browseInstruments = async (req, res) => {
     } else {
       filter.$and = [{ $or: [{ expiry: null }, { expiry: { $gte: today } }] }];
     }
-    // NSE futures below the client's minimum price (utils/minScriptPrice.js)
-    // — in the query, so paging and the total stay right.
-    {
-      const { minPriceForReq, minPriceMongoFilter } = require('../utils/minScriptPrice');
-      const minFilter = minPriceMongoFilter(await minPriceForReq(req));
-      if (minFilter) filter.$and = [...(filter.$and || []), minFilter];
-    }
+    // NSE futures below the client's minimum price are listed too (owner,
+    // 9 Nov 2026) — orders on them are closing-only (utils/minScriptPrice.js).
 
     const pageNum = parseInt(page);
     const limitNum = parseInt(limit);

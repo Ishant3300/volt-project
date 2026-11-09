@@ -1,9 +1,9 @@
 'use strict';
 
 // Min NSE FUT script price per client (utils/minScriptPrice.js, 26 Oct 2026):
-// an NSE future whose last official close is below the client's minimum is
-// hidden from watchlist/search/browse and can't be opened or added to;
-// closing is always allowed. NFO-FUT only, 0 = off.
+// an NSE future whose last official close is below the client's minimum can't
+// be opened or added to; closing is always allowed. NFO-FUT only, 0 = off.
+// Since 9 Nov 2026 the listings show such scripts (minScriptPriceVisible test).
 
 const mockFind = jest.fn();
 jest.mock('../src/models/KiteInstrument', () => ({ find: (...a) => mockFind(...a) }));
