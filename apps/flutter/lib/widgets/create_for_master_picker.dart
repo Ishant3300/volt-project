@@ -122,8 +122,9 @@ class CreateForMasterPicker extends StatelessWidget {
             style: TextStyle(
                 fontFamily: kFontFamily,
                 fontSize: 13,
-                color: kColorTextMuted,
-                fontWeight: kFontWeightMedium),
+                // same as the form labels around it (owner, 10 Nov 2026)
+                color: Color(0xFF374151),
+                fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 8),
           InkWell(

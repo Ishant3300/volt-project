@@ -19,6 +19,14 @@ import '../utils/comex_rate.dart';
 import 'package:stocker/widgets/page_wash.dart';
 import '../utils/account_label.dart';
 
+// Form text on this screen (owner, 10 Nov 2026): darker and a little bolder
+// than the app-wide muted grey, which was hard to read here.
+const Color _kFormLabel = Color(0xFF374151); // labels, section titles, table headers, notes
+const Color _kFormHint = Color(0xFF9CA3AF); // placeholders of empty fields
+const FontWeight _kFormLabelWeight = FontWeight.w500;
+const FontWeight _kFormValueWeight = FontWeight.w600;
+
+
 class CreateMasterView extends StatefulWidget {
   final Master? master;
 
@@ -1520,7 +1528,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                                   flex: 3,
                                   child: Text('Exchange',
                                       style: TextStyle(
-                                          color: kColorTextMuted,
+                                          color: _kFormLabel,
                                           fontSize: kFontSizeNavLabel,
                                           fontFamily: kFontFamily,
                                           fontWeight: kFontWeightSemiBold,
@@ -1531,7 +1539,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                                   child: Center(
                                     child: Text('Type',
                                         style: TextStyle(
-                                            color: kColorTextMuted,
+                                            color: _kFormLabel,
                                             fontSize: kFontSizeNavLabel,
                                             fontFamily: kFontFamily,
                                             fontWeight: kFontWeightSemiBold,
@@ -1543,7 +1551,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                                   child: Center(
                                     child: Text('Value',
                                         style: TextStyle(
-                                            color: kColorTextMuted,
+                                            color: _kFormLabel,
                                             fontSize: kFontSizeNavLabel,
                                             fontFamily: kFontFamily,
                                             fontWeight: kFontWeightSemiBold,
@@ -1640,7 +1648,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     return Text(
       text,
       style: const TextStyle(
-        color: kColorTextMuted,
+        color: _kFormLabel,
         fontSize: kFontSizeNavLabel,
         fontFamily: kFontFamily,
         fontWeight: kFontWeightSemiBold,
@@ -1698,10 +1706,10 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 child: Text(
                   label,
                   style: const TextStyle(
-                    color: kColorTextMuted,
+                    color: _kFormLabel,
                     fontSize: kFontSizeBodySmall,
                     fontFamily: kFontFamily,
-                    fontWeight: kFontWeightMedium,
+                    fontWeight: _kFormLabelWeight,
                   ),
                 ),
               ),
@@ -1715,18 +1723,18 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                       ? (_) => setState(() {})
                       : null,
                   style: readOnly
-                      ? const TextStyle(color: Colors.grey)
+                      ? const TextStyle(color: Color(0xFF4B5563), fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: _kFormLabelWeight)
                       : const TextStyle(
                           color: kColorTextPrimary,
                           fontSize: kFontSizeBody,
                           fontFamily: kFontFamily,
-                          fontWeight: kFontWeightMedium,
+                          fontWeight: _kFormValueWeight,
                         ),
                   decoration: InputDecoration(
                     border: InputBorder.none,
                     hintText: hint ?? label,
                     hintStyle: const TextStyle(
-                      color: Color(0xFFCBD5E1),
+                      color: _kFormHint,
                       fontSize: kFontSizeBody,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightRegular,
@@ -1807,10 +1815,10 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             child: Text(
               label,
               style: const TextStyle(
-                color: kColorTextMuted,
+                color: _kFormLabel,
                 fontSize: kFontSizeBodySmall,
                 fontFamily: kFontFamily,
-                fontWeight: kFontWeightMedium,
+                fontWeight: _kFormLabelWeight,
               ),
             ),
           ),
@@ -1821,7 +1829,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 hint: Text(
                   hint,
                   style: const TextStyle(
-                    color: Color(0xFFCBD5E1),
+                    color: _kFormHint,
                     fontSize: kFontSizeBody,
                     fontFamily: kFontFamily,
                     fontWeight: kFontWeightRegular,
@@ -1829,12 +1837,12 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 ),
                 isExpanded: true,
                 icon: const Icon(Icons.keyboard_arrow_down,
-                    size: 18, color: kColorTextMuted),
+                    size: 18, color: _kFormLabel),
                 style: const TextStyle(
                   color: kColorTextPrimary,
                   fontSize: kFontSizeBody,
                   fontFamily: kFontFamily,
-                  fontWeight: kFontWeightMedium,
+                  fontWeight: _kFormValueWeight,
                 ),
                 dropdownColor: Colors.white,
                 borderRadius: BorderRadius.circular(16),
@@ -1897,15 +1905,16 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                     color: kColorTextPrimary,
                     fontSize: kFontSizeBody,
                     fontFamily: kFontFamily,
-                    fontWeight: kFontWeightMedium,
+                    fontWeight: _kFormValueWeight,
                   ),
                   decoration: InputDecoration(
                     border: InputBorder.none,
                     hintText: 'Enter value',
                     hintStyle: const TextStyle(
-                        color: Color(0xFFCBD5E1),
+                        color: _kFormHint,
                         fontSize: kFontSizeBody,
-                        fontFamily: kFontFamily),
+                        fontFamily: kFontFamily,
+                        fontWeight: kFontWeightRegular),
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(vertical: 10),
                   ),
@@ -1984,7 +1993,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           'those out to their clients. An exchange with nothing ticked stays '
           'unrestricted.',
           style: TextStyle(
-            color: kColorTextMuted,
+            color: _kFormLabel,
             fontSize: kFontSizeNavLabel,
             fontFamily: kFontFamily,
           ),
@@ -1995,7 +2004,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             child: Text(
               'Select an exchange above to allot groups.',
               style: const TextStyle(
-                color: kColorTextMuted,
+                color: _kFormLabel,
                 fontSize: kFontSizeBodySmall,
                 fontFamily: kFontFamily,
               ),
@@ -2028,7 +2037,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                     if (available.isEmpty)
                       const Text('No groups exist for this exchange yet.',
                           style: TextStyle(
-                              color: kColorTextMuted,
+                              color: _kFormLabel,
                               fontSize: kFontSizeNavLabel,
                               fontFamily: kFontFamily))
                     else
@@ -2143,7 +2152,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                         padding: EdgeInsets.only(left: 8),
                         child: Text('Exchange',
                             style: TextStyle(
-                                color: kColorTextMuted,
+                                color: _kFormLabel,
                                 fontSize: kFontSizeNavLabel,
                                 fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold,
@@ -2155,7 +2164,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                       child: Center(
                         child: Text('Group',
                             style: TextStyle(
-                                color: kColorTextMuted,
+                                color: _kFormLabel,
                                 fontSize: kFontSizeNavLabel,
                                 fontFamily: kFontFamily,
                                 fontWeight: kFontWeightSemiBold,
@@ -2214,7 +2223,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                           color: kColorTextPrimary,
                           fontSize: kFontSizeBodySmall,
                           fontFamily: kFontFamily,
-                          fontWeight: kFontWeightMedium),
+                          fontWeight: _kFormLabelWeight),
                       overflow: TextOverflow.ellipsis),
                 ),
               ],
@@ -2239,18 +2248,19 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 hint: Text(
                   groupOptions.isEmpty ? 'None' : 'Select',
                   style: const TextStyle(
-                      color: Color(0xFFCBD5E1),
+                      color: _kFormHint,
                       fontSize: kFontSizeSubtitle,
-                      fontFamily: kFontFamily),
+                      fontFamily: kFontFamily,
+                      fontWeight: kFontWeightRegular),
                 ),
                 isExpanded: true,
                 icon: const Icon(Icons.keyboard_arrow_down,
-                    size: kIconSizeDefault, color: kColorTextMuted),
+                    size: kIconSizeDefault, color: _kFormLabel),
                 style: const TextStyle(
                     color: kColorTextPrimary,
                     fontSize: kFontSizeSubtitle,
                     fontFamily: kFontFamily,
-                    fontWeight: kFontWeightMedium),
+                    fontWeight: _kFormLabelWeight),
                 dropdownColor: Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 onChanged: groupOptions.isEmpty
@@ -2330,7 +2340,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                   child: Text(
                     key,
                     style: TextStyle(
-                      color: selected ? Colors.white : kColorTextMuted,
+                      color: selected ? Colors.white : _kFormLabel,
                       fontSize: kFontSizeBodySmall,
                       fontFamily: kFontFamily,
                       fontWeight: kFontWeightSemiBold,
@@ -2368,7 +2378,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               padding: const EdgeInsets.only(top: 4, left: 2),
               child: Text(
                 'Different rates per script — leave this as it is to keep them; a new value here sets every script.',
-                style: TextStyle(color: kColorTextMuted, fontSize: 11, fontFamily: kFontFamily),
+                style: TextStyle(color: _kFormLabel, fontSize: 11, fontFamily: kFontFamily),
               ),
             ),
           if (canCustomize && customized) _buildBrokerageCustomizePanel(exchange),
@@ -2394,7 +2404,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 color: kColorTextPrimary,
                 fontSize: kFontSizeBodySmall,
                 fontFamily: kFontFamily,
-                fontWeight: kFontWeightMedium,
+                fontWeight: _kFormLabelWeight,
               ),
             ),
           ),
@@ -2452,14 +2462,14 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                   color: customized ? kColorTextMuted : kColorTextPrimary,
                   fontSize: kFontSizeBodySmall,
                   fontFamily: kFontFamily,
-                  fontWeight: kFontWeightMedium,
+                  fontWeight: _kFormLabelWeight,
                 ),
                 decoration: const InputDecoration(
                   border: InputBorder.none,
                   disabledBorder: InputBorder.none,
                   hintText: '0',
                   hintStyle: TextStyle(
-                      color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall),
+                      color: _kFormHint, fontSize: kFontSizeBodySmall, fontWeight: kFontWeightRegular),
                   isDense: true,
                   contentPadding: EdgeInsets.symmetric(vertical: 8),
                 ),
@@ -2473,7 +2483,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               child: Icon(
                 customized ? Icons.expand_less : Icons.tune,
                 size: 18,
-                color: customized ? kBrandPrimary : kColorTextMuted,
+                color: customized ? kBrandPrimary : _kFormLabel,
               ),
             ),
           ],
@@ -2543,10 +2553,10 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           child: Text(
             label,
             style: const TextStyle(
-              color: kColorTextMuted,
+              color: _kFormLabel,
               fontSize: kFontSizeCaption,
               fontFamily: kFontFamily,
-              fontWeight: kFontWeightMedium,
+              fontWeight: _kFormLabelWeight,
             ),
           ),
         ),
@@ -2586,7 +2596,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                       color: kBrandPrimary,
                       fontSize: kFontSizeCaption,
                       fontFamily: kFontFamily,
-                      fontWeight: kFontWeightMedium,
+                      fontWeight: _kFormLabelWeight,
                     ),
                   ),
                 ),
@@ -2598,7 +2608,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             child: Text(
               error ?? 'Select scripts below, type a value, tap apply',
               style: TextStyle(
-                color: error != null ? kColorSell : kColorTextMuted,
+                color: error != null ? kColorSell : _kFormLabel,
                 fontSize: kFontSizeCaption,
                 fontFamily: kFontFamily,
               ),
@@ -2640,10 +2650,10 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           child: Text(
             rawName,
             style: const TextStyle(
-              color: kColorTextMuted,
+              color: _kFormLabel,
               fontSize: kFontSizeCaption,
               fontFamily: kFontFamily,
-              fontWeight: kFontWeightMedium,
+              fontWeight: _kFormLabelWeight,
             ),
           ),
         ),
@@ -2671,12 +2681,12 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           color: kColorTextPrimary,
           fontSize: kFontSizeCaption,
           fontFamily: kFontFamily,
-          fontWeight: kFontWeightMedium,
+          fontWeight: _kFormLabelWeight,
         ),
         decoration: const InputDecoration(
           border: InputBorder.none,
           hintText: '0',
-          hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeCaption),
+          hintStyle: TextStyle(color: _kFormHint, fontSize: kFontSizeCaption, fontWeight: kFontWeightRegular),
           isDense: true,
           contentPadding: EdgeInsets.symmetric(vertical: 6),
         ),
@@ -2700,10 +2710,10 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                   child: Text(
                     'Select exchanges to fund wallet',
                     style: TextStyle(
-                        color: kColorTextMuted,
+                        color: _kFormLabel,
                         fontSize: kFontSizeBodySmall,
                         fontFamily: kFontFamily,
-                        fontWeight: kFontWeightMedium),
+                        fontWeight: _kFormLabelWeight),
                   ),
                 )
               : Column(
@@ -2733,10 +2743,10 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                 child: Text(
                   walletLabel(category),
                   style: const TextStyle(
-                      color: kColorTextMuted,
+                      color: _kFormLabel,
                       fontSize: kFontSizeBodySmall,
                       fontFamily: kFontFamily,
-                      fontWeight: kFontWeightMedium),
+                      fontWeight: _kFormLabelWeight),
                 ),
               ),
               Expanded(
@@ -2749,14 +2759,15 @@ class _CreateMasterViewState extends State<CreateMasterView> {
                       color: kColorTextPrimary,
                       fontSize: kFontSizeBody,
                       fontFamily: kFontFamily,
-                      fontWeight: kFontWeightMedium),
+                      fontWeight: _kFormLabelWeight),
                   decoration: const InputDecoration(
                     border: InputBorder.none,
                     hintText: '0',
                     hintStyle: TextStyle(
-                        color: Color(0xFFCBD5E1),
+                        color: _kFormHint,
                         fontSize: kFontSizeBody,
-                        fontFamily: kFontFamily),
+                        fontFamily: kFontFamily,
+                        fontWeight: kFontWeightRegular),
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
                   ),
@@ -2803,7 +2814,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               color: kColorTextPrimary,
               fontSize: kFontSizeBody,
               fontFamily: kFontFamily,
-              fontWeight: kFontWeightMedium,
+              fontWeight: _kFormValueWeight,
             ),
           ),
           GestureDetector(

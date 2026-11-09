@@ -22,6 +22,14 @@ import '../utils/comex_rate.dart';
 import 'package:stocker/widgets/page_wash.dart';
 import '../utils/account_label.dart';
 
+// Form text on this screen (owner, 10 Nov 2026): darker and a little bolder
+// than the app-wide muted grey, which was hard to read here.
+const Color _kFormLabel = Color(0xFF374151); // labels, section titles, table headers, notes
+const Color _kFormHint = Color(0xFF9CA3AF); // placeholders of empty fields
+const FontWeight _kFormLabelWeight = FontWeight.w500;
+const FontWeight _kFormValueWeight = FontWeight.w600;
+
+
 class CreateUserView extends StatefulWidget {
   final User? user;
 
@@ -1384,7 +1392,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                               child: Text(
                                 'Change credit from Account Balance on the overview page.',
                                 style: TextStyle(
-                                    color: kColorTextMuted,
+                                    color: _kFormLabel,
                                     fontSize: 11,
                                     fontFamily: kFontFamily),
                               ),
@@ -1404,7 +1412,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                             child: Text(
                               "NSE FUT scripts whose last close is below this are hidden and can't be opened or added to; existing positions can still be closed. 0 = off.",
                               style: TextStyle(
-                                  color: kColorTextMuted,
+                                  color: _kFormLabel,
                                   fontSize: 11,
                                   fontFamily: kFontFamily),
                             ),
@@ -1464,7 +1472,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                             padding: EdgeInsets.all(16),
                             child: Text('No exchanges available',
                                 style: TextStyle(
-                                    color: kColorTextMuted,
+                                    color: _kFormLabel,
                                     fontSize: kFontSizeBodySmall,
                                     fontFamily: kFontFamily)),
                           ),
@@ -1485,7 +1493,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                           padding: EdgeInsets.only(left: 8),
                                           child: Text('Exchange',
                                               style: TextStyle(
-                                                  color: kColorTextMuted,
+                                                  color: _kFormLabel,
                                                   fontSize: kFontSizeNavLabel,
                                                   fontFamily: kFontFamily,
                                                   fontWeight:
@@ -1496,7 +1504,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                       child: Center(
                                           child: Text('T/O',
                                               style: TextStyle(
-                                                  color: kColorTextMuted,
+                                                  color: _kFormLabel,
                                                   fontSize: kFontSizeNavLabel,
                                                   fontFamily: kFontFamily,
                                                   fontWeight:
@@ -1507,7 +1515,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                       child: Center(
                                           child: Text('Lot',
                                               style: TextStyle(
-                                                  color: kColorTextMuted,
+                                                  color: _kFormLabel,
                                                   fontSize: kFontSizeNavLabel,
                                                   fontFamily: kFontFamily,
                                                   fontWeight:
@@ -1518,7 +1526,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                       child: Center(
                                           child: Text('Group',
                                               style: TextStyle(
-                                                  color: kColorTextMuted,
+                                                  color: _kFormLabel,
                                                   fontSize: kFontSizeNavLabel,
                                                   fontFamily: kFontFamily,
                                                   fontWeight:
@@ -1584,7 +1592,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                             padding: EdgeInsets.all(16),
                             child: Text('No trade limits available',
                                 style: TextStyle(
-                                    color: kColorTextMuted,
+                                    color: _kFormLabel,
                                     fontSize: kFontSizeBodySmall,
                                     fontFamily: kFontFamily)),
                           ),
@@ -1647,7 +1655,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                   flex: 3,
                                   child: Text('Exchange',
                                       style: TextStyle(
-                                          color: kColorTextMuted,
+                                          color: _kFormLabel,
                                           fontSize: kFontSizeNavLabel,
                                           fontFamily: kFontFamily,
                                           fontWeight: kFontWeightSemiBold,
@@ -1658,7 +1666,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                   child: Center(
                                     child: Text('Type',
                                         style: TextStyle(
-                                            color: kColorTextMuted,
+                                            color: _kFormLabel,
                                             fontSize: kFontSizeNavLabel,
                                             fontFamily: kFontFamily,
                                             fontWeight: kFontWeightSemiBold,
@@ -1670,7 +1678,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                                   child: Center(
                                     child: Text('Value',
                                         style: TextStyle(
-                                            color: kColorTextMuted,
+                                            color: _kFormLabel,
                                             fontSize: kFontSizeNavLabel,
                                             fontFamily: kFontFamily,
                                             fontWeight: kFontWeightSemiBold,
@@ -1770,7 +1778,7 @@ class _CreateUserViewState extends State<CreateUserView> {
     return Text(
       text,
       style: const TextStyle(
-        color: kColorTextMuted,
+        color: _kFormLabel,
         fontSize: kFontSizeNavLabel,
         fontFamily: kFontFamily,
         fontWeight: kFontWeightSemiBold,
@@ -1842,10 +1850,10 @@ class _CreateUserViewState extends State<CreateUserView> {
                 child: Text(
                   label,
                   style: const TextStyle(
-                      color: kColorTextMuted,
+                      color: _kFormLabel,
                       fontSize: kFontSizeBodySmall,
                       fontFamily: kFontFamily,
-                      fontWeight: kFontWeightMedium),
+                      fontWeight: _kFormLabelWeight),
                 ),
               ),
               Expanded(
@@ -1858,20 +1866,21 @@ class _CreateUserViewState extends State<CreateUserView> {
                       ? (_) => setState(() {})
                       : null,
                   style: readOnly
-                      ? const TextStyle(color: Colors.grey)
+                      ? const TextStyle(color: Color(0xFF4B5563), fontSize: kFontSizeBody, fontFamily: kFontFamily, fontWeight: _kFormLabelWeight)
                       : const TextStyle(
                           color: kColorTextPrimary,
                           fontSize: kFontSizeBody,
                           fontFamily: kFontFamily,
-                          fontWeight: kFontWeightMedium,
+                          fontWeight: _kFormValueWeight,
                         ),
                   decoration: InputDecoration(
                     border: InputBorder.none,
                     hintText: label,
                     hintStyle: const TextStyle(
-                        color: Color(0xFFCBD5E1),
+                        color: _kFormHint,
                         fontSize: kFontSizeBody,
-                        fontFamily: kFontFamily),
+                        fontFamily: kFontFamily,
+                        fontWeight: kFontWeightRegular),
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
                   ),
@@ -1975,7 +1984,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                           color: kColorTextPrimary,
                           fontSize: kFontSizeBodySmall,
                           fontFamily: kFontFamily,
-                          fontWeight: kFontWeightMedium),
+                          fontWeight: _kFormLabelWeight),
                       overflow: TextOverflow.ellipsis),
                 ),
               ],
@@ -2078,18 +2087,19 @@ class _CreateUserViewState extends State<CreateUserView> {
                       ? 'None'
                       : 'Select',
                   style: const TextStyle(
-                      color: Color(0xFFCBD5E1),
+                      color: _kFormHint,
                       fontSize: kFontSizeSubtitle,
-                      fontFamily: kFontFamily),
+                      fontFamily: kFontFamily,
+                      fontWeight: kFontWeightRegular),
                 ),
                 isExpanded: true,
                 icon: const Icon(Icons.keyboard_arrow_down,
-                    size: kIconSizeDefault, color: kColorTextMuted),
+                    size: kIconSizeDefault, color: _kFormLabel),
                 style: const TextStyle(
                     color: kColorTextPrimary,
                     fontSize: kFontSizeSubtitle,
                     fontFamily: kFontFamily,
-                    fontWeight: kFontWeightMedium),
+                    fontWeight: _kFormLabelWeight),
                 dropdownColor: Colors.white,
                 borderRadius: BorderRadius.circular(12),
                 onChanged: (_exchangeLotNames[exchange]?.isEmpty ?? true)
@@ -2120,7 +2130,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                     color: kColorTextPrimary,
                     fontSize: kFontSizeBody,
                     fontFamily: kFontFamily,
-                    fontWeight: kFontWeightMedium)),
+                    fontWeight: _kFormLabelWeight)),
           ),
           GestureDetector(
             onTap: () => onChanged(!value),
@@ -2164,7 +2174,7 @@ class _CreateUserViewState extends State<CreateUserView> {
             padding: EdgeInsets.only(top: 4),
             child: Text(
               'An amount here is ADDED to the current balance (not the new total).',
-              style: TextStyle(color: kColorTextMuted, fontSize: 11, fontFamily: kFontFamily),
+              style: TextStyle(color: _kFormLabel, fontSize: 11, fontFamily: kFontFamily),
             ),
           ),
         const SizedBox(height: 12),
@@ -2175,10 +2185,10 @@ class _CreateUserViewState extends State<CreateUserView> {
                   child: Text(
                     'Select exchanges to fund wallet',
                     style: TextStyle(
-                        color: kColorTextMuted,
+                        color: _kFormLabel,
                         fontSize: kFontSizeBodySmall,
                         fontFamily: kFontFamily,
-                        fontWeight: kFontWeightMedium),
+                        fontWeight: _kFormLabelWeight),
                   ),
                 )
               : Column(
@@ -2208,10 +2218,10 @@ class _CreateUserViewState extends State<CreateUserView> {
                 child: Text(
                   walletLabel(category),
                   style: const TextStyle(
-                      color: kColorTextMuted,
+                      color: _kFormLabel,
                       fontSize: kFontSizeBodySmall,
                       fontFamily: kFontFamily,
-                      fontWeight: kFontWeightMedium),
+                      fontWeight: _kFormLabelWeight),
                 ),
               ),
               Expanded(
@@ -2224,14 +2234,15 @@ class _CreateUserViewState extends State<CreateUserView> {
                       color: kColorTextPrimary,
                       fontSize: kFontSizeBody,
                       fontFamily: kFontFamily,
-                      fontWeight: kFontWeightMedium),
+                      fontWeight: _kFormLabelWeight),
                   decoration: const InputDecoration(
                     border: InputBorder.none,
                     hintText: '0',
                     hintStyle: TextStyle(
-                        color: Color(0xFFCBD5E1),
+                        color: _kFormHint,
                         fontSize: kFontSizeBody,
-                        fontFamily: kFontFamily),
+                        fontFamily: kFontFamily,
+                        fontWeight: kFontWeightRegular),
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
                   ),
@@ -2261,7 +2272,7 @@ class _CreateUserViewState extends State<CreateUserView> {
               padding: const EdgeInsets.only(left: 100, top: 2),
               child: Text(
                 'Current: ₹ ${(widget.user!.wallet[category] ?? 0).toStringAsFixed(2)}',
-                style: const TextStyle(color: kColorTextMuted, fontSize: 11, fontFamily: kFontFamily),
+                style: const TextStyle(color: _kFormLabel, fontSize: 11, fontFamily: kFontFamily),
               ),
             ),
           Builder(builder: (_) {
@@ -2298,7 +2309,7 @@ class _CreateUserViewState extends State<CreateUserView> {
               padding: const EdgeInsets.only(top: 4, left: 2),
               child: Text(
                 'Different rates per script — leave this as it is to keep them; a new value here sets every script.',
-                style: TextStyle(color: kColorTextMuted, fontSize: 11, fontFamily: kFontFamily),
+                style: TextStyle(color: _kFormLabel, fontSize: 11, fontFamily: kFontFamily),
               ),
             ),
           if (canCustomize && customized) _buildBrokerageCustomizePanel(exchange),
@@ -2325,7 +2336,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                 color: kColorTextPrimary,
                 fontSize: kFontSizeBodySmall,
                 fontFamily: kFontFamily,
-                fontWeight: kFontWeightMedium,
+                fontWeight: _kFormLabelWeight,
               ),
             ),
           ),
@@ -2385,14 +2396,14 @@ class _CreateUserViewState extends State<CreateUserView> {
                   color: customized ? kColorTextMuted : kColorTextPrimary,
                   fontSize: kFontSizeBodySmall,
                   fontFamily: kFontFamily,
-                  fontWeight: kFontWeightMedium,
+                  fontWeight: _kFormLabelWeight,
                 ),
                 decoration: const InputDecoration(
                   border: InputBorder.none,
                   disabledBorder: InputBorder.none,
                   hintText: '0',
                   hintStyle: TextStyle(
-                      color: Color(0xFFCBD5E1), fontSize: kFontSizeBodySmall),
+                      color: _kFormHint, fontSize: kFontSizeBodySmall, fontWeight: kFontWeightRegular),
                   isDense: true,
                   contentPadding: EdgeInsets.symmetric(vertical: 8),
                 ),
@@ -2406,7 +2417,7 @@ class _CreateUserViewState extends State<CreateUserView> {
               child: Icon(
                 customized ? Icons.expand_less : Icons.tune,
                 size: 18,
-                color: customized ? kBrandPrimary : kColorTextMuted,
+                color: customized ? kBrandPrimary : _kFormLabel,
               ),
             ),
           ],
@@ -2476,10 +2487,10 @@ class _CreateUserViewState extends State<CreateUserView> {
           child: Text(
             label,
             style: const TextStyle(
-              color: kColorTextMuted,
+              color: _kFormLabel,
               fontSize: kFontSizeCaption,
               fontFamily: kFontFamily,
-              fontWeight: kFontWeightMedium,
+              fontWeight: _kFormLabelWeight,
             ),
           ),
         ),
@@ -2519,7 +2530,7 @@ class _CreateUserViewState extends State<CreateUserView> {
                       color: kBrandPrimary,
                       fontSize: kFontSizeCaption,
                       fontFamily: kFontFamily,
-                      fontWeight: kFontWeightMedium,
+                      fontWeight: _kFormLabelWeight,
                     ),
                   ),
                 ),
@@ -2531,7 +2542,7 @@ class _CreateUserViewState extends State<CreateUserView> {
             child: Text(
               error ?? 'Select scripts below, type a value, tap apply',
               style: TextStyle(
-                color: error != null ? kColorSell : kColorTextMuted,
+                color: error != null ? kColorSell : _kFormLabel,
                 fontSize: kFontSizeCaption,
                 fontFamily: kFontFamily,
               ),
@@ -2573,10 +2584,10 @@ class _CreateUserViewState extends State<CreateUserView> {
           child: Text(
             rawName,
             style: const TextStyle(
-              color: kColorTextMuted,
+              color: _kFormLabel,
               fontSize: kFontSizeCaption,
               fontFamily: kFontFamily,
-              fontWeight: kFontWeightMedium,
+              fontWeight: _kFormLabelWeight,
             ),
           ),
         ),
@@ -2604,12 +2615,12 @@ class _CreateUserViewState extends State<CreateUserView> {
           color: kColorTextPrimary,
           fontSize: kFontSizeCaption,
           fontFamily: kFontFamily,
-          fontWeight: kFontWeightMedium,
+          fontWeight: _kFormLabelWeight,
         ),
         decoration: const InputDecoration(
           border: InputBorder.none,
           hintText: '0',
-          hintStyle: TextStyle(color: Color(0xFFCBD5E1), fontSize: kFontSizeCaption),
+          hintStyle: TextStyle(color: _kFormHint, fontSize: kFontSizeCaption, fontWeight: kFontWeightRegular),
           isDense: true,
           contentPadding: EdgeInsets.symmetric(vertical: 6),
         ),
