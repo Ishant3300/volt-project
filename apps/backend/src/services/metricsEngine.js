@@ -145,19 +145,23 @@ class MetricsEngine {
         'instrument_token settlement_price settlement_price_date last_price ohlc_close'
       ).lean();
       const seededTokens = [];
+      let replacedPrices = 0;
+      const { startupPrice } = require('../utils/startupPrice');
       for (const inst of instruments) {
         const token = inst.instrument_token.toString();
         const settlementDate = inst.settlement_price_date ? new Date(inst.settlement_price_date) : null;
         const settlementIsCurrent = !activeRange || (settlementDate && settlementDate >= activeRange.start && settlementDate < activeRange.end);
-        const price = weekend
-          ? ((settlementIsCurrent ? inst.settlement_price : 0) || inst.ohlc_close || inst.last_price)
-          : inst.last_price;
+        // A stored last_price far from the official close is not used (utils/startupPrice.js, 10 Nov 2026).
+        const { price, replaced } = startupPrice(inst, { weekend, settlementIsCurrent });
+        if (replaced) replacedPrices++;
         if (!price || price <= 0) continue;
         this._ltpMap.set(token, price);
         this._bidMap.set(token, price);
         this._askMap.set(token, price);
         seededTokens.push(token);
       }
+
+      if (replacedPrices > 0) console.warn(`📊 [MetricsEngine] ${replacedPrices} stored last price(s) far from the official close — started from the official close instead.`);
 
       // Weekend ticks can be stale snapshots. Lock official prices until the next
       // genuine market move; weekdays accept live ticks immediately.

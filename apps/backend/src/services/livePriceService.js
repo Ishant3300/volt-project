@@ -143,13 +143,15 @@ class LivePriceService {
       }).select('instrument_token settlement_price settlement_price_date last_price ohlc_close').lean();
 
       let loaded = 0;
+      let replacedPrices = 0;
+      const { startupPrice } = require('../utils/startupPrice');
       for (const inst of instruments) {
         const tokenStr = inst.instrument_token.toString();
         const settlementDate = inst.settlement_price_date ? new Date(inst.settlement_price_date) : null;
         const settlementIsCurrent = !activeRange || (settlementDate && settlementDate >= activeRange.start && settlementDate < activeRange.end);
-        const price = weekend
-          ? ((settlementIsCurrent ? inst.settlement_price : 0) || inst.ohlc_close || inst.last_price)
-          : inst.last_price;
+        // A stored last_price far from the official close is not used (utils/startupPrice.js, 10 Nov 2026).
+        const { price, replaced } = startupPrice(inst, { weekend, settlementIsCurrent });
+        if (replaced) replacedPrices++;
         if (!price || price <= 0) continue;
 
         if (weekend) this._settlementPrices.set(tokenStr, price);
@@ -158,7 +160,7 @@ class LivePriceService {
         loaded++;
       }
 
-      console.log(`📊 [Settlement] Pre-loaded ${loaded} ${weekend ? 'weekend settlement' : 'latest'} prices from DB.`);
+      console.log(`📊 [Settlement] Pre-loaded ${loaded} ${weekend ? 'weekend settlement' : 'latest'} prices from DB${replacedPrices ? ` (${replacedPrices} stored last price(s) far from the official close — used the official close)` : ''}.`);
     } catch (e) {
       console.error(`❌ [Settlement] Error pre-loading prices from DB: ${e.message}`);
     }

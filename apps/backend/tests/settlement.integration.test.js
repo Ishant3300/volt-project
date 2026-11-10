@@ -1334,8 +1334,8 @@ describeIntegration('isolated replica-set weekend settlement', () => {
   test('calendar failure creates a durable writer fence and recovery re-resolves exact price dates', async () => {
     const scenario = await seedScenario({ includeFlat: false, includePending: false, prefix: 'calendar' });
     await Promise.all([
-      KiteInstrument.updateOne({ instrument_token: scenario.nfoToken }, { $set: { last_price: 777 } }),
-      KiteInstrument.updateOne({ instrument_token: scenario.mcxToken }, { $set: { last_price: 888 } }),
+      KiteInstrument.updateOne({ instrument_token: scenario.nfoToken }, { $set: { last_price: 140 } }),
+      KiteInstrument.updateOne({ instrument_token: scenario.mcxToken }, { $set: { last_price: 190 } }),
     ]);
     const failed = await settlementService._private.materializeCalendarFailure({
       tradingDate: scenario.tradingDate,
@@ -1380,7 +1380,7 @@ describeIntegration('isolated replica-set weekend settlement', () => {
     const persisted = await KiteInstrument.find({
       instrument_token: { $in: [scenario.nfoToken, scenario.mcxToken] },
     }).sort({ instrument_token: 1 }).lean();
-    expect(persisted.map(instrument => instrument.last_price).sort((a, b) => a - b)).toEqual([777, 888]);
+    expect(persisted.map(instrument => instrument.last_price).sort((a, b) => a - b)).toEqual([140, 190]);
 
     // Simulate a Monday process restart before any genuine market tick. ATP is
     // rebuilt from the durable generation while ordinary CMP comes only from
@@ -1389,16 +1389,16 @@ describeIntegration('isolated replica-set weekend settlement', () => {
     const monday = new Date('2026-08-03T04:30:00.000Z');
     await livePriceService._preloadSettlementPrices({ now: monday });
     await metricsEngine.init(livePriceService, { now: monday });
-    expect(livePriceService.latestPrices.get(scenario.nfoToken)).toBe(777);
-    expect(livePriceService.latestPrices.get(scenario.mcxToken)).toBe(888);
+    expect(livePriceService.latestPrices.get(scenario.nfoToken)).toBe(140);
+    expect(livePriceService.latestPrices.get(scenario.mcxToken)).toBe(190);
     expect(livePriceService._settlementPrices.size).toBe(0);
-    expect(metricsEngine._ltpMap.get(scenario.nfoToken)).toBe(777);
-    expect(metricsEngine._bidMap.get(scenario.nfoToken)).toBe(777);
-    expect(metricsEngine._askMap.get(scenario.nfoToken)).toBe(777);
+    expect(metricsEngine._ltpMap.get(scenario.nfoToken)).toBe(140);
+    expect(metricsEngine._bidMap.get(scenario.nfoToken)).toBe(140);
+    expect(metricsEngine._askMap.get(scenario.nfoToken)).toBe(140);
     expect(metricsEngine.getCachedMetrics(scenario.users[0]._id.toString()).positions[0]).toMatchObject({
       avg_buy_price: 130,
-      cmp: 777,
-      floating_pnl: (777 - 130) * 6,
+      cmp: 140,
+      floating_pnl: (140 - 130) * 6,
     });
   });
 
