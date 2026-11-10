@@ -353,6 +353,18 @@ function isReusedToken(existing, setFields) {
   return Boolean(existing.expiry && setFields.expiry && day(existing.expiry) !== day(setFields.expiry));
 }
 
+/** Price fields of the contract that used the token before — dropped on re-use. */
+const REUSED_TOKEN_PRICE_RESET = Object.freeze({
+  last_price: 0,
+  ohlc_open: 0,
+  ohlc_high: 0,
+  ohlc_low: 0,
+  ohlc_close: 0,
+  settlement_price: 0,
+  settlement_price_date: null,
+  settlement_price_source: null,
+});
+
 function buildInstrumentUpsertOperation(inst, existing = null, now = new Date()) {
   // Never copy Kite CSV last_price into an existing instrument. The daily CSV
   // normally contains zero and used to erase the weekend settlement CMP.
@@ -361,8 +373,12 @@ function buildInstrumentUpsertOperation(inst, existing = null, now = new Date())
   if (setFields.segment) setFields.segment = platformSegment(setFields.segment); // SENSEX under NFO
   if (lot_size > 1) setFields.lot_size = lot_size;
   // A new contract on a re-used token starts like an inserted one: open by
-  // the schema default, no old ban — the planner closes it until it opens.
-  if (isReusedToken(existing, setFields)) Object.assign(setFields, { enabled: true, ban_reason: null, banned_at: null, listed_at: now });
+  // the schema default, no old ban — the planner closes it until it opens —
+  // and none of the OLD contract's prices (10 Nov 2026: NOV futures on tokens
+  // re-used since Apr–May kept the old contracts' last_price, e.g. SUNPHARMA
+  // fut 0.20 against a 1915.30 close; a holiday restart seeded those and 10
+  // clients were margin squared-off). The next bhavcopy / live tick fills them.
+  if (isReusedToken(existing, setFields)) Object.assign(setFields, { enabled: true, ban_reason: null, banned_at: null, listed_at: now, ...REUSED_TOKEN_PRICE_RESET });
 
   return {
     updateOne: {

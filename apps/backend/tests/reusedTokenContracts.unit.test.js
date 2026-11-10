@@ -26,6 +26,19 @@ describe('daily sync: a token Kite re-used for a new contract', () => {
     expect(op.updateOne.update.$set).toMatchObject({ tradingsymbol: 'BANKNIFTY27JANFUT', enabled: true, ban_reason: null, banned_at: null, listed_at: now });
   });
 
+  test("drops the old contract's prices (10 Nov 2026: NOV futures kept the old last_price)", () => {
+    const op = buildInstrumentUpsertOperation(JAN, { instrument_token: '12345', tradingsymbol: 'BANKNIFTY26MAYFUT', expiry: new Date('2026-05-26') }, now);
+    expect(op.updateOne.update.$set).toMatchObject({
+      last_price: 0, ohlc_open: 0, ohlc_high: 0, ohlc_low: 0, ohlc_close: 0,
+      settlement_price: 0, settlement_price_date: null, settlement_price_source: null,
+    });
+  });
+
+  test('the same contract again keeps its prices (only a re-used token is reset)', () => {
+    const op = buildInstrumentUpsertOperation({ ...JAN, last_price: 999 }, { instrument_token: '12345', tradingsymbol: 'BANKNIFTY27JANFUT', expiry: new Date('2027-01-25') }, now);
+    for (const f of ['last_price', 'ohlc_close', 'settlement_price', 'settlement_price_date']) expect(op.updateOne.update.$set).not.toHaveProperty(f);
+  });
+
   test('the same contract again changes nothing about its state or listing', () => {
     const op = buildInstrumentUpsertOperation(JAN, { instrument_token: '12345', tradingsymbol: 'BANKNIFTY27JANFUT', expiry: new Date('2027-01-25') }, now);
     expect(op.updateOne.update.$set).not.toHaveProperty('enabled');
