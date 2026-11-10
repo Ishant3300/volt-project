@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../utils/profit_hold.dart';
+import '../widgets/profit_hold_widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:stocker/models/watchlist_item.dart';
@@ -126,6 +128,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
   bool _showUserDropdown = false;
   bool _isSearchingUsers = false;
   Timer? _userSearchDebounce;
+  // Redraws the closing button's profit-book countdown every second (only
+  // while the position has a hold).
+  Timer? _holdTicker;
   int _userSearchPage = 1;
   bool _hasMoreUsers = true;
   bool _isLoadingMoreUsers = false;
@@ -192,6 +197,43 @@ class _TradeCardPageState extends State<TradeCardPage> {
     return null;
   }
 
+  /// The position whose profit-book hold applies to this order: the client's
+  /// own, or the selected client's (master trading for him). Admin is never held.
+  ({ProfitHold? hold, int net}) _holdSource() {
+    final profile = Provider.of<UserProfileProvider>(context, listen: false);
+    if (profile.isAdmin) return (hold: null, net: 0);
+    if (profile.isUser) {
+      final token = widget.item.instrument.instrumentToken.toString();
+      for (final pos in Provider.of<TradeMetricsProvider>(context, listen: false).positions) {
+        if (pos.instrumentToken.toString() == token) return (hold: pos.profitHold, net: pos.netQty);
+      }
+      return (hold: null, net: 0);
+    }
+    final cp = _clientPosition;
+    if (cp == null) return (hold: null, net: 0);
+    return (hold: ProfitHold.fromJson(cp['profit_hold']), net: (cp['net_qty'] as num?)?.toInt() ?? 0);
+  }
+
+  /// Non-null while this close would be refused by the profit-book hold (in
+  /// profit, inside the hold time) — the button then shows the countdown.
+  /// [price]: the bid/ask shown on the Market tab, the typed price otherwise.
+  HoldLock? _profitHoldLock(String side, double price) {
+    if (_selectedTab == 3) return null; // admin custom price
+    final src = _holdSource();
+    if (src.hold == null) return null;
+    final orderType = _selectedTab == 1 ? 'LIMIT' : _selectedTab == 2 ? 'SL' : 'MARKET';
+    return profitHoldLock(
+      hold: src.hold,
+      netQty: src.net,
+      side: side,
+      orderType: orderType,
+      price: price,
+      bid: price,
+      ask: price,
+      qty: _actualQuantity,
+    );
+  }
+
   /// True when this order only closes or reduces the known open position
   /// (the account's own, or the selected client's for master/admin). The
   /// server treats max qty / max lots as a POSITION cap and always allows
@@ -235,6 +277,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
   @override
   void initState() {
     super.initState();
+    _holdTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && _holdSource().hold != null) setState(() {});
+    });
     _watchlist = Provider.of<WatchlistProvider>(context, listen: false);
     _watchlist!.track(widget.item);
     _loadQuickQuantities();
@@ -364,6 +409,7 @@ class _TradeCardPageState extends State<TradeCardPage> {
 
   @override
   void dispose() {
+    _holdTicker?.cancel();
     _watchlist?.untrack(widget.item.instrument.instrumentToken);
     _qtyController.dispose();
     _priceController.dispose();
@@ -676,6 +722,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
       );
       return;
     }
+
+    // Profit-book hold: the closing button is a timer then — never send it.
+    if (_profitHoldLock(transactionType, currentPrice) != null) return;
 
     // A segment this client isn't allowed: only closing an existing position
     // goes through (same rule the server enforces) — say so up front instead
@@ -2019,7 +2068,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                         ),
                                       ),
                                       const SizedBox(height: 14),
-                                      GestureDetector(
+                                      HoldGate(
+                                        lock: _profitHoldLock('SELL', sellPrice),
                                         onTap: sellDisabled
                                             ? null
                                             : () {
@@ -2098,7 +2148,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                       ),
                                     ),
                                     const SizedBox(height: 14),
-                                    GestureDetector(
+                                    HoldGate(
+                                      lock: _profitHoldLock('BUY', buyPrice),
                                       onTap: isMasterBlocked
                                           ? null
                                           : () {
@@ -2209,7 +2260,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                 // SELL button
                                 if (showSell)
                                   Expanded(
-                                    child: GestureDetector(
+                                    child: HoldGate(
+                                      lock: _profitHoldLock('SELL',
+                                          double.tryParse(_priceController.text) ?? 0),
                                       onTap: sellDisabled
                                           ? null
                                           : () {
@@ -2265,7 +2318,9 @@ class _TradeCardPageState extends State<TradeCardPage> {
                                 // BUY button
                                 if (showBuy)
                                   Expanded(
-                                    child: GestureDetector(
+                                    child: HoldGate(
+                                      lock: _profitHoldLock('BUY',
+                                          double.tryParse(_priceController.text) ?? 0),
                                       onTap: isMasterBlocked
                                           ? null
                                           : () {

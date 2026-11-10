@@ -23,6 +23,8 @@ import 'package:stocker/utils/market_hours.dart';
 
 import 'package:stocker/config/practice_session.dart';
 import '../utils/wallet_category.dart';
+import '../utils/profit_hold.dart';
+import '../widgets/profit_hold_widgets.dart';
 import '../utils/script_order.dart';
 import 'package:stocker/widgets/page_wash.dart';
 class _NumberFormat {
@@ -2304,6 +2306,9 @@ class _OrdersPageState extends State<OrdersPage> {
                       ),
                     ],
                   ),
+                  // Profit-book hold: "Profit close in 6:41" while closing now
+                  // would be refused (in profit, inside the hold time).
+                  ProfitHoldChip(position: position),
                 ],
               ),
             ),
@@ -2480,6 +2485,27 @@ class _OrdersPageState extends State<OrdersPage> {
 
           // Determine opposite side based on net quantity
           final oppositeType = position.netQty > 0 ? 'SELL' : 'BUY';
+
+          // Profit-book hold (utils/profit_hold.dart): in profit inside the
+          // hold time the server refuses the close — say when instead.
+          if (!userProfile.isAdmin) {
+            final lock = profitHoldLock(
+              hold: position.profitHold,
+              netQty: position.netQty,
+              side: oppositeType,
+              orderType: 'MARKET',
+              price: 0,
+              bid: position.cmp,
+              ask: position.cmp,
+              qty: position.netQty.abs(),
+            );
+            if (lock != null) {
+              failCount++;
+              errors.add(
+                  '${position.tradingsymbol}: in profit — can close in ${formatHoldLeft(lock.left)} (profit book time)');
+              continue;
+            }
+          }
 
           // Place market order to close position
           final response = await apiService.post(

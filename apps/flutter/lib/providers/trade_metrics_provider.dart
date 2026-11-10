@@ -6,6 +6,7 @@ import 'package:stocker/services/api_service.dart';
 import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/utils/contants.dart';
 import 'package:stocker/utils/script_order.dart';
+import 'package:stocker/utils/profit_hold.dart';
 
 class PositionAgg {
   final String instrumentToken;
@@ -27,6 +28,10 @@ class PositionAgg {
   double realised = 0;
   double floating = 0;
   double positionMargin = 0;
+
+  /// Profit-book hold while part of the position is inside the client's hold
+  /// time (server profit_hold) — null = no timer (utils/profit_hold.dart).
+  ProfitHold? profitHold;
 
   PositionAgg({
     required this.instrumentToken,
@@ -171,6 +176,7 @@ class TradeMetricsProvider with ChangeNotifier {
             agg.positionMargin = (p['margin'] as num?)?.toDouble() ?? 0;
             agg.segment = p['segment'] ?? '';
             agg.lotSize = (p['lot_size'] as num?)?.toInt() ?? 1;
+            agg.profitHold = ProfitHold.fromJson(p['profit_hold']);
             return agg;
           }).toList();
           _sortPositions();
@@ -243,6 +249,7 @@ class TradeMetricsProvider with ChangeNotifier {
       agg.positionMargin = (p['margin'] as num?)?.toDouble() ?? 0;
       agg.segment = p['segment'] ?? '';
       agg.lotSize = (p['lot_size'] as num?)?.toInt() ?? 1;
+      agg.profitHold = ProfitHold.fromJson(p['profit_hold']);
       return agg;
     }).toList();
     _sortPositions();
