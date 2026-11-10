@@ -5,7 +5,8 @@
 // own); the chain always holds; raising a base lifts the whole tree below.
 
 jest.mock('../src/models/Master', () => ({ find: jest.fn(), findOne: jest.fn(), findById: jest.fn(), updateMany: jest.fn(), updateOne: jest.fn(), countDocuments: jest.fn() }));
-jest.mock('../src/models/User', () => ({ updateMany: jest.fn(), countDocuments: jest.fn() }));
+jest.mock('../src/models/User', () => ({ updateMany: jest.fn(), countDocuments: jest.fn(), find: jest.fn() }));
+jest.mock('../src/services/metricsEngine', () => ({ setProfitBookMinutes: jest.fn(async () => {}) }));
 jest.mock('../src/services/masterHierarchyService', () => ({ getAllSubMasterIds: jest.fn() }));
 
 const mongoose = require('mongoose');
@@ -13,6 +14,7 @@ const Master = require('../src/models/Master');
 const User = require('../src/models/User');
 const { getAllSubMasterIds } = require('../src/services/masterHierarchyService');
 const pbt = require('../src/utils/profitBookTime');
+const metricsEngine = require('../src/services/metricsEngine');
 const { setProfitBookBase, getProfitBookBase } = require('../src/controllers/profitBookBaseController');
 
 const lean = (v) => { const c = {}; c.select = jest.fn(() => c); c.session = jest.fn(() => c); c.lean = jest.fn(async () => v); return c; }; // query-like: select/session chain, lean resolves
@@ -37,7 +39,9 @@ test('liftTree raises every lower sub-master base and client time in the whole t
   Master.find.mockReturnValueOnce(lean([{ _id: 'sub1' }, { _id: 'sub2' }])).mockReturnValueOnce(lean([{ _id: 'subsub' }])).mockReturnValueOnce(lean([]));
   Master.updateMany.mockResolvedValue({ modifiedCount: 2 });
   User.updateMany.mockResolvedValue({ modifiedCount: 7 });
-  expect(await pbt.liftTree('top', 20)).toEqual({ masters: 2, clients: 7 });
+  User.find.mockReturnValue(lean([{ _id: 'c1' }, { _id: 'c2' }]));
+  expect(await pbt.liftTree('top', 20)).toEqual({ masters: 2, clients: 7, clientIds: ['c1', 'c2'] });
+  expect(User.find.mock.calls[0][0]).toEqual(User.updateMany.mock.calls[0][0]); // exactly the clients the raise lifts
   const [mf, mu] = Master.updateMany.mock.calls[0];
   expect(mf._id.$in).toEqual(['sub1', 'sub2', 'subsub']);
   expect(mf.$or[0]).toEqual({ profit_book_base_minutes: { $lt: 20 } });
@@ -73,10 +77,13 @@ test('raising a base sets it and lifts the tree in one transaction', async () =>
   Master.find.mockReturnValue(lean([]));
   Master.updateMany.mockResolvedValue({ modifiedCount: 0 });
   User.updateMany.mockResolvedValue({ modifiedCount: 4 });
+  User.find.mockReturnValue(lean([{ _id: 'u1' }, { _id: 'u2' }, { _id: 'u3' }, { _id: 'u4' }]));
   const r = res();
   await setProfitBookBase({ params: { masterId: ID(2) }, body: { minutes: 20 }, master: { id: ID(1) } }, r);
   expect(Master.updateOne).toHaveBeenCalledWith({ _id: ID(2) }, { $set: { profit_book_base_minutes: 20 } }, expect.anything());
-  expect(r.json.mock.calls[0][0].data).toEqual({ minutes: 20, previous: 10, lifted: { masters: 0, clients: 4 } });
+  expect(r.json.mock.calls[0][0].data).toEqual({ minutes: 20, previous: 10, lifted: { masters: 0, clients: 4 } }); // ids not sent out
+  // the lifted clients' live data (app hold timer) is refreshed after the commit
+  expect(metricsEngine.setProfitBookMinutes).toHaveBeenCalledWith(['u1', 'u2', 'u3', 'u4'], 20);
 });
 
 test('a top-level master has no floor (admin can set 0)', async () => {

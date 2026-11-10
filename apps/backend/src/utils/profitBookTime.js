@@ -96,10 +96,13 @@ async function liftTree(masterId, minutes, session = null) {
   const m = await Master.updateMany(
     { _id: { $in: desc }, $or: [{ profit_book_base_minutes: { $lt: minutes } }, { profit_book_base_minutes: null }] },
     { $set: { profit_book_base_minutes: minutes, updatedAt: now } }, opt);
-  const u = await User.updateMany(
-    { master_id: { $in: [masterId, ...desc] }, deleted_at: null, profit_book_minutes: { $lt: minutes } },
-    { $set: { profit_book_minutes: minutes, updatedAt: now } }, opt);
-  return { masters: m.modifiedCount, clients: u.modifiedCount };
+  const clientFilter = { master_id: { $in: [masterId, ...desc] }, deleted_at: null, profit_book_minutes: { $lt: minutes } };
+  // the clients this raise lifts — their live data is refreshed after the commit (profit_hold)
+  const cq = User.find(clientFilter).select('_id');
+  if (session) cq.session(session);
+  const clientIds = (await cq.lean()).map((c) => String(c._id));
+  const u = await User.updateMany(clientFilter, { $set: { profit_book_minutes: minutes, updatedAt: now } }, opt);
+  return { masters: m.modifiedCount, clients: u.modifiedCount, clientIds };
 }
 
 module.exports = {

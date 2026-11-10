@@ -19,9 +19,53 @@ const { dateRange, isPriceWeekendInIndia, getLatestDueSettlementFriday, toIndiaD
 const { allowedCategories, CATEGORY_ORDER } = require('../utils/walletCategory');
 const { GLOBAL_INDEX_NAMES } = require('../constants/massiveInstruments');
 const { sortByFillTime } = require('../utils/fillOrder');
+const { openLots } = require('../utils/freshStoplossHold');
+const { profitBookMinutesOf } = require('../utils/profitBookTime');
 
 /** Ticks are batched for at most this long before M2M / margin checks run. */
 const TICK_BATCH_MS = 100;
+
+
+/**
+ * Profit-book hold for the app (owner, 10 Nov 2026): while part of a position is
+ * still inside the client's profit-book time, the app shows the close button
+ * as a timer when the close would be IN PROFIT (closing at a loss is always
+ * allowed). Display only — the order check (tradeController
+ * _validateFreshStoplossHoldTime) decides, with the same openLots().
+ * Nothing is sent when the client has no hold time or every lot is free.
+ *   profit_hold: { minutes, avg, free_qty, lots: [{ qty, free_at }] }
+ *   avg = the exact open average (bid above it closes a BUY in profit, ask below it a SELL)
+ */
+function profitHoldOf(pos, minutes, now) {
+  if (!(minutes > 0) || !Array.isArray(pos.lots) || !pos.lots.length) return {};
+  // Free times only change with a trade (new lots) or new minutes — work them
+  // out once and reuse them on every tick (10 Nov 2026 load check).
+  if (!pos._holdTimes || pos._holdTimes.minutes !== minutes) {
+    const holdMs = minutes * 60000;
+    pos._holdTimes = {
+      minutes,
+      lots: pos.lots.map((l) => {
+        const freeAtMs = new Date(l.openedAt).getTime() + holdMs;
+        return { qty: l.qty, freeAtMs, free_at: new Date(freeAtMs).toISOString() };
+      }),
+    };
+  }
+  let freeQty = 0;
+  const locked = [];
+  for (const l of pos._holdTimes.lots) {
+    if (!(l.freeAtMs > now)) freeQty += l.qty;
+    else locked.push({ qty: l.qty, free_at: l.free_at });
+  }
+  if (!locked.length) return {};
+  return {
+    profit_hold: {
+      minutes,
+      avg: pos.netQty > 0 ? pos.avgBuy : pos.avgSell,
+      free_qty: freeQty,
+      lots: locked,
+    },
+  };
+}
 
 class MetricsEngine {
   constructor() {
@@ -211,7 +255,7 @@ class MetricsEngine {
       const activeUserIds = await Trade.distinct('user_id', { status: 'completed', deleted_at: null });
       const requestedUserIds = options.includeUserIds || [];
       const userIds = [...new Set([...activeUserIds, ...requestedUserIds].map(id => id.toString()))];
-      const users = await User.find({ _id: { $in: userIds }, deleted_at: null }).select('_id credits settled_pnl master_id wallet exchanges_allowed margin_square_off margin_square_off_percentage username active_status server_id').lean();
+      const users = await User.find({ _id: { $in: userIds }, deleted_at: null }).select('_id credits settled_pnl master_id wallet exchanges_allowed margin_square_off margin_square_off_percentage username active_status server_id profit_book_minutes').lean();
 
       // Build master hierarchy maps for broadcast aggregation. Also cache each
       // master's square-off config here (Task 11) so the master-aggregate path can
@@ -252,7 +296,7 @@ class MetricsEngine {
           username: user.username,
           active_status: user.active_status,
           server_id: user.server_id,
-        });
+        }, profitBookMinutesOf(user));
       }
 
       for (const userId of this._userCache.keys()) {
@@ -268,7 +312,7 @@ class MetricsEngine {
   /**
    * Rebuild cache for a single user.
    */
-  async _rebuildUserCache(userId, credit, settledPnl, masterId, wallet, exchangesAllowed, marginConfig) {
+  async _rebuildUserCache(userId, credit, settledPnl, masterId, wallet, exchangesAllowed, marginConfig, profitBookMinutes = 0) {
     try {
       // Normalize the wallet + allowed categories once so both cache branches
       // (flat/no-trades and the main aggregation) store identical shapes.
@@ -297,6 +341,7 @@ class MetricsEngine {
           wallet: walletBalances,
           allowedCategories: allowedCats,
           marginConfig: marginConfig || null,
+          profitBookMinutes,
         });
         return;
       }
@@ -307,9 +352,12 @@ class MetricsEngine {
 
       let totalFifoPnl = 0;
       let totalBrokerage = 0;
+      // Fills per script, for the profit-book hold lots (only when the client has a hold time).
+      const fillsByToken = profitBookMinutes > 0 ? {} : null;
 
       for (const t of trades) {
         const token = t.instrument_token.toString();
+        if (fillsByToken) (fillsByToken[token] || (fillsByToken[token] = [])).push(t);
         totalFifoPnl += (t.pnl || 0);
 
         // Skip brokerage for carry_forward and margin_square_off trades (system trades),
@@ -415,7 +463,9 @@ class MetricsEngine {
             avgSell: run.avgSell,
             segment: ki.segment || '',
             rawName: ki.raw_name || '',
-            lotSize: ki.lot_size || 1
+            lotSize: ki.lot_size || 1,
+            // [{ qty, openedAt }] oldest first — utils/freshStoplossHold.openLots, the order check's own function
+            lots: fillsByToken ? openLots(fillsByToken[token] || []) : null,
           });
 
           if (!this._tokenToUsers.has(token)) this._tokenToUsers.set(token, new Set());
@@ -433,6 +483,7 @@ class MetricsEngine {
         wallet: walletBalances,
         allowedCategories: allowedCats,
         marginConfig: marginConfig || null,
+        profitBookMinutes,
       });
     } catch (e) {
       console.error(`📊 [MetricsEngine] Error rebuilding cache for user ${userId}:`, e.message);
@@ -534,7 +585,8 @@ class MetricsEngine {
     const cache = this._userCache.get(userId);
     if (!cache) return null;
 
-    const { credit, settledPnl, openPositions, fifoPnl, brokerage, wallet, allowedCategories: allowedCats } = cache;
+    const { credit, settledPnl, openPositions, fifoPnl, brokerage, wallet, allowedCategories: allowedCats, profitBookMinutes } = cache;
+    const holdNow = Date.now();
     const walletBalances = wallet || Object.fromEntries(CATEGORY_ORDER.map((cat) => [cat, 0]));
     const allowed = allowedCats || [];
 
@@ -585,7 +637,8 @@ class MetricsEngine {
         floating_pnl: Math.round(floating * 100) / 100,
         margin: Math.round(positionMargin * 100) / 100,
         segment: pos.segment,
-        lot_size: pos.lotSize
+        lot_size: pos.lotSize,
+        ...profitHoldOf(pos, profitBookMinutes, holdNow),
       });
     }
 
@@ -935,7 +988,7 @@ class MetricsEngine {
   /**
    * Called after a trade is placed — invalidate and rebuild the affected user's cache.
    */
-  async onTradeExecuted(userId) {
+  async onTradeExecuted(userId, { weeklyReport = true } = {}) {
     if (!userId) return;
     try {
       // Find user to refresh full base state (credit, settledPnl, etc)
@@ -971,7 +1024,7 @@ class MetricsEngine {
         username: user.username,
         active_status: user.active_status,
         server_id: user.server_id,
-      });
+      }, profitBookMinutesOf(user));
       const metrics = this._computeUserMetrics(userId);
       if (metrics) {
         this._metricsCache.set(userId, metrics);
@@ -982,9 +1035,34 @@ class MetricsEngine {
       // call site that reaches onTradeExecuted() is a real trade-completion
       // event, so this is the one place that needs to know about it.
       // Fire-and-forget: never block trade execution on this.
-      require('./weeklyReportCache').refreshUserWeeklyAggregate(userId).catch(() => {});
+      if (weeklyReport) require('./weeklyReportCache').refreshUserWeeklyAggregate(userId).catch(() => {});
     } catch (err) {
       console.error(`📊 [MetricsEngine] Error refreshing user ${userId}:`, err.message);
+    }
+  }
+
+  /**
+   * Clients' profit-book time changed in bulk (a master's base raise lifts its
+   * tree — utils/profitBookTime.liftTree): their live position data must show
+   * the new hold at once (profit_hold). Only clients with live data are
+   * touched; when their hold lots are already built it is just the number,
+   * otherwise (they had no hold time before) one rebuild. Never throws.
+   */
+  async setProfitBookMinutes(userIds, minutes) {
+    for (const id of (userIds || []).map(String)) {
+      const cache = this._userCache.get(id);
+      if (!cache || cache.profitBookMinutes === minutes) continue;
+      try {
+        if (cache.profitBookMinutes > 0) {
+          cache.profitBookMinutes = minutes;
+          const metrics = this._computeUserMetrics(id);
+          if (metrics) { this._metricsCache.set(id, metrics); this._broadcastUserMetrics(id, metrics); }
+        } else {
+          await this.onTradeExecuted(id, { weeklyReport: false });
+        }
+      } catch (e) {
+        console.error(`📊 [MetricsEngine] profit book refresh failed for ${id}:`, e.message);
+      }
     }
   }
 
@@ -1254,7 +1332,7 @@ class MetricsEngine {
 
     // No cache — rebuild this user's data and compute
     try {
-      const user = await User.findById(userId).select('credits settled_pnl master_id wallet exchanges_allowed').lean();
+      const user = await User.findById(userId).select('credits settled_pnl master_id wallet exchanges_allowed profit_book_minutes').lean();
       if (!user) return null;
 
       // Clear old token→user mappings for this user
@@ -1263,7 +1341,7 @@ class MetricsEngine {
         if (users.size === 0) this._tokenToUsers.delete(token);
       }
 
-      await this._rebuildUserCache(userId, user.credits || 0, user.settled_pnl || 0, user.master_id?.toString(), user.wallet, user.exchanges_allowed);
+      await this._rebuildUserCache(userId, user.credits || 0, user.settled_pnl || 0, user.master_id?.toString(), user.wallet, user.exchanges_allowed, undefined, profitBookMinutesOf(user));
 
       const metrics = this._computeUserMetrics(userId);
       if (metrics) {

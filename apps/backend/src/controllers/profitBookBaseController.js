@@ -68,6 +68,10 @@ const setProfitBookBase = async (req, res) => {
       lifted = await liftTree(r.master._id, minutes, session);
     });
     console.log(`⏱️  [ProfitBookBase] ${r.master.username}: ${before} -> ${minutes} min by ${req.admin ? 'admin' : 'master'} ${req.admin?.id || req.master?.id}; lifted ${lifted.masters} sub-master(s), ${lifted.clients} client(s)`);
+    // After the commit: the lifted clients' live data shows the new hold at once (app timer). Background.
+    const liftedIds = lifted.clientIds || [];
+    delete lifted.clientIds;
+    if (liftedIds.length) require('../services/metricsEngine').setProfitBookMinutes(liftedIds, minutes).catch(() => {});
     res.json({
       success: true,
       message: `Base profit book time set to ${minutes} min${lifted.masters || lifted.clients ? ` — raised ${lifted.clients} client(s) and ${lifted.masters} sub-master(s) to it` : ''}`,
