@@ -1,4 +1,5 @@
-﻿import 'dart:convert';
+﻿import '../views/broker_home_view.dart';
+import 'dart:convert';
 import 'dart:io';
 import 'package:stocker/equity/eq_api.dart' show isCashRole;
 import 'package:stocker/equity/eq_home.dart';
@@ -155,6 +156,20 @@ class _LoginPageState extends State<LoginPage> {
             apiService.setInitializing(false);
             setState(() => _isLoading = false);
             _showTotpDialog();
+            return;
+          }
+
+          // Broker login (12 Nov 2026): his own view-only screens (earnings +
+          // linked clients) — none of the F&O data below is loaded for him.
+          if ('${response.data?['role']}'.toUpperCase() == 'BROKER') {
+            apiService.setInitializing(false);
+            setState(() => _isLoading = false);
+            if (!mounted) return;
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => const BrokerHomeView()),
+              (route) => false,
+            );
             return;
           }
 

@@ -1,4 +1,4 @@
-﻿import 'package:stocker/services/auth_service.dart' show kBrokerLoginMessage;
+﻿import 'package:stocker/views/broker_home_view.dart';
 import 'package:flutter/material.dart';
 import 'package:stocker/equity/eq_api.dart' show isCashRole;
 import 'package:stocker/equity/eq_home.dart';
@@ -49,16 +49,6 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
 
   Future<void> _switchTo(SavedAccount account) async {
     if (account.key == _activeKey || _switching) return;
-    // Broker logins are web-only (12 Nov 2026): drop a saved one instead of switching to it.
-    if (account.role.toUpperCase() == 'BROKER') {
-      await _multiAccount.removeAccount(account.key);
-      await _loadAccounts();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(kBrokerLoginMessage), backgroundColor: Colors.red),
-      );
-      return;
-    }
 
     setState(() => _switching = true);
 
@@ -82,6 +72,16 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
       await _multiAccount.setActiveKey(account.key);
 
       if (!mounted) return;
+
+      // Broker login (12 Nov 2026): his own view-only screens, no F&O loads.
+      if (account.role.toUpperCase() == 'BROKER') {
+        Navigator.of(context).pop(); // close sheet
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const BrokerHomeView()),
+          (route) => false,
+        );
+        return;
+      }
 
       // Equity (NSE cash) account: the equity app, no F&O loads.
       if (isCashRole(account.role)) {

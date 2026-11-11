@@ -1,4 +1,5 @@
-﻿import 'dart:developer';
+﻿import 'views/broker_home_view.dart';
+import 'dart:developer';
 import 'dart:io';
 import 'package:stocker/equity/eq_api.dart' show isCashRole;
 import 'package:stocker/equity/eq_home.dart';
@@ -122,17 +123,10 @@ class _InitialScreenState extends State<InitialScreen> {
           return;
         }
 
-        // A broker session saved by an older build (12 Nov 2026): brokers sign in on
-        // the web portal only — clear it, drop it from the account list, go to login.
+        // Saved broker session (12 Nov 2026): his own view-only screens, no F&O loads.
         if ((await _storage.getRole())?.toUpperCase() == 'BROKER') {
-          await _storage.deleteToken();
-          await _storage.deleteRole();
-          final multi = MultiAccountService();
-          for (final a in await multi.getSavedAccounts()) {
-            if (a.role.toUpperCase() == 'BROKER') await multi.removeAccount(a.key);
-          }
           if (!mounted) return;
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginPage()));
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const BrokerHomeView()));
           return;
         }
 

@@ -50,10 +50,6 @@ class AuthenticationResponse {
   }
 }
 
-/// Shown when a broker signs in on the app — broker logins work on the web portal only.
-const String kBrokerLoginMessage =
-    'This is a broker login. Brokers sign in on the web portal — the app is for clients, masters and admins.';
-
 class AuthService {
   final ApiService api;
   final SecureStorageService storage = SecureStorageService();
@@ -94,14 +90,6 @@ class AuthService {
           try {
             Map<String, dynamic> payload = Jwt.parseJwt(token);
             String tokenRole = payload['role'] ?? '';
-            // Broker logins (12 Nov 2026) are web-only: the app has no broker
-            // screens, and every client route refuses a broker token — never
-            // let one in as a client, never save it to the account list.
-            if (tokenRole.toUpperCase() == 'BROKER') {
-              await storage.deleteToken();
-              await storage.deleteRole();
-              return AuthenticationResponse(success: false, message: kBrokerLoginMessage, data: null);
-            }
             // Convert to uppercase to match the role parameter
             await storage.saveRole(role: tokenRole.toUpperCase());
             log('Saved role from token: ${tokenRole.toUpperCase()}');
@@ -124,6 +112,7 @@ class AuthService {
               name: authResponse.data['user']?['name'] ??
                   authResponse.data['master']?['name'] ??
                   authResponse.data['admin']?['username'] ??
+                  authResponse.data['broker']?['name'] ??
                   data.username,
             );
             // The account-switcher list is saved in the background — the
@@ -136,11 +125,6 @@ class AuthService {
           } catch (e) {
             log('Error decoding JWT: $e');
             // Fallback to the role returned from the backend if JWT decode fails
-            if ('${authResponse.data['role']}'.toUpperCase() == 'BROKER') {
-              await storage.deleteToken();
-              await storage.deleteRole();
-              return AuthenticationResponse(success: false, message: kBrokerLoginMessage, data: null);
-            }
             if (authResponse.data['role'] != null) {
               await storage.saveRole(role: authResponse.data['role']);
             }
