@@ -39,6 +39,8 @@ import 'manage_reports_view.dart';
 import '../utils/wallet_category.dart';
 import 'package:stocker/widgets/page_wash.dart';
 import '../utils/account_label.dart';
+import '../services/broker_service.dart';
+import 'broker_share_view.dart';
 class UsernameView extends StatefulWidget {
   final Master? master;
   final User? user;
@@ -126,6 +128,25 @@ class _UsernameViewState extends State<UsernameView> {
       _fetchUserList();
       _fetchSubMasterList();
     }
+    _checkBrokerAccess();
+  }
+
+  // Broker sharing (11 Nov 2026): admin always; a master only when "Brokers allowed".
+  bool _brokerAccess = false;
+  Future<void> _checkBrokerAccess() async {
+    final profile = Provider.of<UserProfileProvider>(context, listen: false);
+    if (!profile.isAdmin && !profile.isMaster) return;
+    final ok = await BrokerService(isAdmin: profile.isAdmin).allowed();
+    if (mounted && ok) setState(() => _brokerAccess = true);
+  }
+
+  /// "Broker" row: admin on any client or sub-master; a master only on his DIRECT ones.
+  bool _showBrokerRow(UserProfileProvider profile) {
+    if (!_brokerAccess || profile.isWatchOnlyAdmin) return false;
+    final parent = _currentUser?.masterId ?? _currentMaster?.masterId;
+    if (profile.isAdmin) return _currentUser != null || (parent != null && parent.isNotEmpty);
+    final me = profile.master?.id;
+    return me != null && parent == me;
   }
 
   @override
@@ -821,6 +842,16 @@ class _UsernameViewState extends State<UsernameView> {
                 _settingRow(kIconBrokerageSettings, 'Brk Settings'),
                 _settingRow(kIconIntradaySquareoff, 'Intraday SquareOff'),
                 _settingRow(kIconSharingDetails, 'Sharing Details'),
+                if (_showBrokerRow(
+                    Provider.of<UserProfileProvider>(context, listen: false)))
+                  _settingRow(Icons.handshake_outlined, 'Broker'),
+                if (_currentMaster != null &&
+                    _brokerAccess &&
+                    Provider.of<UserProfileProvider>(context, listen: false)
+                        .isAdmin &&
+                    !Provider.of<UserProfileProvider>(context, listen: false)
+                        .isWatchOnlyAdmin)
+                  _settingRow(Icons.verified_user_outlined, 'Brokers Allowed'),
                 _settingRow(kIconScriptQuantity, 'Script Quantity Setting',
                     isLast: _currentMaster == null),
                 if (_currentMaster != null)
@@ -2539,6 +2570,27 @@ class _UsernameViewState extends State<UsernameView> {
             MaterialPageRoute(
                 builder: (_) => SharingDetailsView(
                     master: _currentMaster, user: _currentUser)));
+        break;
+      case 'Broker':
+        Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => AccountBrokerView(
+                    kind: _currentUser != null ? 'client' : 'master',
+                    id: _currentUser?.id ?? _currentMaster!.id,
+                    name: accountLabel(_currentUser?.name ?? _currentMaster!.name,
+                        _currentUser?.username ?? _currentMaster!.username),
+                    isAdmin: Provider.of<UserProfileProvider>(context,
+                            listen: false)
+                        .isAdmin)));
+        break;
+      case 'Brokers Allowed':
+        Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => BrokersAllowedView(
+                    masterId: _currentMaster!.id,
+                    masterName: _currentMaster!.name)));
         break;
       case 'Rejection Log':
         Navigator.push(

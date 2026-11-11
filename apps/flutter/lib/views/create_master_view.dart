@@ -18,6 +18,7 @@ import '../widgets/create_for_master_picker.dart';
 import '../utils/comex_rate.dart';
 import 'package:stocker/widgets/page_wash.dart';
 import '../utils/account_label.dart';
+import 'broker_share_view.dart';
 
 // Form text on this screen (owner, 10 Nov 2026): darker and a little bolder
 // than the app-wide muted grey, which was hard to read here.
@@ -984,6 +985,20 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             _showSnack(
                 comexErr == null ? 'Master created successfully' : 'Master created, but COMEX rate: $comexErr',
                 isError: comexErr != null);
+            // Broker sharing (11 Nov 2026): a broker only on a sub-master (one
+            // with a parent) — admin creating under a master, or a master
+            // creating his own DIRECT sub-master.
+            if (createdId != null &&
+                (profileProvider.isAdmin ? _forMaster != null : _forMaster == null)) {
+              if (!mounted) return;
+              await offerBrokerForNewAccount(context,
+                  kind: 'master',
+                  id: createdId,
+                  name: accountLabel(_nameController.text.trim(),
+                      _usernameController.text.trim()),
+                  isAdmin: profileProvider.isAdmin);
+            }
+            if (!mounted) return;
             Navigator.pop(context, true);
           }
         } else {

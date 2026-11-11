@@ -21,6 +21,7 @@ import '../widgets/create_for_master_picker.dart';
 import '../utils/comex_rate.dart';
 import 'package:stocker/widgets/page_wash.dart';
 import '../utils/account_label.dart';
+import 'broker_share_view.dart';
 
 // Form text on this screen (owner, 10 Nov 2026): darker and a little bolder
 // than the app-wide muted grey, which was hard to read here.
@@ -1267,6 +1268,19 @@ class _CreateUserViewState extends State<CreateUserView> {
           _showSnack(widget.user != null
               ? 'User updated successfully'
               : 'User created successfully');
+        }
+        // Broker sharing (11 Nov 2026): offer a broker for the new client —
+        // admin always; a master only for his own DIRECT client.
+        if (widget.user == null &&
+            createdUserId != null &&
+            (profileProvider.isAdmin || _forMaster == null)) {
+          await offerBrokerForNewAccount(context,
+              kind: 'client',
+              id: createdUserId,
+              name: accountLabel(_nameController.text.trim(),
+                  _usernameController.text.trim()),
+              isAdmin: profileProvider.isAdmin);
+          if (!mounted) return;
         }
         Navigator.pop(context, true);
       } else {

@@ -26,6 +26,8 @@ import '../pages/account_switcher_sheet.dart';
 import '../widgets/announcement_banner.dart';
 import 'package:stocker/config/practice_session.dart';
 import '../utils/contants.dart';
+import '../services/broker_service.dart';
+import '../views/broker_share_view.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -41,6 +43,8 @@ class _ProfilePageState extends State<ProfilePage> {
   // Equity (NSE cash) entry for admin — only while equity is switched on (server answers /cash-eq/me).
   bool _equityOn = false;
   bool _isMaster = false;
+  // Broker sharing (11 Nov 2026): admin always; a master only when "Brokers allowed".
+  bool _brokersAllowed = false;
   bool _isLoggingOut = false;
   int _savedAccountCount = 0;
 
@@ -80,6 +84,10 @@ class _ProfilePageState extends State<ProfilePage> {
         _isMaster = isMaster;
       });
       log('✅ Profile page - State updated: _isAdmin: $_isAdmin, _isMaster: $_isMaster');
+    }
+    if (isAdmin || isMaster) {
+      final ok = await BrokerService(isAdmin: isAdmin).allowed();
+      if (mounted && ok != _brokersAllowed) setState(() => _brokersAllowed = ok);
     }
     if (isAdmin && mounted) {
       try {
@@ -556,6 +564,15 @@ class _ProfilePageState extends State<ProfilePage> {
                               svgPath: kIconReports),
                           _buildDivider(),
                         ],
+                        // Broker sharing (11 Nov 2026): admin, or a master the admin allowed.
+                        if (_brokersAllowed &&
+                            !Provider.of<InvestorModeProvider>(context,
+                                    listen: false)
+                                .isInvestor) ...[
+                          _buildMenuItem(context, 'Brokers',
+                              icon: Icons.handshake_outlined),
+                          _buildDivider(),
+                        ],
                         if (_isMaster) ...[
                           _buildMenuItem(context, 'Manage Reports',
                               icon: Icons.description_outlined),
@@ -650,6 +667,12 @@ class _ProfilePageState extends State<ProfilePage> {
                   context,
                   MaterialPageRoute(
                       builder: (context) => const LoginHistoryView()),
+                );
+              } else if (title == 'Brokers') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => BrokersView(isAdmin: _isAdmin)),
                 );
               } else if (title == 'Reports') {
                 Navigator.push(
