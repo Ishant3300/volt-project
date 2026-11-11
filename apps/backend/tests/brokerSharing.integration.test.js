@@ -107,6 +107,7 @@ describeIntegration('broker sharing on a local MongoDB', () => {
     app.post('/admin/brokers/:id/links', asAdmin, admin.addLink);
     app.post('/admin/brokers/:id/master-links', asAdmin, admin.addMasterLink);
     app.get('/admin/brokers/limits', asAdmin, admin.getLimits);
+    app.get('/admin/brokers/client-rates/:userId', asAdmin, admin.clientRates);
     app.get('/admin/brokers/:id/statement', asAdmin, admin.getStatement);
     app.put('/admin/broker-access/:masterId', asAdmin, admin.setAccess);
     const m = require('../src/controllers/masterBrokerController');
@@ -243,6 +244,29 @@ describeIntegration('broker sharing on a local MongoDB', () => {
   test('FIRST PRIORITY: every report is exactly the same after all of the above', async () => {
     const after = await allReports();
     expect(after).toEqual(before);
+  });
+
+  test('limits count only scripts that trade: a hidden dead script still at 2 does not cut the room (12 Nov 2026)', async () => {
+    // Owner case: client set to 6 on every VISIBLE script, but a hidden dead script
+    // (no active instrument, hidden in Brk Settings) kept 2 -> "client pays 2-6", room 0.
+    const db = mongoose.connection.db;
+    // >= 100 active names, else the guard treats everything as trading (broken sync).
+    await db.collection('kiteinstruments').insertMany(Array.from({ length: 100 }, (_, i) => ({
+      _id: oid(), instrument_token: `9${i}`, tradingsymbol: `LIVE${i}FUT`, exchange: 'NFO', segment: 'NFO-FUT', raw_name: `LIVE${i}`, name: `LIVE${i}`, lot_size: 1, is_active: true, deleted_at: null,
+    })));
+    await db.collection('brokeragesettings').insertOne({ _id: oid(), user_id: ids.ab, exchange_name: 'NFO-FUT', script_name: 'DEADSTOCK', type: 'TURNOVER WISE', brk_value: 2, deleted_at: null });
+    require('../src/utils/hideNonTrading')._resetCache();
+
+    const lim = await request(app).get('/admin/brokers/limits').query({ user_id: String(ids.ab) });
+    expect(lim.body.data.segments[0]).toMatchObject({ segment: 'NFO-FUT', x_max: 6, below: { min: 8, max: 8 } });
+    const cr = await request(app).get(`/admin/brokers/client-rates/${ids.ab}`);
+    expect(cr.body.data.segments[0].client).toMatchObject({ min: 8, max: 8 });
+
+    // The same script once it trades again counts again.
+    await db.collection('kiteinstruments').insertOne({ _id: oid(), instrument_token: '777', tradingsymbol: 'DEADSTOCK26NOVFUT', exchange: 'NFO', segment: 'NFO-FUT', raw_name: 'DEADSTOCK', name: 'DEADSTOCK', lot_size: 1, is_active: true, deleted_at: null });
+    require('../src/utils/hideNonTrading')._resetCache();
+    const lim2 = await request(app).get('/admin/brokers/limits').query({ user_id: String(ids.ab) });
+    expect(lim2.body.data.segments[0]).toMatchObject({ x_max: 0, below: { min: 2, max: 8 } });
   });
 
   test('code guard: the ledger, weekly, settlement, sharing, brokerage and metrics code never reads broker data', () => {

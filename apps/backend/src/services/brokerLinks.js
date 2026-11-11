@@ -37,12 +37,22 @@ function summarize(rows, segment) {
   return { type, min: Math.min(...values), max: Math.max(...values) };
 }
 
+/**
+ * An account's brokerage rows for the broker limits — only scripts that trade
+ * somewhere (12 Nov 2026). Rows of scripts in no active instrument (dropped F&O
+ * stocks, MCX agri…) are hidden from the Brk Settings lists, so "apply to all"
+ * never changes them; they can never earn brokerage, so they must not pull the
+ * broker's room down (a client set to 6 on every visible script showed "2–6").
+ * Same filter as the settings lists (utils/hideNonTrading).
+ */
 async function rowsOf(ownerId, { globalFallback = false } = {}) {
+  const { withoutNonTrading } = require('../utils/hideNonTrading');
   const fields = 'type exchange_name brk_value';
-  let rows = await BrokerageSettings.find({ user_id: ownerId, deleted_at: null }).select(fields).lean();
+  const find = async (filter) => BrokerageSettings.find(await withoutNonTrading(BrokerageSettings, filter, 'script_name')).select(fields).lean();
+  let rows = await find({ user_id: ownerId, deleted_at: null });
   let usesGlobal = false;
   if (globalFallback && rows.length === 0) {
-    rows = await BrokerageSettings.find({ user_id: null, deleted_at: null }).select(fields).lean();
+    rows = await find({ user_id: null, deleted_at: null });
     usesGlobal = true;
   }
   return { rows, usesGlobal };

@@ -241,11 +241,16 @@ const clientRates = async (req, res) => {
     if (hidden && hidden.has(String(user.master_id))) return fail(res, 404, 'Client not found');
     const master = user.master_id ? await Master.findById(user.master_id).select('username name').lean() : null;
 
+    // Only scripts that trade somewhere — the same rows the Brk Settings lists show
+    // (utils/hideNonTrading, 12 Nov 2026): a hidden dead script's old rate must not
+    // show as "client pays 2–6" when every visible script is 6.
+    const { withoutNonTrading } = require('../utils/hideNonTrading');
     const ruleFields = 'type exchange_name brk_value';
-    let clientRows = await BrokerageSettings.find({ user_id: user._id, deleted_at: null }).select(ruleFields).lean();
+    const rowsFor = async (filter) => BrokerageSettings.find(await withoutNonTrading(BrokerageSettings, filter, 'script_name')).select(ruleFields).lean();
+    let clientRows = await rowsFor({ user_id: user._id, deleted_at: null });
     const usesGlobal = clientRows.length === 0;
-    if (usesGlobal) clientRows = await BrokerageSettings.find({ user_id: null, deleted_at: null }).select(ruleFields).lean();
-    const masterRows = master ? await BrokerageSettings.find({ user_id: master._id, deleted_at: null }).select(ruleFields).lean() : [];
+    if (usesGlobal) clientRows = await rowsFor({ user_id: null, deleted_at: null });
+    const masterRows = master ? await rowsFor({ user_id: master._id, deleted_at: null }) : [];
 
     const summarize = (rows, segment) => {
       const mine = rows.filter((r) => normSegment(r.exchange_name) === segment);
