@@ -231,13 +231,18 @@ async function buildStatement({ clientLinks = [], masterLinks = [], weeks }) {
   const payingIds = [...new Set([...users.map((u) => String(u.master_id)), ...subMasters.map((m) => String(m.master_id))].filter((id) => id && id !== 'null' && id !== 'undefined'))];
   const paying = await Master.find({ _id: { $in: payingIds } }).select('name username').lean();
   const payingById = new Map(paying.map((m) => [String(m._id), m]));
-  // Clients of each linked sub-master's tree (for the broker's rate field on its fills).
+  // Clients of a master's whole tree (for the broker's rate field on its fills). Cached.
+  const usersUnderCache = new Map();
+  const usersUnder = async (masterId) => {
+    if (!usersUnderCache.has(masterId)) {
+      const ids = await getAllSubMasterIds(masterId);
+      const u = await User.find({ master_id: { $in: ids }, deleted_at: null }).select('_id').lean();
+      usersUnderCache.set(masterId, u.map((x) => String(x._id)));
+    }
+    return usersUnderCache.get(masterId);
+  };
   const treeUsers = new Map();
-  for (const m of subMasters) {
-    const ids = await getAllSubMasterIds(String(m._id));
-    const u = await User.find({ master_id: { $in: ids }, deleted_at: null }).select('_id').lean();
-    treeUsers.set(String(m._id), u.map((x) => String(x._id)));
-  }
+  for (const m of subMasters) treeUsers.set(String(m._id), await usersUnder(String(m._id)));
 
   const out = [];
   for (const week of weeks) {
@@ -306,12 +311,45 @@ async function buildStatement({ clientLinks = [], masterLinks = [], weeks }) {
         pnlPct: link.pnl_share_pct,
         brkPct: link.brk_share_pct,
       });
+      // Account by account, like the Ledger: the SAME weekly report from S's own view
+      // (as_master_id = S) — one row per S's client and per sub-master under S. Each row
+      // gets the same split; per row belowClear = broker_brokerage (S's own rate on that
+      // row's volume). Linear, so the rows add up to the S line above.
+      const sRows = [...(await reportRows(mid)).values()];
+      const rowOfUser = new Map();
+      for (const r of sRows) {
+        if (r.type === 'user') rowOfUser.set(String(r.id), String(r.id));
+        else for (const uid of await usersUnder(String(r.id))) rowOfUser.set(uid, String(r.id));
+      }
+      const fillsByRow = new Map();
+      for (const f of fills) {
+        const k = rowOfUser.get(String(f.user_id));
+        if (!k) continue;
+        if (!fillsByRow.has(k)) fillsByRow.set(k, []);
+        fillsByRow.get(k).push(f);
+      }
+      const accounts = sRows
+        .filter((r) => (Number(r.total_pnl) || 0) !== 0 || (Number(r.brokerage) || 0) !== 0)
+        .map((r) => ({
+          target: { type: r.type === 'user' ? 'client' : 'master', id: String(r.id), name: r.name, username: r.username },
+          ...brokerWeekSplit({
+            totalPnl: r.total_pnl,
+            totalBrk: r.brokerage,
+            belowClear: r.broker_brokerage,
+            belowBrkPct: s.brokerage_sharing,
+            belowPnlPct: s.pnl_sharing,
+            x: xFromFills(fillsByRow.get(String(r.id)) || [], link.rates, instruments, false),
+            pnlPct: link.pnl_share_pct,
+            brkPct: link.brk_share_pct,
+          }),
+        }));
       weekRows.push({
         target: { type: 'master', id: mid, name: s.name, username: s.username },
         paying_master: shape(payingById.get(String(s.master_id))),
         broker_id: String(link.broker_id),
         settings: settingsOf(link),
         ...split,
+        accounts,
       });
     }
 

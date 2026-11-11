@@ -186,6 +186,15 @@ describeIntegration('broker sharing on a local MongoDB', () => {
       // with the broker 29.25 - 15.6 = 13.65 -> the broker's 29.25 is exactly what Harish gives up.
       expect(s.pnl).toEqual({ total: 5000, below: 1500, self: 1000, upline: 2500 });
       expect(s.brokerage).toMatchObject({ total: 156, below: 97.5, self: 29.25, upline: 29.25 });
+      // Account by account (S's own Ledger rows): every client of S listed, and they add up to the S line.
+      expect(s.accounts.length).toBeGreaterThan(0);
+      expect(s.accounts.every((a) => a.target && a.target.id && ['client', 'master'].includes(a.target.type))).toBe(true);
+      for (const part of ['pnl', 'brokerage']) {
+        for (const k of ['total', 'below', 'self', 'upline']) {
+          expect(s.accounts.reduce((acc, a) => acc + a[part][k], 0)).toBeCloseTo(s[part][k], 2);
+        }
+      }
+      expect(s.accounts.reduce((acc, a) => acc + a.net, 0)).toBeCloseTo(s.net, 2);
       expect(w.totals.net).toBeCloseTo(1578 + 1029.25, 2);
     }
   });
