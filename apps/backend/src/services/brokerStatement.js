@@ -195,7 +195,8 @@ function xFromFills(fills, rates, instruments, capPerFill) {
     if (t.trade_type === 'carry_forward' || t.brokerage_exempt) continue;
     const inst = instruments.get(String(t.instrument_token)) || {};
     const segment = normSegment(inst.segment || '');
-    const rate = (rates || []).find((r) => normSegment(r.segment) === segment);
+    // The most specific rate for this script: script > Index/Stock > segment (12 Nov 2026).
+    const rate = require('./brokerRates').pickRate(rates, segment, inst.raw_name);
     if (!rate || !(rate.value > 0)) continue;
     x += brokerShare({
       type: rate.type,
@@ -372,8 +373,8 @@ async function buildStatement({ clientLinks = [], masterLinks = [], weeks }) {
 async function instrumentMap(KiteInstrument, fills) {
   const tokens = [...new Set(fills.map((t) => t.instrument_token))];
   if (tokens.length === 0) return new Map();
-  const insts = await KiteInstrument.find({ instrument_token: { $in: tokens } }).select('instrument_token segment lot_size').lean();
-  return new Map(insts.map((i) => [String(i.instrument_token), { segment: i.segment, lot_size: i.lot_size }]));
+  const insts = await KiteInstrument.find({ instrument_token: { $in: tokens } }).select('instrument_token segment lot_size raw_name name').lean();
+  return new Map(insts.map((i) => [String(i.instrument_token), { segment: i.segment, lot_size: i.lot_size, raw_name: i.raw_name || i.name }]));
 }
 const shape = (m) => (m ? { id: String(m._id), name: m.name, username: m.username } : null);
 const settingsOf = (l) => ({ rates: l.rates || [], pnl_share_pct: Number(l.pnl_share_pct) || 0, brk_share_pct: Number(l.brk_share_pct) || 0, from: l.from, to: l.to });

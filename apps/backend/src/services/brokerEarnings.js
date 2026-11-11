@@ -44,7 +44,7 @@ function brokerShare({ type, value, price, quantity, lotSize, brokerage, exempt 
  *
  * links:       [{ _id, broker_id, user_id, rates: [{ segment, type, value }], from, to }]
  * trades:      completed fills of the linked clients
- * instruments: Map instrument_token -> { segment, lot_size }
+ * instruments: Map instrument_token -> { segment, lot_size, raw_name? }
  */
 function computeBrokerEarnings({ links, trades, instruments, from, to }) {
   const linksByUser = new Map();
@@ -65,7 +65,9 @@ function computeBrokerEarnings({ links, trades, instruments, from, to }) {
     if (!link) continue;
     const inst = instruments.get(String(trade.instrument_token)) || instruments.get(Number(trade.instrument_token)) || {};
     const segment = normSegment(inst.segment || trade.segment || trade.exchange);
-    const rate = (link.rates || []).find((r) => normSegment(r.segment) === segment);
+    // The most specific rate for this script (script > Index/Stock > segment), 12 Nov 2026.
+    const { pickRate, rateKey } = require('./brokerRates');
+    const rate = pickRate(link.rates, segment, inst.raw_name || inst.name);
     if (!rate || !(rate.value > 0)) continue;
 
     const share = brokerShare({
@@ -80,11 +82,11 @@ function computeBrokerEarnings({ links, trades, instruments, from, to }) {
     // A special-session fill (Sunday Muhurat) belongs to the week after it.
     const followingMonday = require('../utils/specialSessions').followingMondayYmd(at);
     const week = followingMonday ? weekStartIST(new Date(`${followingMonday}T12:00:00+05:30`)) : weekStartIST(at);
-    const key = `${link._id}|${segment}|${week.getTime()}`;
+    const key = `${link._id}|${rateKey(rate)}|${week.getTime()}`;
     let row = rows.get(key);
     if (!row) {
       row = { broker_id: String(link.broker_id), link_id: String(link._id), user_id: String(link.user_id), segment,
-        type: rate.type, value: rate.value, week_start: week, fills: 0, turnover: 0, lots: 0, amount: 0, capped_fills: 0 };
+        type: rate.type, value: rate.value, category: rate.category || null, script: rate.script ? String(rate.script).toUpperCase() : null, week_start: week, fills: 0, turnover: 0, lots: 0, amount: 0, capped_fills: 0 };
       rows.set(key, row);
     }
     row.fills++;

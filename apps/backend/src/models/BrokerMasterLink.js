@@ -18,6 +18,10 @@ const rateSchema = new mongoose.Schema({
   segment: { type: String, required: true, trim: true, uppercase: true },
   type: { type: String, required: true, enum: ['TURNOVER WISE', 'LOT WISE'] },
   value: { type: Number, required: true, min: 0 },
+  // Optional narrower scope (12 Nov 2026): an NFO Index / Stock rate, or one script's
+  // rate (MCX). The most specific matching rate applies to a fill (services/brokerRates).
+  category: { type: String, enum: ['INDEX', 'STOCK', null], default: null },
+  script: { type: String, trim: true, uppercase: true, default: null },
 }, { _id: false });
 
 const brokerMasterLinkSchema = new mongoose.Schema({

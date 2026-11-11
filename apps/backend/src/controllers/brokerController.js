@@ -318,8 +318,8 @@ const getEarnings = async (req, res) => {
     }).select('user_id instrument_token segment exchange executed_price executed_quantity quantity executed_at createdAt brokerage brokerage_exempt').lean();
 
     const tokens = [...new Set(trades.map((t) => t.instrument_token))];
-    const insts = await KiteInstrument.find({ instrument_token: { $in: tokens } }).select('instrument_token segment lot_size').lean();
-    const instruments = new Map(insts.map((i) => [String(i.instrument_token), { segment: i.segment, lot_size: i.lot_size }]));
+    const insts = await KiteInstrument.find({ instrument_token: { $in: tokens } }).select('instrument_token segment lot_size raw_name name').lean();
+    const instruments = new Map(insts.map((i) => [String(i.instrument_token), { segment: i.segment, lot_size: i.lot_size, raw_name: i.raw_name || i.name }]));
 
     const rows = computeBrokerEarnings({ links, trades, instruments, from, to });
     res.status(200).json({ success: true, data: { from, to, rows } });

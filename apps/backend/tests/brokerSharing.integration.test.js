@@ -269,6 +269,84 @@ describeIntegration('broker sharing on a local MongoDB', () => {
     expect(lim2.body.data.segments[0]).toMatchObject({ x_max: 0, below: { min: 2, max: 8 } });
   });
 
+  test('Index / Stock broker rates: limits measured script by script, saved and refused (12 Nov 2026)', async () => {
+    const db = mongoose.connection.db;
+    // Drop the dead-script row of the test above; give AB a stock: RELIANCE 10 vs Harish 3.
+    await db.collection('brokeragesettings').updateMany({ script_name: 'DEADSTOCK' }, { $set: { deleted_at: new Date() } });
+    await db.collection('kiteinstruments').insertOne({ _id: oid(), instrument_token: '888', tradingsymbol: 'RELIANCE26NOVFUT', exchange: 'NFO', segment: 'NFO-FUT', raw_name: 'RELIANCE', name: 'RELIANCE', lot_size: 1, is_active: true, deleted_at: null });
+    await db.collection('brokeragesettings').insertMany([
+      { _id: oid(), user_id: ids.ab, exchange_name: 'NFO-FUT', script_name: 'RELIANCE', type: 'TURNOVER WISE', brk_value: 10, deleted_at: null },
+      { _id: oid(), user_id: ids.harish, exchange_name: 'NFO-FUT', script_name: 'RELIANCE', type: 'TURNOVER WISE', brk_value: 3, deleted_at: null },
+    ]);
+    require('../src/utils/hideNonTrading')._resetCache();
+
+    const lim = (await request(app).get('/admin/brokers/limits').query({ user_id: String(ids.ab) })).body.data.segments[0];
+    // NIFTY 8 − 2 = 6 (Index); RELIANCE 10 − 3 = 7 (Stock); the whole segment = the smaller, 6.
+    expect(lim).toMatchObject({ segment: 'NFO-FUT', x_max: 6, categories: { INDEX: { x_max: 6 }, STOCK: { x_max: 7 } } });
+    expect(lim.scripts).toBeUndefined(); // NFO has Index / Stock, not per-script
+
+    const tooMuch = await request(app).post(`/admin/brokers/${adminBroker}/links`).send({
+      user_id: String(ids.ab), rates: [{ segment: 'NFO-FUT', category: 'STOCK', value: 7.5 }],
+    });
+    expect(tooMuch.status).toBe(400);
+    expect(tooMuch.body.message).toMatch(/NFO-FUT Stock: the broker can get at most 7/);
+    const ok = await request(app).post(`/admin/brokers/${adminBroker}/links`).send({
+      user_id: String(ids.ab), rates: [{ segment: 'NFO-FUT', category: 'INDEX', value: 3 }, { segment: 'NFO-FUT', category: 'STOCK', value: 7 }],
+    });
+    expect(ok.status).toBe(201);
+    const list = (await request(app).get('/admin/brokers').catch(() => null)) || null;
+    void list;
+    const saved = await db.collection('brokerclientlinks').findOne({ user_id: ids.ab, to: null });
+    expect(saved.rates.map((r) => [r.segment, r.category, r.script, r.value])).toEqual([['NFO-FUT', 'INDEX', null, 3], ['NFO-FUT', 'STOCK', null, 7]]);
+  });
+
+  test('rate picker + per-script limits: script > Index/Stock > segment; MCX per script (12 Nov 2026)', () => {
+    const { pickRate } = require('../src/services/brokerRates');
+    const rates = [
+      { segment: 'NFO-FUT', type: 'TURNOVER WISE', value: 1 },
+      { segment: 'NFO-FUT', type: 'TURNOVER WISE', value: 3, category: 'INDEX' },
+      { segment: 'MCX-FUT', type: 'LOT WISE', value: 50 },
+      { segment: 'MCX-FUT', type: 'LOT WISE', value: 150, script: 'gold' },
+    ];
+    expect(pickRate(rates, 'NFO-FUT', 'BANKNIFTY').value).toBe(3); // Index
+    expect(pickRate(rates, 'NFO-FUT', 'RELIANCE').value).toBe(1); // no Stock rate -> segment
+    expect(pickRate(rates, 'MCX-FUT', 'GOLD').value).toBe(150); // script
+    expect(pickRate(rates, 'MCX-FUT', 'SILVER').value).toBe(50); // segment
+    expect(pickRate(rates, 'NFO-OPT', 'NIFTY')).toBeNull();
+
+    // Statement amount uses the picked rate: 1,000 x 100 on BANKNIFTY at 3 paisa = 30; 10 lots GOLD at 150 = 1,500.
+    const { xFromFills } = require('../src/services/brokerStatement');
+    const instruments = new Map([['1', { segment: 'NFO-FUT', lot_size: 15, raw_name: 'BANKNIFTY' }], ['2', { segment: 'MCX-FUT', lot_size: 1, raw_name: 'GOLD' }], ['3', { segment: 'MCX-FUT', lot_size: 1, raw_name: 'SILVER' }]]);
+    const fills = [
+      { instrument_token: '1', executed_price: 100, executed_quantity: 1000, brokerage: 999 },
+      { instrument_token: '2', executed_price: 70000, executed_quantity: 10, brokerage: 99999 },
+      { instrument_token: '3', executed_price: 90000, executed_quantity: 2, brokerage: 99999 },
+    ];
+    expect(xFromFills(fills, rates, instruments, true)).toBeCloseTo(30 + 1500 + 100, 6);
+
+    // The old brokerage-share view: one row per rate, with its scope.
+    const { computeBrokerEarnings } = require('../src/services/brokerEarnings');
+    const link = { _id: 'L', broker_id: 'B', user_id: 'U', rates, from: new Date('2026-01-01'), to: null };
+    const at = new Date('2026-11-10T06:00:00Z');
+    const rows = computeBrokerEarnings({ links: [link], trades: fills.map((f) => ({ ...f, user_id: 'U', executed_at: at })), instruments, from: new Date('2026-11-01'), to: new Date('2026-11-20') });
+    expect(rows.map((r) => [r.segment, r.category, r.script, r.amount]).sort()).toEqual([
+      ['MCX-FUT', null, 'GOLD', 1500], ['MCX-FUT', null, null, 100], ['NFO-FUT', 'INDEX', null, 30],
+    ].sort());
+
+    // Per-script limits through cleanSettings: GOLD room 200, SILVER room 0.
+    const { cleanSettings } = require('../src/services/brokerLinks');
+    const limits = {
+      target: { name: 'X' }, paying_master: { name: 'M' }, pnl_max: 90, brk_max: 60,
+      segments: [{ segment: 'MCX-FUT', type: 'LOT WISE', x_max: 0, scripts: [{ script: 'GOLD', below: 500, paying: 300, x_max: 200 }, { script: 'SILVER', below: 300, paying: 300, x_max: 0 }] }],
+    };
+    expect(cleanSettings({ rates: [{ segment: 'MCX-FUT', script: 'gold', value: 200 }] }, limits).rates).toEqual([{ segment: 'MCX-FUT', type: 'LOT WISE', value: 200, script: 'GOLD' }]);
+    expect(() => cleanSettings({ rates: [{ segment: 'MCX-FUT', script: 'SILVER', value: 1 }] }, limits)).toThrow(/MCX-FUT SILVER: the broker can get at most 0/);
+    expect(() => cleanSettings({ rates: [{ segment: 'MCX-FUT', value: 1 }] }, limits)).toThrow(/at most 0/); // whole segment: SILVER has no room
+    expect(() => cleanSettings({ rates: [{ segment: 'MCX-FUT', script: 'ZINC', value: 1 }] }, limits)).toThrow(/not a script this account trades/);
+    expect(() => cleanSettings({ rates: [{ segment: 'MCX-FUT', category: 'INDEX', value: 1 }] }, limits)).toThrow(/no Index \/ Stock split/);
+    expect(() => cleanSettings({ rates: [{ segment: 'MCX-FUT', script: 'GOLD', value: 1 }, { segment: 'MCX-FUT', script: 'GOLD', value: 2 }] }, limits)).toThrow(/listed twice/);
+  });
+
   test('code guard: the ledger, weekly, settlement, sharing, brokerage and metrics code never reads broker data', () => {
     const fs = require('fs');
     const protectedFiles = [
