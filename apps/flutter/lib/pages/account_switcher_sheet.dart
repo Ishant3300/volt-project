@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'package:stocker/services/auth_service.dart' show kBrokerLoginMessage;
+import 'package:flutter/material.dart';
 import 'package:stocker/equity/eq_api.dart' show isCashRole;
 import 'package:stocker/equity/eq_home.dart';
 import 'package:provider/provider.dart';
@@ -48,6 +49,16 @@ class _AccountSwitcherSheetState extends State<AccountSwitcherSheet> {
 
   Future<void> _switchTo(SavedAccount account) async {
     if (account.key == _activeKey || _switching) return;
+    // Broker logins are web-only (12 Nov 2026): drop a saved one instead of switching to it.
+    if (account.role.toUpperCase() == 'BROKER') {
+      await _multiAccount.removeAccount(account.key);
+      await _loadAccounts();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(kBrokerLoginMessage), backgroundColor: Colors.red),
+      );
+      return;
+    }
 
     setState(() => _switching = true);
 

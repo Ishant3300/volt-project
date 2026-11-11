@@ -122,6 +122,20 @@ class _InitialScreenState extends State<InitialScreen> {
           return;
         }
 
+        // A broker session saved by an older build (12 Nov 2026): brokers sign in on
+        // the web portal only — clear it, drop it from the account list, go to login.
+        if ((await _storage.getRole())?.toUpperCase() == 'BROKER') {
+          await _storage.deleteToken();
+          await _storage.deleteRole();
+          final multi = MultiAccountService();
+          for (final a in await multi.getSavedAccounts()) {
+            if (a.role.toUpperCase() == 'BROKER') await multi.removeAccount(a.key);
+          }
+          if (!mounted) return;
+          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginPage()));
+          return;
+        }
+
         // Saved equity (NSE cash) session: straight into the equity app, no F&O loads.
         if (isCashRole(await _storage.getRole())) {
           if (!mounted) return;
