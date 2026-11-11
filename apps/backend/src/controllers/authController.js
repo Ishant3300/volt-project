@@ -516,6 +516,13 @@ const universalLogin = async (req, res) => {
       if (cash) return res.status(cash.status).json(cash.body);
     }
 
+    // Broker view logins (brokerView/auth.js) — tried last, so a broker
+    // username can never shadow any other account (owner, 11 Nov 2026).
+    if (!userAccount) {
+      const broker = await require('../brokerView/auth').tryLogin(username, password, req);
+      if (broker) return res.status(broker.status).json(broker.body);
+    }
+
     if (!userAccount) {
       console.log(`🔐 [LOGIN] No match found for username="${username}" in any collection`);
       return res.status(401).json({

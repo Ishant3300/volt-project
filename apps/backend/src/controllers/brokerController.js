@@ -33,7 +33,7 @@ async function hiddenSet(req) {
   return hidden ? new Set([...hidden].map(String)) : null;
 }
 
-function cleanRates(raw) {
+function cleanRates(raw, { allowNone = false } = {}) {
   if (!Array.isArray(raw)) return { error: 'rates must be a list of { segment, type, value }' };
   const out = [];
   const seen = new Set();
@@ -48,7 +48,7 @@ function cleanRates(raw) {
     seen.add(segment);
     if (value > 0) out.push({ segment, type, value });
   }
-  if (out.length === 0) return { error: 'Enter a broker share for at least one segment' };
+  if (out.length === 0 && !allowNone) return { error: 'Enter a broker share for at least one segment' };
   return { rates: out };
 }
 
@@ -72,6 +72,7 @@ const listBrokers = async (req, res) => {
       note: b.note,
       status: b.status,
       created_at: b.createdAt,
+      login: { username: b.username || null, enabled: !!b.login_enabled, last_login: b.last_login || null },
       links: links
         .filter((l) => String(l.broker_id) === String(b._id))
         .map((l) => {
@@ -171,7 +172,8 @@ const addLink = async (req, res) => {
     const hidden = await hiddenSet(req);
     if (hidden && hidden.has(String(user.master_id))) return fail(res, 404, 'Client not found');
 
-    const { rates, error } = cleanRates(req.body.rates);
+    // view_only: the broker only sees the client (broker view), no brokerage share.
+    const { rates, error } = cleanRates(req.body.view_only === true ? [] : req.body.rates, { allowNone: req.body.view_only === true });
     if (error) return fail(res, 400, error);
     const from = req.body.from ? new Date(req.body.from) : new Date();
     if (Number.isNaN(from.getTime())) return fail(res, 400, 'Invalid start date');
@@ -317,4 +319,53 @@ const getEarnings = async (req, res) => {
   }
 };
 
-module.exports = { listBrokers, createBroker, updateBroker, deleteBroker, addLink, endLink, clientRates, getEarnings };
+/**
+ * PUT /admin/brokers/:id/login  { username?, password?, enabled? } — the broker
+ * view login (brokerView/). The username must be free across every kind of
+ * account; a new password or switching the login off ends the broker's sessions.
+ */
+const setLogin = async (req, res) => {
+  try {
+    if (!isId(req.params.id)) return fail(res, 400, 'Invalid broker id');
+    const broker = await Broker.findOne({ _id: req.params.id, deleted_at: null }).select('+password');
+    if (!broker) return fail(res, 404, 'Broker not found');
+    const { username, password, enabled } = req.body || {};
+    let endSessions = false;
+
+    if (username !== undefined) {
+      const name = String(username || '').trim();
+      if (!/^[A-Za-z0-9._-]{3,30}$/.test(name)) return fail(res, 400, 'Username: 3-30 letters, digits, dot, dash or underscore');
+      // EQ… usernames belong to equity accounts (they have their own login) — never used here,
+      // so F&O code never has to look at equity data (equity and F&O stay apart).
+      if (/^EQ/i.test(name)) return fail(res, 400, 'Usernames starting with EQ are reserved for equity accounts');
+      if (name !== broker.username) {
+        const Admin = require('../models/Admin');
+        const taken = (await Admin.exists({ username: name })) || (await Master.exists({ username: name })) || (await User.exists({ username: name }))
+          || (await Broker.exists({ _id: { $ne: broker._id }, username: name }));
+        if (taken) return fail(res, 409, 'That username is already used by another account');
+        broker.username = name;
+        endSessions = true;
+      }
+    }
+    if (password !== undefined) {
+      const pw = String(password || '');
+      if (pw.length < 6) return fail(res, 400, 'Password must be at least 6 characters');
+      broker.password = await require('bcryptjs').hash(pw, 10);
+      endSessions = true;
+    }
+    if (enabled !== undefined) {
+      const on = enabled === true;
+      if (on && (!broker.username || !broker.password)) return fail(res, 400, 'Set a username and password before turning the login on');
+      if (!on && broker.login_enabled) endSessions = true;
+      broker.login_enabled = on;
+    }
+    if (endSessions) broker.session_since = new Date();
+    await broker.save();
+    res.status(200).json({ success: true, data: { id: String(broker._id), username: broker.username, enabled: !!broker.login_enabled } });
+  } catch (error) {
+    if (error && error.code === 11000) return fail(res, 409, 'That username is already used by another account');
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+};
+
+module.exports = { listBrokers, createBroker, updateBroker, deleteBroker, addLink, endLink, clientRates, getEarnings, setLogin };

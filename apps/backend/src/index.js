@@ -193,6 +193,7 @@ app.use('/api/master/messages', messageRoutes);
 app.use('/api/servers', serverRoutes); // Server routes
 app.use('/api/trade', tradeRoutes); // Trade & Metrics routes
 app.use('/api/cash-eq', require('./cashEq/routes')); // Equity (NSE cash): own collections, off unless cashEq:enabled
+app.use('/api/broker', require('./brokerView/routes')); // Broker view: read-only, broker logins only (11 Nov 2026)
 
 // Self login history (accessible by all roles)
 const { authenticateAny } = require('./middlewares/auth');

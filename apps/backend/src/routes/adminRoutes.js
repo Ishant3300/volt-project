@@ -973,6 +973,7 @@ router.post('/brokers', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.cre
 router.put('/brokers/:id', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.updateBroker);
 router.delete('/brokers/:id', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.deleteBroker);
 router.post('/brokers/:id/links', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.addLink);
+router.put('/brokers/:id/login', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.setLogin); // broker view login (11 Nov 2026)
 
 // Admin → Transfer Accounts: move clients to another master (9 Nov 2026).
 router.use('/account-transfers', require('./accountTransferRoutes'));
