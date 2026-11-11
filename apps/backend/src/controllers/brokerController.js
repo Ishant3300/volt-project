@@ -58,8 +58,13 @@ const listBrokers = async (req, res) => {
     const hidden = await hiddenSet(req);
     const brokers = await Broker.find({ deleted_at: null }).sort({ name: 1 }).lean();
     const links = await BrokerClientLink.find({ broker_id: { $in: brokers.map((b) => b._id) } }).sort({ from: -1 }).lean();
+    const masterLinks = await require('../models/BrokerMasterLink').find({ broker_id: { $in: brokers.map((b) => b._id) } }).sort({ from: -1 }).lean();
     const users = await User.find({ _id: { $in: links.map((l) => l.user_id) } }).select('username name master_id deleted_at').lean();
-    const masterIds = [...new Set([...users.map((u) => String(u.master_id)), ...links.map((l) => String(l.master_id))])].filter(isId);
+    const masterIds = [...new Set([
+      ...users.map((u) => String(u.master_id)), ...links.map((l) => String(l.master_id)),
+      ...masterLinks.map((l) => String(l.target_master_id)), ...masterLinks.map((l) => String(l.parent_master_id)),
+      ...brokers.map((b) => String(b.owner_master_id)),
+    ])].filter(isId);
     const masters = await Master.find({ _id: { $in: masterIds } }).select('username name').lean();
     const userById = new Map(users.map((u) => [String(u._id), u]));
     const masterById = new Map(masters.map((m) => [String(m._id), m]));
@@ -83,11 +88,27 @@ const listBrokers = async (req, res) => {
             client: u ? { id: String(u._id), username: u.username, name: u.name, deleted: !!u.deleted_at } : { id: String(l.user_id), username: '?', name: '?' },
             master: shape(master),
             rates: l.rates,
+            pnl_share_pct: Number(l.pnl_share_pct) || 0,
+            brk_share_pct: Number(l.brk_share_pct) || 0,
             from: l.from,
             to: l.to,
           };
         })
         .filter((l) => !(hidden && l.master && hidden.has(l.master.id))),
+      master_links: masterLinks
+        .filter((l) => String(l.broker_id) === String(b._id))
+        .map((l) => ({
+          id: String(l._id),
+          sub_master: shape(masterById.get(String(l.target_master_id))),
+          master: shape(masterById.get(String(l.parent_master_id))),
+          rates: l.rates,
+          pnl_share_pct: Number(l.pnl_share_pct) || 0,
+          brk_share_pct: Number(l.brk_share_pct) || 0,
+          from: l.from,
+          to: l.to,
+        }))
+        .filter((l) => !(hidden && ((l.master && hidden.has(l.master.id)) || (l.sub_master && hidden.has(l.sub_master.id))))),
+      owner_master: shape(masterById.get(String(b.owner_master_id))),
     }));
     res.status(200).json({ success: true, data });
   } catch (error) {
@@ -172,35 +193,18 @@ const addLink = async (req, res) => {
     const hidden = await hiddenSet(req);
     if (hidden && hidden.has(String(user.master_id))) return fail(res, 404, 'Client not found');
 
-    // view_only: the broker only sees the client (broker view), no brokerage share.
-    const { rates, error } = cleanRates(req.body.view_only === true ? [] : req.body.rates, { allowNone: req.body.view_only === true });
-    if (error) return fail(res, 400, error);
-    const from = req.body.from ? new Date(req.body.from) : new Date();
-    if (Number.isNaN(from.getTime())) return fail(res, 400, 'Invalid start date');
-
-    const open = await BrokerClientLink.findOne({ user_id: user._id, to: null });
-    if (open && open.from >= from) {
-      return fail(res, 409, 'This client already has a broker from that date or later — choose a later start date, or end that link first.');
-    }
-    const later = await BrokerClientLink.findOne({ user_id: user._id, to: { $gt: from } }).lean();
-    if (later && (!open || String(later._id) !== String(open._id))) {
-      return fail(res, 409, 'The start date overlaps an earlier broker period for this client — choose a later start date.');
-    }
-    if (open) {
-      open.to = from;
-      open.ended_by = adminId(req);
-      await open.save();
-    }
-    const link = await BrokerClientLink.create({
-      broker_id: broker._id,
-      user_id: user._id,
-      master_id: user.master_id || null,
-      rates,
-      from,
-      created_by: adminId(req),
+    // Broker share (rate field per segment, P&L %, brokerage %) inside the limits of
+    // the client's master's own part (services/brokerLinks.js). view_only / all 0 =
+    // the broker only sees the client. Tracking only — nothing else reads these.
+    const link = await require('../services/brokerLinks').addClientLink({
+      brokerId: broker._id,
+      userId: user._id,
+      body: req.body,
+      actor: { adminId: adminId(req) },
     });
     res.status(201).json({ success: true, data: { id: String(link._id) } });
   } catch (error) {
+    if (error.status) return fail(res, error.status, error.message);
     res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
@@ -368,4 +372,130 @@ const setLogin = async (req, res) => {
   }
 };
 
-module.exports = { listBrokers, createBroker, updateBroker, deleteBroker, addLink, endLink, clientRates, getEarnings, setLogin };
+/* ---------------------------------------------------------------- broker sharing (11 Nov 2026) */
+
+/** POST /admin/brokers/:id/master-links  { master_id, rates, pnl_share_pct, brk_share_pct, from?, view_only? } */
+const addMasterLink = async (req, res) => {
+  try {
+    if (!isId(req.params.id)) return fail(res, 400, 'Invalid broker id');
+    if (!isId(req.body.master_id)) return fail(res, 400, 'Select a sub-master');
+    const broker = await Broker.findOne({ _id: req.params.id, deleted_at: null }).lean();
+    if (!broker) return fail(res, 404, 'Broker not found');
+    const hidden = await hiddenSet(req);
+    const sub = await Master.findOne({ _id: req.body.master_id, deleted_at: null }).select('master_id').lean();
+    if (!sub || (hidden && (hidden.has(String(sub._id)) || hidden.has(String(sub.master_id))))) return fail(res, 404, 'Sub-master not found');
+    const link = await require('../services/brokerLinks').addMasterLink({ brokerId: broker._id, masterId: sub._id, body: req.body, actor: { adminId: adminId(req) } });
+    res.status(201).json({ success: true, data: { id: String(link._id) } });
+  } catch (error) {
+    if (error.status) return fail(res, error.status, error.message);
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+};
+
+/** PUT /admin/brokers/master-links/:linkId/end  { to? } */
+const endMasterLink = async (req, res) => {
+  try {
+    if (!isId(req.params.linkId)) return fail(res, 400, 'Invalid link id');
+    const link = await require('../models/BrokerMasterLink').findOne({ _id: req.params.linkId, to: null });
+    if (!link) return fail(res, 404, 'Open broker link not found');
+    const to = req.body.to ? new Date(req.body.to) : new Date();
+    if (Number.isNaN(to.getTime()) || to < link.from) return fail(res, 400, 'Invalid end date');
+    link.to = to;
+    link.ended_by = adminId(req);
+    await link.save();
+    res.status(200).json({ success: true, data: { id: String(link._id) } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+};
+
+/** GET /admin/brokers/limits?user_id= | ?master_id= — what a broker may get there (for the forms). */
+const getLimits = async (req, res) => {
+  try {
+    const svc = require('../services/brokerLinks');
+    const hidden = await hiddenSet(req);
+    let data;
+    if (isId(req.query.user_id)) data = await svc.clientLimits(req.query.user_id);
+    else if (isId(req.query.master_id)) data = await svc.subMasterLimits(req.query.master_id);
+    else return fail(res, 400, 'user_id or master_id is required');
+    if (hidden && (hidden.has(data.paying_master.id) || (data.kind === 'master' && hidden.has(data.target.id)))) return fail(res, 404, 'Not found');
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    if (error.status) return fail(res, error.status, error.message);
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+};
+
+/** GET /admin/brokers/:id/statement?weeks= — the broker's weekly statement (services/brokerStatement.js). */
+const getStatement = async (req, res) => {
+  try {
+    if (!isId(req.params.id)) return fail(res, 400, 'Invalid broker id');
+    const broker = await Broker.findOne({ _id: req.params.id, deleted_at: null }).lean();
+    if (!broker) return fail(res, 404, 'Broker not found');
+    const data = await statementFor({ brokerId: broker._id, weeksAsked: req.query.weeks, hidden: await hiddenSet(req) });
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+};
+
+/** Shared by the admin, master and broker statement routes. onlyPayingMaster: a master sees only links paid from his part. */
+async function statementFor({ brokerId, weeksAsked, hidden = null, onlyPayingMaster = null }) {
+  const BrokerMasterLink = require('../models/BrokerMasterLink');
+  const { buildStatement, weekWindows } = require('../services/brokerStatement');
+  let clientLinks = await BrokerClientLink.find({ broker_id: brokerId }).lean();
+  let masterLinks = await BrokerMasterLink.find({ broker_id: brokerId }).lean();
+  if (hidden || onlyPayingMaster) {
+    const users = await User.find({ _id: { $in: clientLinks.map((l) => l.user_id) } }).select('master_id').lean();
+    const masterOf = new Map(users.map((u) => [String(u._id), String(u.master_id)]));
+    const subs = await Master.find({ _id: { $in: masterLinks.map((l) => l.target_master_id) } }).select('master_id').lean();
+    const parentOf = new Map(subs.map((m) => [String(m._id), String(m.master_id)]));
+    clientLinks = clientLinks.filter((l) => {
+      const m = masterOf.get(String(l.user_id));
+      return (!hidden || !hidden.has(m)) && (!onlyPayingMaster || m === String(onlyPayingMaster));
+    });
+    masterLinks = masterLinks.filter((l) => {
+      const p = parentOf.get(String(l.target_master_id));
+      return (!hidden || (!hidden.has(p) && !hidden.has(String(l.target_master_id)))) && (!onlyPayingMaster || p === String(onlyPayingMaster));
+    });
+  }
+  const all = [...clientLinks, ...masterLinks];
+  if (all.length === 0) return { weeks: [] };
+  const since = all.reduce((m, l) => (new Date(l.from) < m ? new Date(l.from) : m), new Date());
+  const max = Math.min(Math.max(Number(weeksAsked) || 8, 1), 26);
+  return buildStatement({ clientLinks, masterLinks, weeks: weekWindows({ since, max }) });
+}
+
+/** GET /admin/broker-access — masters allowed to use brokers. */
+const listAccess = async (req, res) => {
+  try {
+    const rows = await require('../models/MasterBrokerAccess').find({ allowed: true }).select('master_id updatedAt').lean();
+    res.status(200).json({ success: true, data: rows.map((r) => ({ master_id: String(r.master_id), since: r.updatedAt })) });
+  } catch (error) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+};
+
+/** PUT /admin/broker-access/:masterId  { allowed } — "Brokers allowed" for one master. */
+const setAccess = async (req, res) => {
+  try {
+    if (!isId(req.params.masterId)) return fail(res, 400, 'Invalid master id');
+    const master = await Master.findOne({ _id: req.params.masterId, deleted_at: null }).select('_id').lean();
+    const hidden = await hiddenSet(req);
+    if (!master || (hidden && hidden.has(String(master._id)))) return fail(res, 404, 'Master not found');
+    const allowed = req.body.allowed === true;
+    await require('../models/MasterBrokerAccess').updateOne(
+      { master_id: master._id },
+      { $set: { allowed, updated_by: adminId(req) } },
+      { upsert: true },
+    );
+    res.status(200).json({ success: true, data: { master_id: String(master._id), allowed } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+};
+
+module.exports = {
+  listBrokers, createBroker, updateBroker, deleteBroker, addLink, endLink, clientRates, getEarnings, setLogin,
+  addMasterLink, endMasterLink, getLimits, getStatement, listAccess, setAccess, statementFor,
+};

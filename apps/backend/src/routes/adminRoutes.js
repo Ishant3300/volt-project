@@ -968,11 +968,18 @@ const brokerCtl = require('../controllers/brokerController');
 router.get('/brokers', authenticateAdmin, brokerCtl.listBrokers);
 router.get('/brokers/earnings', authenticateAdmin, brokerCtl.getEarnings);
 router.get('/brokers/client-rates/:userId', authenticateAdmin, brokerCtl.clientRates);
+// Broker sharing (11 Nov 2026) — tracking only (services/brokerStatement.js, brokerLinks.js).
+router.get('/brokers/limits', authenticateAdmin, brokerCtl.getLimits);
+router.put('/brokers/master-links/:linkId/end', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.endMasterLink);
+router.get('/broker-access', authenticateAdmin, brokerCtl.listAccess);
+router.put('/broker-access/:masterId', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.setAccess);
 router.put('/brokers/links/:linkId/end', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.endLink);
 router.post('/brokers', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.createBroker);
 router.put('/brokers/:id', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.updateBroker);
 router.delete('/brokers/:id', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.deleteBroker);
 router.post('/brokers/:id/links', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.addLink);
+router.post('/brokers/:id/master-links', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.addMasterLink);
+router.get('/brokers/:id/statement', authenticateAdmin, brokerCtl.getStatement);
 router.put('/brokers/:id/login', authenticateAdmin, rejectIfAdminWatchOnly, brokerCtl.setLogin); // broker view login (11 Nov 2026)
 
 // Admin → Transfer Accounts: move clients to another master (9 Nov 2026).

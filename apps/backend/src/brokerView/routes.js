@@ -10,6 +10,7 @@ const ctl = require('./controller');
 const router = express.Router();
 router.use(requireBroker, readOnly);
 router.get('/me', ctl.me);
+router.get('/statement', ctl.statement);
 router.get('/clients', ctl.clients);
 router.get('/clients/:userId', ctl.clientMetrics);
 router.get('/clients/:userId/trades', ctl.clientTrades);

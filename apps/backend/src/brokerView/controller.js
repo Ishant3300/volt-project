@@ -47,17 +47,28 @@ function runHandler(handler, req, query) {
   });
 }
 
+/** Clients linked to the broker now: his open client links + every client of a sub-master linked to him now. */
 async function linkedUserIds(brokerId) {
   const links = await BrokerClientLink.find({ broker_id: brokerId, to: null }).select('user_id').lean();
-  return links.map((l) => String(l.user_id));
+  const ids = new Set(links.map((l) => String(l.user_id)));
+  const mlinks = await require('../models/BrokerMasterLink').find({ broker_id: brokerId, to: null }).select('target_master_id').lean();
+  if (mlinks.length) {
+    const { getAllSubMasterIds } = require('../services/masterHierarchyService');
+    for (const l of mlinks) {
+      const tree = await getAllSubMasterIds(String(l.target_master_id));
+      const users = await User.find({ master_id: { $in: tree }, deleted_at: null }).select('_id').lean();
+      for (const u of users) ids.add(String(u._id));
+    }
+  }
+  return [...ids];
 }
 
 /** The client must be linked to this broker right now — else 404 (never "exists but not yours"). */
 async function assertLinked(req, res) {
   const userId = String(req.params.userId || '');
   if (!isId(userId)) { fail(res, 400, 'Invalid client'); return null; }
-  const link = await BrokerClientLink.exists({ broker_id: req.broker.id, user_id: userId, to: null });
-  if (!link) { fail(res, 404, 'Client not found'); return null; }
+  const linked = await linkedUserIds(req.broker.id);
+  if (!linked.includes(userId)) { fail(res, 404, 'Client not found'); return null; }
   const user = await User.findOne({ _id: userId, deleted_at: null }).select('name username master_id').lean();
   if (!user) { fail(res, 404, 'Client not found'); return null; }
   return user;
@@ -198,4 +209,15 @@ const clientBillData = async (req, res) => {
   }
 };
 
-module.exports = { me, clients, clientMetrics, clientTrades, clientBillData, _private: { runHandler } };
+/** GET /api/broker/statement?weeks= — the broker's own earnings (services/brokerStatement.js), view only. */
+const statement = async (req, res) => {
+  try {
+    const data = await require('../controllers/brokerController').statementFor({ brokerId: req.broker.id, weeksAsked: req.query.weeks });
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error('[BrokerView] statement:', error.message);
+    fail(res, 500, 'Could not load the statement');
+  }
+};
+
+module.exports = { me, clients, clientMetrics, clientTrades, clientBillData, statement, _private: { runHandler } };

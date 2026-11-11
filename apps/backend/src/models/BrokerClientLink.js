@@ -23,6 +23,14 @@ const brokerClientLinkSchema = new mongoose.Schema({
   // The client's master when the link was made — display only.
   master_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Master', default: null },
   rates: { type: [rateSchema], default: [] },
+  // Broker sharing (owner, 11 Nov 2026) — tracking only, see services/brokerStatement.js:
+  // the broker's % of the client's Total P&L (profit and loss) and his % of the brokerage
+  // left after his own share above. Both come out of the client's master's own part;
+  // nothing in the ledger, weekly, settlement or brokerage code reads them.
+  pnl_share_pct: { type: Number, default: 0, min: 0, max: 100 },
+  brk_share_pct: { type: Number, default: 0, min: 0, max: 100 },
+  // Set when a master (allowed by admin) made the link; created_by is the admin otherwise.
+  created_by_master: { type: mongoose.Schema.Types.ObjectId, ref: 'Master', default: null },
   from: { type: Date, required: true },
   to: { type: Date, default: null },
   created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'Admin', default: null },

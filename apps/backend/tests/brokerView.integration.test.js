@@ -155,8 +155,10 @@ describeIntegration('broker view on a local MongoDB', () => {
   });
 
   test('a view-only link needs no brokerage share', async () => {
-    const without = await request(app).post(`/api/admin/brokers/${ids.broker}/links`).send({ user_id: String(ids.ended), rates: [] });
-    expect(without.status).toBe(400);
+    // 11 Nov 2026 (broker sharing): no share at all (0 / 0 / 0) is a valid view-only link now; a share
+    // above the limits is refused (tests/brokerSharing.integration.test.js).
+    const tooMuch = await request(app).post(`/api/admin/brokers/${ids.broker}/links`).send({ user_id: String(ids.ended), pnl_share_pct: 101 });
+    expect(tooMuch.status).toBe(400);
     const viewOnly = await request(app).post(`/api/admin/brokers/${ids.broker}/links`).send({ user_id: String(ids.ended), view_only: true });
     expect(viewOnly.status).toBe(201);
     const res = await request(app).get('/api/broker/clients').set('Authorization', `Bearer ${token}`);

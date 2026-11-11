@@ -188,6 +188,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/kite', kiteRoutes);
 app.use('/api/watchlist', watchlistRoutes);
 app.use('/api/masters', masterRoutes);
+app.use('/api/master/brokers', require('./routes/masterBrokerRoutes')); // Brokers for allowed masters (11 Nov 2026), tracking only
 app.use('/api/master', masterFlowRoutes); // Master Flow routes
 app.use('/api/master/messages', messageRoutes);
 app.use('/api/servers', serverRoutes); // Server routes
