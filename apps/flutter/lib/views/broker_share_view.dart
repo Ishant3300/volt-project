@@ -111,22 +111,50 @@ Widget _button(String text, VoidCallback? onTap, {bool primary = false}) => Size
 
 /* ------------------------------------------------------------- settings form */
 
+/// One broker rate as text: "NFO-FUT Index 3 paisa", "MCX-FUT GOLD 150 ₹/lot".
+String brokerRateText(Map r) {
+  final cat = r['category'];
+  final script = r['script'];
+  final scope = script != null && '$script'.isNotEmpty
+      ? ' $script'
+      : (cat == 'INDEX' ? ' Index' : (cat == 'STOCK' ? ' Stock' : ''));
+  return '${r['segment']}$scope ${_pct(r['value'])} ${_unit(r['type'])}';
+}
+
 /// The three settings for one account, checked against the server's limits.
+/// Rates: per segment, plus Index / Stock (NFO) or per script (MCX) when the
+/// limits offer them — the most specific one applies to a fill (server).
 class BrokerSettingsDraft {
   final TextEditingController pnl = TextEditingController();
   final TextEditingController brk = TextEditingController();
   final Map<String, TextEditingController> rates = {};
+  final Map<String, TextEditingController> _category = {}; // 'SEG|INDEX'
+  final Map<String, TextEditingController> _script = {}; // 'SEG|GOLD'
+  final Set<String> customized = {};
 
   TextEditingController rate(String segment) => rates.putIfAbsent(segment, () => TextEditingController());
+  TextEditingController category(String segment, String cat) => _category.putIfAbsent('$segment|$cat', () => TextEditingController());
+  TextEditingController script(String segment, String name) => _script.putIfAbsent('$segment|${name.toUpperCase()}', () => TextEditingController());
 
   void fillFrom(Map<String, dynamic>? link) {
     pnl.text = _d(link?['pnl_share_pct']) > 0 ? _pct(link?['pnl_share_pct']) : '';
     brk.text = _d(link?['brk_share_pct']) > 0 ? _pct(link?['brk_share_pct']) : '';
-    for (final c in rates.values) {
+    for (final c in [...rates.values, ..._category.values, ..._script.values]) {
       c.text = '';
     }
+    customized.clear();
     for (final r in (link?['rates'] as List? ?? const [])) {
-      if (r is Map) rate('${r['segment']}').text = _pct(r['value']);
+      if (r is! Map) continue;
+      final seg = '${r['segment']}';
+      if (r['script'] != null && '${r['script']}'.isNotEmpty) {
+        script(seg, '${r['script']}').text = _pct(r['value']);
+        customized.add(seg);
+      } else if (r['category'] != null) {
+        category(seg, '${r['category']}').text = _pct(r['value']);
+        customized.add(seg);
+      } else {
+        rate(seg).text = _pct(r['value']);
+      }
     }
   }
 
@@ -145,12 +173,31 @@ class BrokerSettingsDraft {
     if (p > _d(limits['pnl_max'])) throw BrokerApiException('P&L sharing can be at most ${_pct(limits['pnl_max'])}%.');
     if (b > _d(limits['brk_max'])) throw BrokerApiException('Brokerage sharing can be at most ${_pct(limits['brk_max'])}%.');
     final out = <Map<String, dynamic>>[];
+    void add(double v, double max, String label, Map<String, dynamic> rate, Object? type) {
+      if (v == 0) return;
+      if (v > max + 1e-9) throw BrokerApiException('$label: the broker can get at most ${_pct(max)} ${_unit(type)}.');
+      out.add(rate);
+    }
+
     for (final s in (limits['segments'] as List? ?? const []).whereType<Map>()) {
       final seg = '${s['segment']}';
       final v = read(rate(seg), seg);
-      if (v == 0) continue;
-      if (v > _d(s['x_max'])) throw BrokerApiException('$seg: the broker can get at most ${_pct(s['x_max'])} ${_unit(s['type'])}.');
-      out.add({'segment': seg, 'type': s['type'], 'value': v});
+      add(v, _d(s['x_max']), seg, {'segment': seg, 'type': s['type'], 'value': v}, s['type']);
+      if (!customized.contains(seg)) continue;
+      final cats = s['categories'];
+      if (cats is Map) {
+        for (final cat in const ['INDEX', 'STOCK']) {
+          final label = '$seg ${cat == 'INDEX' ? 'Index' : 'Stock'}';
+          final cv = read(category(seg, cat), label);
+          add(cv, _d((cats[cat] as Map?)?['x_max']), label, {'segment': seg, 'type': s['type'], 'value': cv, 'category': cat}, s['type']);
+        }
+      }
+      for (final sc in (s['scripts'] as List? ?? const []).whereType<Map>()) {
+        final name = '${sc['script']}';
+        final label = '$seg $name';
+        final sv = read(script(seg, name), label);
+        add(sv, _d(sc['x_max']), label, {'segment': seg, 'type': s['type'], 'value': sv, 'script': name}, s['type']);
+      }
     }
     return {'rates': out, 'pnl_share_pct': p, 'brk_share_pct': b};
   }
@@ -158,19 +205,24 @@ class BrokerSettingsDraft {
   void dispose() {
     pnl.dispose();
     brk.dispose();
-    for (final c in rates.values) {
+    for (final c in [...rates.values, ..._category.values, ..._script.values]) {
       c.dispose();
     }
   }
 }
 
-class _SettingsFields extends StatelessWidget {
+class _SettingsFields extends StatefulWidget {
   final Map<String, dynamic> limits;
   final BrokerSettingsDraft draft;
   const _SettingsFields({required this.limits, required this.draft});
 
-  Widget _row(String title, String hint, TextEditingController c) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+  @override
+  State<_SettingsFields> createState() => _SettingsFieldsState();
+}
+
+class _SettingsFieldsState extends State<_SettingsFields> {
+  Widget _row(String title, String hint, TextEditingController c, {double indent = 0, double width = 90}) => Padding(
+        padding: EdgeInsets.only(top: 6, bottom: 6, left: indent),
         child: Row(
           children: [
             Expanded(
@@ -182,7 +234,7 @@ class _SettingsFields extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             SizedBox(
-              width: 90,
+              width: width,
               child: TextField(
                 controller: c,
                 textAlign: TextAlign.right,
@@ -197,6 +249,8 @@ class _SettingsFields extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final limits = widget.limits;
+    final draft = widget.draft;
     final isSub = limits['kind'] == 'master';
     final target = limits['target'] is Map ? limits['target'] as Map : const {};
     final paying = limits['paying_master'] is Map ? limits['paying_master'] as Map : const {};
@@ -213,12 +267,40 @@ class _SettingsFields extends StatelessWidget {
         if (segs.isNotEmpty) ...[
           const SizedBox(height: 8),
           Text(isSub ? "BROKER'S RATE PER SEGMENT (GAP BETWEEN $subName's RATE AND HIS PARENT'S)".toUpperCase() : 'BROKER GETS PER SEGMENT (OUT OF THE BROKERAGE CHARGED)', style: _label),
-          for (final s in segs) _row('${s['segment']}', '${_unit(s['type'])} · max ${_pct(s['x_max'])}', draft.rate('${s['segment']}')),
+          for (final s in segs) ..._segment(s),
         ],
         const SizedBox(height: 6),
         Text("Comes only out of $payName's own share. Tracking only — the ledger and settlement stay exactly as they are. All 0 = the broker only sees the account.", style: _muted),
       ],
     );
+  }
+
+  /// One segment: its rate, and — when it has an Index / Stock split or
+  /// scripts — a Customize switch opening those rows.
+  List<Widget> _segment(Map s) {
+    final draft = widget.draft;
+    final seg = '${s['segment']}';
+    final cats = s['categories'] is Map ? s['categories'] as Map : null;
+    final scripts = (s['scripts'] as List? ?? const []).whereType<Map>().toList();
+    final canCustomize = cats != null || scripts.isNotEmpty;
+    final open = draft.customized.contains(seg);
+    return [
+      Row(children: [
+        Expanded(child: _row(seg, '${_unit(s['type'])} · max ${_pct(s['x_max'])}${canCustomize ? ' · all others' : ''}', draft.rate(seg))),
+        if (canCustomize)
+          IconButton(
+            tooltip: open ? 'Close' : 'Customize',
+            icon: Icon(open ? Icons.expand_less : Icons.tune, size: 20, color: open ? kBrandPrimary : kColorTextMuted),
+            onPressed: () => setState(() => open ? draft.customized.remove(seg) : draft.customized.add(seg)),
+          ),
+      ]),
+      if (open && cats != null)
+        for (final cat in const ['INDEX', 'STOCK'])
+          _row(cat == 'INDEX' ? 'Index' : 'Stock', 'max ${_pct((cats[cat] as Map?)?['x_max'])}', draft.category(seg, cat), indent: 14, width: 80),
+      if (open)
+        for (final sc in scripts)
+          _row('${sc['script']}', 'client ${_pct(sc['below'])} · master ${_pct(sc['paying'])} · max ${_pct(sc['x_max'])}', draft.script(seg, '${sc['script']}'), indent: 14, width: 80),
+    ];
   }
 }
 
@@ -388,7 +470,7 @@ class _AccountBrokerViewState extends State<AccountBrokerView> {
   }
 
   String _settingsText(Map<String, dynamic> link) {
-    final rates = (link['rates'] as List? ?? const []).whereType<Map>().map((r) => '${r['segment']} ${_pct(r['value'])} ${_unit(r['type'])}').join(' · ');
+    final rates = (link['rates'] as List? ?? const []).whereType<Map>().map(brokerRateText).join(' · ');
     return 'P&L ${_pct(link['pnl_share_pct'])}% · Brokerage sharing ${_pct(link['brk_share_pct'])}% · ${rates.isEmpty ? 'no per-segment rate' : rates}';
   }
 
@@ -469,35 +551,6 @@ class _AccountBrokerViewState extends State<AccountBrokerView> {
         _button(_busy ? 'Saving…' : 'Save', _busy ? null : _save, primary: true),
       ]),
     ]);
-  }
-}
-
-/// After a Create form: offers to add a broker to the new account right away
-/// (opens the same Broker screen, with the server's limits). Does nothing when
-/// this login can't use brokers. Callers pass only accounts the login may link
-/// (a master: his DIRECT client / sub-master).
-Future<void> offerBrokerForNewAccount(
-  BuildContext context, {
-  required String kind,
-  required String id,
-  required String name,
-  required bool isAdmin,
-}) async {
-  if (!await BrokerService(isAdmin: isAdmin).allowed()) return;
-  if (!context.mounted) return;
-  final yes = await showDialog<bool>(
-    context: context,
-    builder: (c) => AlertDialog(
-      title: const Text('Add a broker?'),
-      content: Text('Add a broker to ${kind == 'client' ? 'client' : 'sub-master'} $name now? You can also do it later from the account → Broker.'),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Not now')),
-        TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('Add broker')),
-      ],
-    ),
-  );
-  if (yes == true && context.mounted) {
-    await Navigator.push(context, MaterialPageRoute(builder: (_) => AccountBrokerView(kind: kind, id: id, name: name, isAdmin: isAdmin)));
   }
 }
 
@@ -866,7 +919,7 @@ class _BrokerDetailViewState extends State<BrokerDetailView> {
 
   Widget _linkRow(Map link, bool sub) {
     final who = (sub ? link['sub_master'] : link['client']) as Map? ?? const {};
-    final rates = (link['rates'] as List? ?? const []).whereType<Map>().map((r) => '${r['segment']} ${_pct(r['value'])} ${_unit(r['type'])}').join(' · ');
+    final rates = (link['rates'] as List? ?? const []).whereType<Map>().map(brokerRateText).join(' · ');
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(children: [

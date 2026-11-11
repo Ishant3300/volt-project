@@ -18,7 +18,7 @@ import '../widgets/create_for_master_picker.dart';
 import '../utils/comex_rate.dart';
 import 'package:stocker/widgets/page_wash.dart';
 import '../utils/account_label.dart';
-import 'broker_share_view.dart';
+import 'broker_create_section.dart';
 
 // Form text on this screen (owner, 10 Nov 2026): darker and a little bolder
 // than the app-wide muted grey, which was hard to read here.
@@ -100,6 +100,10 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   static const _categorySegments = {'NFO-FUT', 'NFO-OPT'};
   static const _perScriptSegments = {'MCX-FUT', 'MCX-OPT'};
   final Map<String, bool> _brokerageCustomized = {};
+  // Broker on this new account (12 Nov 2026) — see broker_create_section.dart.
+  final NewAccountBrokerDraft _broker = NewAccountBrokerDraft();
+  // The paying master's own rows per exchange (script_name, brk_value, category): the broker's room.
+  final Map<String, List<Map<String, dynamic>>> _ownerBrkRows = {};
 
   // Edit mode (7 Nov 2026): the rate each segment showed when loaded — a
   // segment still showing it is NOT re-saved (an unrelated edit used to
@@ -290,6 +294,8 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   /// Base rates and their floor are the owner's — re-fetch for the new one.
   /// Back to admin's own top-level master: no parent rate, fields cleared.
   void _reloadForOwner() {
+    _refreshBrokerAllowed();
+    _ownerBrkRows.clear();
     setState(() {
       _brokerageFloor.clear();
       if (_ownerMaster == null) {
@@ -320,6 +326,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
 
   @override
   void dispose() {
+    _broker.dispose();
     _comexRate.dispose();
     if (!_isSuccess) _releaseUsername();
     _nameController.dispose();
@@ -397,6 +404,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshBrokerAllowed());
     _fetchServers();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadComexRate());
     if (widget.master == null) {
@@ -571,6 +579,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           if (body['success'] == true) {
             final items = body['data']['items'] as List? ?? [];
             if (items.isNotEmpty) {
+              _ownerBrkRows[exchange] = List<Map<String, dynamic>>.from(items);
               // The usual rate, not the first row (see usualBrokerage).
               final firstVal = usualBrokerage(items) ?? 0;
               if (mounted) {
@@ -744,6 +753,15 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           ),
         );
         if (ok != true || !mounted) return;
+      }
+    }
+
+    if (!(widget.master != null) && _broker.on) {
+      final brokerErr = checkNewAccountBroker(_broker,
+          pnlMax: _brokerPnlMax, brkMax: _brokerBrkMax, overLimits: _brokerOverLimits());
+      if (brokerErr != null) {
+        _showSnack(brokerErr, isError: true);
+        return;
       }
     }
 
@@ -985,18 +1003,12 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             _showSnack(
                 comexErr == null ? 'Master created successfully' : 'Master created, but COMEX rate: $comexErr',
                 isError: comexErr != null);
-            // Broker sharing (11 Nov 2026): a broker only on a sub-master (one
-            // with a parent) — admin creating under a master, or a master
-            // creating his own DIRECT sub-master.
-            if (createdId != null &&
-                (profileProvider.isAdmin ? _forMaster != null : _forMaster == null)) {
+            // Broker (12 Nov 2026): the link, once the sub-master and its brokerage exist.
+            if (createdId != null && _broker.on) {
+              final brokerError = await saveNewAccountBroker(_broker,
+                  isAdmin: profileProvider.isAdmin, kind: 'master', accountId: createdId, rates: _brokerRates());
               if (!mounted) return;
-              await offerBrokerForNewAccount(context,
-                  kind: 'master',
-                  id: createdId,
-                  name: accountLabel(_nameController.text.trim(),
-                      _usernameController.text.trim()),
-                  isAdmin: profileProvider.isAdmin);
+              if (brokerError != null) await _showBrokerNotAdded(brokerError);
             }
             if (!mounted) return;
             Navigator.pop(context, true);
@@ -1076,7 +1088,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     final selected = _selectedScriptsForBulk[exchange] ?? {};
 
     setState(() {
-      if (raw.isEmpty || value == null || value <= 0) {
+      final brokerValue = _broker.on ? NewAccountBrokerDraft.read(_broker.bulk(exchange)) : null;
+      final clientOk = raw.isNotEmpty && value != null && value > 0;
+      if (!clientOk && (brokerValue == null || brokerValue <= 0)) {
         _bulkApplyError[exchange] = 'Enter a valid value first';
         return;
       }
@@ -1085,10 +1099,12 @@ class _CreateMasterViewState extends State<CreateMasterView> {
         return;
       }
       final scriptControllers = _scriptBrkControllers[exchange] ?? const {};
-      final display = value % 1 == 0 ? value.toInt().toString() : value.toString();
+      String show(double v) => v % 1 == 0 ? v.toInt().toString() : v.toString();
       for (final script in selected) {
-        scriptControllers[script]?.text = display;
+        if (clientOk) scriptControllers[script]?.text = show(value);
+        if (brokerValue != null && brokerValue > 0) _broker.script(exchange, script.toUpperCase()).text = show(brokerValue);
       }
+      _broker.bulk(exchange).clear();
       _selectedScriptsForBulk[exchange] = {};
       _bulkApplyError[exchange] = null;
       controller.clear();
@@ -1529,53 +1545,15 @@ class _CreateMasterViewState extends State<CreateMasterView> {
 
                     const SizedBox(height: 24),
 
+                    ..._brokerSection(),
+
                     // Brokerage Settings (inline)
                     _sectionLabel('BROKERAGE SETTINGS'),
                     const SizedBox(height: 12),
                     _card(
                       child: Column(
                         children: [
-                          const Padding(
-                            padding: EdgeInsets.only(bottom: 12),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  flex: 3,
-                                  child: Text('Exchange',
-                                      style: TextStyle(
-                                          color: _kFormLabel,
-                                          fontSize: kFontSizeNavLabel,
-                                          fontFamily: kFontFamily,
-                                          fontWeight: kFontWeightSemiBold,
-                                          letterSpacing: 0.5)),
-                                ),
-                                Expanded(
-                                  flex: 3,
-                                  child: Center(
-                                    child: Text('Type',
-                                        style: TextStyle(
-                                            color: _kFormLabel,
-                                            fontSize: kFontSizeNavLabel,
-                                            fontFamily: kFontFamily,
-                                            fontWeight: kFontWeightSemiBold,
-                                            letterSpacing: 0.5)),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 2,
-                                  child: Center(
-                                    child: Text('Value',
-                                        style: TextStyle(
-                                            color: _kFormLabel,
-                                            fontSize: kFontSizeNavLabel,
-                                            fontFamily: kFontFamily,
-                                            fontWeight: kFontWeightSemiBold,
-                                            letterSpacing: 0.5)),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                          _brokerageHeader(),
                           ..._exchangeAllow.keys
                               .map((exchange) => _buildBrokerageRow(exchange)),
                         ],
@@ -2402,6 +2380,154 @@ class _CreateMasterViewState extends State<CreateMasterView> {
     );
   }
 
+  // ---- Broker on this new account (owner, 12 Nov 2026) ----
+
+  /// Admin: only when the paying master has "Brokers allowed". Master: only
+  /// when admin allowed him, and only for his own DIRECT sub-master.
+  Future<void> _refreshBrokerAllowed() async {
+    if (widget.master != null) return;
+    final profile = Provider.of<UserProfileProvider>(context, listen: false);
+    final ok = await brokerAllowedForNewAccount(
+        isAdmin: profile.isAdmin, payingMasterId: _ownerMaster?.id, direct: _forMaster == null);
+    if (!mounted) return;
+    setState(() {
+      _broker.allowed = ok;
+      if (!ok) _broker.enabled = false;
+    });
+  }
+
+  double get _brokerPnlMax => ((_ownerMaster?.pnlSharing ?? 0) - (double.tryParse(_profitLossController.text.trim()) ?? 0)).clamp(0, 100).toDouble();
+  double get _brokerBrkMax => ((_ownerMaster?.brokerageSharing ?? 0) - (double.tryParse(_brkSharingController.text.trim()) ?? 0)).clamp(0, 100).toDouble();
+
+  /// This new account's rate on a script: its Customize value, else its flat value.
+  double? _accountRateFor(String exchange, String script, String? category) {
+    final customized = _brokerageCustomized[exchange] ?? false;
+    if (customized && _perScriptSegments.contains(exchange)) {
+      final c = _scriptBrkControllers[exchange]?[script];
+      final v = NewAccountBrokerDraft.read(c);
+      if (v != null) return v;
+    }
+    if (customized && _categorySegments.contains(exchange) && category != null) {
+      final v = NewAccountBrokerDraft.read(_categoryController(exchange, category));
+      if (v != null) return v;
+    }
+    return NewAccountBrokerDraft.read(_brokerageSettings[exchange]?['controller'] as TextEditingController?);
+  }
+
+  /// The broker's room: whole exchange, an Index / Stock category, or one script.
+  double? _brokerRoom(String exchange, {String? category, String? script}) => brokerRoom(
+        _ownerBrkRows[exchange],
+        (s, c) => _accountRateFor(exchange, s, c),
+        include: script != null
+            ? (s, c) => s == script.toUpperCase()
+            : category != null
+                ? (s, c) => c == category
+                : null,
+      );
+
+  /// "NFO-FUT Stock (max 4)"-style list of broker boxes above their room.
+  List<String> _brokerOverLimits() {
+    final out = <String>[];
+    String fmt(double v) => v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
+    void check(TextEditingController c, double? room, String label) {
+      final v = NewAccountBrokerDraft.read(c);
+      if (v != null && room != null && v > room + 1e-9) out.add('$label (max ${fmt(room)})');
+    }
+    for (final ex in _exchangeAllow.keys.where((e) => _exchangeAllow[e] == true)) {
+      check(_broker.flat(ex), _brokerRoom(ex), ex);
+      if (!(_brokerageCustomized[ex] ?? false)) continue;
+      if (_categorySegments.contains(ex)) {
+        for (final cat in kBrokerCategories) {
+          check(_broker.category(ex, cat), _brokerRoom(ex, category: cat), '$ex ${cat == 'INDEX' ? 'Index' : 'Stock'}');
+        }
+      }
+      if (_perScriptSegments.contains(ex)) {
+        for (final name in (_scriptBrkControllers[ex] ?? const <String, TextEditingController>{}).keys) {
+          check(_broker.script(ex, name.toUpperCase()), _brokerRoom(ex, script: name), '$ex $name');
+        }
+      }
+    }
+    return out;
+  }
+
+  List<Map<String, dynamic>> _brokerRates() => _broker.rates(
+        exchanges: _exchangeAllow.keys.where((e) => _exchangeAllow[e] == true),
+        typeOf: (ex) => (_brokerageSettings[ex]?['type'] as String?) ?? 'TURNOVER WISE',
+        customizedCategory: (ex) => _categorySegments.contains(ex) && (_brokerageCustomized[ex] ?? false),
+        customizedScript: (ex) => _perScriptSegments.contains(ex) && (_brokerageCustomized[ex] ?? false),
+      );
+
+  Widget _brokerageHeaderCell(String text, int flex, {Color color = _kFormLabel, bool left = false}) => Expanded(
+        flex: flex,
+        child: Align(
+          alignment: left ? Alignment.centerLeft : Alignment.center,
+          child: Text(text,
+              style: TextStyle(
+                  color: color,
+                  fontSize: kFontSizeNavLabel,
+                  fontFamily: kFontFamily,
+                  fontWeight: kFontWeightSemiBold,
+                  letterSpacing: 0.5)),
+        ),
+      );
+
+  /// Exchange · Type · Value — plus Broker while "Add broker" is on.
+  Widget _brokerageHeader() => Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(
+          children: [
+            _brokerageHeaderCell('Exchange', 3, left: true),
+            _brokerageHeaderCell('Type', _broker.on ? 2 : 3),
+            const SizedBox(width: 8),
+            _brokerageHeaderCell(_broker.on ? 'Client' : 'Value', 2),
+            if (_broker.on) ...[
+              const SizedBox(width: 6),
+              _brokerageHeaderCell('Broker', 2, color: kBrandPrimary),
+            ],
+            const SizedBox(width: 24),
+          ],
+        ),
+      );
+
+  /// The "Add broker" card, only where allowed (creating only).
+  List<Widget> _brokerSection() {
+    if (widget.master != null || !_broker.allowed) return const [];
+    final profile = Provider.of<UserProfileProvider>(context, listen: false);
+    return [
+      _sectionLabel('BROKER'),
+      const SizedBox(height: 12),
+      _card(
+        child: BrokerCreateCard(
+          draft: _broker,
+          accountKind: 'sub-master',
+          payingName: accountLabel(_ownerMaster?.name, _ownerMaster?.username),
+          pnlMax: _brokerPnlMax,
+          brkMax: _brokerBrkMax,
+          pnlNote: 'His own %, on top of this sub-master\'s own sharing above.',
+          onToggle: (v) {
+            setState(() => _broker.enabled = v);
+            if (v) {
+              loadBrokersFor(_broker, isAdmin: profile.isAdmin, refresh: () {
+                if (mounted) setState(() {});
+              });
+            }
+          },
+          onChanged: () => setState(() {}),
+        ),
+      ),
+      const SizedBox(height: 24),
+    ];
+  }
+
+  Future<void> _showBrokerNotAdded(String error) => showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Created — but the broker was NOT added'),
+          content: Text('$error\n\nThe sub-master is saved. Add the broker from the account → Broker.'),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+        ),
+      );
+
   Widget _buildBrokerageFlatRow(
     String exchange,
     String type,
@@ -2424,7 +2550,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
             ),
           ),
           Expanded(
-            flex: 3,
+            flex: _broker.on ? 2 : 3,
             child: GestureDetector(
               onTap: () {
                 setState(() {
@@ -2471,6 +2597,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               child: TextField(
                 controller: controller,
                 enabled: !customized,
+                onChanged: (_) {
+                  if (_broker.on) setState(() {});
+                },
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
                 style: TextStyle(
@@ -2491,6 +2620,13 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               ),
             ),
           ),
+          if (_broker.on) ...[
+            const SizedBox(width: 6),
+            Expanded(
+              flex: 2,
+              child: brokerRateBox(_broker.flat(exchange), _brokerRoom(exchange), onChanged: () => setState(() {})),
+            ),
+          ],
           if (canCustomize) ...[
             const SizedBox(width: 6),
             GestureDetector(
@@ -2502,6 +2638,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
               ),
             ),
           ],
+          if (!canCustomize) const SizedBox(width: 24),
         ],
     );
   }
@@ -2526,6 +2663,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_broker.on) _customizeHeader(),
             _buildCategoryValueRow(exchange, 'INDEX', 'Index'),
             const SizedBox(height: 6),
             _buildCategoryValueRow(exchange, 'STOCK', 'Stock'),
@@ -2542,6 +2680,7 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildBulkApplyBar(exchange),
+            if (_broker.on) _customizeHeader(scriptRow: true),
             for (final script in scripts)
               Padding(
                 padding: const EdgeInsets.only(bottom: 6),
@@ -2579,9 +2718,28 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           flex: 3,
           child: _brokerageValueField(controller),
         ),
+        if (_broker.on) ...[
+          const SizedBox(width: 6),
+          Expanded(
+            flex: 3,
+            child: brokerRateBox(_broker.category(exchange, category), _brokerRoom(exchange, category: category), height: 32, onChanged: () => setState(() {})),
+          ),
+        ],
       ],
     );
   }
+
+  /// Client | Broker labels over the Customize rows while "Add broker" is on.
+  Widget _customizeHeader({bool scriptRow = false}) => Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Row(children: [
+          if (scriptRow) const SizedBox(width: 32),
+          const Expanded(flex: 3, child: SizedBox.shrink()),
+          _brokerageHeaderCell('Client', 3),
+          const SizedBox(width: 6),
+          _brokerageHeaderCell('Broker', 3, color: kBrandPrimary),
+        ]),
+      );
 
   Widget _buildBulkApplyBar(String exchange) {
     final selectedCount = (_selectedScriptsForBulk[exchange] ?? const {}).length;
@@ -2594,6 +2752,10 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           Row(
             children: [
               Expanded(child: _brokerageValueField(_bulkScriptValueController(exchange))),
+              if (_broker.on) ...[
+                const SizedBox(width: 6),
+                Expanded(child: brokerRateBox(_broker.bulk(exchange), null, height: 32)),
+              ],
               const SizedBox(width: 8),
               GestureDetector(
                 onTap: () => _applyBulkScriptValue(exchange),
@@ -2676,6 +2838,13 @@ class _CreateMasterViewState extends State<CreateMasterView> {
           flex: 3,
           child: _brokerageValueField(controller),
         ),
+        if (_broker.on) ...[
+          const SizedBox(width: 6),
+          Expanded(
+            flex: 3,
+            child: brokerRateBox(_broker.script(exchange, rawName.toUpperCase()), _brokerRoom(exchange, script: rawName), height: 32, onChanged: () => setState(() {})),
+          ),
+        ],
       ],
     );
   }
@@ -2691,6 +2860,9 @@ class _CreateMasterViewState extends State<CreateMasterView> {
       ),
       child: TextField(
         controller: controller,
+        onChanged: (_) {
+          if (_broker.on) setState(() {});
+        },
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         style: const TextStyle(
           color: kColorTextPrimary,
