@@ -90,13 +90,16 @@ async function subMasterLimits(masterId) {
   const { rows: payingRows } = await rowsOf(paying._id);
   const segments = [...new Set((sub.exchanges_allowed || []).map((e) => normSegment(typeof e === 'string' ? e : e.exchange_name)).filter(Boolean))];
   const belowPnl = Math.max(0, Number(sub.pnl_sharing) || 0);
+  const belowBrk = Math.max(0, Number(sub.brokerage_sharing) || 0);
   return {
     kind: 'master',
     target: { id: String(sub._id), username: sub.username, name: sub.name },
     paying_master: { id: String(paying._id), username: paying.username, name: paying.name },
     pnl_max: Math.max(0, (Number(paying.pnl_sharing) || 0) - belowPnl),
-    brk_max: Math.max(0, Number(paying.brokerage_sharing) || 0),
+    // Ledger ceilings are cumulative: the broker's own % sits between S's and M's.
+    brk_max: Math.max(0, (Number(paying.brokerage_sharing) || 0) - belowBrk),
     below_pnl_pct: belowPnl,
+    below_brk_pct: belowBrk,
     segments: segmentLimits(segments, belowRows, payingRows),
   };
 }

@@ -27,8 +27,15 @@
  *              less S's own brokerage-sharing part)
  *              below = Total − incoming
  *              x     = what the broker GETS per his rate field (per fill)
- *              self  = incoming − (belowClear − x) × (1 − brokerBrk%)
+ *              self  = incoming − (belowClear − x) × (1 − (belowBrk% + brokerBrk%))
  *              upline = Total − below − self
+ *   i.e. the broker is one more level of the ledger's own chain between S and
+ *   M: his rate = the level below's rate − his field, and his ceiling is
+ *   CUMULATIVE like every ledger ceiling (S's % + his own %), so 0 / 0 / 0
+ *   gives exactly 0 and he is paid only out of M's part (limits: field ≤ S's
+ *   rate − M's rate, brokerage % ≤ M's % − S's %, P&L % ≤ M's % − S's %).
+ *   Checked by hand against the ledger's own sub-master formula
+ *   (weeklyAdminController: incoming pool − own owed-upward).
  * With 0 / 0 / 0 the broker gets nothing; with only the rate field he gets
  * exactly x (client pays 8 paisa, field 3 → broker 3, M keeps 5).
  */
@@ -62,7 +69,8 @@ function brokerWeekSplit({ totalPnl, totalBrk, belowClear, belowBrkPct = 0, belo
   const incoming = clear * (1 - (Number(belowBrkPct) || 0) / 100);
   const xCapped = Math.min(Math.max(0, Number(x) || 0), clear);
   const brkBelow = B - incoming;
-  const brkSelf = incoming - (clear - xCapped) * (1 - (Number(brkPct) || 0) / 100);
+  // Cumulative ceiling, like the ledger: the level below's own % plus the broker's own %.
+  const brkSelf = incoming - (clear - xCapped) * (1 - ((Number(belowBrkPct) || 0) + (Number(brkPct) || 0)) / 100);
 
   return {
     pnl: { total: r2(T), below: r2(pnlBelow), self: r2(pnlSelf), upline: r2(T - pnlBelow - pnlSelf) },

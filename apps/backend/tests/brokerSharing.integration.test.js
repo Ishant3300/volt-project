@@ -152,10 +152,13 @@ describeIntegration('broker sharing on a local MongoDB', () => {
     const tooMuchBrk = await request(app).post(`/admin/brokers/${adminBroker}/links`).send({ user_id: String(ids.ab), brk_share_pct: 61 });
     expect(tooMuchBrk.status).toBe(400);
     const subLim = await request(app).get('/admin/brokers/limits').query({ master_id: String(ids.sub) });
-    expect(subLim.body.data).toMatchObject({ pnl_max: 60, brk_max: 60, below_pnl_pct: 30 });
+    // ledger ceilings are cumulative: brokerage max = Harish 60 - S 40, P&L max = 90 - 30
+    expect(subLim.body.data).toMatchObject({ pnl_max: 60, brk_max: 20, below_pnl_pct: 30, below_brk_pct: 40 });
     expect(subLim.body.data.segments[0].x_max).toBe(3);
     const subTooMuch = await request(app).post(`/admin/brokers/${adminBroker}/master-links`).send({ master_id: String(ids.sub), pnl_share_pct: 61 });
     expect(subTooMuch.status).toBe(400);
+    const subTooMuchBrk = await request(app).post(`/admin/brokers/${adminBroker}/master-links`).send({ master_id: String(ids.sub), brk_share_pct: 21 });
+    expect(subTooMuchBrk.status).toBe(400);
   });
 
   test('admin: broker on client AB (3 paisa, 20% brokerage, 30% P&L) and on sub-master S (2 paisa, 10%, 20%)', async () => {
@@ -178,11 +181,34 @@ describeIntegration('broker sharing on a local MongoDB', () => {
       expect(ab.brokerage).toMatchObject({ total: 156, below: 0, self: 78, upline: 78, from_rate: 58.5 });
       expect(ab.net).toBe(1578);
       // S: below 30% = 1,500, broker 20% = 1,000; brokerage incoming 97.5 x 60% = 58.5,
-      // x = 2 paisa x 1,95,000 = 39, self = 58.5 - (97.5 - 39) x 90% = 5.85.
+      // x = 2 paisa x 1,95,000 = 39; the broker's ceiling is cumulative (S 40% + his 10%):
+      // self = 58.5 - (97.5 - 39) x (1 - 50%) = 29.25. Harish alone would keep 58.5 - 39 x 40% = 42.9;
+      // with the broker 29.25 - 15.6 = 13.65 -> the broker's 29.25 is exactly what Harish gives up.
       expect(s.pnl).toEqual({ total: 5000, below: 1500, self: 1000, upline: 2500 });
-      expect(s.brokerage).toMatchObject({ total: 156, below: 97.5, self: 5.85, upline: 52.65 });
-      expect(w.totals.net).toBeCloseTo(1578 + 1005.85, 2);
+      expect(s.brokerage).toMatchObject({ total: 156, below: 97.5, self: 29.25, upline: 29.25 });
+      expect(w.totals.net).toBeCloseTo(1578 + 1029.25, 2);
     }
+  });
+
+  test('split maths: 0/0/0 = nothing; the broker never takes more than the paying master own part', () => {
+    const { brokerWeekSplit } = require('../src/services/brokerStatement');
+    // sub-master S (own clear 97.5, 40%) under M (own clear 39, 60%), Total brokerage 156, P&L 5,000
+    const base = { totalPnl: 5000, totalBrk: 156, belowClear: 97.5, belowBrkPct: 40, belowPnlPct: 30 };
+    const zero = brokerWeekSplit(base);
+    expect(zero.brokerage.self).toBe(0);
+    expect(zero.pnl.self).toBe(0);
+    expect(zero.net).toBe(0);
+    const mAlone = 97.5 * 0.6 - 39 * 0.4; // the ledger's caller_brk for M on S's row
+    for (const x of [0, 19.5, 39, 58.5]) {
+      for (const brkPct of [0, 10, 20]) {
+        const sp = brokerWeekSplit({ ...base, x, brkPct });
+        expect(sp.brokerage.self).toBeGreaterThanOrEqual(0);
+        expect(sp.brokerage.upline - 39 * 0.4).toBeGreaterThanOrEqual(-1e-9); // M keeps >= 0
+        expect(sp.brokerage.self + (sp.brokerage.upline - 39 * 0.4)).toBeCloseTo(mAlone, 6);
+      }
+    }
+    // a client: only the field -> exactly the field
+    expect(brokerWeekSplit({ totalPnl: 0, totalBrk: 156, belowClear: 156, x: 58.5 }).brokerage.self).toBe(58.5);
   });
 
   test('masters: refused until admin allows; then own broker, own DIRECT accounts only', async () => {
