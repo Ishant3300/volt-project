@@ -716,6 +716,20 @@ class LivePriceService {
           if (t && t.instrument_token && t.last_price) {
             const tokenStr = t.instrument_token.toString();
 
+            // NSE/BSE F&O pre-open (9:00–9:15 IST): indicative prices, nothing has
+            // traded — not shown, not valued, not matched (utils/nsePreOpen.js;
+            // 11 Nov 2026: a 309 pre-open bid for ANGELONE NOV FUT, close 339.10,
+            // margin squared-off a client at 9:00:00).
+            if (require('../utils/nsePreOpen').isFoPreOpenTick(t.instrument_token)) {
+              this._preOpenDropped = (this._preOpenDropped || 0) + 1;
+              const nowMs = Date.now();
+              if (nowMs - (this._preOpenLogAt || 0) > 60000) {
+                this._preOpenLogAt = nowMs;
+                console.log(`⏸️  [PreOpen] NSE F&O pre-open: ${this._preOpenDropped} quote(s) ignored so far (prices are used from 9:15).`);
+              }
+              return;
+            }
+
             // A price outside today's high–low that this tick's own low/high did not
             // move to include is a bad quote: not shown, not valued, not matched
             // (utils/dayRange.js — 4 Nov 2026 GIFT 2375.2).
