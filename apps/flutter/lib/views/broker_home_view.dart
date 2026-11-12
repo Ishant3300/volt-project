@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../pages/account_switcher_sheet.dart' show showAccountSwitcher;
 import '../pages/login_page.dart';
 import '../services/broker_view_service.dart';
 import '../services/multi_account_service.dart';
@@ -132,6 +133,24 @@ class _BrokerHomeViewState extends State<BrokerHomeView> {
                     if (_name.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 2), child: Text(_name, style: _muted)),
                   ]),
                 ),
+              ]),
+            ),
+            // Switch account (owner, 12 Nov 2026): a master who switched into
+            // his broker login needs the same way back as everywhere else.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 8, 10),
+              child: Row(children: [
+                OutlinedButton.icon(
+                  onPressed: () => showAccountSwitcher(context),
+                  icon: const Icon(Icons.swap_horiz, size: 18, color: kColorBuy),
+                  label: const Text('Switch account', style: TextStyle(color: kColorBuy, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: kColorBuy),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+                const Spacer(),
                 TextButton.icon(
                   onPressed: _signOut,
                   icon: const Icon(Icons.logout, size: 18, color: kColorSell),
