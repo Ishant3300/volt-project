@@ -321,7 +321,7 @@ workflows:
           flutter build ipa --release \
             --flavor volt \
             --dart-define=BRAND=velo \
-            --build-name="${VELO_VERSION:-1.0.55}" \
+            --build-name="${VELO_VERSION:-1.0.56}" \
             --build-number="$BUILD_NUMBER" \
             --export-options-plist=/Users/builder/export_options.plist
       - name: Check — this really is the live build
