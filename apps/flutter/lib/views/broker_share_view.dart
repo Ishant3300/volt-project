@@ -1015,7 +1015,8 @@ class _BrokerStatementPanelState extends State<BrokerStatementPanel> {
       BrokerStatementTable(week: week, showPayingMaster: widget.showPayingMaster),
       const SizedBox(height: 8),
       const Text(
-        "Total P&L and Brokerage = the Ledger's own figures (a client's loss shows as +). Net MTM = Self + Downline + Upline. "
+        "Client P&L = the client's own P&L (profit +, loss −). Brokerage = the Ledger's. Net MTM and the columns after it are the "
+        "master side: Net MTM = Brokerage − Client P&L = Self + Downline + Upline. "
         "Self = the broker's share; Downline = the sub-master and his tree; Upline = the paying master and above. "
         'Tracking only — settled with the broker outside the system.',
         style: _muted,
@@ -1053,7 +1054,7 @@ class BrokerStatementTable extends StatelessWidget {
   static const Color _footBg = Color(0xFFE8EDFF);
 
   static const List<(String, bool)> _heads = [
-    ('Total P&L', false),
+    ('Client P&L', false),
     ('Brokerage', false),
     ('Net MTM', false),
     ('Self P&L', true),
@@ -1081,8 +1082,11 @@ class BrokerStatementTable extends StatelessWidget {
     return out;
   }
 
+  // Client P&L is shown as the client sees it (owner, 12 Nov 2026: "show client
+  // P&L as it is" — profit +, loss -); every other column stays on the master's
+  // side, as the Ledger.
   static List<double> _mtm(Map pnl, Map brk, double net) => [
-        _d(pnl['total']),
+        0 - _d(pnl['total']), // never -0.00
         _d(brk['total']),
         _d(pnl['total']) + _d(brk['total']),
         _d(pnl['self']),

@@ -119,12 +119,12 @@ void main() {
     }
     expect(find.text('S'), findsNWidgets(2)); // the "Under" column of CD and EF
     expect(find.text('demosub'), findsNothing);
-    // CD: Total P&L, Brokerage, Net MTM (= Self + Downline + Upline), Self MTM
-    for (final t in ['5,000.00', '156.00', '5,156.00', '1,019.50', '1,597.50', '2,539.00']) {
+    // CD: Client P&L (client's sign: the house's +5,000 is the client's -5,000), Brokerage, Net MTM (= Self + Downline + Upline), Self MTM
+    for (final t in ['-5,000.00', '156.00', '5,156.00', '1,019.50', '1,597.50', '2,539.00']) {
       expect(find.text(t), findsOneWidget, reason: t);
     }
-    // Total row: -2,000 P&L, 481.60 brokerage, net -288.80 to the broker
-    for (final t in ['-2,000.00', '481.60', '-1,518.40', '-288.80', '799.00', '-2,028.60']) {
+    // Total row: client P&L +2,000 (house -2,000), 481.60 brokerage, net -288.80 to the broker
+    for (final t in ['2,000.00', '481.60', '-1,518.40', '-288.80', '799.00', '-2,028.60']) {
       expect(find.text(t), findsOneWidget, reason: t);
     }
   });
@@ -137,7 +137,7 @@ void main() {
     expect(tester.takeException(), isNull); // no overflow
     expect(find.byType(SingleChildScrollView), findsNWidgets(2));
     final nameBefore = tester.getTopLeft(find.text('CD'));
-    await tester.drag(find.text('5,000.00'), const Offset(-500, 0));
+    await tester.drag(find.text('-5,000.00'), const Offset(-500, 0));
     await tester.pump();
     expect(tester.getTopLeft(find.text('CD')), nameBefore); // the name did not move
   });
