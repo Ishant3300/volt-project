@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
 import 'package:stocker/widgets/page_wash.dart';
+import '../utils/script_name.dart';
 
 class ManageInstrumentsView extends StatefulWidget {
   const ManageInstrumentsView({super.key});
@@ -142,7 +143,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('${inst['tradingsymbol']} ${!currentEnabled ? 'enabled' : 'disabled'}'),
+              content: Text('${scriptLabel(inst['tradingsymbol']?.toString(), expiry: inst['expiry'])} ${!currentEnabled ? 'enabled' : 'disabled'}'),
               backgroundColor: !currentEnabled ? kColorBuy : kColorSell,
               duration: const Duration(seconds: 1),
             ),
@@ -167,7 +168,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
             children: [
               const Text('Delete Instrument?', style: TextStyle(fontSize: kFontSizeViewTitle, fontFamily: kFontFamily, fontWeight: kFontWeightBold)),
               const SizedBox(height: 12),
-              Text('${inst['tradingsymbol']} will be deactivated.\nExisting positions can still be closed.',
+              Text('${scriptLabel(inst['tradingsymbol']?.toString(), expiry: inst['expiry'])} will be deactivated.\nExisting positions can still be closed.',
                   style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeBody, fontFamily: kFontFamily), textAlign: TextAlign.center),
               const SizedBox(height: 24),
               Row(children: [
@@ -202,7 +203,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${inst['tradingsymbol']} deactivated'), backgroundColor: kColorSell, duration: const Duration(seconds: 1)),
+            SnackBar(content: Text('${scriptLabel(inst['tradingsymbol']?.toString(), expiry: inst['expiry'])} deactivated'), backgroundColor: kColorSell, duration: const Duration(seconds: 1)),
           );
         }
       }
@@ -224,7 +225,7 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${inst['tradingsymbol']} restored'), backgroundColor: kColorBuy, duration: const Duration(seconds: 1)),
+            SnackBar(content: Text('${scriptLabel(inst['tradingsymbol']?.toString(), expiry: inst['expiry'])} restored'), backgroundColor: kColorBuy, duration: const Duration(seconds: 1)),
           );
         }
       }
@@ -530,7 +531,8 @@ class _ManageInstrumentsViewState extends State<ManageInstrumentsView> {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
-                Flexible(child: Text(inst['display_name'] ?? inst['raw_name'] ?? inst['tradingsymbol'] ?? '',
+                Flexible(child: Text(globalScriptName(inst['tradingsymbol']?.toString(), expiry: inst['expiry']) ?? inst['display_name'] ?? inst['raw_name'] ?? inst['tradingsymbol'] ?? '',
+                  maxLines: 1,
                   style: TextStyle(fontSize: kFontSizeBody, fontWeight: kFontWeightSemiBold, fontFamily: kFontFamily,
                     color: isDeleted ? kColorTextMuted : const Color(0xFF0F172A)),
                   overflow: TextOverflow.ellipsis)),

@@ -10,6 +10,7 @@ import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/services/watchlist_service.dart';
 import 'package:stocker/utils/contants.dart';
 import 'package:stocker/providers/trade_metrics_provider.dart';
+import '../utils/script_name.dart';
 
 class WatchlistProvider with ChangeNotifier {
   final List<WatchlistItem> _items = [];
@@ -181,7 +182,7 @@ class WatchlistProvider with ChangeNotifier {
     final ctx = NavigationService.navigatorKey.currentContext;
     if (ctx == null) return;
 
-    final symbol = data['tradingsymbol'] ?? '';
+    final symbol = scriptLabel(data['tradingsymbol']?.toString());
     final side = data['transaction_type'] ?? '';
     final qty = data['quantity'] ?? '';
     final price = data['executed_price'] ?? data['price'] ?? '';

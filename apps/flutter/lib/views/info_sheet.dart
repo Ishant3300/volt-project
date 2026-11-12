@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import 'package:stocker/config/practice_session.dart';
 import '../utils/contants.dart';
+import '../utils/script_name.dart';
 
 class InfoSheet extends StatefulWidget {
   final String instrumentToken;
@@ -114,7 +115,7 @@ class _InfoSheetState extends State<InfoSheet> {
               child: SingleChildScrollView(
                 child: Column(
                   children: [
-                    _buildInfoRow('Script', _data?['script'] ?? widget.tradingsymbol, false),
+                    _buildInfoRow('Script', scriptLabel((_data?['script'] ?? widget.tradingsymbol)?.toString(), expiry: _data?['expiry']), false),
                     _buildInfoRow('Segment', _data?['segment'] ?? 'N/A', true),
                     _buildInfoRow('Exchange', _data?['exchange'] ?? 'N/A', false),
                     _buildInfoRow('Expiry', _formatExpiry(_data?['expiry']?.toString()), true),

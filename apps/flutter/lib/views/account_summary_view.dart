@@ -8,6 +8,7 @@ import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
 import 'package:stocker/widgets/page_wash.dart';
 import '../utils/account_label.dart';
+import '../utils/script_name.dart';
 
 class AccountSummaryView extends StatefulWidget {
   const AccountSummaryView({super.key});
@@ -408,7 +409,7 @@ class _AccountSummaryViewState extends State<AccountSummaryView> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         // Symbol + exchange
         Row(children: [
-          Expanded(child: Text(symbol, style: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: -0.3))),
+          Expanded(child: Text(scriptLabel(symbol.toString()), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: -0.3))),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(6)),

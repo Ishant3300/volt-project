@@ -16,6 +16,7 @@ import 'package:stocker/utils/contants.dart';
 import 'history_filter_sheet.dart';
 import 'trade_detail_sheet.dart';
 import 'package:stocker/widgets/page_wash.dart';
+import '../utils/script_name.dart';
 
 /// Format a Trade's volume as "X LOTS" or "X QTY" using the model's isLotBased getter.
 String _tradeVolumeLabel(Trade trade, {bool showSide = false}) {
@@ -450,7 +451,9 @@ class _PortfolioPageState extends State<PortfolioPage>
   List<Trade> _applySearch(List<Trade> trades) {
     if (_searchQuery.isEmpty) return trades;
     return trades
-        .where((t) => t.tradingSymbol.toUpperCase().contains(_searchQuery))
+        .where((t) => '${t.tradingSymbol} ${scriptLabel(t.tradingSymbol)}'
+            .toUpperCase()
+            .contains(_searchQuery))
         .toList();
   }
 
@@ -780,6 +783,10 @@ class _PortfolioPageState extends State<PortfolioPage>
     final wItem = watchlist.getByToken(trade.instrumentToken);
     final inst = wItem?.instrument;
 
+    // GLOBAL / COMEX tickers (YMZ6) → "DOW JONES 30 18 DEC".
+    final global = globalScriptName(trade.tradingSymbol, expiry: inst?.expiry);
+    if (global != null) return global;
+
     if (inst != null) {
       final base =
           (inst.name.isNotEmpty ? inst.name : inst.tradingsymbol).toUpperCase();
@@ -827,6 +834,8 @@ class _PortfolioPageState extends State<PortfolioPage>
   /// into a user-friendly name like "GOLD | 26 APR FUT" or "NIFTY | 22500 CE"
   String _friendlySymbolName(String symbol) {
     if (symbol.isEmpty) return symbol;
+    final global = globalScriptName(symbol);
+    if (global != null) return global;
 
     const months = [
       'JAN',
@@ -1497,7 +1506,7 @@ class _PortfolioPageState extends State<PortfolioPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      position.tradingsymbol,
+                      scriptLabel(position.tradingsymbol),
                       style: const TextStyle(
                         color: kColorTextPrimary,
                         fontSize: kFontSizePositionSymbol,
@@ -1723,7 +1732,7 @@ class _PortfolioPageState extends State<PortfolioPage>
               TextStyle(fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
         ),
         content: Text(
-          'Are you sure you want to permanently delete this ${trade.transactionType} trade for ${trade.tradingSymbol}?',
+          'Are you sure you want to permanently delete this ${trade.transactionType} trade for ${scriptLabel(trade.tradingSymbol)}?',
           style: const TextStyle(fontFamily: kFontFamily),
         ),
         actions: [
@@ -1771,7 +1780,7 @@ class _PortfolioPageState extends State<PortfolioPage>
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                  content: Text('Trade deleted: ${trade.tradingSymbol}'),
+                  content: Text('Trade deleted: ${scriptLabel(trade.tradingSymbol)}'),
                   backgroundColor: kColorBuy),
             );
           }
@@ -1821,7 +1830,7 @@ class _PortfolioPageState extends State<PortfolioPage>
           ),
         ),
         content: Text(
-          'Are you sure you want to cancel this ${trade.transactionType} order for ${trade.tradingSymbol}?',
+          'Are you sure you want to cancel this ${trade.transactionType} order for ${scriptLabel(trade.tradingSymbol)}?',
           style: const TextStyle(fontFamily: kFontFamily),
         ),
         actions: [
@@ -1880,7 +1889,7 @@ class _PortfolioPageState extends State<PortfolioPage>
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Order cancelled: ${trade.tradingSymbol}'),
+                content: Text('Order cancelled: ${scriptLabel(trade.tradingSymbol)}'),
                 backgroundColor: kColorBuy,
               ),
             );
@@ -1938,7 +1947,7 @@ class _PortfolioPageState extends State<PortfolioPage>
         builder: (dialogContext, setDialogState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(
-            'Modify ${trade.tradingSymbol}',
+            'Modify ${scriptLabel(trade.tradingSymbol)}',
             style: const TextStyle(
               fontFamily: kFontFamily,
               fontWeight: kFontWeightSemiBold,
@@ -2057,7 +2066,7 @@ class _PortfolioPageState extends State<PortfolioPage>
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Order modified: ${trade.tradingSymbol}'),
+                content: Text('Order modified: ${scriptLabel(trade.tradingSymbol)}'),
                 backgroundColor: kColorBuy,
               ),
             );

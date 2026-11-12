@@ -41,6 +41,7 @@ import 'package:stocker/widgets/page_wash.dart';
 import '../utils/account_label.dart';
 import '../services/broker_service.dart';
 import 'broker_share_view.dart';
+import '../utils/script_name.dart';
 class UsernameView extends StatefulWidget {
   final Master? master;
   final User? user;
@@ -1235,7 +1236,7 @@ class _UsernameViewState extends State<UsernameView> {
                 Row(
                   children: [
                     Flexible(
-                      child: Text(trade.tradingSymbol,
+                      child: Text(scriptLabel(trade.tradingSymbol),
                           style: const TextStyle(
                               color: kColorTextPrimary,
                               fontSize: kFontSizeTradeSymbol,
@@ -1411,7 +1412,7 @@ class _UsernameViewState extends State<UsernameView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(trade.tradingSymbol,
+                    Text(scriptLabel(trade.tradingSymbol),
                         style: const TextStyle(
                             color: kColorTextPrimary,
                             fontSize: kFontSizeTradeSymbol,
@@ -1772,7 +1773,7 @@ class _UsernameViewState extends State<UsernameView> {
         if (netQty == 0) continue;
         // Same market-hours rule as the client's own Square Off (admin bypasses).
         if (!isAdmin && !MarketHours.isMarketOpen(exchange: exchange, tradingsymbol: symbol)) {
-          errors.add('$symbol: ${MarketHours.getMarketStatusMessage(exchange: exchange, tradingsymbol: symbol)}');
+          errors.add('${scriptLabel(symbol)}: ${MarketHours.getMarketStatusMessage(exchange: exchange, tradingsymbol: symbol)}');
           continue;
         }
         final String iToken = p['instrument_token']?.toString() ?? '';
@@ -1802,10 +1803,10 @@ class _UsernameViewState extends State<UsernameView> {
           if ((response.statusCode == 200 || response.statusCode == 201) && body['success'] == true) {
             done++;
           } else {
-            errors.add('$symbol: ${body['message'] ?? 'Failed'}');
+            errors.add('${scriptLabel(symbol)}: ${body['message'] ?? 'Failed'}');
           }
         } catch (e) {
-          errors.add('$symbol: $e');
+          errors.add('${scriptLabel(symbol)}: $e');
         }
       }
     } catch (e) {
@@ -1941,7 +1942,7 @@ class _UsernameViewState extends State<UsernameView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(symbol,
+                      Text(scriptLabel(symbol),
                           style: const TextStyle(
                               color: kColorTextPrimary,
                               fontSize: kFontSizePositionSymbol,

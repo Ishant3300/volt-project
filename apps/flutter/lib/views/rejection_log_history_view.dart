@@ -8,6 +8,7 @@ import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
 import 'package:stocker/widgets/page_wash.dart';
 import '../utils/account_label.dart';
+import '../utils/script_name.dart';
 
 class RejectionLogHistoryView extends StatefulWidget {
   final String? userId; // If provided, filter logs to this user only
@@ -331,7 +332,7 @@ class _RejectionLogHistoryViewState extends State<RejectionLogHistoryView> {
                 child: Row(
                   children: [
                     Flexible(
-                      child: Text(symbol,
+                      child: Text(scriptLabel(symbol),
                           style: const TextStyle(
                               color: kColorTextPrimary,
                               fontSize: kFontSizeBody,

@@ -8,6 +8,7 @@ import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
 import 'package:stocker/widgets/page_wash.dart';
 import '../utils/account_label.dart';
+import '../utils/script_name.dart';
 
 class DeletedTradeView extends StatefulWidget {
   const DeletedTradeView({super.key});
@@ -310,7 +311,7 @@ class _DeletedTradeViewState extends State<DeletedTradeView> {
         Expanded(flex: 3, child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(symbol,
+            Text(scriptLabel(symbol.toString()),
               style: const TextStyle(color: kBrandPrimary, fontSize: kFontSizeBodySmall,
                 fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: -0.3),
               maxLines: 1, overflow: TextOverflow.ellipsis),

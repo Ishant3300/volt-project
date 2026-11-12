@@ -9,6 +9,7 @@ import 'package:stocker/services/sercure_storage_service.dart';
 import 'package:stocker/utils/contants.dart';
 import 'package:stocker/views/trade_card_view.dart';
 import 'package:stocker/widgets/page_wash.dart';
+import '../utils/script_name.dart';
 
 class MasterInstrumentUsersPage extends StatefulWidget {
   final String instrumentToken;
@@ -358,7 +359,7 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.tradingsymbol,
+                          scriptLabel(widget.tradingsymbol),
                           style: const TextStyle(
                             color: kTopBarFg,
                             fontSize: kFontSizeSectionHeader,
@@ -366,6 +367,8 @@ class _MasterInstrumentUsersPageState extends State<MasterInstrumentUsersPage> {
                             fontWeight: kFontWeightSemiBold,
                             letterSpacing: -0.3,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 2),
                         Row(

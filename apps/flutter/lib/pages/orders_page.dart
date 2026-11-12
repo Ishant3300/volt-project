@@ -27,6 +27,7 @@ import '../utils/profit_hold.dart';
 import '../widgets/profit_hold_widgets.dart';
 import '../utils/script_order.dart';
 import 'package:stocker/widgets/page_wash.dart';
+import '../utils/script_name.dart';
 class _NumberFormat {
   final double value;
   final String suffix;
@@ -793,8 +794,10 @@ class _OrdersPageState extends State<OrdersPage> {
     final filteredPositions = _masterSearchQuery.isEmpty
         ? _masterPositions
         : _masterPositions.where((pos) {
+            // Ticker + long name, so "YMZ6" and "DOW JONES" both match.
             final symbol =
-                (pos['tradingsymbol'] ?? '').toString().toUpperCase();
+                '${pos['tradingsymbol'] ?? ''} ${scriptLabel(pos['tradingsymbol']?.toString())}'
+                    .toUpperCase();
             final exchange = (pos['exchange'] ?? '').toString().toUpperCase();
             final query = _masterSearchQuery.toUpperCase();
             return symbol.contains(query) || exchange.contains(query);
@@ -1189,6 +1192,9 @@ class _OrdersPageState extends State<OrdersPage> {
   /// into a user-friendly name like "GOLD | 26 APR FUT" or "NIFTY | 22500 CE"
   String _friendlySymbolName(String symbol) {
     if (symbol.isEmpty) return symbol;
+    // GLOBAL / COMEX tickers (YMZ6) → "DOW JONES 30 18 DEC".
+    final global = globalScriptName(symbol);
+    if (global != null) return global;
 
     const months = [
       'JAN',
@@ -1697,6 +1703,7 @@ class _OrdersPageState extends State<OrdersPage> {
                                     pos.tradingsymbol.length >
                                         pos.rawName.length;
                                 final displayName =
+                                    globalScriptName(pos.tradingsymbol) ??
                                     wItem?.instrument.userFriendlyName ??
                                         (rawIsPrefix
                                             ? pos.tradingsymbol
@@ -2478,7 +2485,7 @@ class _OrdersPageState extends State<OrdersPage> {
             if (!MarketHours.isMarketOpen(exchange: ex, tradingsymbol: sym)) {
               failCount++;
               errors.add(
-                  '${position.tradingsymbol}: ${MarketHours.getMarketStatusMessage(exchange: ex, tradingsymbol: sym)}');
+                  '${scriptLabel(position.tradingsymbol)}: ${MarketHours.getMarketStatusMessage(exchange: ex, tradingsymbol: sym)}');
               continue;
             }
           }
@@ -2502,7 +2509,7 @@ class _OrdersPageState extends State<OrdersPage> {
             if (lock != null) {
               failCount++;
               errors.add(
-                  '${position.tradingsymbol}: in profit — can close in ${formatHoldLeft(lock.left)} (profit book time)');
+                  '${scriptLabel(position.tradingsymbol)}: in profit — can close in ${formatHoldLeft(lock.left)} (profit book time)');
               continue;
             }
           }
@@ -2541,17 +2548,17 @@ class _OrdersPageState extends State<OrdersPage> {
             } else {
               failCount++;
               errors.add(
-                  '${position.tradingsymbol}: ${body['message'] ?? 'Failed'}');
+                  '${scriptLabel(position.tradingsymbol)}: ${body['message'] ?? 'Failed'}');
             }
           } else {
             failCount++;
             final body = jsonDecode(response.body);
             errors.add(
-                '${position.tradingsymbol}: ${body['message'] ?? 'Failed'}');
+                '${scriptLabel(position.tradingsymbol)}: ${body['message'] ?? 'Failed'}');
           }
         } catch (e) {
           failCount++;
-          errors.add('${position.tradingsymbol}: ${e.toString()}');
+          errors.add('${scriptLabel(position.tradingsymbol)}: ${e.toString()}');
         }
       }
 

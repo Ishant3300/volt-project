@@ -9,6 +9,7 @@ import '../utils/script_order.dart';
 import 'userwise_position_filter_bottom_sheet.dart';
 import 'package:stocker/widgets/page_wash.dart';
 import '../utils/account_label.dart';
+import '../utils/script_name.dart';
 
 class UserwisePositionView extends StatefulWidget {
   const UserwisePositionView({super.key});
@@ -74,7 +75,7 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
       final q = _searchQuery.toLowerCase();
       list = list.where((p) =>
         (p['username'] ?? '').toString().toLowerCase().contains(q) ||
-        (p['tradingsymbol'] ?? '').toString().toLowerCase().contains(q) ||
+        '${p['tradingsymbol'] ?? ''} ${scriptLabel(p['tradingsymbol']?.toString())}'.toLowerCase().contains(q) ||
         (p['master_username'] ?? '').toString().toLowerCase().contains(q)
       ).toList();
     }
@@ -167,7 +168,7 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
             Padding(padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
               child: Wrap(spacing: 8, runSpacing: 6, children: [
                 if (_filterExchange != null) _chip(_filterExchange!),
-                if (_filterTradingsymbol != null) _chip(_filterTradingsymbol!),
+                if (_filterTradingsymbol != null) _chip(scriptLabel(_filterTradingsymbol)),
                 if (_filterUserName != null) _chip(_filterUserName!),
               ])),
           const SizedBox(height: 12),
@@ -216,7 +217,7 @@ class _UserwisePositionViewState extends State<UserwisePositionView> {
         // Row 1: Symbol + side badge → P&L badge
         Row(children: [
           Expanded(child: Row(children: [
-            Flexible(child: Text('$exchange $symbol',
+            Flexible(child: Text('$exchange ${scriptLabel(symbol)}',
               style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeSubtitle, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold),
               maxLines: 1, overflow: TextOverflow.ellipsis)),
             const SizedBox(width: 6),

@@ -440,6 +440,8 @@ class _WatchlistPageState extends State<WatchlistPage> {
     final double strike = instrument.strike ?? 0.0;
     final bool isOption = instType == 'CE' || instType == 'PE';
     final bool isFut = instType == 'FUT';
+    // GLOBAL / COMEX (YMZ6): title "DOW JONES 30", date line "18 DEC".
+    final bool isGlobal = instrument.globalName != null;
     // Price columns size to the screen instead of a fixed 84dp each, so on
     // a narrow phone the instrument name keeps enough room.
     final double priceColWidth =
@@ -508,7 +510,9 @@ class _WatchlistPageState extends State<WatchlistPage> {
                   // Line 3: expiry/date
                   if (instrument.expiry != null)
                     Text(
-                      instrument.expiryMonthDayDisplay,
+                      isGlobal
+                          ? instrument.shortExpiryDisplay
+                          : instrument.expiryMonthDayDisplay,
                       style: const TextStyle(
                         color: Color(0xFF7C828D),
                         fontSize: 11,
@@ -671,7 +675,7 @@ class _WatchlistPageState extends State<WatchlistPage> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                  'You hold an open position in ${instrument.tradingsymbol} — it stays on your watchlist until the position is closed.'),
+                                  'You hold an open position in ${instrument.globalName ?? instrument.tradingsymbol} — it stays on your watchlist until the position is closed.'),
                               backgroundColor: const Color(0xFF64748B),
                             ),
                           );
@@ -683,9 +687,9 @@ class _WatchlistPageState extends State<WatchlistPage> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(removed
-                                ? '${instrument.tradingsymbol} removed from watchlist'
+                                ? '${instrument.globalName ?? instrument.tradingsymbol} removed from watchlist'
                                 : watchlistProvider.lastRemoveError ??
-                                    'Could not remove ${instrument.tradingsymbol} — try again'),
+                                    'Could not remove ${instrument.globalName ?? instrument.tradingsymbol} — try again'),
                             backgroundColor: removed ? null : kColorSell,
                           ),
                         );
@@ -709,6 +713,14 @@ class _WatchlistPageState extends State<WatchlistPage> {
   /// Build title like "GOLD", "NIFTY FUT", "ADANIENT 1680 CE"
   String _buildInstrumentTitle(dynamic instrument, String instType,
       double strike, bool isOption, bool isFut) {
+    // GLOBAL / COMEX: the long name without its date (the date is line 3).
+    final String? global = instrument.globalName as String?;
+    if (global != null) {
+      final String date = instrument.shortExpiryDisplay as String;
+      return date.isNotEmpty && global.endsWith(' $date')
+          ? global.substring(0, global.length - date.length - 1)
+          : global;
+    }
     final name = instrument.name.isNotEmpty
         ? instrument.name.toString().toUpperCase()
         : instrument.tradingsymbol.toString();

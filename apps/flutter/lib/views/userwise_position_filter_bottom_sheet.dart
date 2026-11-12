@@ -4,6 +4,7 @@ import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
 import '../utils/account_label.dart';
+import '../utils/script_name.dart';
 
 class UserwisePositionFilterBottomSheet extends StatefulWidget {
   final String? initialExchange;
@@ -329,7 +330,8 @@ class _UserwisePositionFilterBottomSheetState
                   width: i < _instResults.length - 1 ? 1 : 0)),
               ),
               child: Row(children: [
-                Expanded(child: Text(inst['tradingsymbol'] ?? '',
+                Expanded(child: Text(scriptLabel(inst['tradingsymbol']?.toString(), expiry: inst['expiry']),
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
                   style: TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBodySmall,
                     fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: -0.3))),
                 Container(

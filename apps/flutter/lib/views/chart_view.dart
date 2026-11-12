@@ -205,10 +205,13 @@ class _ChartViewState extends State<ChartView> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // GLOBAL / COMEX: "DOW JONES 30 18 DEC" (date included, so no
+            // separate expiry line below).
             Text(
-              widget.instrument.name.isNotEmpty
-                  ? widget.instrument.name.toUpperCase()
-                  : widget.instrument.tradingsymbol,
+              widget.instrument.globalName ??
+                  (widget.instrument.name.isNotEmpty
+                      ? widget.instrument.name.toUpperCase()
+                      : widget.instrument.tradingsymbol),
               style: const TextStyle(
                 color: kColorTextPrimary,
                 fontSize: kFontSizeViewTitle,
@@ -216,7 +219,8 @@ class _ChartViewState extends State<ChartView> {
                 fontWeight: kFontWeightSemiBold,
               ),
             ),
-            if (widget.instrument.expiry != null)
+            if (widget.instrument.expiry != null &&
+                widget.instrument.globalName == null)
               Text(
                 widget.instrument.expiryDisplay,
                 style: const TextStyle(

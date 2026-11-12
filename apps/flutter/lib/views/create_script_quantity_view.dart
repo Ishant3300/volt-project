@@ -539,7 +539,9 @@ class _CreateScriptQuantityViewState extends State<CreateScriptQuantityView> {
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  Text(_selected!.tradingsymbol,
+                  Text(_selected!.globalName ?? _selected!.tradingsymbol,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           fontSize: kFontSizeBody,
                           fontWeight: kFontWeightSemiBold,

@@ -5,6 +5,7 @@ import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
 import 'scriptwise_pnl_detail_view.dart';
 import 'package:stocker/widgets/page_wash.dart';
+import '../utils/script_name.dart';
 
 enum _DateRangeMode { thisWeek, previousWeek, custom }
 
@@ -161,7 +162,8 @@ class _ScriptwisePnlViewState extends State<ScriptwisePnlView> {
         builder: (_) => ScriptwisePnlDetailView(
           exchange: (row['exchange'] ?? '').toString(),
           tradingsymbol: (row['tradingsymbol'] ?? '').toString(),
-          displayName: (row['display_name'] ?? row['tradingsymbol'] ?? '').toString(),
+          displayName: globalScriptName(row['tradingsymbol']?.toString()) ??
+              (row['display_name'] ?? row['tradingsymbol'] ?? '').toString(),
           from: _resolveRange().$1,
           to: _resolveRange().$2,
         ),
@@ -480,7 +482,8 @@ class _ScriptwisePnlViewState extends State<ScriptwisePnlView> {
     final m2m = _d(row['floating_pnl']);
     final netpl = total + m2m;
     final exchange = (row['exchange'] ?? '').toString();
-    final displayName = (row['display_name'] ?? '').toString();
+    final displayName = globalScriptName(row['tradingsymbol']?.toString()) ??
+        (row['display_name'] ?? '').toString();
     final userCount = (row['user_count'] as num?)?.toInt() ?? 0;
 
     return InkWell(
@@ -492,6 +495,8 @@ class _ScriptwisePnlViewState extends State<ScriptwisePnlView> {
             width: _colWidths[0],
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(displayName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                       color: kBrandPrimary, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold)),
               Text(exchange, style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeCaption, fontFamily: kFontFamily)),

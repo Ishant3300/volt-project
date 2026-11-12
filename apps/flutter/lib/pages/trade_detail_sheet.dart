@@ -2,6 +2,7 @@
 import 'package:intl/intl.dart';
 import 'package:stocker/models/trade.dart';
 import '../utils/contants.dart';
+import '../utils/script_name.dart';
 
 class TradeDetailSheet extends StatefulWidget {
   final Trade trade;
@@ -86,7 +87,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        trade.tradingSymbol,
+                        scriptLabel(trade.tradingSymbol),
                         style: const TextStyle(
                           color: kColorTextPrimary,
                           fontSize: kFontSizeSectionHeader,
@@ -205,7 +206,7 @@ class _TradeDetailSheetState extends State<TradeDetailSheet> {
                     if (trade.userName != null)
                       _buildRow('User', trade.userLabel),
                     _buildRow('Execution', _formattedDate),
-                    _buildRow('Symbol', trade.tradingSymbol),
+                    _buildRow('Symbol', scriptLabel(trade.tradingSymbol)),
                     _buildRow('Exchange', trade.exchange),
                     _buildRow(
                         'Type', '$_sideLabel / ${trade.orderType ?? 'MARKET'}'),

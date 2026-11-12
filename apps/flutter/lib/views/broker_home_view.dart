@@ -9,6 +9,7 @@ import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
 import '../utils/date_formatter.dart';
 import 'broker_share_view.dart' show BrokerStatementPanel;
+import '../utils/script_name.dart';
 
 /// Broker login in the app (owner, 12 Nov 2026) — VIEW ONLY, like the web
 /// Broker View: his earnings (the Ledger-style statement table) and the
@@ -342,7 +343,7 @@ class _BrokerClientViewState extends State<BrokerClientView> {
           child: Row(children: [
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${p['tradingsymbol'] ?? ''}', style: _body.copyWith(fontWeight: kFontWeightSemiBold)),
+                Text(scriptLabel(p['tradingsymbol']?.toString()), maxLines: 1, overflow: TextOverflow.ellipsis, style: _body.copyWith(fontWeight: kFontWeightSemiBold)),
                 const SizedBox(height: 3),
                 Text(
                   'Qty ${_d(p['net_qty']) == _d(p['net_qty']).roundToDouble() ? _d(p['net_qty']).toStringAsFixed(0) : _d(p['net_qty'])}'
@@ -379,7 +380,7 @@ class _BrokerClientViewState extends State<BrokerClientView> {
             const SizedBox(width: 10),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${t['tradingsymbol'] ?? ''}', style: _body),
+                Text(scriptLabel(t['tradingsymbol']?.toString()), maxLines: 1, overflow: TextOverflow.ellipsis, style: _body),
                 const SizedBox(height: 2),
                 Text('${DateFormatter.formatDateTime('${t['executed_at'] ?? t['createdAt'] ?? ''}')} · ${t['status'] ?? ''}', style: _muted),
               ]),

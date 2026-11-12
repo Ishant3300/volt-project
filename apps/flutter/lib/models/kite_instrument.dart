@@ -1,3 +1,5 @@
+import '../utils/script_name.dart';
+
 class KiteInstrument {
   final String id;
   final String instrumentToken;
@@ -169,8 +171,16 @@ class KiteInstrument {
     return months[month - 1];
   }
 
-  /// User-friendly name: NIFTY 30 March
+  /// GLOBAL / COMEX futures (YMZ6) → "DOW JONES 30 18 DEC"; null for every
+  /// other script. A placeholder instrument built from a position copies the
+  /// ticker into [name] — that isn't a real name, so it's ignored.
+  String? get globalName => globalScriptName(tradingsymbol,
+      name: name != tradingsymbol ? name : null, expiry: expiry);
+
+  /// User-friendly name: NIFTY 30 March (GLOBAL / COMEX: DOW JONES 30 18 DEC)
   String get userFriendlyName {
+    final global = globalName;
+    if (global != null) return global;
     final base = name.isNotEmpty ? name : tradingsymbol;
     if (expiry == null) return base;
 

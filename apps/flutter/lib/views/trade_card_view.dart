@@ -2973,7 +2973,8 @@ class _TradeCardPageState extends State<TradeCardPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.item.instrument.tradingsymbol,
+                        widget.item.instrument.globalName ??
+                            widget.item.instrument.tradingsymbol,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(

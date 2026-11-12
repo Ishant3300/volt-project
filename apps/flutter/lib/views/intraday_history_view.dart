@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../services/sercure_storage_service.dart';
 import '../utils/contants.dart';
 import 'package:stocker/widgets/page_wash.dart';
+import '../utils/script_name.dart';
 
 class IntradayHistoryView extends StatefulWidget {
   const IntradayHistoryView({super.key});
@@ -287,7 +288,7 @@ class _IntradayHistoryViewState extends State<IntradayHistoryView> {
               decoration: BoxDecoration(border: Border(bottom: BorderSide(color: const Color(0xFFF1F5F9), width: i < _instResults.length - 1 ? 1 : 0))),
               child: Row(children: [
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(sym, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: -0.3)),
+                  Text(scriptLabel(sym.toString(), expiry: inst['expiry']), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: kColorTextPrimary, fontSize: kFontSizeBodySmall, fontFamily: kFontFamily, fontWeight: kFontWeightSemiBold, letterSpacing: -0.3)),
                   if (name.isNotEmpty) Text(name, style: const TextStyle(color: kColorTextMuted, fontSize: kFontSizeNavLabel, fontFamily: kFontFamily), maxLines: 1, overflow: TextOverflow.ellipsis),
                 ])),
                 Container(

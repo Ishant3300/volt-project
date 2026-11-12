@@ -183,7 +183,7 @@ class _CreateBrokerageViewState extends State<CreateBrokerageView> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(inst.tradingsymbol,
+                      Text(inst.globalName ?? inst.tradingsymbol,
                           style: const TextStyle(
                               color: kBrandPrimary,
                               fontSize: kFontSizeBody,

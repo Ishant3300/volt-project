@@ -347,8 +347,8 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
     final watchlistProvider =
         Provider.of<WatchlistProvider>(context, listen: false);
     if (!watchlistProvider.contains(instrument.instrumentToken)) {
-      final displayName =
-          instrument.name.isNotEmpty ? instrument.name : instrument.tradingsymbol;
+      final displayName = instrument.globalName ??
+          (instrument.name.isNotEmpty ? instrument.name : instrument.tradingsymbol);
       final added = await watchlistProvider.addInstrument(instrument);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -692,6 +692,14 @@ class _InstrumentSearchPageState extends State<InstrumentSearchPage> {
 
   /// "RELIANCE", "RELIANCE 1200 CE" — the expiry goes in its own part.
   String _rowName(KiteInstrument i) {
+    // GLOBAL / COMEX (YMZ6): "DOW JONES 30" — the date follows in its own part.
+    final global = i.globalName;
+    if (global != null) {
+      final date = i.shortExpiryDisplay;
+      return date.isNotEmpty && global.endsWith(' $date')
+          ? global.substring(0, global.length - date.length - 1)
+          : global;
+    }
     final t = i.instrumentType;
     final base = i.name.isNotEmpty ? i.name : i.tradingsymbol;
     if ((t == 'CE' || t == 'PE') && i.strike > 0) {
